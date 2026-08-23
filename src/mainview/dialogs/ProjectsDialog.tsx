@@ -14,7 +14,7 @@ import type {
 } from '../types/index';
 import ProjectCard from '../components/cards/projectCard';
 import AssetPicker from '../components/AssetPicker';
-import styles from './projectsDialog.module.css';
+import styles from './ProjectsDialog.module.css';
 
 const seriesArchOptions: { value: SeriesArchitecture; label: string }[] = [
     { value: 'duology', label: 'Duology' },

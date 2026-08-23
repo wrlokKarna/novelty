@@ -32,23 +32,29 @@ import type { ParsedEntry } from './services/entryParser';
 import type { ExtractionSource } from './services/textExtractor';
 
 import { TitleBar } from './ui/titleBar';
-import ProjectsDialog from './dialogs/projectsDialog';
-import SettingsDialog from './dialogs/SettingsDialog';
-import ProjectManager from './dialogs/ProjectManagerDialog';
-import OpenFileDialog, { type RecentFile } from './dialogs/openFileDialog';
+import {
+    ProjectsDialog,
+    ProjectManager,
+    SettingsDialog,
+    UIDialog,
+} from './dialogs';
+
+import OpenFileDialog, { type RecentFile } from './dialogs/OpenFileDialog';
+import BulkExtractDialog, {
+    type BulkExtractResult,
+} from './dialogs/BulkExtractDialog';
+import TemplateFieldMappingDialog, {
+    type MappingResult,
+} from './dialogs/TemplateFieldMappingDialog';
 import RichTextEditor from './components/RichTextEditor';
 import PreviewPane from './components/PreviewPane';
 import FileTabs from './components/FileTabs';
 import ChatPanel from './components/ChatPanel';
 import CompendiumEntryEditor from './components/CompendiumEntryEditor';
-import BulkExtractDialog from './dialogs/BulkExtractDialog';
 import TimelineDialog from './components/TimelineDialog';
 import PlotArchitectureView from './components/PlotArchitectureView';
 import ChapterOutlineEditor from './components/ChapterOutlineEditor';
 import PlotHolePanel from './components/PlotHolePanel';
-import TemplateFieldMappingDialog from './dialogs/TemplateFieldMappingDialog';
-import type { BulkExtractResult } from './dialogs/BulkExtractDialog';
-import type { MappingResult } from './dialogs/TemplateFieldMappingDialog';
 
 import {
     IconChevronLeft,
@@ -59,7 +65,6 @@ import {
     //IconBuildings,
     //IconSwords,
 } from '@tabler/icons-react';
-import UIDialog from './dialogs/uiDialog';
 import { StatusBar } from './ui/statusBar';
 import type { SaveState } from './ui/statusBar';
 import { useSettings } from './contexts/SettingsContext';

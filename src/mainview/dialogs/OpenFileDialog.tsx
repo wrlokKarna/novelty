@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { IconFile, IconSearch } from '@tabler/icons-react';
 import Dialog from '../components/Dialog';
-import styles from './openFileDialog.module.css';
+import styles from './OpenFileDialog.module.css';
 
 export type RecentFile = {
     path: string;

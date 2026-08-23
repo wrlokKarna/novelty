@@ -1,4 +1,4 @@
-import { useState, useEffect, act } from 'react';
+import { useState, useEffect } from 'react';
 import Dialog from '../components/Dialog';
 import { useSettings } from '../contexts/SettingsContext';
 import { getRPC } from '../contexts/RPCContext';
@@ -28,7 +28,7 @@ import styles from './SettingsDialog.module.css';
 import localStyles from './../components/Dialog.module.css';
 import SplitDialogLayout from '../ui/layout/SplitDialogLayout';
 
-import ProviderCard from './../components/cards/ProviderCard';
+import ProviderCard from '../components/cards/ProviderCard';
 
 interface SettingsRoute {
     tab: SettingsDialogActiveTab;
