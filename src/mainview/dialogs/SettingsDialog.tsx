@@ -25,7 +25,7 @@ import IconTextSideBar from '../ui/layout/IconTextSideBar';
 import SettingsCard from '../components/cards/SettingsCard';
 
 import styles from './SettingsDialog.module.css';
-import localStyles from './../components/Dialog.module.css';
+import localStyles from '../components/Dialog.module.css';
 import SplitDialogLayout from '../ui/layout/SplitDialogLayout';
 
 import ProviderCard from '../components/cards/ProviderCard';
