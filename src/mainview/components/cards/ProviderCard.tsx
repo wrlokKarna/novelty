@@ -1,15 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     IconBolt,
     IconKey,
     IconPencil,
+    IconPlus,
     IconRefresh,
     IconTrash,
     IconX,
 } from '@tabler/icons-react';
 import styles from './ProviderCard.module.css';
-import { ProviderConfig } from '../../types';
+import { ProviderConfig, ModelEntry } from '../../types';
 import { useSettings } from '../../contexts/SettingsContext';
+import { getLMStudioModels } from '../../services/ai';
 //import { div } from 'framer-motion/client';
 
 type DefaultCardProps = {
@@ -36,19 +38,14 @@ type AddCardProps = {
 type Props = DefaultCardProps | AddCardProps;
 
 export default function ProviderCard(props: Props) {
-    const { deleteProvider } = useSettings();
+    const { settings, updateProviderConfig, deleteProvider } = useSettings();
     const { cardType = 'default' } = props;
     const isAddType = cardType === 'add';
 
     const [providerId, setProviderId] = useState(
         isAddType ? '' : props.cardData?.id
     );
-    const [baseUrl, setBaseUrl] = useState(
-        isAddType ? '' : props.cardData?.config.baseUrl || ''
-    );
-    const [endpoint, setEndpoint] = useState(
-        isAddType ? '' : props.cardData?.config.endpoint || ''
-    );
+
     const [apiToggle, setApiToggle] = useState(false);
     const [apiKey, setApiKey] = useState('');
 
@@ -56,6 +53,31 @@ export default function ProviderCard(props: Props) {
     const [isEditingProviderLabel, setIsEditingProviderLabel] = useState(false);
 
     const [activeModelEdit, setActiveModelEdit] = useState<number | null>(null);
+
+    const [config, setConfig] = useState<
+        ProviderConfig & { baseUrl: string; models: Record<string, ModelEntry> }
+    >(() => ({
+        type: 'lm-studio',
+        baseUrl: isAddType ? '' : props.cardData?.config.baseUrl || '',
+        endpoint: isAddType ? '' : props.cardData?.config.endpoint || '',
+        enabled: false,
+        models: isAddType ? {} : (props.cardData?.config?.models ?? {}),
+    }));
+
+    const isFirstRender = useRef(true);
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
+        const timer = setTimeout(() => {
+            if (isAddType) return;
+            console.log('Debounced Save Triggered:', config);
+            //updateProviderConfig(providerId, config);
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [config, providerId, updateProviderConfig]);
 
     const [activeModels, setActiveModels] = useState<number[]>(() => {
         const models = Object.entries(props.cardData?.config?.models ?? {});
@@ -67,21 +89,68 @@ export default function ProviderCard(props: Props) {
             return acc;
         }, []);
     });
+
+    const previewUrl =
+        `${config.baseUrl.replace(/\/$/, '')}${config.endpoint ? '/' + config.endpoint.replace(/^\//, '') : ''}` ||
+        'https://api.example.com';
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setConfig((prev) => ({
+            ...prev,
+            [name]: value,
+        }));
+    };
+
+    const handleSaveKey = (e: React.FormEvent) => {
+        e.preventDefault();
+        // Trigger key save logic
+    };
+
+    const handleGetModels = async (id: string, url: string) => {
+        //const models = await getLMStudioModels(endpoint);
+        console.log('url', url);
+        const models = await getLMStudioModels(url);
+
+        console.log('card data config:', {
+            config,
+            url,
+            models,
+        });
+        if (models.length === 0) return;
+
+        const mergeModels = (existing: Record<string, any>) => {
+            const updated = { ...existing };
+
+            models.forEach((m) => {
+                if (!(m in updated)) updated[m] = { enabled: false };
+            });
+            return updated;
+        };
+
+        if (id === '__preview__') {
+            setConfig((prev) => ({
+                ...prev,
+                models: mergeModels(prev.models || {}),
+            }));
+        } else {
+            if (!settings) return null;
+            const config = settings.providers.configs[id];
+            if (config) {
+                updateProviderConfig(id, {
+                    ...config,
+                    models: mergeModels(config.models || {}),
+                });
+            }
+        }
+    };
+
     const toggleModel = (index: number) => {
         setActiveModels((prev) =>
             prev.includes(index)
                 ? prev.filter((i) => i !== index)
                 : [...prev, index]
         );
-    };
-
-    const previewUrl =
-        `${baseUrl.replace(/\/$/, '')}${endpoint ? '/' + endpoint.replace(/^\//, '') : ''}` ||
-        'https://api.example.com';
-
-    const handleSaveKey = (e: React.FormEvent) => {
-        e.preventDefault();
-        // Trigger key save logic
     };
 
     return (
@@ -142,7 +211,7 @@ export default function ProviderCard(props: Props) {
                     <button
                         title="Test connection"
                         aria-label="Test connection"
-                        disabled={!baseUrl}
+                        disabled={!config.baseUrl}
                         className={styles.iconBtn}
                         /*
                         onClick={() =>
@@ -153,6 +222,12 @@ export default function ProviderCard(props: Props) {
                     >
                         <IconBolt stroke={2} size={18} />
                     </button>
+                    {isAddType && (
+                        <button className={styles.iconBtn}>
+                            <IconPlus />
+                            <span className="txt">Add</span>
+                        </button>
+                    )}
                     {!isAddType && props.cardData?.id && (
                         <button
                             className={`${styles.iconBtn} ${styles.delete}`}
@@ -173,29 +248,30 @@ export default function ProviderCard(props: Props) {
                     </div>
 
                     <div className={styles.inputFields}>
-                        <div>
+                        <div className={styles.inputGroup}>
                             <label htmlFor={`base-url-${providerId}`}>
-                                base url
+                                Base URL
                             </label>
                             <input
                                 id={`base-url-${providerId}`}
+                                name="baseUrl"
                                 type="text"
                                 placeholder="Base URL"
-                                value={baseUrl}
-                                onChange={(e) => setBaseUrl(e.target.value)}
+                                value={config.baseUrl}
+                                onChange={handleChange}
                             />
                         </div>
-                        <div>
+                        <div className={styles.inputGroup}>
                             <label htmlFor={`endpoint-${providerId}`}>
-                                endpoint
+                                Endpoint
                             </label>
                             <input
                                 id={`endpoint-${providerId}`}
+                                name="endpoint"
                                 type="text"
                                 placeholder="Endpoint"
-                                value={endpoint}
-                                aria-label="Endpoint"
-                                onChange={(e) => setEndpoint(e.target.value)}
+                                value={config.endpoint}
+                                onChange={handleChange}
                             />
                         </div>
                     </div>
@@ -266,7 +342,25 @@ export default function ProviderCard(props: Props) {
                             </button>
                         </div>
 
-                        <button>
+                        <button
+                            title="Get models"
+                            onClick={() => {
+                                if (isAddType && !props.cardData?.id) {
+                                    handleGetModels(
+                                        '__preview__',
+                                        `${config.baseUrl}/${config.endpoint}`
+                                    );
+                                } else if (
+                                    props.cardData?.id &&
+                                    props.cardData?.config.endpoint
+                                ) {
+                                    handleGetModels(
+                                        props.cardData?.id,
+                                        props.cardData?.config.endpoint
+                                    );
+                                }
+                            }}
+                        >
                             <IconRefresh />
                             <span className="txt">get models</span>
                         </button>
@@ -275,528 +369,54 @@ export default function ProviderCard(props: Props) {
                     <div
                         className={`${styles.modelsList} ${isPillModelsView ? styles.pill : styles.list}`}
                     >
-                        {Object.entries(
-                            props.cardData?.config?.models ?? {}
-                        ).map(([key, model], index) => {
-                            const isEditing = activeModelEdit === index;
-                            return (
-                                <button
-                                    type="button"
-                                    key={index}
-                                    title="click to Activate or double click to Edit"
-                                    className={`${activeModels.includes(index) ? styles.active : ''} ${activeModelEdit === index ? styles.editing : ''}`}
-                                    style={{
-                                        textAlign: 'center',
-                                        cursor: 'pointer',
-                                    }}
-                                    onClick={() => toggleModel(index)}
-                                    onDoubleClick={() =>
-                                        setActiveModelEdit(
-                                            isEditing ? null : index
-                                        )
-                                    }
-                                >
-                                    {isEditing ? (
-                                        <div style={{ display: 'flex' }}>
-                                            <input
-                                                type="text"
-                                                name=""
-                                                id=""
-                                                onClick={(e) =>
-                                                    e.stopPropagation()
-                                                }
-                                            />
-                                            <button
-                                                onClick={() =>
-                                                    setActiveModelEdit(null)
-                                                }
-                                            >
-                                                <IconX />
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <span>{model.alias || key}</span>
-                                    )}
-                                </button>
-                            );
-                        })}
+                        {Object.entries(config.models).map(
+                            ([key, model], index) => {
+                                const isEditing = activeModelEdit === index;
+                                return (
+                                    <button
+                                        type="button"
+                                        key={index}
+                                        title="click to Activate or double click to Edit"
+                                        className={`${activeModels.includes(index) ? styles.active : ''} ${activeModelEdit === index ? styles.editing : ''}`}
+                                        style={{
+                                            textAlign: 'center',
+                                            cursor: 'pointer',
+                                        }}
+                                        onClick={() => toggleModel(index)}
+                                        onDoubleClick={() =>
+                                            setActiveModelEdit(
+                                                isEditing ? null : index
+                                            )
+                                        }
+                                    >
+                                        {isEditing ? (
+                                            <div style={{ display: 'flex' }}>
+                                                <input
+                                                    type="text"
+                                                    name=""
+                                                    id=""
+                                                    onClick={(e) =>
+                                                        e.stopPropagation()
+                                                    }
+                                                />
+                                                <button
+                                                    onClick={() =>
+                                                        setActiveModelEdit(null)
+                                                    }
+                                                >
+                                                    <IconX />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <span>{model.alias || key}</span>
+                                        )}
+                                    </button>
+                                );
+                            }
+                        )}
                     </div>
                 </div>
             </div>
         </div>
     );
 }
-
-/*
-{cardType ? (
-                
-                <div className={styles.providerCard}>
-                    <div className={styles.providerCardHeader}>
-                        <Toggle checked={false} onChange={() => {}} disabled />
-                        <div className={styles.providerStatus}></div>
-                        <input
-                            type="text"
-                            value={previewId}
-                            onChange={(e) => setPreviewId(e.target.value)}
-                            placeholder="Provider ID"
-                            className={styles.textInputSmall}
-                            style={{ flex: 1, minWidth: 0 }}
-                        />
-                        {renderTypeSelect(previewConfig.type, (t) =>
-                            setPreviewConfig({
-                                ...previewConfig,
-                                type: t,
-                                endpoint:
-                                    parseServerUrl(
-                                        previewConfig.endpoint,
-                                        previewConfig.type
-                                    ) + getEndpointPath(t),
-                            })
-                        )}
-                        <button
-                            title="Test connection"
-                            disabled
-                            className={styles.iconBtnSmall}
-                        >
-                            <IconBolt stroke={2} size={18} />
-                        </button>
-                    </div>
-                    <div className={styles.providerFields}>
-                        {renderServerUrlRow(
-                            previewConfig.endpoint,
-                            previewConfig.type,
-                            (ep) =>
-                                setPreviewConfig({
-                                    ...previewConfig,
-                                    endpoint: ep,
-                                })
-                        )}
-                        {renderApiKeySection(
-                            previewConfig.apiKey,
-                            previewApiKeyDraft,
-                            setPreviewApiKeyDraft,
-                            () =>
-                                setPreviewConfig({
-                                    ...previewConfig,
-                                    apiKey: previewApiKeyDraft,
-                                }),
-                            previewShowApiKey,
-                            () => setPreviewShowApiKey((v) => !v)
-                        )}
-                        <div
-                            style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: 8,
-                            }}
-                        >
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                }}
-                            >
-                                <span
-                                    style={{
-                                        fontSize: '0.85rem',
-                                        color: 'var(--text-secondary)',
-                                    }}
-                                >
-                                    Models
-                                </span>
-                                <button
-                                    title="Get models"
-                                    onClick={() =>
-                                        handleGetModels(
-                                            '__preview__',
-                                            previewConfig.endpoint
-                                        )
-                                    }
-                                    disabled={!previewConfig.endpoint}
-                                    className={styles.btnSmall}
-                                >
-                                    Get Models
-                                </button>
-                            </div>
-                            {previewConfig.models &&
-                                Object.keys(previewConfig.models).length >
-                                    0 && (
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            flexWrap: 'wrap',
-                                            gap: 4,
-                                        }}
-                                    >
-                                        {Object.keys(previewConfig.models).map(
-                                            (m) => {
-                                                const entry =
-                                                    previewConfig.models?.[m];
-                                                const enabled = entry
-                                                    ? typeof entry === 'boolean'
-                                                        ? entry
-                                                        : entry.enabled
-                                                    : false;
-                                                const alias =
-                                                    typeof entry === 'object'
-                                                        ? entry.alias
-                                                        : undefined;
-                                                const isEditing =
-                                                    editingAlias?.providerId ===
-                                                        '__preview__' &&
-                                                    editingAlias?.modelName ===
-                                                        m;
-                                                const displayMode =
-                                                    previewConfig.modelDisplayMode ??
-                                                    settings?.providers
-                                                        .modelDisplayMode ??
-                                                    'alias';
-                                                return (
-                                                    <div
-                                                        key={m}
-                                                        style={{
-                                                            display:
-                                                                'inline-flex',
-                                                            alignItems:
-                                                                'center',
-                                                            gap: 4,
-                                                        }}
-                                                    >
-                                                        <button
-                                                            type="button"
-                                                            className={`${styles.modelBtn}${
-                                                                enabled
-                                                                    ? ` ${styles.modelBtnActive}`
-                                                                    : ''
-                                                            }`}
-                                                            onClick={() =>
-                                                                setPreviewConfig(
-                                                                    {
-                                                                        ...previewConfig,
-                                                                        models: {
-                                                                            ...previewConfig.models,
-                                                                            [m]: {
-                                                                                enabled:
-                                                                                    !enabled,
-                                                                                alias,
-                                                                            },
-                                                                        },
-                                                                    }
-                                                                )
-                                                            }
-                                                        >
-                                                            {getModelLabel(
-                                                                m,
-                                                                alias,
-                                                                displayMode
-                                                            )}
-                                                        </button>
-                                                        {isEditing ? (
-                                                            <div
-                                                                style={{
-                                                                    position:
-                                                                        'relative',
-                                                                    display:
-                                                                        'inline-flex',
-                                                                    alignItems:
-                                                                        'center',
-                                                                }}
-                                                            >
-                                                                <input
-                                                                    type="text"
-                                                                    value={
-                                                                        editingAlias.draft
-                                                                    }
-                                                                    onChange={(
-                                                                        e
-                                                                    ) =>
-                                                                        setEditingAlias(
-                                                                            (
-                                                                                prev
-                                                                            ) =>
-                                                                                prev
-                                                                                    ? {
-                                                                                          ...prev,
-                                                                                          draft: e
-                                                                                              .target
-                                                                                              .value,
-                                                                                      }
-                                                                                    : null
-                                                                        )
-                                                                    }
-                                                                    className={
-                                                                        styles.textInputSmall
-                                                                    }
-                                                                    style={{
-                                                                        width: 140,
-                                                                        paddingRight: 28,
-                                                                    }}
-                                                                    autoFocus
-                                                                />
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setPreviewConfig(
-                                                                            {
-                                                                                ...previewConfig,
-                                                                                models: {
-                                                                                    ...previewConfig.models,
-                                                                                    [m]: {
-                                                                                        enabled,
-                                                                                        alias:
-                                                                                            editingAlias.draft ||
-                                                                                            undefined,
-                                                                                    },
-                                                                                },
-                                                                            }
-                                                                        );
-                                                                        setEditingAlias(
-                                                                            null
-                                                                        );
-                                                                    }}
-                                                                    style={{
-                                                                        position:
-                                                                            'absolute',
-                                                                        right: 4,
-                                                                        background:
-                                                                            'none',
-                                                                        border: 'none',
-                                                                        color: '#4A9EFF',
-                                                                        cursor: 'pointer',
-                                                                        padding: 2,
-                                                                        display:
-                                                                            'flex',
-                                                                    }}
-                                                                >
-                                                                    <IconCheck
-                                                                        size={
-                                                                            14
-                                                                        }
-                                                                    />
-                                                                </button>
-                                                            </div>
-                                                        ) : null}
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                if (isEditing) {
-                                                                    setEditingAlias(
-                                                                        null
-                                                                    );
-                                                                } else {
-                                                                    setEditingAlias(
-                                                                        {
-                                                                            providerId:
-                                                                                '__preview__',
-                                                                            modelName:
-                                                                                m,
-                                                                            draft:
-                                                                                alias ||
-                                                                                '',
-                                                                        }
-                                                                    );
-                                                                }
-                                                            }}
-                                                            className={
-                                                                styles.iconBtnSmall
-                                                            }
-                                                            title={
-                                                                isEditing
-                                                                    ? 'Cancel'
-                                                                    : 'Edit alias'
-                                                            }
-                                                        >
-                                                            {isEditing ? (
-                                                                <IconX
-                                                                    size={14}
-                                                                />
-                                                            ) : (
-                                                                <IconEdit
-                                                                    size={14}
-                                                                />
-                                                            )}
-                                                        </button>
-                                                    </div>
-                                                );
-                                            }
-                                        )}
-                                    </div>
-                                )}
-                        </div>
-                    </div>
-                    <div className={styles.pathRow} style={{ marginTop: 8 }}>
-                        <button
-                            onClick={addPreviewProvider}
-                            disabled={isLocked || !previewId.trim()}
-                            className={styles.btn}
-                        >
-                            Add
-                        </button>
-                    </div>
-                </div>
-                
-            ) : (
-                <>
-                {
-                    <div key={id} className={styles.providerCard}>
-                    <div className={styles.providerCardHeader}>
-                        <Toggle
-                            checked={config.enabled}
-                            onChange={(v) =>
-                                updateProviderConfig(id, {
-                                    ...config,
-                                    enabled: v,
-                                })
-                            }
-                            disabled={isLocked}
-                        />
-                        <div className={styles.providerStatus}></div>
-                        <span className={styles.providerCardName}>{id}</span>
-                        {renderTypeSelect(
-                            config.type,
-                            (t) =>
-                                updateProviderConfig(id, {
-                                    ...config,
-                                    type: t,
-                                    endpoint:
-                                        parseServerUrl(
-                                            config.endpoint,
-                                            config.type
-                                        ) + getEndpointPath(t),
-                                }),
-                            isLocked
-                        )}
-                        <button
-                            title="Test connection"
-                            onClick={() => console.log('test connection', id)}
-                            className={styles.iconBtnSmall}
-                        >
-                            <IconBolt stroke={2} size={18} />
-                        </button>
-                        <button
-                            onClick={() => deleteProvider(id)}
-                            disabled={isLocked}
-                            className={`${styles.iconBtnSmall} ${styles.deleteBtn}`}
-                            title="Delete provider"
-                        >
-                            <IconTrash stroke={2} size={18} />
-                        </button>
-                    </div>
-                    <div className={styles.providerFields}>
-                        {renderServerUrlRow(
-                            config.endpoint,
-                            config.type,
-                            (ep) =>
-                                updateProviderConfig(id, {
-                                    ...config,
-                                    endpoint: ep,
-                                }),
-                            isLocked
-                        )}
-                        {renderApiKeySection(
-                            config.apiKey,
-                            id in apiKeyDrafts
-                                ? apiKeyDrafts[id]
-                                : config.apiKey || '',
-                            (v) =>
-                                setApiKeyDrafts((prev) => ({
-                                    ...prev,
-                                    [id]: v,
-                                })),
-                            () =>
-                                updateProviderConfig(id, {
-                                    ...config,
-                                    apiKey:
-                                        id in apiKeyDrafts
-                                            ? apiKeyDrafts[id]
-                                            : config.apiKey,
-                                }),
-                            showApiKeys[id] || false,
-                            () =>
-                                setShowApiKeys((prev) => ({
-                                    ...prev,
-                                    [id]: !prev[id],
-                                })),
-                            isLocked
-                        )}
-                        <div
-                            style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: 8,
-                            }}
-                        >
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                }}
-                            >
-                                <span
-                                    style={{
-                                        fontSize: '0.85rem',
-                                        color: 'var(--text-secondary)',
-                                    }}
-                                >
-                                    Models
-                                </span>
-                                <button
-                                    title="Get models"
-                                    onClick={() =>
-                                        handleGetModels(id, config.endpoint)
-                                    }
-                                    disabled={isLocked || !config.endpoint}
-                                    className={styles.btnSmall}
-                                >
-                                    Get Models
-                                </button>
-                            </div>
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 8,
-                                    marginBottom: 4,
-                                }}
-                            >
-                                <span
-                                    style={{
-                                        fontSize: '0.8rem',
-                                        color: 'var(--text-secondary)',
-                                    }}
-                                >
-                                    Show:
-                                </span>
-                                <select
-                                    value={
-                                        config.modelDisplayMode ??
-                                        settings?.providers.modelDisplayMode ??
-                                        'alias'
-                                    }
-                                    onChange={(e) =>
-                                        updateProviderConfig(id, {
-                                            ...config,
-                                            modelDisplayMode: e.target.value as
-                                                'alias' | 'both',
-                                        })
-                                    }
-                                    disabled={isLocked}
-                                    className={styles.selectSmall}
-                                    style={{ minWidth: 100 }}
-                                >
-                                    <option value="alias">Alias only</option>
-                                    <option value="both">Alias + Name</option>
-                                </select>
-                            </div>
-                            {renderModels(id, config, isLocked)}
-                        </div>
-                    </div>
-                </div>
-                    }
-                    </>
-            )}
-
-
-*/
