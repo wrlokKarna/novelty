@@ -722,32 +722,6 @@ function ProvidersTab() {
 
     return (
         <div className={styles.tabContent} id="settings-section-providers-list">
-            <div
-                className={styles.settingRow}
-                id="settings-section-default-provider"
-            >
-                <label htmlFor="defaultProvider">Default Provider</label>
-                <select
-                    id="defaultProvider"
-                    value={settings?.providers.defaultProvider || ''}
-                    onChange={(e) =>
-                        updateProviders(
-                            'defaultProvider',
-                            e.target.value || null
-                        )
-                    }
-                    disabled={isLocked}
-                    className={styles.select}
-                >
-                    <option value="">None</option>
-                    {(settings?.providers.configs ?? []).map((model) => (
-                        <option key={model.id} value={model.id}>
-                            {model.label}
-                        </option>
-                    ))}
-                </select>
-            </div>
-
             <div className={styles.settingRow}>
                 <label htmlFor="modelDisplayMode">Model Labeling</label>
                 <select

@@ -628,7 +628,6 @@ export type AssetLibrarySettings = {
 export type { Provider };
 export type ModelDisplayMode = 'label' | 'alias' | 'both';
 export type ProviderSettings = {
-    defaultProvider: string | null;
     configs: Provider[];
     modelDisplayMode: ModelDisplayMode;
 };

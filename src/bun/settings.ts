@@ -1,6 +1,14 @@
 import { Utils } from 'electrobun/bun';
 import { join } from 'path';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import {
+    readFileSync,
+    writeFileSync,
+    existsSync,
+    mkdirSync,
+    readdirSync,
+    statSync,
+    rmSync,
+} from 'fs';
 import {
     createCipheriv,
     createDecipheriv,
@@ -77,8 +85,8 @@ const defaultSettings: Settings = {
         cleanupIntervalDays: 30,
     },
     providers: {
-        defaultProvider: null,
-        configs: {},
+        configs: [],
+        modelDisplayMode: 'label',
     },
     storage: {
         encryptionMode: 'machine',
@@ -218,6 +226,7 @@ export function getAllSettings(): Settings {
     migrateSidebarConstraints(settings);
     migrateEditorWidth(settings);
     ensureProjectsDir(settings);
+    migrationForDefaultProviderCleanUp(settings);
     return settings;
 }
 
@@ -329,6 +338,16 @@ function migrateModelEntries(settings: Settings): void {
                 }
             }
         }
+    }
+}
+
+function migrationForDefaultProviderCleanUp(
+    settings: Settings & {
+        providers: ProviderSettings & { defaultProvider?: string };
+    }
+): void {
+    if (settings.providers) {
+        delete settings.providers.defaultProvider;
     }
 }
 
@@ -451,7 +470,6 @@ export function clearCache(): number {
     let cleared = 0;
     if (existsSync(cacheDir)) {
         try {
-            const { readdirSync, statSync, rmSync } = require('fs');
             const files = readdirSync(cacheDir);
             for (const file of files) {
                 const filePath = join(cacheDir, file);
@@ -471,7 +489,6 @@ export function getCacheSize(): number {
     let size = 0;
     if (existsSync(cacheDir)) {
         try {
-            const { readdirSync, statSync } = require('fs');
             const files = readdirSync(cacheDir);
             for (const file of files) {
                 const filePath = join(cacheDir, file);
@@ -492,7 +509,6 @@ export function getCacheSize(): number {
 function getDirSize(dirPath: string): number {
     let size = 0;
     try {
-        const { readdirSync, statSync } = require('fs');
         const files = readdirSync(dirPath);
         for (const file of files) {
             const filePath = join(dirPath, file);
@@ -509,4 +525,4 @@ function getDirSize(dirPath: string): number {
     return size;
 }
 
-import type { Settings } from '../mainview/types/index';
+import type { ProviderSettings, Settings } from '../mainview/types/index';
