@@ -112,6 +112,21 @@ export default function ProviderCard(props: Props) {
         `${conf.url.base.replace(/\/$/, '')}${conf.url.endpoint ? '/' + conf.url.endpoint.value.replace(/^\//, '') : ''}` ||
         'https://api.example.com';
 
+    const [showCard, setShowCard] = useState(true);
+
+    function handleDeleteProvider() {
+        setShowCard(false);
+
+        if (props.cardData?.index !== undefined) {
+            deleteProvider?.(props.cardData?.index).then(() => {
+                // needs further work
+                //if (!result) {
+                setShowCard(true);
+                //} else console.warn('deleted provider', props.cardData?.index);
+            });
+        }
+    }
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value, type, checked } = e.target;
         setConf((prev) => {
@@ -257,7 +272,7 @@ export default function ProviderCard(props: Props) {
                     if (detailValue === 1) {
                         toggleModel(index);
                     }
-                }, 150);
+                }, 190);
             }
         };
 
@@ -272,22 +287,6 @@ export default function ProviderCard(props: Props) {
                     cursor: 'pointer',
                 }}
                 onClick={(e) => handleClick(e, index, isEditing)}
-                /*
-                    onClick={(e) => {
-                        if (clickTimeoutRef.current) {
-                            clearTimeout(clickTimeoutRef.current);
-                            clickTimeoutRef.current = null;
-                            setActiveModelEdit(isEditing ? null : index);
-                        } else {
-                            clickTimeoutRef.current = setTimeout(() => {
-                                clickTimeoutRef.current = null;
-                                if (e.detail === 1) {
-                                    toggleModel(index);
-                                }
-                            }, 250);
-                        }
-                    }}
-                */
             >
                 {isEditing ? (
                     <div style={{ display: 'flex' }}>
@@ -328,6 +327,7 @@ export default function ProviderCard(props: Props) {
                     : `react_key_${props.cardData?.config.id ?? generatedId}`
             }
             className={`${styles.providerCard} ${isAddType ? styles.addCard : styles.defaultCard}`}
+            style={{ display: `${showCard ? '' : 'none'}` }}
         >
             <div className={styles.providerCardHeader}>
                 <div>
@@ -408,11 +408,7 @@ export default function ProviderCard(props: Props) {
                             className={`${styles.iconBtn} ${styles.delete}`}
                             title="Delete provider"
                             aria-label="Delete provider"
-                            onClick={() => {
-                                if (props.cardData?.index !== undefined) {
-                                    deleteProvider?.(props.cardData.index);
-                                }
-                            }}
+                            onClick={handleDeleteProvider}
                         >
                             <IconTrash stroke={2} size={18} />
                         </button>
