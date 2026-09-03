@@ -68,7 +68,8 @@
             background: #494a4b;
         }
 
-        &.delete {
+        &.delete,
+        &.reset {
             /*display: flex;*/
             /*align-items: center;*/
             /*justify-content: center;*/
@@ -103,6 +104,15 @@
             height: 22px;
         }
     }
+}
+
+.providerCard input::-ms-reveal {
+    display: none;
+}
+.providerCard input::-webkit-credentials-auto-fill-button {
+    visibility: hidden;
+    position: absolute;
+    right: 0;
 }
 
 .providerCardHeader {
