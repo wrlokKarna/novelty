@@ -114,16 +114,18 @@ export default function ProviderCard(props: Props) {
 
     const [showCard, setShowCard] = useState(true);
 
-    function handleDeleteProvider() {
+    async function handleDeleteProvider() {
+        const index = props.cardData?.index;
+        if (index === undefined) return;
+
         setShowCard(false);
 
-        if (props.cardData?.index !== undefined) {
-            deleteProvider?.(props.cardData?.index).then(() => {
-                // needs further work
-                //if (!result) {
-                setShowCard(true);
-                //} else console.warn('deleted provider', props.cardData?.index);
-            });
+        const success = await deleteProvider?.(index);
+        if (!success) {
+            setShowCard(true);
+            console.error('Failed to delete provider, card restored.');
+        } else {
+            console.log('Provider deleted successfully');
         }
     }
 
@@ -326,7 +328,7 @@ export default function ProviderCard(props: Props) {
                     ? generatedId
                     : `react_key_${props.cardData?.config.id ?? generatedId}`
             }
-            className={`${styles.providerCard} ${isAddType ? styles.addCard : styles.defaultCard}`}
+            className={`${styles.providerCard} ${isAddType ? styles.addCard : styles.defaultCard} ${!conf.enabled && styles.disabled}`}
             style={{ display: `${showCard ? '' : 'none'}` }}
         >
             <div className={styles.providerCardHeader}>

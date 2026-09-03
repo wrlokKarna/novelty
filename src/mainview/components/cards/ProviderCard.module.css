@@ -12,6 +12,15 @@
         background: #1a1b1c;
         background-color: #1a1b1cc4;
         border: 1px solid #393a3b;
+
+        &.disabled {
+            .providerCardHeader {
+                margin: 0px;
+            }
+            .providerCardBody {
+                display: none;
+            }
+        }
     }
 
     input,
