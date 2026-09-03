@@ -16,6 +16,8 @@ import {
     scryptSync,
 } from 'crypto';
 
+import type { ProviderSettings, Settings } from '../mainview/types/index';
+
 const SETTINGS_FILE = 'settings.json';
 const APP_SALT = 'novelty-app-v1';
 
@@ -524,5 +526,3 @@ function getDirSize(dirPath: string): number {
     }
     return size;
 }
-
-import type { ProviderSettings, Settings } from '../mainview/types/index';
