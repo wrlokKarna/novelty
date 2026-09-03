@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
     IconBolt,
+    IconEye,
+    IconEyeOff,
     IconKey,
     IconPencil,
     IconPlus,
@@ -42,9 +44,6 @@ export default function ProviderCard(props: Props) {
     const isAddType = cardType === 'add';
 
     const [check, setCheck] = useState<boolean | null>(false);
-
-    const [apiToggle, setApiToggle] = useState(false);
-    const [apiKey, setApiKey] = useState('');
 
     const [isEditingProviderLabel, setIsEditingProviderLabel] = useState(false);
 
@@ -95,7 +94,12 @@ export default function ProviderCard(props: Props) {
         models: isAddType ? [] : (props.cardData?.config?.models ?? []),
 
         enabled: isAddType ? false : (props.cardData?.config?.enabled ?? false),
+        api: isAddType ? '' : (props.cardData?.config?.api ?? ''),
     });
+
+    const [apiKey, setApiKey] = useState(conf.api || '');
+    const [showPassword, setShowPassword] = useState(false);
+    const [apiToggle, setApiToggle] = useState<boolean>(!!conf.api);
 
     const prevConfRef = useRef<Provider>(conf);
 
@@ -185,6 +189,21 @@ export default function ProviderCard(props: Props) {
             (settings?.providers.configs.length ?? -1) + 1,
             conf
         );
+    };
+
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const formName = form.name;
+
+        if (formName === 'apiForm') {
+            const formData = new FormData(form);
+            const apiKey = formData.get('apiKey') as string;
+            setConf((prev) => ({
+                ...prev,
+                api: apiKey,
+            }));
+        }
     };
 
     const handleGetModels = async (index: number, url: string) => {
@@ -473,12 +492,15 @@ export default function ProviderCard(props: Props) {
                 >
                     <div className={styles.settingsRow}>
                         <div style={{ display: 'flex' }}>
-                            <input
-                                type="checkbox"
-                                name=""
-                                id=""
-                                onChange={() => setApiToggle(!apiToggle)}
-                            />
+                            {conf.api === '' && (
+                                <input
+                                    type="checkbox"
+                                    name=""
+                                    id=""
+                                    checked={apiToggle}
+                                    onChange={() => setApiToggle(!apiToggle)}
+                                />
+                            )}
                             <label htmlFor={`api-${conf.id}`}>
                                 API key <span>(optional)</span>
                             </label>
@@ -494,19 +516,61 @@ export default function ProviderCard(props: Props) {
                         )}
                     </div>
                     {apiToggle && (
-                        <form onSubmit={handleSaveKey}>
-                            <input
-                                id={`api-${conf.id}`}
-                                type="password"
-                                placeholder="Paste your API key here..."
-                                value={apiKey}
-                                onChange={(e) => setApiKey(e.target.value)}
-                                aria-label="API key"
-                            />
+                        <form name="apiForm" onSubmit={handleSubmit}>
+                            <div style={{ position: 'relative', flex: 1 }}>
+                                <input
+                                    id={`api-${conf.id}`}
+                                    name="apiKey"
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder="Paste your API key here..."
+                                    value={apiKey ?? ''}
+                                    aria-label="API key"
+                                    onChange={(e) => setApiKey(e.target.value)}
+                                />
+                                {!!apiKey && (
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setShowPassword(!showPassword)
+                                        }
+                                        aria-label={
+                                            showPassword
+                                                ? 'Hide API key'
+                                                : 'Show API key'
+                                        }
+                                        style={{
+                                            position: 'absolute',
+                                            right: 6,
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            padding: 4,
+                                            color: 'var(--text-muted)',
+                                        }}
+                                    >
+                                        {showPassword ? (
+                                            <IconEyeOff size={14} />
+                                        ) : (
+                                            <IconEye size={14} />
+                                        )}
+                                    </button>
+                                )}
+                            </div>
 
                             <button type="submit">
                                 <IconKey /> Save key
                             </button>
+                            {apiKey !== conf.api && (
+                                <button
+                                    type="reset"
+                                    className={`${styles.iconBtn} ${styles.reset}`}
+                                    onClick={() => setApiKey(conf.api ?? '')}
+                                >
+                                    <IconX />
+                                </button>
+                            )}
                         </form>
                     )}
                 </div>
