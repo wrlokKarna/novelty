@@ -33,9 +33,9 @@ interface SettingsContextType {
     updateProviders: <K extends keyof Settings['providers']>(
         key: K,
         value: Settings['providers'][K]
-    ) => Promise<void>;
-    updateProviderConf: (index: number, config: Provider) => Promise<void>;
-    deleteProvider: (index: number) => Promise<void>;
+    ) => Promise<boolean>;
+    updateProviderConf: (index: number, config: Provider) => Promise<boolean>;
+    deleteProvider: (index: number) => Promise<boolean>;
     updateStorage: <K extends keyof Settings['storage']>(
         key: K,
         value: Settings['storage'][K]
@@ -112,9 +112,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }, [loadSettings]);
 
     const updateSetting = useCallback(
-        async <K extends keyof Settings>(key: K, value: Settings[K]) => {
+        async <K extends keyof Settings>(
+            key: K,
+            value: Settings[K]
+        ): Promise<void> => {
             const rpc = getRPC();
-            if (isLocked) return;
+            if (isLocked) throw new Error('Settings are locked');
+
             await rpc.request['settings:set']({ key, value });
             await loadSettings();
         },
@@ -161,37 +165,54 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         async <K extends keyof Settings['providers']>(
             key: K,
             value: Settings['providers'][K]
-        ) => {
-            if (!settings || isLocked) return;
-            const newProviders = { ...settings.providers, [key]: value };
-            await updateSetting('providers', newProviders);
+        ): Promise<boolean> => {
+            if (!settings || isLocked) return false;
+            try {
+                const newProviders = { ...settings.providers, [key]: value };
+                await updateSetting('providers', newProviders);
+                return true;
+            } catch (error) {
+                console.error('Failed to update providers setting', error);
+                return false;
+            }
         },
         [settings, isLocked, updateSetting]
     );
 
     const updateProviderConf = useCallback(
-        async (index: number, conf: Provider) => {
-            if (!settings || isLocked) return;
-
-            const newConfigs = [...settings.providers.configs];
-            if (index === -1) {
-                newConfigs.push(conf);
-            } else {
-                newConfigs[index] = conf;
+        async (index: number, conf: Provider): Promise<boolean> => {
+            if (!settings || isLocked) return false;
+            try {
+                const newConfigs = [...settings.providers.configs];
+                if (index === -1) {
+                    newConfigs.push(conf);
+                } else {
+                    newConfigs[index] = conf;
+                }
+                return await updateProviders('configs', newConfigs);
+            } catch (error) {
+                console.error(
+                    'Failed to update provider configuration:',
+                    error
+                );
+                return false;
             }
-
-            await updateProviders('configs', newConfigs);
         },
         [settings, isLocked, updateProviders]
     );
 
     const deleteProvider = useCallback(
-        async (index: number) => {
-            if (!settings || isLocked) return;
-            const newConfigs = settings.providers.configs.filter(
-                (_, i) => i !== index
-            );
-            await updateProviders('configs', newConfigs);
+        async (index: number): Promise<boolean> => {
+            if (!settings || isLocked) return false;
+            try {
+                const newConfigs = settings.providers.configs.filter(
+                    (_, i) => i !== index
+                );
+                return await updateProviders('configs', newConfigs);
+            } catch (error) {
+                console.error('Failed to delete provider:', error);
+                return false;
+            }
         },
         [settings, isLocked, updateProviders]
     );
