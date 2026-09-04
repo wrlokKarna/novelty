@@ -761,11 +761,13 @@ function ProvidersTab() {
                     </>
                 )}
 
-                {(settings?.providers.configs ?? []).map((config, index) => (
-                    <>
-                        <ProviderCard cardData={{ index, config }} />
-                    </>
-                ))}
+                {[...(settings?.providers.configs ?? [])]
+                    .reverse()
+                    .map((config, index) => (
+                        <>
+                            <ProviderCard cardData={{ index, config }} />
+                        </>
+                    ))}
             </div>
         </div>
     );
