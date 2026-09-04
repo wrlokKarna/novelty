@@ -41,6 +41,8 @@ export default function ProviderCard(props: Props) {
     const { cardType = 'default' } = props;
     const isAddType = cardType === 'add';
 
+    const [check, setCheck] = useState<boolean | null>(false);
+
     const [apiToggle, setApiToggle] = useState(false);
     const [apiKey, setApiKey] = useState('');
 
@@ -55,6 +57,9 @@ export default function ProviderCard(props: Props) {
         setIsTesting(true);
         try {
             const result = await checkProviderConnection(previewUrl);
+            if (result == false) {
+                setCheck(null);
+            }
             setTestConnection(result);
         } catch (error) {
             setTestConnection(false);
@@ -390,11 +395,15 @@ export default function ProviderCard(props: Props) {
                         disabled={
                             (!conf.url.base && !conf.url.endpoint) || isTesting
                         }
-                        className={`${styles.connectionBtn} ${styles.iconBtn} ${testConnection ? styles.active : ''}`}
+                        className={`${styles.connectionBtn} ${styles.iconBtn} ${testConnection ? styles.active : (check ?? styles.inactive)}`}
                         onClick={handleTestConnection}
                     >
                         <IconBolt stroke={2} size={18} />
-                        {isTesting ? 'Testing...' : 'Test Connection'}
+                        {isTesting
+                            ? 'Testing...'
+                            : testConnection
+                              ? 'Connected'
+                              : (check ?? 'Connection Failed')}
                     </button>
                     {isAddType && (
                         <button
