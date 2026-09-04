@@ -55,6 +55,7 @@ export default function ProviderCard(props: Props) {
 
     const handleTestConnection = async () => {
         setIsTesting(true);
+        setCheck(true);
         try {
             const result = await checkProviderConnection(previewUrl);
             if (result == false) {

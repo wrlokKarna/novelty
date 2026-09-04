@@ -291,9 +291,7 @@
     &.active:hover {
         color: greenyellow;
     }
-}
 
-.connectionBtn {
     &.inactive,
     &.inactive:hover {
         color: red;
