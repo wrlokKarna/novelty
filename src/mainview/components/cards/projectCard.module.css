@@ -27,6 +27,7 @@
 .projectCard {
     position: relative;
     width: 200px;
+    max-height: max-content;
     aspect-ratio: 2/3;
     background: #2a2b2c;
     border: 1px solid #393a3b;
