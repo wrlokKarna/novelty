@@ -518,6 +518,24 @@ export default function ProviderCard(props: Props) {
                     {apiToggle && (
                         <form name="apiForm" onSubmit={handleSubmit}>
                             <div style={{ position: 'relative', flex: 1 }}>
+                                {!apiKey && (
+                                    <span
+                                        style={{
+                                            position: 'absolute',
+                                            left: 6,
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            padding: 4,
+                                            paddingTop: 12,
+                                            color: 'var(--text-muted)',
+                                        }}
+                                    >
+                                        <IconKey size={18} />
+                                    </span>
+                                )}
                                 <input
                                     id={`api-${conf.id}`}
                                     name="apiKey"
@@ -526,6 +544,10 @@ export default function ProviderCard(props: Props) {
                                     value={apiKey ?? ''}
                                     aria-label="API key"
                                     onChange={(e) => setApiKey(e.target.value)}
+                                    style={{
+                                        paddingLeft: 36,
+                                        paddingRight: 36,
+                                    }}
                                 />
                                 {!!apiKey && (
                                     <button
@@ -540,7 +562,7 @@ export default function ProviderCard(props: Props) {
                                         }
                                         style={{
                                             position: 'absolute',
-                                            right: 6,
+                                            left: 6,
                                             top: '50%',
                                             transform: 'translateY(-50%)',
                                             background: 'none',
@@ -557,20 +579,33 @@ export default function ProviderCard(props: Props) {
                                         )}
                                     </button>
                                 )}
+                                {apiKey !== conf.api && (
+                                    <button
+                                        type="reset"
+                                        className={`${styles.iconBtn} ${styles.reset}`}
+                                        style={{
+                                            position: 'absolute',
+                                            right: 6,
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            padding: 4,
+                                            color: 'var(--text-muted)',
+                                        }}
+                                        onClick={() =>
+                                            setApiKey(conf.api ?? '')
+                                        }
+                                    >
+                                        <IconX />
+                                    </button>
+                                )}
                             </div>
 
-                            <button type="submit">
+                            <button type="submit" style={{ width: 150 }}>
                                 <IconKey /> Save key
                             </button>
-                            {apiKey !== conf.api && (
-                                <button
-                                    type="reset"
-                                    className={`${styles.iconBtn} ${styles.reset}`}
-                                    onClick={() => setApiKey(conf.api ?? '')}
-                                >
-                                    <IconX />
-                                </button>
-                            )}
                         </form>
                     )}
                 </div>
@@ -581,6 +616,7 @@ export default function ProviderCard(props: Props) {
 
                         <button
                             title="Get models"
+                            style={{ width: 150, height: 35 }}
                             onClick={() => {
                                 if (isAddType && !props.cardData?.index) {
                                     handleGetModels(
