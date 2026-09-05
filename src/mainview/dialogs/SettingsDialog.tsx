@@ -16,6 +16,10 @@ import localStyles from '../components/Dialog.module.css';
 import SplitDialogLayout from '../ui/layout/SplitDialogLayout';
 
 import ProviderCard from '../components/cards/ProviderCard';
+import {
+    DEFAULT_PROVIDERS,
+    DEFAULT_PROVIDERS_ICONS,
+} from './../constants/ai/provider_consts';
 
 interface SettingsRoute {
     tab: SettingsDialogActiveTab;
@@ -750,6 +754,25 @@ function ProvidersTab() {
                     >
                         {showNewProvider ? 'Cancel' : 'Add Provider'}
                     </button>
+                    <div className="" style={{ display: 'flex', gap: 12 }}>
+                        {DEFAULT_PROVIDERS.map((p) => (
+                            <button
+                                key={p.id || p.label}
+                                onClick={() => alert(`add: ${p.label}`)}
+                            >
+                                <span>{p.label}</span>
+                                <img
+                                    src={
+                                        DEFAULT_PROVIDERS_ICONS[
+                                            p.id as keyof typeof DEFAULT_PROVIDERS_ICONS
+                                        ]
+                                    }
+                                    alt={p.label}
+                                    style={{ width: 32, height: 32 }}
+                                />
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {showNewProvider && (
