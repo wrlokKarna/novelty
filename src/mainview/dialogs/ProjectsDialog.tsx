@@ -384,7 +384,10 @@ export default function ProjectsDialog({
                     </button>
                 </div>
                 {!showSeries ? (
-                    <button onClick={() => setShowCreateModal(true)}>
+                    <button
+                        style={{ marginLeft: 8 }}
+                        onClick={() => setShowCreateModal(true)}
+                    >
                         New Project
                     </button>
                 ) : (
