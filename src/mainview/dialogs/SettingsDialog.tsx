@@ -20,6 +20,8 @@ import {
     DEFAULT_PROVIDERS,
     DEFAULT_PROVIDERS_ICONS,
 } from './../constants/ai/provider_consts';
+import { defProvsConnChecker } from '../services/ai';
+import { Provider } from '../utils/ai/providerHelpers';
 
 interface SettingsRoute {
     tab: SettingsDialogActiveTab;
@@ -724,6 +726,15 @@ function ProvidersTab() {
     const { settings, updateProviders, isLocked } = useSettings();
     const [showNewProvider, setShowNewProvider] = useState(false);
 
+    const [availProvArr, setAvailProvArr] = useState<Provider[]>([]);
+
+    useEffect(() => {
+        defProvsConnChecker().then((result) => {
+            setAvailProvArr(result);
+        });
+    }, []);
+
+    console.log('[arr]', availProvArr);
     return (
         <div className={styles.tabContent} id="settings-section-providers-list">
             <div className={styles.settingRow}>
@@ -755,7 +766,7 @@ function ProvidersTab() {
                         {showNewProvider ? 'Cancel' : 'Add Provider'}
                     </button>
                     <div className="" style={{ display: 'flex', gap: 12 }}>
-                        {DEFAULT_PROVIDERS.map((p) => (
+                        {availProvArr.map((p) => (
                             <button
                                 key={p.id || p.label}
                                 onClick={() => alert(`add: ${p.label}`)}

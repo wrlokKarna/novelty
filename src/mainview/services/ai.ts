@@ -1,3 +1,4 @@
+import { DEFAULT_PROVIDERS } from '../constants/ai/provider_consts';
 import type { Provider } from '../types/index';
 import { Model } from '../utils/ai/providerHelpers';
 
@@ -400,4 +401,20 @@ export async function getModelsFromProvider(
     } catch {
         return [];
     }
+}
+export async function defProvsConnChecker() {
+    const promises = DEFAULT_PROVIDERS.map(async (prov) => {
+        const PROV_URL = prov.url.port
+            ? `http://${prov.url.base}:${prov.url.port}/${prov.url.endpoint.value}`
+            : `http://${prov.url.base}/${prov.url.endpoint.value}`;
+        try {
+            const isConn = await checkProviderConnection(PROV_URL);
+            return isConn ? prov : null;
+        } catch (err) {
+            console.log('[ai.ts:433]', err);
+            return null;
+        }
+    });
+    const result = await Promise.all(promises);
+    return result.filter((prov) => prov !== null);
 }
