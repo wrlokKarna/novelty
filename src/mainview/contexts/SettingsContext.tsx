@@ -8,12 +8,15 @@ import {
 } from 'react';
 import { getRPC } from './RPCContext';
 import type { Settings, Provider } from '../types/index';
+import { DEFAULT_PROVIDERS } from '../constants/ai/provider_consts';
+import { checkProviderConnection } from '../services/ai';
 
 interface SettingsContextType {
     settings: Settings | null;
     loading: boolean;
     isLocked: boolean;
     encryptionMode: 'machine' | 'password' | 'none';
+    availableProviders: Provider[];
     updateSetting: <K extends keyof Settings>(
         key: K,
         value: Settings[K]
@@ -70,6 +73,8 @@ interface SettingsContextType {
         filters: { name: string; extensions: string[] }[]
     ) => Promise<string | null>;
     refreshSettings: () => Promise<void>;
+    defProvsConnChecker: () => Promise<Provider[]>;
+    updateAvailableProviders: (providers: Provider[]) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
@@ -81,7 +86,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const [encryptionMode, setEncryptionMode] = useState<
         'machine' | 'password' | 'none'
     >('none');
-
+    const [availableProviders, setAvailableProviders] = useState<Provider[]>(
+        []
+    );
     const loadSettings = useCallback(async () => {
         await new Promise((r) => setTimeout(r, 1000));
         const rpc = getRPC();
@@ -357,11 +364,33 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         []
     );
 
+    async function defProvsConnChecker() {
+        const promises = DEFAULT_PROVIDERS.map(async (prov) => {
+            const PROV_URL = prov.url.port
+                ? `http://${prov.url.base}:${prov.url.port}/${prov.url.endpoint.value}`
+                : `http://${prov.url.base}/${prov.url.endpoint.value}`;
+            try {
+                const isConn = await checkProviderConnection(PROV_URL);
+                return isConn ? prov : null;
+            } catch (err) {
+                console.log('[ai.ts:433]', err);
+                return null;
+            }
+        });
+        const result = await Promise.all(promises);
+        return result.filter((prov) => prov !== null);
+    }
+
+    const updateAvailableProviders = useCallback((providers: Provider[]) => {
+        setAvailableProviders(providers);
+    }, []);
+
     const value: SettingsContextType = {
         settings,
         loading,
         isLocked,
         encryptionMode,
+        availableProviders,
         updateSetting,
         updateGeneral,
         updateProjects,
@@ -384,6 +413,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         saveFile,
         openFile,
         refreshSettings: loadSettings,
+        defProvsConnChecker,
+        updateAvailableProviders,
     };
 
     return (
