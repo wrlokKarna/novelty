@@ -16,6 +16,7 @@ import localStyles from '../components/Dialog.module.css';
 import SplitDialogLayout from '../ui/layout/SplitDialogLayout';
 
 import ProviderCard from '../components/cards/ProviderCard';
+import ProvidersList from '../components/lists/ProvidersList';
 
 interface SettingsRoute {
     tab: SettingsDialogActiveTab;
@@ -760,7 +761,8 @@ function ProvidersTab() {
                         />
                     </>
                 )}
-
+                <ProvidersList arr={[...(settings?.providers.configs ?? [])]} />
+                {/*
                 {[...(settings?.providers.configs ?? [])]
                     .reverse()
                     .map((config, index) => (
@@ -768,6 +770,7 @@ function ProvidersTab() {
                             <ProviderCard cardData={{ index, config }} />
                         </>
                     ))}
+                    */}
             </div>
         </div>
     );

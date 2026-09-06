@@ -93,7 +93,7 @@ export default function ProviderCard(props: Props) {
         },
         models: isAddType ? [] : (props.cardData?.config?.models ?? []),
 
-        enabled: isAddType ? false : (props.cardData?.config?.enabled ?? false),
+        enabled: isAddType ? true : (props.cardData?.config?.enabled ?? false),
         api: isAddType ? '' : (props.cardData?.config?.api ?? ''),
     });
 
@@ -102,7 +102,6 @@ export default function ProviderCard(props: Props) {
     const [apiToggle, setApiToggle] = useState<boolean>(!!conf.api);
 
     const prevConfRef = useRef<Provider>(conf);
-
     useEffect(() => {
         const prev = prevConfRef.current;
         prevConfRef.current = conf;
@@ -123,6 +122,15 @@ export default function ProviderCard(props: Props) {
         'https://api.example.com';
 
     const [showCard, setShowCard] = useState(true);
+
+    const handleModelNameChange = (modelIndex: number, newName: string) => {
+        setConf((prev) => ({
+            ...prev,
+            models: prev.models.map((m, i) =>
+                i === modelIndex ? { ...m, name: newName } : m
+            ),
+        }));
+    };
 
     async function handleDeleteProvider() {
         const index = props.cardData?.index;
@@ -147,7 +155,7 @@ export default function ProviderCard(props: Props) {
                     ...prev,
                     url: {
                         ...prev.url,
-                        base: value,
+                        base: value.trim(),
                     },
                 };
             } else if (name === 'endpoint-value') {
@@ -319,9 +327,12 @@ export default function ProviderCard(props: Props) {
                     <div style={{ display: 'flex' }}>
                         <input
                             type="text"
-                            name=""
-                            id=""
+                            value={model.label}
+                            onChange={(e) =>
+                                handleModelNameChange(index, e.target.value)
+                            }
                             onClick={(e) => e.stopPropagation()}
+                            autoFocus
                         />
                         <button
                             onClick={(e) => {
@@ -349,9 +360,7 @@ export default function ProviderCard(props: Props) {
     return (
         <div
             key={
-                isAddType
-                    ? generatedId
-                    : `react_key_${props.cardData?.config.id ?? generatedId}`
+                isAddType ? generatedId : `react_key_${conf.id ?? generatedId}`
             }
             className={`${styles.providerCard} ${isAddType ? styles.addCard : styles.defaultCard} ${!conf.enabled && styles.disabled}`}
             style={{ display: `${showCard ? '' : 'none'}` }}
@@ -389,7 +398,7 @@ export default function ProviderCard(props: Props) {
                                     aria-label="Provider Label"
                                 />
                             ) : (
-                                <span>{props.cardData?.config.label}</span>
+                                <span>{conf.id}</span>
                             )}
                             <button
                                 className={`${isEditingProviderLabel ? styles.editing : ''}`}
@@ -492,15 +501,13 @@ export default function ProviderCard(props: Props) {
                 >
                     <div className={styles.settingsRow}>
                         <div style={{ display: 'flex' }}>
-                            {conf.api === '' && (
-                                <input
-                                    type="checkbox"
-                                    name=""
-                                    id=""
-                                    checked={apiToggle}
-                                    onChange={() => setApiToggle(!apiToggle)}
-                                />
-                            )}
+                            <input
+                                type="checkbox"
+                                name=""
+                                id=""
+                                checked={apiToggle}
+                                onChange={() => setApiToggle(!apiToggle)}
+                            />
                             <label htmlFor={`api-${conf.id}`}>
                                 API key <span>(optional)</span>
                             </label>
@@ -625,7 +632,7 @@ export default function ProviderCard(props: Props) {
                                     );
                                 } else if (
                                     props.cardData?.index &&
-                                    props.cardData?.config.url.endpoint.value
+                                    conf.url.endpoint.value
                                 ) {
                                     handleGetModels(
                                         props.cardData?.index,
