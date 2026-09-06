@@ -76,17 +76,24 @@ import { type ProjectDialogActiveTab } from './constants/layout_tabs';
 const categoryConfig: Record<
   CompendiumCategory,
   { icon: typeof IconUsers; label: string }
-> = {
-  character: { icon: IconUsers, label: "Character" },
-  location: { icon: IconMapPin2, label: "Location" },
-  organization: { icon: IconBuildings, label: "Organization" },
-  item: { icon: IconSwords, label: "Item" },
-  lore: { icon: IconBook, label: "Lore" },
-};
-*/
+  > = {
+    character: { icon: IconUsers, label: "Character" },
+    location: { icon: IconMapPin2, label: "Location" },
+    organization: { icon: IconBuildings, label: "Organization" },
+    item: { icon: IconSwords, label: "Item" },
+    lore: { icon: IconBook, label: "Lore" },
+    };
+    */
 //type WorkspaceMode = 'editor' | 'ai';
 
 function App() {
+    const {
+        settings,
+        updateAppearance,
+        defProvsConnChecker,
+        updateAvailableProviders,
+    } = useSettings();
+
     //const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('editor');
     const [isLeftHovered, setIsLeftHovered] = useState(false);
     const hoverTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -100,7 +107,6 @@ function App() {
     const [isPreviewDragging, setIsPreviewDragging] = useState(false);
     const previewDragStartXRef = useRef(0);
     const previewDragStartWidthRef = useRef(0);
-    const { settings, updateAppearance } = useSettings();
     const sc = settings?.appearance?.sidebarConstraints;
     const [isCollapsed, setIsCollapsed] = useState(
         sc?.leftPanelCollapsed ?? false
@@ -120,6 +126,25 @@ function App() {
         null
     );
     const [chapterTitleDraft, setChapterTitleDraft] = useState('');
+
+    useEffect(() => {
+        let timerID: ReturnType<typeof setTimeout> | null = null;
+        const runChecker = async () => {
+            const result = await defProvsConnChecker();
+            updateAvailableProviders(result);
+            const printMsg =
+                result.length > 0
+                    ? `Provs: ${result.map((p) => p.label).join(', ')}`
+                    : 'No provs found';
+            console.log('[provs] ' + printMsg);
+            timerID = setTimeout(runChecker, 10000);
+        };
+        runChecker();
+
+        return () => {
+            if (timerID) clearTimeout(timerID);
+        };
+    }, []);
 
     const handleReaderModeChange = (m: 'chapter' | 'book') => {
         setReaderMode(m);
