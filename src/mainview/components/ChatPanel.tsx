@@ -52,11 +52,13 @@ import type {
 import { parseEntryData, parseAllEntryData } from '../services/entryParser';
 import type { ParsedEntry } from '../services/entryParser';
 import type { RichTextEditorHandle } from './RichTextEditor';
-import { buildContext } from '../services/contextBuilder';
+import { checkEmbeddingsAvailable } from '../services/contextEngine';
 import {
-    buildAIContext,
-    checkEmbeddingsAvailable,
-} from '../services/contextEngine';
+    buildBaseSystemPrompt,
+    buildCreateEntryPrompt,
+    buildExtractionPrompt,
+    buildStructurePrompt,
+} from '../services/chatPromptBuilder';
 import { getTextSource } from '../services/textExtractor';
 import type { ExtractionSource } from '../services/textExtractor';
 import { useSettings } from '../contexts/SettingsContext';
@@ -480,54 +482,38 @@ export default function ChatPanel({
                 settings?.general.chapterContextMode ?? 'brief';
             const maxContextTokens = settings?.general.maxContextTokens ?? 8000;
 
-            let ctxResult: {
-                systemPrompt: string;
-                estimatedTokens?: number;
-                tokenEstimate?: number;
-            };
+            const ctxResult = await buildBaseSystemPrompt({
+                project,
+                projectId: project.id,
+                userMessage: text,
+                currentChapterId:
+                    activeTabType === 'chapter'
+                        ? (activeTabId ?? undefined)
+                        : undefined,
+                embeddingsAvailable,
+                embeddingsEnabled: !!settings?.embeddings?.enabled,
+                mentions: parsedMentions,
+                fileContents,
+                customPrompt: customSystemPrompt || null,
+                chapterContextMode,
+                maxContextTokens,
+                chapters,
+                characters,
+                locations,
+                organizations,
+                items,
+                loreEntries,
+                scenes,
+                sequences,
+                resolvedTemplates,
+            });
 
-            if (embeddingsAvailable && settings?.embeddings?.enabled) {
-                const engineResult = await buildAIContext({
-                    projectId: project.id,
-                    userMessage: text,
-                    currentChapterId:
-                        activeTabType === 'chapter'
-                            ? (activeTabId ?? undefined)
-                            : undefined,
-                    mentionTargets: parsedMentions,
-                    fileContents,
-                    customPrompt: customSystemPrompt || null,
-                    chapterContextMode,
-                    tokenBudget: maxContextTokens,
-                });
-                ctxResult = {
-                    systemPrompt: engineResult.systemPrompt,
-                    tokenEstimate: engineResult.tokenEstimate,
+            if (ctxResult.systemPrompt) {
+                systemPromptMessage = {
+                    role: 'system',
+                    content: ctxResult.systemPrompt,
                 };
-            } else {
-                ctxResult = buildContext({
-                    project,
-                    mentions: parsedMentions,
-                    fileContents,
-                    customPrompt: customSystemPrompt || null,
-                    chapterContextMode,
-                    maxContextTokens,
-                    chapters,
-                    characters,
-                    locations,
-                    organizations,
-                    items,
-                    loreEntries,
-                    scenes,
-                    sequences,
-                    resolvedTemplates,
-                });
             }
-
-            systemPromptMessage = {
-                role: 'system',
-                content: ctxResult.systemPrompt,
-            };
         }
 
         // --- Slash command detection ---
@@ -549,6 +535,8 @@ export default function ChatPanel({
             sequences: StorySequence & { sceneIndices: number[] }[];
         } | null;
         let structureMode: 'create' | 'merge' | 'replace' = 'create';
+        let analysisInput = '';
+        let modificationContext: string | undefined;
 
         if (ANALYSIS_COMMANDS.has(command)) {
             isAnalysisCommand = true;
@@ -611,7 +599,7 @@ export default function ChatPanel({
             }
             if (userInput) parts.push(`\nAdditional context: ${userInput}`);
 
-            const analysisInput = parts.join('\n');
+            analysisInput = parts.join('\n');
 
             if (systemPromptMessage) {
                 const bt = '\x60\x60\x60';
@@ -700,6 +688,7 @@ export default function ChatPanel({
                         idParts.push(
                             `\nWriter's modification request: ${userInput}`
                         );
+                    modificationContext = idParts.join('\n');
 
                     systemPromptMessage.content =
                         "You are a senior structural editor helping a writer modify their chapter's structure.\n\n" +
@@ -795,6 +784,16 @@ export default function ChatPanel({
             }
         }
 
+        if (ANALYSIS_COMMANDS.has(command) && systemPromptMessage) {
+            const structurePrompt = buildStructurePrompt({
+                command,
+                analysisInput,
+                modificationContext,
+            });
+            structureMode = structurePrompt.mode;
+            systemPromptMessage.content = structurePrompt.prompt;
+        }
+
         if (isCreateCommand || EXTRACT_COMMANDS.has(command)) {
             const category = COMMAND_MAP[command];
 
@@ -815,44 +814,14 @@ export default function ChatPanel({
                     : `Extract ${extractCategory ?? 'all entities'} from text${cleanArgs ? `: ${cleanArgs}` : ''}`;
 
                 if (systemPromptMessage) {
-                    const categoryFilter = extractCategory
-                        ? `Focus on identifying ${extractCategory} entries only.`
-                        : 'Identify all character, location, organization, item, and lore entries.';
-
                     const existingContext = isUpdateCommand
                         ? `\nExisting characters: ${characters.map((c) => `${c.name} (id:${c.id})`).join(', ')}\nExisting locations: ${locations.map((l) => `${l.name} (id:${l.id})`).join(', ')}\nExisting organizations: ${organizations.map((o) => `${o.name} (id:${o.id})`).join(', ')}\nExisting items: ${items.map((i) => `${i.name} (id:${i.id})`).join(', ')}\nExisting lore entries: ${loreEntries.map((le) => `${le.name} (id:${le.id})`).join(', ')}`
                         : '';
-
-                    const actionInstruction = isUpdateCommand
-                        ? 'For each entity found in the text that matches an existing entry, output an entry-data block with its existing id and any updated field values.'
-                        : 'For each distinct entity found, output a ```entry-data JSON block.';
-
-                    const bt = '\x60\x60\x60';
-                    const idField = isUpdateCommand
-                        ? ', "id": "existing-entry-id"'
-                        : '';
-                    systemPromptMessage.content =
-                        "You are analyzing text from the user's novel. " +
-                        categoryFilter +
-                        ' ' +
-                        actionInstruction +
-                        '\n\n' +
-                        'Read the text below carefully and output ' +
-                        (isUpdateCommand
-                            ? 'updates for matching entries'
-                            : 'all entities you can identify') +
-                        '.\n\n' +
-                        existingContext +
-                        '\n\n' +
-                        'Each entry-data block must follow this format:\n' +
-                        bt +
-                        'entry-data\n' +
-                        '{"category": "character|location|organization|item|lore", "name": "Entity Name"' +
-                        idField +
-                        ', "fields": {"field1": "value1", ...}}\n' +
-                        bt +
-                        '\n\n' +
-                        'Be thorough but only include information present in the text.';
+                    systemPromptMessage.content = buildExtractionPrompt({
+                        category: extractCategory,
+                        isUpdate: isUpdateCommand,
+                        existingContext,
+                    });
                 }
 
                 // Get text source for extraction
@@ -896,10 +865,13 @@ export default function ChatPanel({
                 displayText = `Create ${category}: ${cmdName}${description ? ` — "${description}"` : ''}`;
 
                 if (systemPromptMessage) {
-                    const prompt = description
-                        ? `The user wants to create a ${category} entry named "${cmdName}". Description: ${description}. Generate detailed content for this entry.`
-                        : `The user wants to create a ${category} entry named "${cmdName}". Generate detailed content for this entry.`;
-                    systemPromptMessage.content += `\n\n${prompt}\nMake sure the \`\`\`entry-data JSON block at the end uses category "${category}" and name "${cmdName}".`;
+                    systemPromptMessage.content += `\n\n${buildCreateEntryPrompt(
+                        {
+                            category,
+                            name: cmdName,
+                            description,
+                        }
+                    )}`;
                 }
             }
         }
