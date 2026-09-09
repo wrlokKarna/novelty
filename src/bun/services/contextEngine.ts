@@ -486,7 +486,7 @@ async function retrieveCompendiumEntities(
 export async function buildContext(
     request: ContextRequest
 ): Promise<ContextResult> {
-    const budget = request.tokenBudget;
+    const budget = Math.max(1, request.tokenBudget);
     const sources: ContextSource[] = [];
 
     const projectPrompt = formatProjectPrompt(request.project);
@@ -498,12 +498,15 @@ export async function buildContext(
     let customBlock = '';
     let customTokens = 0;
     if (request.customPrompt) {
-        customBlock = `\n${request.customPrompt}`;
+        customBlock = `\n${request.customPrompt.trim()}`;
         customTokens = countTokens(customBlock);
     }
 
+    const protectedParts = [projectPrompt, entryInstruction, customBlock].filter(
+        Boolean
+    );
     const baseTokens = projectTokens + entryTokens + customTokens;
-    const remainingBudget = budget - baseTokens;
+    const remainingBudget = Math.max(budget - baseTokens, 0);
 
     const mentionBudget = Math.floor(remainingBudget * 0.2);
     const structuredBudget = Math.floor(remainingBudget * 0.1);
@@ -674,10 +677,7 @@ export async function buildContext(
         }
     }
 
-    const allParts = [
-        projectPrompt,
-        entryInstruction,
-        customBlock,
+    const dynamicSegments = [
         mentionParts.join(''),
         structuredText,
         compendiumText,
@@ -685,8 +685,24 @@ export async function buildContext(
         fileBlock,
     ].filter(Boolean);
 
-    let fullPrompt = allParts.join('\n');
+    let fullPrompt = [...protectedParts, ...dynamicSegments].join('\n');
     let tokenEstimate = countTokens(fullPrompt);
+
+    while (tokenEstimate > budget && dynamicSegments.length > 0) {
+        dynamicSegments.pop();
+        fullPrompt = [...protectedParts, ...dynamicSegments].join('\n');
+        tokenEstimate = countTokens(fullPrompt);
+    }
+
+    if (tokenEstimate > budget && protectedParts.length > 0) {
+        const lastProtectedIndex = protectedParts.length - 1;
+        const lastProtected = protectedParts[lastProtectedIndex];
+        if (lastProtected && lastProtected.length > 200) {
+            protectedParts[lastProtectedIndex] = lastProtected.slice(0, 2000);
+            fullPrompt = [...protectedParts, ...dynamicSegments].join('\n');
+            tokenEstimate = countTokens(fullPrompt);
+        }
+    }
 
     if (tokenEstimate > budget) {
         fullPrompt = truncateToTokens(fullPrompt, budget);
