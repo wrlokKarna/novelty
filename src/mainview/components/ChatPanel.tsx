@@ -54,10 +54,12 @@ import type { ParsedEntry } from '../services/entryParser';
 import type { RichTextEditorHandle } from './RichTextEditor';
 import { checkEmbeddingsAvailable } from '../services/contextEngine';
 import {
+    appendSystemPromptSection,
     buildBaseSystemPrompt,
     buildCreateEntryPrompt,
     buildExtractionPrompt,
     buildStructurePrompt,
+    buildTitlePrompt,
 } from '../services/chatPromptBuilder';
 import { getTextSource } from '../services/textExtractor';
 import type { ExtractionSource } from '../services/textExtractor';
@@ -644,7 +646,10 @@ export default function ChatPanel({
                 modificationContext,
             });
             structureMode = structurePrompt.mode;
-            systemPromptMessage.content = structurePrompt.prompt;
+            systemPromptMessage.content = appendSystemPromptSection(
+                systemPromptMessage.content,
+                structurePrompt.prompt
+            );
         }
 
         if (isCreateCommand || EXTRACT_COMMANDS.has(command)) {
@@ -670,11 +675,14 @@ export default function ChatPanel({
                     const existingContext = isUpdateCommand
                         ? `\nExisting characters: ${characters.map((c) => `${c.name} (id:${c.id})`).join(', ')}\nExisting locations: ${locations.map((l) => `${l.name} (id:${l.id})`).join(', ')}\nExisting organizations: ${organizations.map((o) => `${o.name} (id:${o.id})`).join(', ')}\nExisting items: ${items.map((i) => `${i.name} (id:${i.id})`).join(', ')}\nExisting lore entries: ${loreEntries.map((le) => `${le.name} (id:${le.id})`).join(', ')}`
                         : '';
-                    systemPromptMessage.content = buildExtractionPrompt({
-                        category: extractCategory,
-                        isUpdate: isUpdateCommand,
-                        existingContext,
-                    });
+                    systemPromptMessage.content = appendSystemPromptSection(
+                        systemPromptMessage.content,
+                        buildExtractionPrompt({
+                            category: extractCategory,
+                            isUpdate: isUpdateCommand,
+                            existingContext,
+                        })
+                    );
                 }
 
                 // Get text source for extraction
@@ -718,13 +726,14 @@ export default function ChatPanel({
                 displayText = `Create ${category}: ${cmdName}${description ? ` — "${description}"` : ''}`;
 
                 if (systemPromptMessage) {
-                    systemPromptMessage.content += `\n\n${buildCreateEntryPrompt(
-                        {
+                    systemPromptMessage.content = appendSystemPromptSection(
+                        systemPromptMessage.content,
+                        buildCreateEntryPrompt({
                             category,
                             name: cmdName,
                             description,
-                        }
-                    )}`;
+                        })
+                    );
                 }
             }
         }
@@ -857,9 +866,7 @@ export default function ChatPanel({
                         const titleResult = await chatCompletion(endpoint, {
                             enabledModel,
                             messages: [...messages, userMessage],
-                            systemPrompt:
-                                systemPromptMessage?.content ||
-                                'Generate a very short, descriptive title (3-5 words) for this conversation. Respond with ONLY the title text, no quotes, no punctuation, no explanation.',
+                            systemPrompt: buildTitlePrompt(),
                         });
                         newTitle = titleResult.content
                             .trim()
