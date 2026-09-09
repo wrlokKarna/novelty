@@ -92,9 +92,11 @@ export function appendSystemPromptSection(
     basePrompt: string | null | undefined,
     taskPrompt: string
 ): string {
-    const sections = [basePrompt?.trim(), taskPrompt.trim()].filter(Boolean);
+    const sections = [basePrompt?.trim(), taskPrompt.trim()].filter(
+        (section): section is string => Boolean(section)
+    );
     if (sections.length === 0) return '';
-    if (sections.length === 1) return sections[0];
+    if (sections.length === 1) return sections[0] ?? '';
     return `${sections[0]}\n\n--- Task Instructions ---\n${sections[1]}`;
 }
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getRPC } from '../contexts/RPCContext';
 import type { Project } from '../types/index';
 
@@ -14,6 +14,10 @@ export default function SystemPromptToggle({
     const [isOpen, setIsOpen] = useState(false);
     const [prompt, setPrompt] = useState(project?.systemPrompt || '');
     const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        setPrompt(project?.systemPrompt || '');
+    }, [project?.id, project?.systemPrompt]);
 
     if (!project) return null;
 

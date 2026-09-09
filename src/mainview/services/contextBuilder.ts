@@ -191,22 +191,15 @@ export function buildContext(params: BuildContextParams): BuildContextResult {
         resolvedTemplates,
     } = params;
 
-    const parts: string[] = [];
+    const protectedParts: string[] = [
+        formatProjectPrompt(project),
+        ENTRY_PROMPT_INSTRUCTION,
+        customPrompt?.trim() ? `\n${customPrompt.trim()}` : '',
+    ].filter(Boolean);
 
-    // 1. Base project prompt
-    parts.push(formatProjectPrompt(project));
-
-    // 2. Entry creation instruction
-    parts.push(ENTRY_PROMPT_INSTRUCTION);
-
-    // 3. Custom prompt
-    if (customPrompt) {
-        parts.push(`\n${customPrompt}`);
-    }
-
-    // 4. @-mention context
+    const mentionBlocks: string[] = [];
     if (mentions.length > 0) {
-        parts.push('\n\n--- Context from mentions ---');
+        mentionBlocks.push('\n\n--- Context from mentions ---');
         for (const m of mentions) {
             let block = '';
             if (m.type === 'chapter') {
@@ -251,45 +244,40 @@ export function buildContext(params: BuildContextParams): BuildContextResult {
                 const seq = sequences?.find((s) => s.id === m.id);
                 if (seq) block = formatSequenceEntity(seq);
             }
-            if (block) parts.push(block);
+            if (block) mentionBlocks.push(block);
         }
     }
 
-    // 5. File attachments
+    const fileBlocks: string[] = [];
     if (fileContents.length > 0) {
-        parts.push('\n\n--- Context from attached files ---');
+        fileBlocks.push('\n\n--- Context from attached files ---');
         for (const f of fileContents) {
-            parts.push(f);
+            fileBlocks.push(f);
         }
     }
 
-    let fullPrompt = parts.join('\n');
-
-    // 6. Token budget enforcement
+    const dynamicParts = [...mentionBlocks, ...fileBlocks];
+    let fullPrompt = [...protectedParts, ...dynamicParts].join('\n');
     let estimated = estimateTokens(fullPrompt);
-    if (estimated > maxContextTokens) {
-        // Truncate from the bottom: remove file attachments first, then lower priority mentions
-        const lines = fullPrompt.split('\n');
-        while (
-            estimateTokens(lines.join('\n')) > maxContextTokens &&
-            lines.length > 20
-        ) {
-            // Find a - line to remove from bottom up
-            let removed = false;
-            for (let i = lines.length - 1; i >= 0; i--) {
-                if (
-                    lines[i].startsWith('[Attached file:') ||
-                    lines[i].startsWith('[') ||
-                    lines[i].startsWith('  ')
-                ) {
-                    lines.splice(i, 1);
-                    removed = true;
-                    break;
-                }
-            }
-            if (!removed) break;
+
+    while (estimated > maxContextTokens && dynamicParts.length > 0) {
+        dynamicParts.pop();
+        fullPrompt = [...protectedParts, ...dynamicParts].join('\n');
+        estimated = estimateTokens(fullPrompt);
+    }
+
+    if (estimated > maxContextTokens && protectedParts.length > 0) {
+        const lastProtectedIndex = protectedParts.length - 1;
+        const lastProtected = protectedParts[lastProtectedIndex];
+        if (lastProtected && lastProtected.length > 200) {
+            protectedParts[lastProtectedIndex] = lastProtected.slice(0, 2000);
+            fullPrompt = [...protectedParts, ...dynamicParts].join('\n');
+            estimated = estimateTokens(fullPrompt);
         }
-        fullPrompt = lines.join('\n');
+    }
+
+    if (estimated > maxContextTokens) {
+        fullPrompt = [...protectedParts].join('\n');
         estimated = estimateTokens(fullPrompt);
     }
 

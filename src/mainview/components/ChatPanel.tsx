@@ -303,6 +303,10 @@ export default function ChatPanel({
             .catch(() => setEmbeddingsAvailable(false));
     }, []);
 
+    useEffect(() => {
+        setCustomSystemPrompt(project?.systemPrompt ?? '');
+    }, [project?.id, project?.systemPrompt]);
+
     const typeIcons: Record<MentionTarget['type'], React.ReactNode> = {
         chapter: <IconFiles size={14} />,
         character: <IconUsers size={14} />,
@@ -1121,10 +1125,52 @@ export default function ChatPanel({
             const retryAbortController = new AbortController();
             abortControllerRef.current = retryAbortController;
 
+            const retryUserMessage = [...precedingMessages]
+                .reverse()
+                .find((message) => message.role === 'user');
+            const retryUserText =
+                typeof retryUserMessage?.content === 'string'
+                    ? retryUserMessage.content
+                    : '';
+
+            let retrySystemPrompt: string | undefined;
+            if (project) {
+                const retryContext = await buildBaseSystemPrompt({
+                    project,
+                    projectId: project.id,
+                    userMessage: retryUserText,
+                    currentChapterId:
+                        activeTabType === 'chapter'
+                            ? (activeTabId ?? undefined)
+                            : undefined,
+                    embeddingsAvailable,
+                    embeddingsEnabled: !!settings?.embeddings?.enabled,
+                    mentions: [],
+                    fileContents: [],
+                    customPrompt: customSystemPrompt || null,
+                    chapterContextMode:
+                        settings?.general.chapterContextMode ?? 'brief',
+                    maxContextTokens:
+                        settings?.general.maxContextTokens ?? 8000,
+                    chapters,
+                    characters,
+                    locations,
+                    organizations,
+                    items,
+                    loreEntries,
+                    scenes,
+                    sequences,
+                    resolvedTemplates,
+                });
+                retrySystemPrompt = retryContext.systemPrompt ?? undefined;
+            } else {
+                retrySystemPrompt = customSystemPrompt || undefined;
+            }
+
             const result = await chatCompletion(endpoint, {
                 enabledModel,
                 messages: precedingMessages,
-                systemPrompt: customSystemPrompt || undefined,
+                systemPrompt: retrySystemPrompt,
                 signal: retryAbortController.signal,
                 onChunk: (chunk) => {
                     streamedContentRef.current += chunk;
