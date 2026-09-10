@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
     IconBolt,
+    IconCheck,
     IconEye,
     IconEyeOff,
     IconKey,
@@ -123,11 +124,14 @@ export default function ProviderCard(props: Props) {
 
     const [showCard, setShowCard] = useState(true);
 
-    const handleModelNameChange = (modelIndex: number, newName: string) => {
+    const handleModelAliasChange = (
+        modelIndex: number,
+        newModelLabel: string
+    ) => {
         setConf((prev) => ({
             ...prev,
             models: prev.models.map((m, i) =>
-                i === modelIndex ? { ...m, name: newName } : m
+                i === modelIndex ? { ...m, alias: newModelLabel } : m
             ),
         }));
     };
@@ -324,24 +328,46 @@ export default function ProviderCard(props: Props) {
                 onClick={(e) => handleClick(e, index, isEditing)}
             >
                 {isEditing ? (
-                    <div style={{ display: 'flex' }}>
+                    <div className={styles.modelEditor}>
                         <input
                             type="text"
-                            value={model.label}
+                            value={model.alias}
+                            placeholder={getModelDisplayName(
+                                model,
+                                settings?.providers.modelDisplayMode || 'label'
+                            )}
                             onChange={(e) =>
-                                handleModelNameChange(index, e.target.value)
+                                handleModelAliasChange(index, e.target.value)
                             }
                             onClick={(e) => e.stopPropagation()}
                             autoFocus
                         />
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveModelEdit(null);
-                            }}
-                        >
-                            <IconX />
-                        </button>
+                        {!!model.alias && (
+                            <>
+                                <button
+                                    className={`${styles.iconBtn} ${styles.reset}`}
+                                    style={{
+                                        position: 'absolute',
+                                        right: '38px',
+                                    }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleModelAliasChange(index, '');
+                                    }}
+                                >
+                                    <IconX />
+                                </button>
+                                <button
+                                    className={`${styles.iconBtn} ${styles.save}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveModelEdit(null);
+                                    }}
+                                >
+                                    <IconCheck />
+                                </button>
+                            </>
+                        )}
                     </div>
                 ) : (
                     <span>
@@ -398,7 +424,7 @@ export default function ProviderCard(props: Props) {
                                     aria-label="Provider Label"
                                 />
                             ) : (
-                                <span>{conf.id}</span>
+                                <span>{conf.label}</span>
                             )}
                             <button
                                 className={`${isEditingProviderLabel ? styles.editing : ''}`}
