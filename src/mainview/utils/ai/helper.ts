@@ -2,7 +2,7 @@ import { ModelDisplayMode } from '../../types';
 import { Model } from './providerHelpers';
 
 export const getModelDisplayName = (model: Model, mode: ModelDisplayMode) => {
-    if (!model.labelType) return model.label;
+    if (!model.alias) return model.label;
 
     switch (mode) {
         case 'both':

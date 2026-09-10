@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
     IconBolt,
+    IconCheck,
+    IconEye,
+    IconEyeOff,
     IconKey,
     IconPencil,
     IconPlus,
@@ -42,9 +45,6 @@ export default function ProviderCard(props: Props) {
     const isAddType = cardType === 'add';
 
     const [check, setCheck] = useState<boolean | null>(false);
-
-    const [apiToggle, setApiToggle] = useState(false);
-    const [apiKey, setApiKey] = useState('');
 
     const [isEditingProviderLabel, setIsEditingProviderLabel] = useState(false);
 
@@ -94,11 +94,15 @@ export default function ProviderCard(props: Props) {
         },
         models: isAddType ? [] : (props.cardData?.config?.models ?? []),
 
-        enabled: isAddType ? false : (props.cardData?.config?.enabled ?? false),
+        enabled: isAddType ? true : (props.cardData?.config?.enabled ?? false),
+        api: isAddType ? '' : (props.cardData?.config?.api ?? ''),
     });
 
-    const prevConfRef = useRef<Provider>(conf);
+    const [apiKey, setApiKey] = useState(conf.api || '');
+    const [showPassword, setShowPassword] = useState(false);
+    const [apiToggle, setApiToggle] = useState<boolean>(!!conf.api);
 
+    const prevConfRef = useRef<Provider>(conf);
     useEffect(() => {
         const prev = prevConfRef.current;
         prevConfRef.current = conf;
@@ -119,6 +123,18 @@ export default function ProviderCard(props: Props) {
         'https://api.example.com';
 
     const [showCard, setShowCard] = useState(true);
+
+    const handleModelAliasChange = (
+        modelIndex: number,
+        newModelLabel: string
+    ) => {
+        setConf((prev) => ({
+            ...prev,
+            models: prev.models.map((m, i) =>
+                i === modelIndex ? { ...m, alias: newModelLabel } : m
+            ),
+        }));
+    };
 
     async function handleDeleteProvider() {
         const index = props.cardData?.index;
@@ -143,7 +159,7 @@ export default function ProviderCard(props: Props) {
                     ...prev,
                     url: {
                         ...prev.url,
-                        base: value,
+                        base: value.trim(),
                     },
                 };
             } else if (name === 'endpoint-value') {
@@ -185,6 +201,21 @@ export default function ProviderCard(props: Props) {
             (settings?.providers.configs.length ?? -1) + 1,
             conf
         );
+    };
+
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const formName = form.name;
+
+        if (formName === 'apiForm') {
+            const formData = new FormData(form);
+            const apiKey = formData.get('apiKey') as string;
+            setConf((prev) => ({
+                ...prev,
+                api: apiKey,
+            }));
+        }
     };
 
     const handleGetModels = async (index: number, url: string) => {
@@ -297,21 +328,46 @@ export default function ProviderCard(props: Props) {
                 onClick={(e) => handleClick(e, index, isEditing)}
             >
                 {isEditing ? (
-                    <div style={{ display: 'flex' }}>
+                    <div className={styles.modelEditor}>
                         <input
                             type="text"
-                            name=""
-                            id=""
+                            value={model.alias}
+                            placeholder={getModelDisplayName(
+                                model,
+                                settings?.providers.modelDisplayMode || 'label'
+                            )}
+                            onChange={(e) =>
+                                handleModelAliasChange(index, e.target.value)
+                            }
                             onClick={(e) => e.stopPropagation()}
+                            autoFocus
                         />
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveModelEdit(null);
-                            }}
-                        >
-                            <IconX />
-                        </button>
+                        {!!model.alias && (
+                            <>
+                                <button
+                                    className={`${styles.iconBtn} ${styles.reset}`}
+                                    style={{
+                                        position: 'absolute',
+                                        right: '38px',
+                                    }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleModelAliasChange(index, '');
+                                    }}
+                                >
+                                    <IconX />
+                                </button>
+                                <button
+                                    className={`${styles.iconBtn} ${styles.save}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveModelEdit(null);
+                                    }}
+                                >
+                                    <IconCheck />
+                                </button>
+                            </>
+                        )}
                     </div>
                 ) : (
                     <span>
@@ -330,9 +386,7 @@ export default function ProviderCard(props: Props) {
     return (
         <div
             key={
-                isAddType
-                    ? generatedId
-                    : `react_key_${props.cardData?.config.id ?? generatedId}`
+                isAddType ? generatedId : `react_key_${conf.id ?? generatedId}`
             }
             className={`${styles.providerCard} ${isAddType ? styles.addCard : styles.defaultCard} ${!conf.enabled && styles.disabled}`}
             style={{ display: `${showCard ? '' : 'none'}` }}
@@ -370,7 +424,7 @@ export default function ProviderCard(props: Props) {
                                     aria-label="Provider Label"
                                 />
                             ) : (
-                                <span>{props.cardData?.config.label}</span>
+                                <span>{conf.label}</span>
                             )}
                             <button
                                 className={`${isEditingProviderLabel ? styles.editing : ''}`}
@@ -477,6 +531,7 @@ export default function ProviderCard(props: Props) {
                                 type="checkbox"
                                 name=""
                                 id=""
+                                checked={apiToggle}
                                 onChange={() => setApiToggle(!apiToggle)}
                             />
                             <label htmlFor={`api-${conf.id}`}>
@@ -494,17 +549,94 @@ export default function ProviderCard(props: Props) {
                         )}
                     </div>
                     {apiToggle && (
-                        <form onSubmit={handleSaveKey}>
-                            <input
-                                id={`api-${conf.id}`}
-                                type="password"
-                                placeholder="Paste your API key here..."
-                                value={apiKey}
-                                onChange={(e) => setApiKey(e.target.value)}
-                                aria-label="API key"
-                            />
+                        <form name="apiForm" onSubmit={handleSubmit}>
+                            <div style={{ position: 'relative', flex: 1 }}>
+                                {!apiKey && (
+                                    <span
+                                        style={{
+                                            position: 'absolute',
+                                            left: 6,
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            padding: 4,
+                                            paddingTop: 12,
+                                            color: 'var(--text-muted)',
+                                        }}
+                                    >
+                                        <IconKey size={18} />
+                                    </span>
+                                )}
+                                <input
+                                    id={`api-${conf.id}`}
+                                    name="apiKey"
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder="Paste your API key here..."
+                                    value={apiKey ?? ''}
+                                    aria-label="API key"
+                                    onChange={(e) => setApiKey(e.target.value)}
+                                    style={{
+                                        paddingLeft: 36,
+                                        paddingRight: 36,
+                                    }}
+                                />
+                                {!!apiKey && (
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setShowPassword(!showPassword)
+                                        }
+                                        aria-label={
+                                            showPassword
+                                                ? 'Hide API key'
+                                                : 'Show API key'
+                                        }
+                                        style={{
+                                            position: 'absolute',
+                                            left: 6,
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            padding: 4,
+                                            color: 'var(--text-muted)',
+                                        }}
+                                    >
+                                        {showPassword ? (
+                                            <IconEyeOff size={14} />
+                                        ) : (
+                                            <IconEye size={14} />
+                                        )}
+                                    </button>
+                                )}
+                                {apiKey !== conf.api && (
+                                    <button
+                                        type="reset"
+                                        className={`${styles.iconBtn} ${styles.reset}`}
+                                        style={{
+                                            position: 'absolute',
+                                            right: 6,
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            padding: 4,
+                                            color: 'var(--text-muted)',
+                                        }}
+                                        onClick={() =>
+                                            setApiKey(conf.api ?? '')
+                                        }
+                                    >
+                                        <IconX />
+                                    </button>
+                                )}
+                            </div>
 
-                            <button type="submit">
+                            <button type="submit" style={{ width: 150 }}>
                                 <IconKey /> Save key
                             </button>
                         </form>
@@ -517,6 +649,7 @@ export default function ProviderCard(props: Props) {
 
                         <button
                             title="Get models"
+                            style={{ width: 150, height: 35 }}
                             onClick={() => {
                                 if (isAddType && !props.cardData?.index) {
                                     handleGetModels(
@@ -525,7 +658,7 @@ export default function ProviderCard(props: Props) {
                                     );
                                 } else if (
                                     props.cardData?.index &&
-                                    props.cardData?.config.url.endpoint.value
+                                    conf.url.endpoint.value
                                 ) {
                                     handleGetModels(
                                         props.cardData?.index,

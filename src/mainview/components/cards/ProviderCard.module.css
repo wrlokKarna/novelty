@@ -46,6 +46,7 @@
     button {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 4px;
 
         &:hover {
@@ -68,7 +69,8 @@
             background: #494a4b;
         }
 
-        &.delete {
+        &.delete,
+        &.reset {
             /*display: flex;*/
             /*align-items: center;*/
             /*justify-content: center;*/
@@ -98,11 +100,27 @@
             }
         }
 
+        &.save {
+            color: greenyellow;
+            &:hover {
+                color: greenyellow;
+            }
+        }
+
         svg {
             width: 22px;
             height: 22px;
         }
     }
+}
+
+.providerCard input::-ms-reveal {
+    display: none;
+}
+.providerCard input::-webkit-credentials-auto-fill-button {
+    visibility: hidden;
+    position: absolute;
+    right: 0;
 }
 
 .providerCardHeader {
@@ -233,6 +251,10 @@
             border: 1px solid #393a3b;
             padding: 6px 18px;
 
+            &:hover {
+                border: 1px solid var(--accent);
+            }
+
             &.active {
                 color: var(--text-accent);
                 border: 1px solid var(--accent);
@@ -241,6 +263,25 @@
                 padding: 0px;
                 input {
                     margin: 0px;
+                    background: transparent;
+                    border: none;
+                    outline: none;
+                    appearance: none;
+                }
+
+                .modelEditor {
+                    position: relative;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    gap: 8px;
+                    padding-right: 12px;
+
+                    button {
+                        margin-top: 6px;
+                        padding: 0px;
+                        border: none;
+                    }
                 }
             }
         }
