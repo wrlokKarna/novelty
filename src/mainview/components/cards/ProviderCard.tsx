@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
     IconBolt,
-    IconCheck,
     IconEye,
     IconEyeOff,
     IconKey,
@@ -19,9 +18,10 @@ import {
 //import { div } from 'framer-motion/client';
 
 import type { Model, Provider } from './../../utils/ai/providerHelpers';
-import { getModelDisplayName } from '../../utils/ai/helper';
 
 import styles from './ProviderCard.module.css';
+
+import { ModelListRenderer } from '../ai/ModelListRenderer';
 
 type DefaultCardProps = {
     cardType?: 'default';
@@ -282,103 +282,12 @@ export default function ProviderCard(props: Props) {
         return { enabled, disabled };
     }, [conf.models, settings?.providers.configs]);
 
-    const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const renderModelButton = ({
-        model,
-        index,
-    }: {
-        model: Model;
-        index: number;
-    }) => {
-        const isEditing = activeModelEdit === index;
-
-        const handleClick = (
-            e: React.MouseEvent<HTMLElement>,
-            index: number,
-            isEditing: boolean
-        ) => {
-            const detailValue = e.detail;
-
-            if (clickTimeoutRef.current) {
-                clearTimeout(clickTimeoutRef.current);
-                clickTimeoutRef.current = null;
-
-                setActiveModelEdit(isEditing ? null : index);
-            } else {
-                clickTimeoutRef.current = setTimeout(() => {
-                    clickTimeoutRef.current = null;
-
-                    if (detailValue === 1) {
-                        toggleModel(index);
-                    }
-                }, 190);
-            }
-        };
-
-        return (
-            <button
-                type="button"
-                key={index}
-                title="click to Activate or double click to Edit"
-                className={`${model.enabled ? styles.active : ''} ${activeModelEdit === index ? styles.editing : ''}`}
-                style={{
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                }}
-                onClick={(e) => handleClick(e, index, isEditing)}
-            >
-                {isEditing ? (
-                    <div className={styles.modelEditor}>
-                        <input
-                            type="text"
-                            value={model.alias}
-                            placeholder={getModelDisplayName(
-                                model,
-                                settings?.providers.modelDisplayMode || 'label'
-                            )}
-                            onChange={(e) =>
-                                handleModelAliasChange(index, e.target.value)
-                            }
-                            onClick={(e) => e.stopPropagation()}
-                            autoFocus
-                        />
-                        {!!model.alias && (
-                            <>
-                                <button
-                                    className={`${styles.iconBtn} ${styles.reset}`}
-                                    style={{
-                                        position: 'absolute',
-                                        right: '38px',
-                                    }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleModelAliasChange(index, '');
-                                    }}
-                                >
-                                    <IconX />
-                                </button>
-                                <button
-                                    className={`${styles.iconBtn} ${styles.save}`}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setActiveModelEdit(null);
-                                    }}
-                                >
-                                    <IconCheck />
-                                </button>
-                            </>
-                        )}
-                    </div>
-                ) : (
-                    <span>
-                        {getModelDisplayName(
-                            model,
-                            settings?.providers.modelDisplayMode || 'label'
-                        )}
-                    </span>
-                )}
-            </button>
-        );
+    const handleFetchModelsClick = () => {
+        if (isAddType && !props.cardData?.index) {
+            handleGetModels(-1, `${conf.url.base}/${conf.url.endpoint.value}`);
+        } else if (props.cardData?.index && conf.url.endpoint.value) {
+            handleGetModels(props.cardData?.index, previewUrl);
+        }
     };
 
     const generatedId = React.useId();
@@ -646,26 +555,10 @@ export default function ProviderCard(props: Props) {
                 <div className={styles.modelsSection}>
                     <div className={styles.settingsRow}>
                         <label>Models</label>
-
                         <button
                             title="Get models"
-                            style={{ width: 150, height: 35 }}
-                            onClick={() => {
-                                if (isAddType && !props.cardData?.index) {
-                                    handleGetModels(
-                                        -1,
-                                        `${conf.url.base}/${conf.url.endpoint.value}`
-                                    );
-                                } else if (
-                                    props.cardData?.index &&
-                                    conf.url.endpoint.value
-                                ) {
-                                    handleGetModels(
-                                        props.cardData?.index,
-                                        previewUrl
-                                    );
-                                }
-                            }}
+                            className={styles.getModelsBtn} // Moved inline styles here
+                            onClick={handleFetchModelsClick}
                         >
                             <IconRefresh />
                             <span className="txt">get models</span>
@@ -674,40 +567,33 @@ export default function ProviderCard(props: Props) {
 
                     <div>
                         {groupedModels.enabled.length > 0 && (
-                            <div
-                                className={`${styles.modelsList} pill-container`}
-                                style={{
-                                    display: 'flex',
-                                    gap: '8px',
-                                    flexWrap: 'wrap',
+                            <ModelListRenderer
+                                models={groupedModels.enabled}
+                                {...{
+                                    activeModelEdit,
+                                    settings,
+                                    setActiveModelEdit,
+                                    toggleModel,
+                                    handleModelAliasChange,
                                 }}
-                            >
-                                {groupedModels.enabled.map(renderModelButton)}
-                            </div>
+                            />
                         )}
                         {groupedModels.disabled.length > 0 && (
-                            <details>
-                                <summary
-                                    style={{
-                                        cursor: 'pointer',
-                                        margin: '8px 0px',
-                                    }}
-                                >
+                            <details className={styles.disabledDetails}>
+                                <summary>
                                     Disabled Models (
                                     {groupedModels.disabled.length})
                                 </summary>
-                                <div
-                                    className={`${styles.modelsList} pill-container`}
-                                    style={{
-                                        display: 'flex',
-                                        gap: '8px',
-                                        flexWrap: 'wrap',
+                                <ModelListRenderer
+                                    models={groupedModels.disabled}
+                                    {...{
+                                        activeModelEdit,
+                                        settings,
+                                        setActiveModelEdit,
+                                        toggleModel,
+                                        handleModelAliasChange,
                                     }}
-                                >
-                                    {groupedModels.disabled.map(
-                                        renderModelButton
-                                    )}
-                                </div>
+                                />
                             </details>
                         )}
                     </div>
