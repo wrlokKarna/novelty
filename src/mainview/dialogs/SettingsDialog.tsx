@@ -16,11 +16,8 @@ import localStyles from '../components/Dialog.module.css';
 import SplitDialogLayout from '../ui/layout/SplitDialogLayout';
 
 import ProviderCard from '../components/cards/ProviderCard';
-import {
-    DEFAULT_PROVIDERS,
-    DEFAULT_PROVIDERS_ICONS,
-} from './../constants/ai/provider_consts';
-import { defProvsConnChecker } from '../services/ai';
+import { DEFAULT_PROVIDERS_ICONS } from './../constants/ai/provider_consts';
+
 import { Provider } from '../utils/ai/providerHelpers';
 
 interface SettingsRoute {
@@ -725,7 +722,26 @@ function AssetLibraryTab() {
 function ProvidersTab() {
     const { settings, updateProviders, isLocked, availableProviders } =
         useSettings();
+    /*
+        const [showNewProvider, setShowNewProvider, updateProviderConf,
+    deleteProvider] = useState(false);
+        */
     const [showNewProvider, setShowNewProvider] = useState(false);
+    const [ollama, setOllama] = useState(false);
+
+    function handelDefaultProvidersClick(p: Provider) {
+        setOllama(!ollama);
+        //const provider = settings?.providers.configs  // get index
+
+        console.log('[Add Prov]: ', p.label);
+        if (ollama) {
+            // deleteProvider()
+        } else {
+            //updateProviderConf()
+        }
+    }
+
+    // creation && deletion
 
     return (
         <div className={styles.tabContent} id="settings-section-providers-list">
@@ -761,7 +777,10 @@ function ProvidersTab() {
                         {availableProviders.map((p) => (
                             <button
                                 key={p.id || p.label}
-                                onClick={() => alert(`add: ${p.label}`)}
+                                style={{
+                                    backgroundColor: `${ollama ? 'green' : ''}`,
+                                }}
+                                onClick={() => handelDefaultProvidersClick(p)}
                             >
                                 <span>{p.label}</span>
                                 <img
