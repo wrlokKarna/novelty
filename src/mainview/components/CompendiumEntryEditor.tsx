@@ -15,6 +15,7 @@ import { IconX, IconPhoto } from '@tabler/icons-react';
 import { RichTextEditor } from './RichTextEditor';
 import { isFieldVisible } from '../templates/fieldVisibility';
 import TreeFieldEditor from './TreeFieldEditor';
+import TemplateTab from './template/TemplateTab';
 
 interface CompendiumEntryEditorProps {
     entry: Character | Location | Organization | Item | LoreEntry;
@@ -117,224 +118,241 @@ export default function CompendiumEntryEditor({
                     )}
                 </div>
             ) : (
-                <div className="entry-content-grid">
-                    <div className="entry-fields-column">
-                        <div className="entry-fields">
-                            {regularFields.map((field) => (
-                                <CustomField
-                                    key={field.name}
-                                    field={field}
-                                    value={
-                                        templateData?.[field.name] as
-                                            | string
-                                            | number
-                                            | boolean
-                                            | string[]
-                                            | undefined
-                                    }
-                                    onUpdate={(value) =>
-                                        handleFieldUpdate(field.name, value)
-                                    }
-                                    entry={
-                                        entry as { id: string; name: string }
-                                    }
-                                    characters={characters}
-                                    locations={locations}
-                                    organizations={organizations}
-                                    items={items}
-                                    loreEntries={loreEntries}
-                                />
-                            ))}
+                <>
+                    <TemplateTab tmplFields={fields} />
+                    <div className="entry-content-grid">
+                        <div className="entry-fields-column">
+                            <div className="entry-fields">
+                                {regularFields.map((field) => (
+                                    <CustomField
+                                        key={field.name}
+                                        field={field}
+                                        value={
+                                            templateData?.[field.name] as
+                                                | string
+                                                | number
+                                                | boolean
+                                                | string[]
+                                                | undefined
+                                        }
+                                        onUpdate={(value) =>
+                                            handleFieldUpdate(field.name, value)
+                                        }
+                                        entry={
+                                            entry as {
+                                                id: string;
+                                                name: string;
+                                            }
+                                        }
+                                        characters={characters}
+                                        locations={locations}
+                                        organizations={organizations}
+                                        items={items}
+                                        loreEntries={loreEntries}
+                                    />
+                                ))}
+                            </div>
                         </div>
-                    </div>
 
-                    <div className="entry-sidebar-column">
-                        {portraitFields.map((field) => {
-                            const portraitValue = templateData?.[field.name] as
-                                string | null | undefined;
-                            return (
-                                <div
-                                    key={field.name}
-                                    className="sidebar-section"
-                                >
-                                    <div className="section-label">
-                                        {field.label.toUpperCase()}
-                                    </div>
-                                    <div className="portrait-box">
-                                        {portraitValue ? (
-                                            <img
-                                                src={portraitValue}
-                                                alt={field.label}
-                                                className="portrait-image"
-                                            />
-                                        ) : (
-                                            <span className="portrait-placeholder">
-                                                No {field.label.toLowerCase()}{' '}
-                                                yet
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="portrait-controls">
-                                        <div className="portrait-options-wrapper">
-                                            <button
-                                                className="icon-btn"
-                                                title="Options"
-                                                onClick={() =>
-                                                    setShowPortraitOptions(
-                                                        showPortraitOptions ===
-                                                            field.name
-                                                            ? null
-                                                            : field.name
-                                                    )
-                                                }
-                                            >
-                                                ⋮
-                                            </button>
-                                            {showPortraitOptions ===
-                                                field.name && (
-                                                <div className="portrait-dropdown">
-                                                    {portraitValue && (
-                                                        <button
-                                                            onClick={() => {
-                                                                handleFieldUpdate(
-                                                                    field.name,
-                                                                    null
-                                                                );
-                                                                setShowPortraitOptions(
-                                                                    null
-                                                                );
-                                                            }}
-                                                        >
-                                                            Remove
-                                                        </button>
-                                                    )}
-                                                </div>
+                        <div className="entry-sidebar-column">
+                            {portraitFields.map((field) => {
+                                const portraitValue = templateData?.[
+                                    field.name
+                                ] as string | null | undefined;
+                                return (
+                                    <div
+                                        key={field.name}
+                                        className="sidebar-section"
+                                    >
+                                        <div className="section-label">
+                                            {field.label.toUpperCase()}
+                                        </div>
+                                        <div className="portrait-box">
+                                            {portraitValue ? (
+                                                <img
+                                                    src={portraitValue}
+                                                    alt={field.label}
+                                                    className="portrait-image"
+                                                />
+                                            ) : (
+                                                <span className="portrait-placeholder">
+                                                    No{' '}
+                                                    {field.label.toLowerCase()}{' '}
+                                                    yet
+                                                </span>
                                             )}
                                         </div>
-                                        <div className="portrait-pagination">
-                                            {/* Portrait field */}
-                                        </div>
-                                        <button
-                                            className="icon-btn"
-                                            title={`Add ${field.label}`}
-                                            onClick={() => {
-                                                const input =
-                                                    document.createElement(
-                                                        'input'
-                                                    );
-                                                input.type = 'file';
-                                                input.accept = 'image/*';
-                                                input.onchange = (e: Event) => {
-                                                    const file = (
-                                                        e.target as HTMLInputElement
-                                                    ).files?.[0];
-                                                    if (file)
-                                                        handlePortraitFile(
-                                                            field.name,
-                                                            file
-                                                        );
-                                                };
-                                                input.click();
-                                            }}
-                                        >
-                                            +
-                                        </button>
-                                    </div>
-                                </div>
-                            );
-                        })}
-
-                        {imagesFields.map((field) => {
-                            const images =
-                                (templateData?.[field.name] as string[]) || [];
-                            return (
-                                <div
-                                    key={field.name}
-                                    className="sidebar-section"
-                                >
-                                    <div className="section-label">
-                                        {field.label.toUpperCase()}
-                                    </div>
-                                    {images.length > 0 ? (
-                                        <div className="asset-list">
-                                            {images.map((img, i) => (
-                                                <div
-                                                    key={i}
-                                                    className="asset-item"
-                                                    style={{
-                                                        flexDirection: 'column',
-                                                        gap: '6px',
-                                                    }}
+                                        <div className="portrait-controls">
+                                            <div className="portrait-options-wrapper">
+                                                <button
+                                                    className="icon-btn"
+                                                    title="Options"
+                                                    onClick={() =>
+                                                        setShowPortraitOptions(
+                                                            showPortraitOptions ===
+                                                                field.name
+                                                                ? null
+                                                                : field.name
+                                                        )
+                                                    }
                                                 >
-                                                    <img
-                                                        src={img}
-                                                        alt={`${field.label} ${i + 1}`}
-                                                        className="gallery-thumb"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        className="icon-btn"
-                                                        onClick={() =>
-                                                            removeGalleryImage(
-                                                                field.name,
-                                                                i
-                                                            )
-                                                        }
-                                                    >
-                                                        <IconX size={14} />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div
-                                            className="portrait-box"
-                                            style={{
-                                                minHeight: '60px',
-                                                marginBottom: '6px',
-                                            }}
-                                        >
-                                            <span className="portrait-placeholder">
-                                                No {field.label.toLowerCase()}{' '}
-                                                yet
-                                            </span>
-                                        </div>
-                                    )}
-                                    <div
-                                        className="portrait-controls"
-                                        style={{ justifyContent: 'flex-end' }}
-                                    >
-                                        <button
-                                            className="icon-btn"
-                                            title={`Add ${field.label}`}
-                                            onClick={() => {
-                                                const input =
-                                                    document.createElement(
-                                                        'input'
-                                                    );
-                                                input.type = 'file';
-                                                input.accept = 'image/*';
-                                                input.onchange = (e: Event) => {
-                                                    const file = (
-                                                        e.target as HTMLInputElement
-                                                    ).files?.[0];
-                                                    if (file)
-                                                        handleGalleryFile(
-                                                            field.name,
-                                                            file
+                                                    ⋮
+                                                </button>
+                                                {showPortraitOptions ===
+                                                    field.name && (
+                                                    <div className="portrait-dropdown">
+                                                        {portraitValue && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    handleFieldUpdate(
+                                                                        field.name,
+                                                                        null
+                                                                    );
+                                                                    setShowPortraitOptions(
+                                                                        null
+                                                                    );
+                                                                }}
+                                                            >
+                                                                Remove
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="portrait-pagination">
+                                                {/* Portrait field */}
+                                            </div>
+                                            <button
+                                                className="icon-btn"
+                                                title={`Add ${field.label}`}
+                                                onClick={() => {
+                                                    const input =
+                                                        document.createElement(
+                                                            'input'
                                                         );
-                                                };
-                                                input.click();
+                                                    input.type = 'file';
+                                                    input.accept = 'image/*';
+                                                    input.onchange = (
+                                                        e: Event
+                                                    ) => {
+                                                        const file = (
+                                                            e.target as HTMLInputElement
+                                                        ).files?.[0];
+                                                        if (file)
+                                                            handlePortraitFile(
+                                                                field.name,
+                                                                file
+                                                            );
+                                                    };
+                                                    input.click();
+                                                }}
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+
+                            {imagesFields.map((field) => {
+                                const images =
+                                    (templateData?.[field.name] as string[]) ||
+                                    [];
+                                return (
+                                    <div
+                                        key={field.name}
+                                        className="sidebar-section"
+                                    >
+                                        <div className="section-label">
+                                            {field.label.toUpperCase()}
+                                        </div>
+                                        {images.length > 0 ? (
+                                            <div className="asset-list">
+                                                {images.map((img, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className="asset-item"
+                                                        style={{
+                                                            flexDirection:
+                                                                'column',
+                                                            gap: '6px',
+                                                        }}
+                                                    >
+                                                        <img
+                                                            src={img}
+                                                            alt={`${field.label} ${i + 1}`}
+                                                            className="gallery-thumb"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            className="icon-btn"
+                                                            onClick={() =>
+                                                                removeGalleryImage(
+                                                                    field.name,
+                                                                    i
+                                                                )
+                                                            }
+                                                        >
+                                                            <IconX size={14} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div
+                                                className="portrait-box"
+                                                style={{
+                                                    minHeight: '60px',
+                                                    marginBottom: '6px',
+                                                }}
+                                            >
+                                                <span className="portrait-placeholder">
+                                                    No{' '}
+                                                    {field.label.toLowerCase()}{' '}
+                                                    yet
+                                                </span>
+                                            </div>
+                                        )}
+                                        <div
+                                            className="portrait-controls"
+                                            style={{
+                                                justifyContent: 'flex-end',
                                             }}
                                         >
-                                            +
-                                        </button>
+                                            <button
+                                                className="icon-btn"
+                                                title={`Add ${field.label}`}
+                                                onClick={() => {
+                                                    const input =
+                                                        document.createElement(
+                                                            'input'
+                                                        );
+                                                    input.type = 'file';
+                                                    input.accept = 'image/*';
+                                                    input.onchange = (
+                                                        e: Event
+                                                    ) => {
+                                                        const file = (
+                                                            e.target as HTMLInputElement
+                                                        ).files?.[0];
+                                                        if (file)
+                                                            handleGalleryFile(
+                                                                field.name,
+                                                                file
+                                                            );
+                                                    };
+                                                    input.click();
+                                                }}
+                                            >
+                                                +
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
+                </>
             )}
         </div>
     );
