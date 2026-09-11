@@ -4,7 +4,7 @@ import { resolve } from 'path';
 
 export default defineConfig({
     plugins: [
-        react(), // Inside your defineconfig plugins array
+        react(),
         {
             name: 'fix-electrobun-paths',
             enforce: 'post',
@@ -17,8 +17,19 @@ export default defineConfig({
         },
     ],
     root: 'src',
-    // Using an empty string or './' for base is vital for relative paths
     base: './',
+    resolve: {
+        alias: {
+            // Maps '@' to your 'src' directory
+            '@': resolve(__dirname, 'src'),
+            '@client': resolve(__dirname, 'src/mainview'),
+            '@bun': resolve(__dirname, 'src/bun'),
+            '@shared': resolve(__dirname, 'src/shared'),
+            // Alternatively, you can add specific shortcuts:
+            // '@components': resolve(__dirname, 'src/components'),
+            // '@utils': resolve(__dirname, 'src/utils'),
+        },
+    },
     build: {
         outDir: '../dist',
         emptyOutDir: true,
