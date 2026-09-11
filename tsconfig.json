@@ -19,10 +19,10 @@
         "noFallthroughCasesInSwitch": true,
         "types": ["node", "bun-types"],
         "paths": {
-            "@/*": ["./src/*"],
             "@client/*": ["./src/mainview/*"],
             "@bun/*": ["./src/bun/*"],
-            "@shared/*": ["./src/shared/*"]
+            "@shared/*": ["./src/shared/*"],
+            "@/*": ["./src/*"]
         }
     },
     "include": ["src"],

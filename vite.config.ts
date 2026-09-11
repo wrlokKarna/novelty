@@ -1,10 +1,12 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
+import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
     plugins: [
         react(),
+        tsconfigPaths(),
         {
             name: 'fix-electrobun-paths',
             enforce: 'post',
@@ -18,18 +20,6 @@ export default defineConfig({
     ],
     root: 'src',
     base: './',
-    resolve: {
-        alias: {
-            // Maps '@' to your 'src' directory
-            '@': resolve(__dirname, 'src'),
-            '@client': resolve(__dirname, 'src/mainview'),
-            '@bun': resolve(__dirname, 'src/bun'),
-            '@shared': resolve(__dirname, 'src/shared'),
-            // Alternatively, you can add specific shortcuts:
-            // '@components': resolve(__dirname, 'src/components'),
-            // '@utils': resolve(__dirname, 'src/utils'),
-        },
-    },
     build: {
         outDir: '../dist',
         emptyOutDir: true,

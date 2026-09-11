@@ -1,5 +1,10 @@
 {
     "mdx-preview.preview.enableScripts": true,
     "editor.formatOnSave": true,
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "js/ts.preferences.importModuleSpecifier": "non-relative",
+    "js/ts.preferences.importModuleSpecifierEnding": "auto"
+
+    //"typescript.preferences.importModuleSpecifierPreference": "non-relative",
+    //"typescript.preferences.importModuleSpecifierEnding": "auto",
 }
