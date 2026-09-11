@@ -21,8 +21,9 @@ import {
     //DEFAULT_PROVIDERS,
     DEFAULT_PROVIDERS_ICONS,
 } from './../../features/ai/constants/provider_consts';
-import { defProvsConnChecker } from './../../services/ai';
+//import { defProvsConnChecker } from './../../services/ai';
 import { Provider } from '../../utils/ai/providerHelpers';
+
 interface SettingsRoute {
     tab: SettingsDialogActiveTab;
     section?: string;
@@ -725,7 +726,26 @@ function AssetLibraryTab() {
 function ProvidersTab() {
     const { settings, updateProviders, isLocked, availableProviders } =
         useSettings();
+    /*
+        const [showNewProvider, setShowNewProvider, updateProviderConf,
+    deleteProvider] = useState(false);
+        */
     const [showNewProvider, setShowNewProvider] = useState(false);
+    const [ollama, setOllama] = useState(false);
+
+    function handelDefaultProvidersClick(p: Provider) {
+        setOllama(!ollama);
+        //const provider = settings?.providers.configs  // get index
+
+        console.log('[Add Prov]: ', p.label);
+        if (ollama) {
+            // deleteProvider()
+        } else {
+            //updateProviderConf()
+        }
+    }
+
+    // creation && deletion
 
     return (
         <div className={styles.tabContent} id="settings-section-providers-list">
@@ -761,7 +781,10 @@ function ProvidersTab() {
                         {availableProviders.map((p) => (
                             <button
                                 key={p.id || p.label}
-                                onClick={() => alert(`add: ${p.label}`)}
+                                style={{
+                                    backgroundColor: `${ollama ? 'green' : ''}`,
+                                }}
+                                onClick={() => handelDefaultProvidersClick(p)}
                             >
                                 <span>{p.label}</span>
                                 <img
