@@ -52,7 +52,7 @@ import type {
 import { parseEntryData, parseAllEntryData } from '../services/entryParser';
 import type { ParsedEntry } from '../services/entryParser';
 import type { RichTextEditorHandle } from './RichTextEditor';
-import { checkEmbeddingsAvailable } from '../services/contextEngine';
+import { checkEmbeddingsAvailable } from '../services/context_engine_requests';
 import {
     appendSystemPromptSection,
     buildBaseSystemPrompt,

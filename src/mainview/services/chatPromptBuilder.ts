@@ -1,5 +1,5 @@
 import type { CompendiumCategory, Project } from '../types';
-import { buildAIContext } from './contextEngine';
+import { buildAIContext } from './context_engine_requests';
 import { buildContext, type BuildContextParams } from './contextBuilder';
 
 export interface BuildBaseSystemPromptParams extends Omit<
