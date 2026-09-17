@@ -52,11 +52,15 @@ import type {
 import { parseEntryData, parseAllEntryData } from '../services/entryParser';
 import type { ParsedEntry } from '../services/entryParser';
 import type { RichTextEditorHandle } from './RichTextEditor';
-import { buildContext } from '../services/contextBuilder';
+import { checkEmbeddingsAvailable } from '../services/context_engine_requests';
 import {
-    buildAIContext,
-    checkEmbeddingsAvailable,
-} from '../services/contextEngine';
+    appendSystemPromptSection,
+    buildBaseSystemPrompt,
+    buildCreateEntryPrompt,
+    buildExtractionPrompt,
+    buildStructurePrompt,
+    buildTitlePrompt,
+} from '../services/chatPromptBuilder';
 import { getTextSource } from '../services/textExtractor';
 import type { ExtractionSource } from '../services/textExtractor';
 import { useSettings } from '../contexts/SettingsContext';
@@ -299,6 +303,10 @@ export default function ChatPanel({
             .catch(() => setEmbeddingsAvailable(false));
     }, []);
 
+    useEffect(() => {
+        setCustomSystemPrompt(project?.systemPrompt ?? '');
+    }, [project?.id, project?.systemPrompt]);
+
     const typeIcons: Record<MentionTarget['type'], React.ReactNode> = {
         chapter: <IconFiles size={14} />,
         character: <IconUsers size={14} />,
@@ -480,54 +488,38 @@ export default function ChatPanel({
                 settings?.general.chapterContextMode ?? 'brief';
             const maxContextTokens = settings?.general.maxContextTokens ?? 8000;
 
-            let ctxResult: {
-                systemPrompt: string;
-                estimatedTokens?: number;
-                tokenEstimate?: number;
-            };
+            const ctxResult = await buildBaseSystemPrompt({
+                project,
+                projectId: project.id,
+                userMessage: text,
+                currentChapterId:
+                    activeTabType === 'chapter'
+                        ? (activeTabId ?? undefined)
+                        : undefined,
+                embeddingsAvailable,
+                embeddingsEnabled: !!settings?.embeddings?.enabled,
+                mentions: parsedMentions,
+                fileContents,
+                customPrompt: customSystemPrompt || null,
+                chapterContextMode,
+                maxContextTokens,
+                chapters,
+                characters,
+                locations,
+                organizations,
+                items,
+                loreEntries,
+                scenes,
+                sequences,
+                resolvedTemplates,
+            });
 
-            if (embeddingsAvailable && settings?.embeddings?.enabled) {
-                const engineResult = await buildAIContext({
-                    projectId: project.id,
-                    userMessage: text,
-                    currentChapterId:
-                        activeTabType === 'chapter'
-                            ? (activeTabId ?? undefined)
-                            : undefined,
-                    mentionTargets: parsedMentions,
-                    fileContents,
-                    customPrompt: customSystemPrompt || null,
-                    chapterContextMode,
-                    tokenBudget: maxContextTokens,
-                });
-                ctxResult = {
-                    systemPrompt: engineResult.systemPrompt,
-                    tokenEstimate: engineResult.tokenEstimate,
+            if (ctxResult.systemPrompt) {
+                systemPromptMessage = {
+                    role: 'system',
+                    content: ctxResult.systemPrompt,
                 };
-            } else {
-                ctxResult = buildContext({
-                    project,
-                    mentions: parsedMentions,
-                    fileContents,
-                    customPrompt: customSystemPrompt || null,
-                    chapterContextMode,
-                    maxContextTokens,
-                    chapters,
-                    characters,
-                    locations,
-                    organizations,
-                    items,
-                    loreEntries,
-                    scenes,
-                    sequences,
-                    resolvedTemplates,
-                });
             }
-
-            systemPromptMessage = {
-                role: 'system',
-                content: ctxResult.systemPrompt,
-            };
         }
 
         // --- Slash command detection ---
@@ -549,6 +541,8 @@ export default function ChatPanel({
             sequences: StorySequence & { sceneIndices: number[] }[];
         } | null;
         let structureMode: 'create' | 'merge' | 'replace' = 'create';
+        let analysisInput = '';
+        let modificationContext: string | undefined;
 
         if (ANALYSIS_COMMANDS.has(command)) {
             isAnalysisCommand = true;
@@ -611,66 +605,10 @@ export default function ChatPanel({
             }
             if (userInput) parts.push(`\nAdditional context: ${userInput}`);
 
-            const analysisInput = parts.join('\n');
+            analysisInput = parts.join('\n');
 
             if (systemPromptMessage) {
-                const bt = '\x60\x60\x60';
-
-                if (command === 'generatestructure') {
-                    structureMode = 'create';
-                    systemPromptMessage.content =
-                        'You are a senior structural editor helping a writer plan a new chapter.\n\n' +
-                        (analysisInput
-                            ? `Chapter context:\n${analysisInput}\n\n`
-                            : '') +
-                        'The writer has provided a pitch for this chapter. Analyze the pitch and break it down into a structured arrangement of scenes and sequences.\n\n' +
-                        'Provide your structural analysis, then output the chapter structure as a JSON code block:\n' +
-                        bt +
-                        'structure-data\n' +
-                        '{\n' +
-                        '  "scenes": [\n' +
-                        '    {"title": "...", "summary": "...", "setting": "...", "charactersPresent": ["character name", ...], "keyEvents": ["event description", ...], "conflict": "...", "duration": "..."}\n' +
-                        '  ],\n' +
-                        '  "sequences": [\n' +
-                        '    {"title": "...", "summary": "...", "sceneIndices": [0, 1]}\n' +
-                        '  ]\n' +
-                        '}\n' +
-                        bt +
-                        '\n\nRules:\n' +
-                        '- Each scene is a discrete moment with a single location/time\n' +
-                        '- Sequences group related scenes into narrative units\n' +
-                        '- Scenes not in any sequence appear at chapter level\n' +
-                        '- sceneIndices refer to the scenes array (0-indexed)\n' +
-                        '- charactersPresent: array of character name strings\n' +
-                        '- keyEvents: array of brief event description strings';
-                } else if (command === 'extractstructure') {
-                    structureMode = 'create';
-                    systemPromptMessage.content =
-                        "You are a senior structural editor extracting structure from a chapter's text.\n\n" +
-                        (analysisInput
-                            ? `Chapter context:\n${analysisInput}\n\n`
-                            : '') +
-                        'Read the chapter text and identify its natural structure. Extract discrete scenes and group them into sequences where appropriate.\n\n' +
-                        'Briefly describe what you found, then output the structure as a JSON code block:\n' +
-                        bt +
-                        'structure-data\n' +
-                        '{\n' +
-                        '  "scenes": [\n' +
-                        '    {"title": "...", "summary": "...", "setting": "...", "charactersPresent": ["character name", ...], "keyEvents": ["event description", ...], "conflict": "...", "duration": "..."}\n' +
-                        '  ],\n' +
-                        '  "sequences": [\n' +
-                        '    {"title": "...", "summary": "...", "sceneIndices": [0, 1]}\n' +
-                        '  ]\n' +
-                        '}\n' +
-                        bt +
-                        '\n\nRules:\n' +
-                        '- Each scene is a discrete moment with a single location/time\n' +
-                        '- Sequences group related scenes into narrative units\n' +
-                        '- Scenes not in any sequence appear at chapter level\n' +
-                        '- sceneIndices refer to the scenes array (0-indexed)\n' +
-                        '- charactersPresent: array of character name strings\n' +
-                        '- keyEvents: array of brief event description strings';
-                } else if (command === 'modifystructure') {
+                if (command === 'modifystructure') {
                     structureMode = 'merge';
                     const idParts: string[] = [];
                     if (chapterContext) {
@@ -700,99 +638,22 @@ export default function ChatPanel({
                         idParts.push(
                             `\nWriter's modification request: ${userInput}`
                         );
-
-                    systemPromptMessage.content =
-                        "You are a senior structural editor helping a writer modify their chapter's structure.\n\n" +
-                        (idParts.length > 0
-                            ? `${idParts.join('\n')}\n\n`
-                            : '') +
-                        "Analyze the writer's requested changes against the current structure.\n\n" +
-                        'If anything is unclear, ambiguous, or logically inconsistent, ask clarifying questions first. Do NOT output a structure-data block until you have enough information.\n\n' +
-                        'When you have enough information to make the changes, provide the COMPLETE modified structure as a JSON code block:\n' +
-                        bt +
-                        'structure-data\n' +
-                        '{\n' +
-                        '  "scenes": [\n' +
-                        '    {"id": "existing-scene-id", "title": "...", "summary": "...", "setting": "...", "charactersPresent": [...], "keyEvents": [...], "conflict": "...", "duration": "..."}\n' +
-                        '  ],\n' +
-                        '  "sequences": [\n' +
-                        '    {"id": "existing-sequence-id", "title": "...", "summary": "...", "sceneIndices": [0, 1]}\n' +
-                        '  ]\n' +
-                        '}\n' +
-                        bt +
-                        '\n\nIMPORTANT rules:\n' +
-                        '- Include the "id" field for every item that corresponds to an EXISTING scene or sequence listed above\n' +
-                        '- Omit the "id" field for brand new items\n' +
-                        '- Output the COMPLETE structure — both kept/modified and new items\n' +
-                        '- Items from the current structure whose IDs are omitted will be DELETED\n' +
-                        '- sceneIndices refer to the scenes array (0-indexed)\n' +
-                        '- charactersPresent: array of character name strings\n' +
-                        '- keyEvents: array of brief event description strings';
-                } else if (command === 'rewritestructure') {
-                    structureMode = 'replace';
-                    systemPromptMessage.content =
-                        "You are a senior structural editor. The writer wants to completely replace this chapter's structure.\n\n" +
-                        (analysisInput
-                            ? `Chapter context:\n${analysisInput}\n\n`
-                            : '') +
-                        "Analyze the writer's instructions and provide a fresh, complete structure.\n\n" +
-                        'Provide your structural notes, then output the new structure as a JSON code block:\n' +
-                        bt +
-                        'structure-data\n' +
-                        '{\n' +
-                        '  "scenes": [\n' +
-                        '    {"title": "...", "summary": "...", "setting": "...", "charactersPresent": ["character name", ...], "keyEvents": ["event description", ...], "conflict": "...", "duration": "..."}\n' +
-                        '  ],\n' +
-                        '  "sequences": [\n' +
-                        '    {"title": "...", "summary": "...", "sceneIndices": [0, 1]}\n' +
-                        '  ]\n' +
-                        '}\n' +
-                        bt +
-                        '\n\nRules:\n' +
-                        '- Each scene is a discrete moment with a single location/time\n' +
-                        '- Sequences group related scenes into narrative units\n' +
-                        '- Scenes not in any sequence appear at chapter level\n' +
-                        '- sceneIndices refer to the scenes array (0-indexed)\n' +
-                        '- charactersPresent: array of character name strings\n' +
-                        '- keyEvents: array of brief event description strings\n' +
-                        '- This will REPLACE all existing structure, so provide a complete chapter structure';
-                } else {
-                    // analyzestructure (existing behavior)
-                    structureMode = 'create';
-                    systemPromptMessage.content =
-                        "You are a senior developmental editor analyzing a chapter's structure.\n\n" +
-                        (analysisInput
-                            ? `Chapter context:\n${analysisInput}\n\n`
-                            : '') +
-                        'Provide a concise editorial analysis focusing on key structural and prose elements:\n\n' +
-                        '## Editorial Review\n' +
-                        '- **Pacing & Tension**: Highlight major drag points, rushed sections, and the overall tension arc.\n' +
-                        '- **Core Pros & Cons**: Identify primary strengths to keep and critical weaknesses/unclear motivations.\n' +
-                        '- **Show vs. Tell**: Note key areas where telling must become showing.\n' +
-                        '- **Must-Fix Actions**: Immediate structural or narrative changes required.\n\n' +
-                        '---\n\n' +
-                        'After your analysis, provide the recommended chapter structure as a JSON code block:\n' +
-                        bt +
-                        'structure-data\n' +
-                        '{\n' +
-                        '  "scenes": [\n' +
-                        '    {"title": "...", "summary": "...", "setting": "...", "charactersPresent": ["character name", ...], "keyEvents": ["event description", ...], "conflict": "...", "duration": "..."}\n' +
-                        '  ],\n' +
-                        '  "sequences": [\n' +
-                        '    {"title": "...", "summary": "...", "sceneIndices": [0, 1]}\n' +
-                        '  ]\n' +
-                        '}\n' +
-                        bt +
-                        '\n\nRules for scenes and sequences:\n' +
-                        '- Each scene is a discrete moment with a single location/time\n' +
-                        '- Sequences group related scenes into narrative units\n' +
-                        '- Scenes not in any sequence appear at chapter level\n' +
-                        '- If existing scenes/sequences are provided, use them as reference but create new ones as needed\n' +
-                        '- sceneIndices refer to the scenes array (0-indexed)\n' +
-                        '- charactersPresent: array of character name strings present in the scene\n' +
-                        '- keyEvents: array of brief event description strings';
+                    modificationContext = idParts.join('\n');
                 }
             }
+        }
+
+        if (ANALYSIS_COMMANDS.has(command) && systemPromptMessage) {
+            const structurePrompt = buildStructurePrompt({
+                command,
+                analysisInput,
+                modificationContext,
+            });
+            structureMode = structurePrompt.mode;
+            systemPromptMessage.content = appendSystemPromptSection(
+                systemPromptMessage.content,
+                structurePrompt.prompt
+            );
         }
 
         if (isCreateCommand || EXTRACT_COMMANDS.has(command)) {
@@ -815,44 +676,17 @@ export default function ChatPanel({
                     : `Extract ${extractCategory ?? 'all entities'} from text${cleanArgs ? `: ${cleanArgs}` : ''}`;
 
                 if (systemPromptMessage) {
-                    const categoryFilter = extractCategory
-                        ? `Focus on identifying ${extractCategory} entries only.`
-                        : 'Identify all character, location, organization, item, and lore entries.';
-
                     const existingContext = isUpdateCommand
                         ? `\nExisting characters: ${characters.map((c) => `${c.name} (id:${c.id})`).join(', ')}\nExisting locations: ${locations.map((l) => `${l.name} (id:${l.id})`).join(', ')}\nExisting organizations: ${organizations.map((o) => `${o.name} (id:${o.id})`).join(', ')}\nExisting items: ${items.map((i) => `${i.name} (id:${i.id})`).join(', ')}\nExisting lore entries: ${loreEntries.map((le) => `${le.name} (id:${le.id})`).join(', ')}`
                         : '';
-
-                    const actionInstruction = isUpdateCommand
-                        ? 'For each entity found in the text that matches an existing entry, output an entry-data block with its existing id and any updated field values.'
-                        : 'For each distinct entity found, output a ```entry-data JSON block.';
-
-                    const bt = '\x60\x60\x60';
-                    const idField = isUpdateCommand
-                        ? ', "id": "existing-entry-id"'
-                        : '';
-                    systemPromptMessage.content =
-                        "You are analyzing text from the user's novel. " +
-                        categoryFilter +
-                        ' ' +
-                        actionInstruction +
-                        '\n\n' +
-                        'Read the text below carefully and output ' +
-                        (isUpdateCommand
-                            ? 'updates for matching entries'
-                            : 'all entities you can identify') +
-                        '.\n\n' +
-                        existingContext +
-                        '\n\n' +
-                        'Each entry-data block must follow this format:\n' +
-                        bt +
-                        'entry-data\n' +
-                        '{"category": "character|location|organization|item|lore", "name": "Entity Name"' +
-                        idField +
-                        ', "fields": {"field1": "value1", ...}}\n' +
-                        bt +
-                        '\n\n' +
-                        'Be thorough but only include information present in the text.';
+                    systemPromptMessage.content = appendSystemPromptSection(
+                        systemPromptMessage.content,
+                        buildExtractionPrompt({
+                            category: extractCategory,
+                            isUpdate: isUpdateCommand,
+                            existingContext,
+                        })
+                    );
                 }
 
                 // Get text source for extraction
@@ -896,10 +730,14 @@ export default function ChatPanel({
                 displayText = `Create ${category}: ${cmdName}${description ? ` — "${description}"` : ''}`;
 
                 if (systemPromptMessage) {
-                    const prompt = description
-                        ? `The user wants to create a ${category} entry named "${cmdName}". Description: ${description}. Generate detailed content for this entry.`
-                        : `The user wants to create a ${category} entry named "${cmdName}". Generate detailed content for this entry.`;
-                    systemPromptMessage.content += `\n\n${prompt}\nMake sure the \`\`\`entry-data JSON block at the end uses category "${category}" and name "${cmdName}".`;
+                    systemPromptMessage.content = appendSystemPromptSection(
+                        systemPromptMessage.content,
+                        buildCreateEntryPrompt({
+                            category,
+                            name: cmdName,
+                            description,
+                        })
+                    );
                 }
             }
         }
@@ -1032,9 +870,7 @@ export default function ChatPanel({
                         const titleResult = await chatCompletion(endpoint, {
                             enabledModel,
                             messages: [...messages, userMessage],
-                            systemPrompt:
-                                systemPromptMessage?.content ||
-                                'Generate a very short, descriptive title (3-5 words) for this conversation. Respond with ONLY the title text, no quotes, no punctuation, no explanation.',
+                            systemPrompt: buildTitlePrompt(),
                         });
                         newTitle = titleResult.content
                             .trim()
@@ -1289,10 +1125,52 @@ export default function ChatPanel({
             const retryAbortController = new AbortController();
             abortControllerRef.current = retryAbortController;
 
+            const retryUserMessage = [...precedingMessages]
+                .reverse()
+                .find((message) => message.role === 'user');
+            const retryUserText =
+                typeof retryUserMessage?.content === 'string'
+                    ? retryUserMessage.content
+                    : '';
+
+            let retrySystemPrompt: string | undefined;
+            if (project) {
+                const retryContext = await buildBaseSystemPrompt({
+                    project,
+                    projectId: project.id,
+                    userMessage: retryUserText,
+                    currentChapterId:
+                        activeTabType === 'chapter'
+                            ? (activeTabId ?? undefined)
+                            : undefined,
+                    embeddingsAvailable,
+                    embeddingsEnabled: !!settings?.embeddings?.enabled,
+                    mentions: [],
+                    fileContents: [],
+                    customPrompt: customSystemPrompt || null,
+                    chapterContextMode:
+                        settings?.general.chapterContextMode ?? 'brief',
+                    maxContextTokens:
+                        settings?.general.maxContextTokens ?? 8000,
+                    chapters,
+                    characters,
+                    locations,
+                    organizations,
+                    items,
+                    loreEntries,
+                    scenes,
+                    sequences,
+                    resolvedTemplates,
+                });
+                retrySystemPrompt = retryContext.systemPrompt ?? undefined;
+            } else {
+                retrySystemPrompt = customSystemPrompt || undefined;
+            }
+
             const result = await chatCompletion(endpoint, {
                 enabledModel,
                 messages: precedingMessages,
-                systemPrompt: customSystemPrompt || undefined,
+                systemPrompt: retrySystemPrompt,
                 signal: retryAbortController.signal,
                 onChunk: (chunk) => {
                     streamedContentRef.current += chunk;
