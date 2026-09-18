@@ -236,7 +236,7 @@ export async function chatCompletion(
                 readPromise,
                 new Promise<{ done: true; value: undefined }>((_, reject) => {
                     const timer = setTimeout(() => {
-                        reader.cancel().catch(() => {});
+                        reader.cancel().catch(() => { });
                         reject(
                             new AIAbortError(
                                 `No data received for ${Math.round(chunkTimeout / 1000)}s, stream may be stuck`
@@ -400,4 +400,57 @@ export async function getModelsFromProvider(
     } catch {
         return [];
     }
+}
+
+export async function getCurrentlyLoadedModelInProvider(provider: Provider, modelName: string) {
+
+    const baseURL = provider.url.base.replace(/\/$/, '');
+    console.log("modelName", modelName, baseURL)
+
+    const response = await fetch(`${baseURL}/api/generate`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model: modelName,
+            keep_alive: '2m'
+        }),
+    });
+
+    if (response.ok) {
+        console.log(`Model ${modelName} loaded successfully.`);
+        return true;
+    } else {
+        console.error('Failed to initialize model:', response.statusText);
+        return false;
+    }
+
+    /*
+
+    const baseURL = provider.url.base
+    const getPSEndPoint = provider.url.endpoint.type === 'lm-studio' ? '/api/ps' : '/api/generate';
+
+    console.log("baseURL", baseURL)
+    try {
+        const response = await fetch(baseURL + getPSEndPoint)
+
+        if (!response.ok) {
+            console.log("model loading")
+            throw new Error(
+                `HTTP error! Status: ${response.status}`
+            );
+        }
+
+        return {
+            status: 'success',
+        }
+    }
+    catch (error) {
+        console.error('Failed to fetch data:', error);
+        return {
+            status: error
+        }
+    }
+        */
 }
