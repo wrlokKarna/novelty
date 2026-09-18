@@ -1,4 +1,10 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, {
+    useState,
+    useEffect,
+    useRef,
+    useCallback,
+    useMemo,
+} from 'react';
 import {
     //IconArrowRight,
     IconPlus,
@@ -78,6 +84,7 @@ import ContextChips from './ContextChips';
 import SystemPromptToggle from './SystemPromptToggle';
 import { SettingsDialogActiveTab } from '../constants/layout_tabs';
 import { Model } from '../utils/ai/providerHelpers';
+import { getCurrentlyLoadedModelInProvider } from '@client/services/ai';
 
 function smartTruncate(text: string, maxLen = 50): string {
     const cleaned = text
@@ -199,25 +206,39 @@ export default function ChatPanel({
         );
     }, [enabledProviders]);
 
-    const [selectedModel, setSelectedModel] =
-        useState<string>(
-            /*
-            () => {
-            const firstProvider = enabledProviders[0];
-            const firstModel = firstProvider?.models.find((m) => m.enabled);
-            return firstModel?.id ?? '';
-            }
-        */
-        );
+    const [selectedModel, setSelectedModel] = useState<string>('');
+    console.log('selectedModel1', selectedModel);
 
     // needs refactor
     const enabledModel = useMemo(() => {
+        const matchedProvider = enabledProviders.find((p) =>
+            p.models.some((m) => m.id === selectedModel)
+        ) ?? {
+            id: 'local',
+            label: 'Local',
+            url: {
+                base: '',
+                endpoint: { type: 'lm-studio', value: '/v1' },
+            },
+            models: [],
+            enabled: true,
+        };
+
+        console.log('matchedProvider1', matchedProvider);
         return {
-            provider: enabledProviders.find((p) =>
-                p.models.find((m) => m.id === selectedModel)
-            ) ?? {
-                id: 'local',
-                label: 'Local',
+            provider: matchedProvider,
+            activeModelId: selectedModel,
+        };
+    }, [selectedModel, enabledProviders]);
+    console.log('enabledModel', enabledModel);
+
+    /*
+    return {
+        provider: enabledProviders.find((p) =>
+            p.models.find((m) => m.id === selectedModel)
+        ) ?? {
+            id: 'local',
+            label: 'Local',
                 url: {
                     base: '',
                     endpoint: { type: 'lm-studio', value: '/v1' },
@@ -226,9 +247,10 @@ export default function ChatPanel({
                 enabled: true,
             },
             activeModelId: selectedModel,
-        };
-    }, [selectedModel, enabledProviders, enabledModels]);
-
+            };
+            }, [selectedModel, enabledProviders, enabledModels]);
+    console.log('enabledModel', enabledModel);
+*/
     /*
     console.log(
         Object.entries(enabledModels).flatMap(([p, ms]) =>
@@ -1738,7 +1760,7 @@ export default function ChatPanel({
     const scrollToTop = () => {
         messagesRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     };
-
+    const [isLoadingModel, setIsLoadingModel] = useState(false);
     return (
         <div className="chat-panel" style={style}>
             <div className="chat-panel-header">
@@ -2378,8 +2400,59 @@ export default function ChatPanel({
                             <select
                                 className="model-select"
                                 value={selectedModel ?? getPlaceholderText()}
-                                onChange={(e) => {
-                                    setSelectedModel(e.target.value);
+                                onChange={async (e) => {
+                                    const nextModelId = e.target.value;
+                                    setSelectedModel(nextModelId);
+
+                                    console.log(
+                                        'nextModelId',
+                                        nextModelId,
+                                        'selectedModel2',
+                                        selectedModel
+                                    );
+
+                                    setIsLoadingModel(true);
+
+                                    console.log(
+                                        'enabledProviders',
+                                        enabledProviders
+                                    );
+                                    try {
+                                        const matchedProvider =
+                                            enabledProviders.find((provider) =>
+                                                provider.models.some(
+                                                    (model) =>
+                                                        model.id === nextModelId
+                                                )
+                                            );
+                                        console.log(
+                                            'matchedProvider2',
+                                            matchedProvider
+                                        );
+
+                                        const modelObject =
+                                            matchedProvider?.models.find(
+                                                (model) =>
+                                                    model.id === nextModelId
+                                            );
+
+                                        const targetModelName =
+                                            modelObject?.label ?? '';
+
+                                        if (matchedProvider) {
+                                            await getCurrentlyLoadedModelInProvider(
+                                                matchedProvider,
+                                                targetModelName
+                                            );
+                                        }
+                                    } catch (error) {
+                                        console.error(
+                                            'Error preloading model:',
+                                            error
+                                        );
+                                    } finally {
+                                        setIsLoadingModel(false);
+                                    }
                                 }}
                                 disabled={
                                     settings?.providers?.configs?.length ===
@@ -2387,7 +2460,8 @@ export default function ChatPanel({
                                     enabledProviders.length === 0 ||
                                     !Object.values(enabledModels).some(
                                         (models) => models.length > 0
-                                    )
+                                    ) ||
+                                    isLoadingModel
                                 }
                             >
                                 <option value={getPlaceholderText()}>
@@ -2418,6 +2492,32 @@ export default function ChatPanel({
                                     );
                                 })}
                             </select>
+
+                            {isLoadingModel && (
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        marginTop: '4px',
+                                        fontSize: '13px',
+                                    }}
+                                >
+                                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                                    <span
+                                        style={{
+                                            width: '14px',
+                                            height: '14px',
+                                            border: '2px solid #ccc',
+                                            borderTopColor: '#0070f3',
+                                            borderRadius: '50%',
+                                            animation:
+                                                'spin 0.8s linear infinite',
+                                        }}
+                                    />
+                                    <span>Initializing model...</span>
+                                </div>
+                            )}
                         </div>
                         <div className="chat-panel-footer-right">
                             <button
@@ -2436,8 +2536,17 @@ export default function ChatPanel({
                             </button>
                             <button
                                 onClick={() => handleSubmit()}
-                                disabled={!input.trim() || isLoading}
-                                title="Send"
+                                disabled={
+                                    !input.trim() ||
+                                    isLoading ||
+                                    selectedModel === 'Select a Model'
+                                }
+                                title={
+                                    selectedModel === 'Select a Model' ||
+                                    selectedModel === 'Enable a Provider'
+                                        ? getPlaceholderText()
+                                        : 'Send'
+                                }
                             >
                                 <IconSend size={16} />
                             </button>
