@@ -1761,6 +1761,7 @@ export default function ChatPanel({
         messagesRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     };
     const [isLoadingModel, setIsLoadingModel] = useState(false);
+    const [modelStatus, setModelStatus] = useState<string>('');
     return (
         <div className="chat-panel" style={style}>
             <div className="chat-panel-header">
@@ -2386,6 +2387,7 @@ export default function ChatPanel({
                             >
                                 <IconPaperclip size={16} />
                             </button>
+
                             <select
                                 value={mode}
                                 onChange={(e) =>
@@ -2399,19 +2401,38 @@ export default function ChatPanel({
 
                             <select
                                 className="model-select"
-                                value={selectedModel ?? getPlaceholderText()}
+                                style={{
+                                    backgroundColor: modelStatus.includes(
+                                        'Loading'
+                                    )
+                                        ? '#793f05'
+                                        : modelStatus.includes('successfully')
+                                          ? '#14532d'
+                                          : modelStatus.includes('Failed')
+                                            ? '#7f1d1d'
+                                            : '#313233', // Default Dark Gray
+                                }}
+                                value={
+                                    modelStatus
+                                        ? 'status-placeholder'
+                                        : (selectedModel ??
+                                          getPlaceholderText())
+                                }
                                 onChange={async (e) => {
                                     const nextModelId = e.target.value;
-                                    setSelectedModel(nextModelId);
 
-                                    console.log(
-                                        'nextModelId',
-                                        nextModelId,
-                                        'selectedModel2',
-                                        selectedModel
-                                    );
+                                    console.log('selectedModel', selectedModel);
 
+                                    if (
+                                        nextModelId === getPlaceholderText() ||
+                                        nextModelId === 'status-placeholder'
+                                    ) {
+                                        return;
+                                    }
+                                    setModelStatus('Loading model...');
                                     setIsLoadingModel(true);
+                                    setSelectedModel(nextModelId);
+                                    console.log('modelStatus', modelStatus);
 
                                     console.log(
                                         'enabledProviders',
@@ -2425,10 +2446,6 @@ export default function ChatPanel({
                                                         model.id === nextModelId
                                                 )
                                             );
-                                        console.log(
-                                            'matchedProvider2',
-                                            matchedProvider
-                                        );
 
                                         const modelObject =
                                             matchedProvider?.models.find(
@@ -2439,10 +2456,24 @@ export default function ChatPanel({
                                         const targetModelName =
                                             modelObject?.label ?? '';
 
-                                        if (matchedProvider) {
+                                        if (!matchedProvider) {
+                                            throw new Error(
+                                                'No matching provider found.'
+                                            );
+                                        }
+                                        const isModel =
                                             await getCurrentlyLoadedModelInProvider(
                                                 matchedProvider,
                                                 targetModelName
+                                            );
+
+                                        if (isModel) {
+                                            setModelStatus(
+                                                'Model loaded successfully!'
+                                            );
+                                        } else {
+                                            setModelStatus(
+                                                'Failed to load model'
                                             );
                                         }
                                     } catch (error) {
@@ -2452,8 +2483,12 @@ export default function ChatPanel({
                                         );
                                     } finally {
                                         setIsLoadingModel(false);
+                                        setTimeout(() => {
+                                            setModelStatus('');
+                                        }, 1500);
                                     }
                                 }}
+
                                 disabled={
                                     settings?.providers?.configs?.length ===
                                         0 ||
@@ -2464,9 +2499,16 @@ export default function ChatPanel({
                                     isLoadingModel
                                 }
                             >
-                                <option value={getPlaceholderText()}>
-                                    {getPlaceholderText()}
+                                <option
+                                    value={
+                                        modelStatus
+                                            ? 'status-placeholder'
+                                            : getPlaceholderText()
+                                    }
+                                >
+                                    {modelStatus || getPlaceholderText()}
                                 </option>
+
                                 {enabledProviders.map((provider) => {
                                     const models =
                                         enabledModels[provider.id] || [];
@@ -2492,32 +2534,6 @@ export default function ChatPanel({
                                     );
                                 })}
                             </select>
-
-                            {isLoadingModel && (
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        marginTop: '4px',
-                                        fontSize: '13px',
-                                    }}
-                                >
-                                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-                                    <span
-                                        style={{
-                                            width: '14px',
-                                            height: '14px',
-                                            border: '2px solid #ccc',
-                                            borderTopColor: '#0070f3',
-                                            borderRadius: '50%',
-                                            animation:
-                                                'spin 0.8s linear infinite',
-                                        }}
-                                    />
-                                    <span>Initializing model...</span>
-                                </div>
-                            )}
                         </div>
                         <div className="chat-panel-footer-right">
                             <button

@@ -414,7 +414,6 @@ export async function getCurrentlyLoadedModelInProvider(provider: Provider, mode
         },
         body: JSON.stringify({
             model: modelName,
-            keep_alive: '2m'
         }),
     });
 
