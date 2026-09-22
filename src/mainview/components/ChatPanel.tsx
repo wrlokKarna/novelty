@@ -2496,7 +2496,8 @@ export default function ChatPanel({
                                     !Object.values(enabledModels).some(
                                         (models) => models.length > 0
                                     ) ||
-                                    isLoadingModel
+                                    isLoadingModel ||
+                                    modelStatus !== ''
                                 }
                             >
                                 <option
