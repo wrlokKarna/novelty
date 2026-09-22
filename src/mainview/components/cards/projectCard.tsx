@@ -101,9 +101,8 @@ export default function ProjectCard({
                     <div className={styles.projectMeta}>
                         {project.genres.length > 0 && (
                             <p className={styles.projectGenres}>
-                                {project.genres.slice(0, 3).join(', ')}
-                                {project.genres.length > 3 &&
-                                    ` +${project.genres.length - 3}`}
+                                {project.primaryGenre ??
+                                    `${project.genres.slice(0, 3).join(', ')} ${project.genres.length > 3 && `+${project.genres.length - 3}`}}`}
                             </p>
                         )}
 
