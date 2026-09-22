@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FieldDefinition } from '../../types';
-import styles from './TemplateField.module.css';
+import styles from './TemplateField.tarun.module.css';
 
 type Props = {
     field: FieldDefinition;
@@ -33,7 +33,7 @@ function saveValue<T>(key: string, value: T) {
     localStorage.setItem(key, JSON.stringify(value));
 }
 
-export default function TemplateField({ field, index }: Props) {
+export default function TemplateFieldTarun({ field, index }: Props) {
     if (field.type === 'text') {
         return <FieldText field={field} index={index} />;
     } else if (field.type === 'textarea' || field.type === 'richtext') {

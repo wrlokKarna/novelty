@@ -1,6 +1,8 @@
 import React from 'react';
 import { FieldDefinition } from '../../types';
 import TemplateField from './TemplateField';
+import TemplateFieldTarun from './TemplateField.tarun';
+import TemplateFieldChakri from './TemplateField.chakri';
 
 type Props = {
     tmplFields: FieldDefinition[];
@@ -17,7 +19,11 @@ export default function TemplateTab({ tmplFields }: Props) {
                 }}
             >
                 {tmplFields.map((f, index) => (
-                    <TemplateField field={f} index={index} />
+                    <>
+                        <TemplateField field={f} index={index} />
+                        <TemplateFieldChakri field={f} index={index} />
+                        <TemplateFieldTarun field={f} index={index} />
+                    </>
                 ))}
             </div>
         </div>
