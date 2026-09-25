@@ -2423,12 +2423,6 @@ export default function ChatPanel({
 
                                     console.log('selectedModel', selectedModel);
 
-                                    if (
-                                        nextModelId === getPlaceholderText() ||
-                                        nextModelId === 'status-placeholder'
-                                    ) {
-                                        return;
-                                    }
                                     setModelStatus('Loading model...');
                                     setIsLoadingModel(true);
                                     setSelectedModel(nextModelId);

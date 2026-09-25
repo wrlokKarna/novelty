@@ -987,7 +987,7 @@ function EmbeddingsTab() {
                                 onClick={() =>
                                     updateEmbeddings(
                                         'endpoint',
-                                        'http://192.168.29.201:11434'
+                                        'http://localhost:11434'
                                     )
                                 }
                                 style={{
