@@ -1,0 +1,929 @@
+/* =========================================================
+   TEMPLATE FIELD
+   Dark UI based on supplied reference design
+   ========================================================= */
+
+.tmplField {
+    width: 100%;
+    box-sizing: border-box;
+
+    margin: 0 0 10px;
+
+    padding: 0;
+
+    font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        'Segoe UI',
+        Roboto,
+        Arial,
+        sans-serif;
+
+    color: #e5e7eb;
+
+    background: transparent;
+
+    border: 0;
+
+    border-radius: 0;
+
+    transition:
+        background-color 140ms ease,
+        border-color 140ms ease;
+}
+
+/* =========================================================
+   FIELD CARD
+   ========================================================= */
+
+.field {
+    padding: 10px;
+
+    background: #202123;
+
+    border: 1px solid #303236;
+
+    border-radius: 7px;
+
+    box-sizing: border-box;
+}
+
+.field:hover {
+    background: #222427;
+
+    border-color: #383a3f;
+}
+
+/* =========================================================
+   LABEL
+   ========================================================= */
+
+.fieldLabel {
+    display: block;
+
+    margin: 0 0 7px 1px;
+
+    color: #858991;
+
+    font-size: 9px;
+
+    line-height: 12px;
+
+    font-weight: 600;
+
+    letter-spacing: 0.14em;
+
+    text-transform: uppercase;
+
+    user-select: none;
+}
+
+/* =========================================================
+   COMMON INPUT CONTROL
+   ========================================================= */
+
+.control {
+    display: block;
+
+    width: 100%;
+
+    min-width: 0;
+
+    height: 30px;
+
+    box-sizing: border-box;
+
+    margin: 0;
+
+    padding: 0 9px;
+
+    background: #292a2d;
+
+    border: 1px solid #34363a;
+
+    border-radius: 5px;
+
+    outline: none;
+
+    color: #dfe1e5;
+
+    font-family: inherit;
+
+    font-size: 11px;
+
+    line-height: 16px;
+
+    transition:
+        border-color 120ms ease,
+        background-color 120ms ease,
+        box-shadow 120ms ease;
+}
+
+/* =========================================================
+   TEXT INPUTS
+   ========================================================= */
+
+input.control {
+    appearance: none;
+}
+
+/* =========================================================
+   PLACEHOLDER
+   ========================================================= */
+
+.control::placeholder {
+    color: #62666e;
+
+    opacity: 1;
+}
+
+/* =========================================================
+   FOCUS
+   ========================================================= */
+
+.control:focus {
+    border-color: #35a88e;
+
+    background: #292a2d;
+
+    box-shadow: 0 0 0 1px rgba(53, 168, 142, 0.14);
+}
+
+/* =========================================================
+   TEXTAREA
+   ========================================================= */
+
+.textarea,
+.richText {
+    width: 100%;
+
+    min-width: 0;
+
+    height: auto;
+
+    min-height: 72px;
+
+    max-width: 100%;
+
+    max-height: 300px;
+
+    padding: 8px 9px;
+
+    resize: vertical;
+
+    overflow-y: auto;
+
+    line-height: 16px;
+}
+
+/* Description textarea */
+
+.textarea::placeholder {
+    color: #555960;
+}
+
+/* =========================================================
+   SELECT
+   ========================================================= */
+
+select.control {
+    appearance: auto;
+
+    cursor: pointer;
+
+    padding-right: 8px;
+}
+
+/* Select options */
+
+select.control option {
+    background: #292a2d;
+
+    color: #e5e7eb;
+}
+
+/* =========================================================
+   MULTI SELECT
+   ========================================================= */
+
+.multiselect {
+    height: auto;
+
+    min-height: 68px;
+
+    padding: 5px 7px;
+
+    overflow-y: auto;
+}
+
+.multiselect option {
+    padding: 5px 7px;
+
+    border-radius: 3px;
+}
+
+/* =========================================================
+   SLIDER HEADER
+   ========================================================= */
+
+.sliderHeader {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    min-height: 14px;
+
+    margin-bottom: 4px;
+}
+
+.sliderHeader .fieldLabel {
+    margin-bottom: 0;
+}
+
+.sliderValue {
+    color: #737780;
+
+    font-size: 9px;
+
+    font-variant-numeric: tabular-nums;
+}
+
+/* =========================================================
+   SLIDER
+   ========================================================= */
+
+.slider {
+    display: block;
+
+    width: 100%;
+
+    height: 18px;
+
+    margin: 2px 0 0;
+
+    padding: 0;
+
+    background: transparent;
+
+    border: 0;
+
+    outline: none;
+
+    appearance: none;
+
+    cursor: pointer;
+}
+
+/* =========================================================
+   SLIDER - WEBKIT
+   ========================================================= */
+
+.slider::-webkit-slider-runnable-track {
+    width: 100%;
+
+    height: 4px;
+
+    background: #414348;
+
+    border-radius: 999px;
+}
+
+.slider::-webkit-slider-thumb {
+    width: 11px;
+
+    height: 11px;
+
+    margin-top: -3.5px;
+
+    border: 0;
+
+    border-radius: 50%;
+
+    background: #a7d8ff;
+
+    appearance: none;
+
+    cursor: pointer;
+
+    box-shadow: 0 0 0 2px rgba(167, 216, 255, 0.08);
+}
+
+/* =========================================================
+   SLIDER - FIREFOX
+   ========================================================= */
+
+.slider::-moz-range-track {
+    width: 100%;
+
+    height: 4px;
+
+    background: #414348;
+
+    border-radius: 999px;
+}
+
+.slider::-moz-range-progress {
+    height: 4px;
+
+    background: #5b9acb;
+
+    border-radius: 999px;
+}
+
+.slider::-moz-range-thumb {
+    width: 11px;
+
+    height: 11px;
+
+    border: 0;
+
+    border-radius: 50%;
+
+    background: #a7d8ff;
+
+    cursor: pointer;
+}
+
+/* =========================================================
+   TOGGLE ROW
+   ========================================================= */
+
+.toggleRow {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    min-height: 28px;
+}
+
+.toggleRow .fieldLabel {
+    margin: 0;
+}
+
+/* =========================================================
+   CUSTOM TOGGLE
+   ========================================================= */
+
+.switch {
+    position: relative;
+
+    display: inline-flex;
+
+    align-items: center;
+
+    flex-shrink: 0;
+
+    cursor: pointer;
+}
+
+.switch input {
+    position: absolute;
+
+    width: 1px;
+    height: 1px;
+
+    opacity: 0;
+
+    pointer-events: none;
+}
+
+.switchTrack {
+    position: relative;
+
+    display: block;
+
+    width: 30px;
+
+    height: 17px;
+
+    background: #34363a;
+
+    border: 1px solid #414348;
+
+    border-radius: 999px;
+
+    transition:
+        background-color 140ms ease,
+        border-color 140ms ease;
+}
+
+.switchThumb {
+    position: absolute;
+
+    top: 2px;
+
+    left: 2px;
+
+    width: 11px;
+
+    height: 11px;
+
+    background: #8b8f97;
+
+    border-radius: 50%;
+
+    transition:
+        transform 140ms ease,
+        background-color 140ms ease;
+}
+
+.switch input:checked + .switchTrack {
+    background: #267d6b;
+
+    border-color: #35a88e;
+}
+
+.switch input:checked + .switchTrack .switchThumb {
+    transform: translateX(13px);
+
+    background: #d9fff6;
+}
+
+/* =========================================================
+   COLOR
+   ========================================================= */
+
+.colorControl {
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    width: 100%;
+
+    height: 30px;
+
+    box-sizing: border-box;
+
+    padding: 3px 7px;
+
+    background: #292a2d;
+
+    border: 1px solid #34363a;
+
+    border-radius: 5px;
+}
+
+.colorControl input[type='color'] {
+    width: 24px;
+
+    height: 22px;
+
+    padding: 0;
+
+    border: 0;
+
+    border-radius: 3px;
+
+    background: transparent;
+
+    cursor: pointer;
+}
+
+.colorControl span {
+    color: #a4a7ad;
+
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+
+    font-size: 10px;
+}
+
+/* =========================================================
+   FILE INPUT
+   ========================================================= */
+
+.tmplField input[type='file'] {
+    width: 100%;
+
+    min-height: 30px;
+
+    box-sizing: border-box;
+
+    padding: 5px 7px;
+
+    background: #292a2d;
+
+    border: 1px solid #34363a;
+
+    border-radius: 5px;
+
+    color: #777b83;
+
+    font-family: inherit;
+
+    font-size: 10px;
+
+    cursor: pointer;
+}
+
+.tmplField input[type='file']::file-selector-button {
+    margin-right: 8px;
+
+    padding: 4px 8px;
+
+    background: #222427;
+
+    border: 1px solid #3a3c40;
+
+    border-radius: 4px;
+
+    color: #c7cbd0;
+
+    font-family: inherit;
+
+    font-size: 10px;
+
+    cursor: pointer;
+
+    transition: background-color 120ms ease;
+}
+
+.tmplField input[type='file']::file-selector-button:hover {
+    background: #2c2e31;
+}
+
+/* =========================================================
+   FILE DROP ZONE
+   ========================================================= */
+
+.fileDropZone {
+    position: relative;
+
+    width: 100%;
+
+    min-height: 70px;
+
+    box-sizing: border-box;
+
+    overflow: hidden;
+
+    background: #1b1c1e;
+
+    border: 1px dashed #393b40;
+
+    border-radius: 6px;
+}
+
+.fileDropZone > input {
+    position: absolute;
+
+    inset: 0;
+
+    width: 100%;
+
+    height: 100%;
+
+    opacity: 0;
+
+    cursor: pointer;
+
+    z-index: 2;
+}
+
+.fileDropContent {
+    position: absolute;
+
+    inset: 0;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 3px;
+
+    color: #777b83;
+
+    font-size: 10px;
+
+    pointer-events: none;
+}
+
+.fileDropContent small {
+    color: #50545a;
+
+    font-size: 8px;
+
+    letter-spacing: 0.04em;
+}
+
+.fileIcon {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    width: 18px;
+
+    height: 18px;
+
+    margin-bottom: 2px;
+
+    color: #969ba3;
+
+    font-size: 16px;
+
+    line-height: 18px;
+}
+
+.fileList {
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 4px;
+
+    margin-top: 6px;
+}
+
+.fileItem {
+    padding: 5px 7px;
+
+    overflow: hidden;
+
+    background: #292a2d;
+
+    border: 1px solid #34363a;
+
+    border-radius: 4px;
+
+    color: #8b8f97;
+
+    font-size: 9px;
+
+    text-overflow: ellipsis;
+
+    white-space: nowrap;
+}
+
+/* =========================================================
+   PORTRAIT FIELD
+   ========================================================= */
+
+.portraitField {
+    min-height: 20px;
+}
+
+/* =========================================================
+   PORTRAIT BOX
+   ========================================================= */
+
+.portraitBox {
+    position: relative;
+
+    width: 100%;
+
+    min-height: 190px;
+
+    overflow: hidden;
+
+    background: #191a1c;
+
+    border: 1px solid #303236;
+
+    border-radius: 6px;
+}
+
+.emptyMedia {
+    position: absolute;
+
+    inset: 0;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    color: #555960;
+
+    font-size: 10px;
+}
+
+.portraitImage {
+    display: block;
+
+    width: 100%;
+
+    height: 100%;
+
+    min-height: 190px;
+
+    object-fit: contain;
+
+    background: #191a1c;
+}
+
+/* =========================================================
+   HIDDEN FILE INPUT
+   ========================================================= */
+
+.hiddenFileInput {
+    position: absolute !important;
+
+    width: 1px !important;
+
+    height: 1px !important;
+
+    opacity: 0 !important;
+
+    pointer-events: none !important;
+}
+
+/* =========================================================
+   MEDIA ADD BUTTON
+   ========================================================= */
+
+.mediaAddButton {
+    position: absolute;
+
+    right: 7px;
+
+    bottom: 7px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    width: 23px;
+
+    height: 23px;
+
+    background: #242629;
+
+    border: 1px solid #3b3e43;
+
+    border-radius: 5px;
+
+    color: #a5a9b0;
+
+    font-size: 16px;
+
+    line-height: 1;
+
+    cursor: pointer;
+
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+
+    transition:
+        background-color 120ms ease,
+        border-color 120ms ease,
+        color 120ms ease;
+}
+
+.mediaAddButton:hover {
+    background: #2d3034;
+
+    border-color: #4a4e55;
+
+    color: #d8dbe0;
+}
+
+/* =========================================================
+   SELECTED FILE
+   ========================================================= */
+
+.selectedFile {
+    margin-top: 6px;
+
+    overflow: hidden;
+
+    color: #777b83;
+
+    font-size: 9px;
+
+    text-overflow: ellipsis;
+
+    white-space: nowrap;
+}
+
+/* =========================================================
+   ENTITY LINK
+   ========================================================= */
+
+.entityInput {
+    margin-top: 5px;
+}
+
+/* =========================================================
+   UNKNOWN FIELD
+   ========================================================= */
+
+.unknownField {
+    padding: 8px;
+
+    color: #777b83;
+
+    font-size: 10px;
+}
+
+/* =========================================================
+   NUMBER INPUT
+   ========================================================= */
+
+.tmplField input[type='number']::-webkit-inner-spin-button,
+.tmplField input[type='number']::-webkit-outer-spin-button {
+    opacity: 0.25;
+}
+
+/* =========================================================
+   DATE
+   ========================================================= */
+
+.tmplField input[type='date'] {
+    color-scheme: dark;
+}
+
+.tmplField input[type='date']::-webkit-calendar-picker-indicator {
+    opacity: 0.5;
+
+    cursor: pointer;
+}
+
+/* =========================================================
+   SCROLLBARS
+   ========================================================= */
+
+.textarea::-webkit-scrollbar,
+.richText::-webkit-scrollbar,
+.multiselect::-webkit-scrollbar {
+    width: 6px;
+}
+
+.textarea::-webkit-scrollbar-track,
+.richText::-webkit-scrollbar-track,
+.multiselect::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.textarea::-webkit-scrollbar-thumb,
+.richText::-webkit-scrollbar-thumb,
+.multiselect::-webkit-scrollbar-thumb {
+    background: #3a3c40;
+
+    border-radius: 10px;
+}
+
+.textarea::-webkit-scrollbar-thumb:hover,
+.richText::-webkit-scrollbar-thumb:hover,
+.multiselect::-webkit-scrollbar-thumb:hover {
+    background: #4a4d53;
+}
+
+/* =========================================================
+   CARD VARIANT
+   ========================================================= */
+
+.card {
+    background: #202123;
+
+    border: 1px solid #303236;
+
+    border-radius: 7px;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 700px) {
+    .field {
+        padding: 9px;
+
+        margin-bottom: 8px;
+    }
+
+    .fieldLabel {
+        font-size: 8px;
+
+        letter-spacing: 0.12em;
+    }
+
+    .control {
+        height: 31px;
+
+        font-size: 11px;
+    }
+
+    .textarea,
+    .richText {
+        min-height: 70px;
+    }
+
+    .portraitBox,
+    .portraitImage {
+        min-height: 160px;
+    }
+}

@@ -1,0 +1,32 @@
+import React from 'react';
+import { FieldDefinition } from '../../types';
+import TemplateField from './TemplateField';
+import TemplateFieldTarun from './TemplateField.tarun';
+import TemplateFieldChakri from './TemplateField.chakri';
+
+type Props = {
+    tmplFields: FieldDefinition[];
+};
+
+export default function TemplateTab({ tmplFields }: Props) {
+    console.log('[fields]: ', tmplFields);
+    return (
+        <div>
+            <div
+                style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(40%, auto))',
+                    gap: '12px',
+                }}
+            >
+                {tmplFields.map((f, index) => (
+                    <>
+                        {/* <TemplateField field={f} index={index} /> */}
+                        <TemplateFieldChakri field={f} index={index} />
+                        <TemplateFieldTarun field={f} index={index} />
+                    </>
+                ))}
+            </div>
+        </div>
+    );
+}
