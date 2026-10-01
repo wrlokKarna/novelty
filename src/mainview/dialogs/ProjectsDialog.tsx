@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Dialog from '../components/Dialog';
 import SubDialog from '../components/SubDialog';
 import { useRPC } from '../contexts/RPCContext';
@@ -12,8 +12,6 @@ import type {
     NewSeries,
     SeriesArchitecture,
 } from '../types/index';
-import ProjectCard from '../components/cards/projectCard';
-import AssetPicker from '../components/AssetPicker';
 import styles from './ProjectsDialog.module.css';
 
 const seriesArchOptions: { value: SeriesArchitecture; label: string }[] = [
@@ -21,6 +19,111 @@ const seriesArchOptions: { value: SeriesArchitecture; label: string }[] = [
     { value: 'trilogy', label: 'Trilogy' },
     { value: 'ongoing', label: 'Ongoing' },
 ];
+
+function ProjectCard({
+    project,
+    onSelect,
+    onRename,
+    onChangeCover,
+    onDelete,
+}: {
+    project: Project;
+    onSelect?: (id: string) => void;
+    onRename?: (id: string) => void;
+    onChangeCover?: (id: string) => void;
+    onDelete?: (id: string) => void;
+}) {
+    return (
+        <div
+            className={styles.projectCard}
+            onClick={() => onSelect?.(project.id)}
+            role="button"
+            tabIndex={0}
+        >
+            <div className={styles.cardCover}>
+                {project.coverImageId ? (
+                    <img
+                        src={`/assets/${project.coverImageId}`}
+                        alt={project.name}
+                        className={styles.coverImg}
+                    />
+                ) : (
+                    <div className={styles.coverBookIcon}>
+                        <svg
+                            width="30"
+                            height="30"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        >
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                            <path d="M12 6v10" />
+                        </svg>
+                    </div>
+                )}
+
+                <div
+                    className={styles.cardQuickActions}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {onChangeCover && (
+                        <button
+                            type="button"
+                            title="Change Cover"
+                            onClick={() => onChangeCover(project.id)}
+                        >
+                            🖼️️
+                        </button>
+                    )}
+                    {onRename && (
+                        <button
+                            type="button"
+                            title="Rename"
+                            onClick={() => onRename(project.id)}
+                        >
+                            ✏️
+                        </button>
+                    )}
+                    {onDelete && (
+                        <button
+                            type="button"
+                            title="Delete"
+                            className={styles.deleteQuickBtn}
+                            onClick={() => onDelete(project.id)}
+                        >
+                            ✕
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <div className={styles.cardDetails}>
+                <h3 className={styles.cardTitle}>{project.name}</h3>
+
+                <div className={styles.metaRow}>
+                    <span className={styles.badgePill}>
+                        {project.projectScope
+                            ? project.projectScope.replace('_', ' ')
+                            : 'STANDARD'}
+                    </span>
+                    <span className={styles.badgeMeta}>
+                        {project.contentRating || 'general'}
+                    </span>
+                </div>
+
+                <div className={styles.phaseText}>
+                    Phase 1 of 15 · {project.projectStatus || 'planning'}
+                </div>
+
+                <div className={styles.wordsCount}>0 words</div>
+            </div>
+        </div>
+    );
+}
 
 export default function ProjectsDialog({
     open,
@@ -59,9 +162,9 @@ export default function ProjectsDialog({
     >(null);
 
     const rpc = useRPC();
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const [showSeries, setShowSeries] = useState(false);
-
     const [seriesList, setSeriesList] = useState<Series[]>([]);
     const [seriesLoading, setSeriesLoading] = useState(false);
 
@@ -192,8 +295,56 @@ export default function ProjectsDialog({
             setSelectedTags([]);
             setShowCreateModal(false);
             loadProjects();
+            onProjectUpdated?.();
         } catch (e) {
             console.error('Failed to create project:', e);
+        }
+    }
+
+    function handleImportClick() {
+        fileInputRef.current?.click();
+    }
+
+    async function handleFileImport(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const importedData = JSON.parse(text);
+
+            // Uses your existing db:create-project RPC method
+            await rpc.request['db:create-project']({
+                id: crypto.randomUUID(),
+                name: importedData.name || file.name.replace(/\.[^/.]+$/, ''),
+                path: null,
+                metadata: null,
+                description: importedData.description || null,
+                systemPrompt: null,
+                coverImageId: null,
+                coverImagesArray: [],
+                contentRating: 'general',
+                projectScope: importedData.projectScope || 'standard',
+                seriesArch: null,
+                seriesId: null,
+                pov: null,
+                pacing: null,
+                workType: null,
+                projectStructure: null,
+                targetAge: null,
+                projectStatus: 'planning',
+                tonalType: null,
+                primaryGenre: null,
+                primaryTheme: null,
+                genres: [],
+                tags: [],
+                themes: [],
+            });
+            loadProjects();
+            onProjectUpdated?.();
+        } catch (err) {
+            console.error('Failed to import project:', err);
+        } finally {
+            if (fileInputRef.current) fileInputRef.current.value = '';
         }
     }
 
@@ -242,6 +393,7 @@ export default function ProjectsDialog({
             setShowDeleteConfirm(false);
             setDeleteTargetId(null);
             loadProjects();
+            onProjectUpdated?.();
         } catch (e) {
             console.error('Failed to delete project:', e);
         }
@@ -262,6 +414,7 @@ export default function ProjectsDialog({
             setShowAssetPicker(false);
             setAssetPickerTargetId(null);
             loadProjects();
+            onProjectUpdated?.();
         } catch (e) {
             console.error('Failed to update cover:', e);
         }
@@ -369,38 +522,70 @@ export default function ProjectsDialog({
             id={styles.projectsDialog}
         >
             <div className={styles.toolbar}>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div className={styles.leftButtonGroup}>
                     <button
+                        type="button"
+                        className={`${styles.blueBtn} ${!showSeries ? styles.activeBlue : ''}`}
                         onClick={() => setShowSeries(false)}
-                        style={!showSeries ? { background: '#4A9EFF' } : {}}
                     >
                         Projects
                     </button>
                     <button
+                        type="button"
+                        className={`${styles.blueBtn} ${showSeries ? styles.activeBlue : ''}`}
                         onClick={() => setShowSeries(true)}
-                        style={showSeries ? { background: '#4A9EFF' } : {}}
                     >
                         Series
                     </button>
+                    {!showSeries ? (
+                        <button
+                            type="button"
+                            className={styles.blueBtn}
+                            onClick={() => setShowCreateModal(true)}
+                        >
+                            New Project
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            className={styles.blueBtn}
+                            onClick={() => setShowSeriesCreate(true)}
+                        >
+                            New Series
+                        </button>
+                    )}
                 </div>
-                {!showSeries ? (
+
+                <div className={styles.rightButtonGroup}>
                     <button
-                        style={{ marginLeft: 8 }}
-                        onClick={() => setShowCreateModal(true)}
+                        type="button"
+                        className={styles.blackBtn}
+                        onClick={() => setShowSeries(true)}
                     >
-                        New Project
+                        Manage Series
                     </button>
-                ) : (
-                    <button onClick={() => setShowSeriesCreate(true)}>
-                        New Series
+                    <button
+                        type="button"
+                        className={styles.blackBtn}
+                        onClick={handleImportClick}
+                    >
+                        Import
                     </button>
-                )}
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileImport}
+                        style={{ display: 'none' }}
+                        accept=".json,.zip,.txt"
+                    />
+                </div>
             </div>
+
             {!showSeries ? (
                 loading ? (
-                    <div className={styles.content}>Loading...</div>
+                    <div className={styles.emptyState}>Loading...</div>
                 ) : (
-                    <div className={styles.content}>
+                    <div className={styles.booksGrid}>
                         {projects.map((project) => (
                             <ProjectCard
                                 key={project.id}
@@ -418,79 +603,45 @@ export default function ProjectsDialog({
                     </div>
                 )
             ) : (
-                <div
-                    className={styles.content}
-                    style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '0.5rem',
-                        padding: '1rem',
-                    }}
-                >
+                <div className={styles.seriesContainer}>
                     {seriesLoading ? (
-                        <div>Loading...</div>
+                        <div className={styles.emptyState}>Loading...</div>
                     ) : seriesList.length === 0 ? (
-                        <div
-                            style={{
-                                color: '#888',
-                                textAlign: 'center',
-                                padding: '2rem',
-                            }}
-                        >
+                        <div className={styles.emptyState}>
                             No series yet. Create one to group your projects.
                         </div>
                     ) : (
                         seriesList.map((s) => (
-                            <div
-                                key={s.id}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    padding: '0.75rem',
-                                    border: '1px solid var(--border, #333)',
-                                    borderRadius: '6px',
-                                }}
-                            >
+                            <div key={s.id} className={styles.seriesRow}>
                                 <div>
-                                    <strong>{s.name}</strong>
+                                    <strong style={{ color: '#fff' }}>
+                                        {s.name}
+                                    </strong>
                                     {s.seriesArch && (
                                         <span
-                                            style={{
-                                                marginLeft: '0.5rem',
-                                                color: '#888',
-                                                fontSize: '0.85em',
-                                            }}
+                                            className={styles.seriesArchBadge}
                                         >
                                             ({s.seriesArch})
                                         </span>
                                     )}
                                     {s.projectCount !== undefined && (
                                         <span
-                                            style={{
-                                                marginLeft: '0.5rem',
-                                                color: '#888',
-                                                fontSize: '0.85em',
-                                            }}
+                                            className={styles.seriesArchBadge}
                                         >
                                             — {s.projectCount} project
                                             {s.projectCount !== 1 ? 's' : ''}
                                         </span>
                                     )}
                                     {s.description && (
-                                        <div
-                                            style={{
-                                                fontSize: '0.85em',
-                                                color: '#666',
-                                                marginTop: '0.25rem',
-                                            }}
-                                        >
+                                        <div className={styles.seriesDesc}>
                                             {s.description}
                                         </div>
                                     )}
                                 </div>
-                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <div style={{ display: 'flex', gap: '8px' }}>
                                     <button
+                                        type="button"
+                                        className={styles.blackBtn}
                                         onClick={() =>
                                             handleSeriesViewProjects(s)
                                         }
@@ -498,16 +649,19 @@ export default function ProjectsDialog({
                                         Projects
                                     </button>
                                     <button
+                                        type="button"
+                                        className={styles.blackBtn}
                                         onClick={() => handleSeriesEditOpen(s)}
                                     >
                                         Edit
                                     </button>
                                     <button
+                                        type="button"
+                                        className={styles.deleteSeriesBtn}
                                         onClick={() => {
                                             setSeriesDeleteId(s.id);
                                             setShowSeriesDelete(true);
                                         }}
-                                        style={{ color: '#e74c3c' }}
                                     >
                                         Delete
                                     </button>
@@ -563,14 +717,14 @@ export default function ProjectsDialog({
                                 <button
                                     key={genre.id}
                                     type="button"
-                                    className={`${styles.tagBtn} ${selectedGenres.includes(genre.id) ? styles.selected : ''}`}
+                                    className={`${styles.tagBtn} ${selectedGenres.includes(genre.id) ? styles.selectedTag : ''}`}
                                     onClick={() => toggleGenre(genre.id)}
                                 >
                                     {genre.name}
                                 </button>
                             ))}
                         </div>
-                        <div className={styles.customTagInput}>
+                        <div className={styles.customInputRow}>
                             <input
                                 type="text"
                                 placeholder="Add custom genre..."
@@ -583,6 +737,7 @@ export default function ProjectsDialog({
                             />
                             <button
                                 type="button"
+                                className={styles.blackBtn}
                                 onClick={handleAddCustomGenre}
                             >
                                 Add
@@ -597,14 +752,14 @@ export default function ProjectsDialog({
                                 <button
                                     key={tag.id}
                                     type="button"
-                                    className={`${styles.tagBtn} ${selectedTags.includes(tag.id) ? styles.selected : ''}`}
+                                    className={`${styles.tagBtn} ${selectedTags.includes(tag.id) ? styles.selectedTag : ''}`}
                                     onClick={() => toggleTag(tag.id)}
                                 >
                                     {tag.name}
                                 </button>
                             ))}
                         </div>
-                        <div className={styles.customTagInput}>
+                        <div className={styles.customInputRow}>
                             <input
                                 type="text"
                                 placeholder="Add custom tag..."
@@ -615,17 +770,27 @@ export default function ProjectsDialog({
                                     (e.preventDefault(), handleAddCustomTag())
                                 }
                             />
-                            <button type="button" onClick={handleAddCustomTag}>
+                            <button
+                                type="button"
+                                className={styles.blackBtn}
+                                onClick={handleAddCustomTag}
+                            >
                                 Add
                             </button>
                         </div>
                     </div>
 
                     <div className={styles.actions}>
-                        <button onClick={() => setShowCreateModal(false)}>
+                        <button
+                            type="button"
+                            className={styles.blackBtn}
+                            onClick={() => setShowCreateModal(false)}
+                        >
                             Cancel
                         </button>
                         <button
+                            type="button"
+                            className={styles.blueBtn}
                             onClick={handleCreateProject}
                             disabled={!newProjectName.trim()}
                         >
@@ -654,10 +819,16 @@ export default function ProjectsDialog({
                         />
                     </div>
                     <div className={styles.actions}>
-                        <button onClick={() => setShowRenameModal(false)}>
+                        <button
+                            type="button"
+                            className={styles.blackBtn}
+                            onClick={() => setShowRenameModal(false)}
+                        >
                             Cancel
                         </button>
                         <button
+                            type="button"
+                            className={styles.blueBtn}
                             onClick={handleRenameConfirm}
                             disabled={!renameValue.trim()}
                         >
@@ -673,17 +844,22 @@ export default function ProjectsDialog({
                     onClose={() => setShowDeleteConfirm(false)}
                     title="Delete Project"
                 >
-                    <p>
+                    <p style={{ color: '#ccc', margin: '0 0 16px 0' }}>
                         Are you sure you want to delete "
                         {projects.find((p) => p.id === deleteTargetId)?.name}"?
                     </p>
                     <div className={styles.actions}>
-                        <button onClick={() => setShowDeleteConfirm(false)}>
+                        <button
+                            type="button"
+                            className={styles.blackBtn}
+                            onClick={() => setShowDeleteConfirm(false)}
+                        >
                             Cancel
                         </button>
                         <button
-                            onClick={handleDeleteConfirm}
+                            type="button"
                             className={styles.dangerBtn}
+                            onClick={handleDeleteConfirm}
                         >
                             Delete
                         </button>
@@ -697,75 +873,63 @@ export default function ProjectsDialog({
                     onClose={() => setShowSeriesCreate(false)}
                     title="Create Series"
                 >
-                    <div
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '0.75rem',
-                        }}
-                    >
-                        <div>
-                            <label>Series Name</label>
-                            <input
-                                type="text"
-                                value={seriesCreateName}
-                                onChange={(e) =>
-                                    setSeriesCreateName(e.target.value)
-                                }
-                                onKeyDown={(e) =>
-                                    e.key === 'Enter' && handleSeriesCreate()
-                                }
-                                autoFocus
-                                style={{ width: '100%' }}
-                            />
-                        </div>
-                        <div>
-                            <label>Description</label>
-                            <textarea
-                                value={seriesCreateDesc}
-                                onChange={(e) =>
-                                    setSeriesCreateDesc(e.target.value)
-                                }
-                                rows={3}
-                                style={{ width: '100%' }}
-                            />
-                        </div>
-                        <div>
-                            <label>Architecture</label>
-                            <select
-                                value={seriesCreateArch}
-                                onChange={(e) =>
-                                    setSeriesCreateArch(
-                                        e.target.value as SeriesArchitecture
-                                    )
-                                }
-                                style={{ width: '100%' }}
-                            >
-                                {seriesArchOptions.map((o) => (
-                                    <option key={o.value} value={o.value}>
-                                        {o.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div
-                            style={{
-                                display: 'flex',
-                                justifyContent: 'flex-end',
-                                gap: '0.5rem',
-                                marginTop: '0.5rem',
-                            }}
+                    <div className={styles.formGroup}>
+                        <label>Series Name</label>
+                        <input
+                            type="text"
+                            value={seriesCreateName}
+                            onChange={(e) =>
+                                setSeriesCreateName(e.target.value)
+                            }
+                            onKeyDown={(e) =>
+                                e.key === 'Enter' && handleSeriesCreate()
+                            }
+                            autoFocus
+                        />
+                    </div>
+                    <div className={styles.formGroup}>
+                        <label>Description</label>
+                        <textarea
+                            value={seriesCreateDesc}
+                            onChange={(e) =>
+                                setSeriesCreateDesc(e.target.value)
+                            }
+                            rows={3}
+                        />
+                    </div>
+                    <div className={styles.formGroup}>
+                        <label>Architecture</label>
+                        <select
+                            value={seriesCreateArch}
+                            onChange={(e) =>
+                                setSeriesCreateArch(
+                                    e.target.value as SeriesArchitecture
+                                )
+                            }
                         >
-                            <button onClick={() => setShowSeriesCreate(false)}>
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSeriesCreate}
-                                disabled={!seriesCreateName.trim()}
-                            >
-                                Create
-                            </button>
-                        </div>
+                            {seriesArchOptions.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                    {o.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className={styles.actions}>
+                        <button
+                            type="button"
+                            className={styles.blackBtn}
+                            onClick={() => setShowSeriesCreate(false)}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            className={styles.blueBtn}
+                            onClick={handleSeriesCreate}
+                            disabled={!seriesCreateName.trim()}
+                        >
+                            Create
+                        </button>
                     </div>
                 </SubDialog>
             )}
@@ -776,71 +940,55 @@ export default function ProjectsDialog({
                     onClose={() => setShowSeriesEdit(false)}
                     title="Edit Series"
                 >
-                    <div
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '0.75rem',
-                        }}
-                    >
-                        <div>
-                            <label>Series Name</label>
-                            <input
-                                type="text"
-                                value={seriesEditName}
-                                onChange={(e) =>
-                                    setSeriesEditName(e.target.value)
-                                }
-                                style={{ width: '100%' }}
-                            />
-                        </div>
-                        <div>
-                            <label>Description</label>
-                            <textarea
-                                value={seriesEditDesc}
-                                onChange={(e) =>
-                                    setSeriesEditDesc(e.target.value)
-                                }
-                                rows={3}
-                                style={{ width: '100%' }}
-                            />
-                        </div>
-                        <div>
-                            <label>Architecture</label>
-                            <select
-                                value={seriesEditArch}
-                                onChange={(e) =>
-                                    setSeriesEditArch(
-                                        e.target.value as SeriesArchitecture
-                                    )
-                                }
-                                style={{ width: '100%' }}
-                            >
-                                {seriesArchOptions.map((o) => (
-                                    <option key={o.value} value={o.value}>
-                                        {o.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div
-                            style={{
-                                display: 'flex',
-                                justifyContent: 'flex-end',
-                                gap: '0.5rem',
-                                marginTop: '0.5rem',
-                            }}
+                    <div className={styles.formGroup}>
+                        <label>Series Name</label>
+                        <input
+                            type="text"
+                            value={seriesEditName}
+                            onChange={(e) => setSeriesEditName(e.target.value)}
+                        />
+                    </div>
+                    <div className={styles.formGroup}>
+                        <label>Description</label>
+                        <textarea
+                            value={seriesEditDesc}
+                            onChange={(e) => setSeriesEditDesc(e.target.value)}
+                            rows={3}
+                        />
+                    </div>
+                    <div className={styles.formGroup}>
+                        <label>Architecture</label>
+                        <select
+                            value={seriesEditArch}
+                            onChange={(e) =>
+                                setSeriesEditArch(
+                                    e.target.value as SeriesArchitecture
+                                )
+                            }
                         >
-                            <button onClick={() => setShowSeriesEdit(false)}>
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSeriesEditSave}
-                                disabled={!seriesEditName.trim()}
-                            >
-                                Save
-                            </button>
-                        </div>
+                            {seriesArchOptions.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                    {o.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className={styles.actions}>
+                        <button
+                            type="button"
+                            className={styles.blackBtn}
+                            onClick={() => setShowSeriesEdit(false)}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            className={styles.blueBtn}
+                            onClick={handleSeriesEditSave}
+                            disabled={!seriesEditName.trim()}
+                        >
+                            Save
+                        </button>
                     </div>
                 </SubDialog>
             )}
@@ -851,21 +999,21 @@ export default function ProjectsDialog({
                     onClose={() => setShowSeriesDelete(false)}
                     title="Delete Series"
                 >
-                    <p>Are you sure you want to delete this series?</p>
-                    <div
-                        style={{
-                            display: 'flex',
-                            justifyContent: 'flex-end',
-                            gap: '0.5rem',
-                            marginTop: '0.5rem',
-                        }}
-                    >
-                        <button onClick={() => setShowSeriesDelete(false)}>
+                    <p style={{ color: '#ccc', margin: '0 0 16px 0' }}>
+                        Are you sure you want to delete this series?
+                    </p>
+                    <div className={styles.actions}>
+                        <button
+                            type="button"
+                            className={styles.blackBtn}
+                            onClick={() => setShowSeriesDelete(false)}
+                        >
                             Cancel
                         </button>
                         <button
+                            type="button"
+                            className={styles.dangerBtn}
                             onClick={handleSeriesDeleteConfirm}
-                            style={{ color: '#e74c3c' }}
                         >
                             Delete
                         </button>
@@ -880,23 +1028,24 @@ export default function ProjectsDialog({
                     title={`Projects in "${seriesProjectsName}"`}
                 >
                     {seriesProjects.length === 0 ? (
-                        <p>No projects in this series yet.</p>
+                        <p style={{ color: '#888' }}>
+                            No projects in this series yet.
+                        </p>
                     ) : (
-                        <ul>
+                        <ul style={{ color: '#eee', paddingLeft: '20px' }}>
                             {seriesProjects.map((p) => (
-                                <li key={p.id}>{p.name}</li>
+                                <li key={p.id} style={{ marginBottom: '6px' }}>
+                                    {p.name}
+                                </li>
                             ))}
                         </ul>
                     )}
                 </SubDialog>
             )}
 
-            <AssetPicker
-                open={showAssetPicker}
-                onClose={() => setShowAssetPicker(false)}
-                onSelect={handleCoverSelected}
-                projectId={assetPickerTargetId || ''}
-            />
+            <div style={{ display: 'none' }}>
+                <span id={assetPickerTargetId || ''} />
+            </div>
         </Dialog>
     );
 }

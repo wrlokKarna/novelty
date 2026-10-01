@@ -1,182 +1,362 @@
+#projectsDialog {
+    width: 900px;
+    max-width: 95vw;
+}
+
+/* Toolbar: flex separation with left/right groups */
 .toolbar {
-    display: flex;
-    justify-content: center;
-    padding: 16px;
-    border-bottom: 1px solid #393a3b;
-
-    button {
-        padding: 8px 16px;
-        background: #4a9eff;
-        border: none;
-        border-radius: 6px;
-        color: #fff;
-        cursor: pointer;
-
-        &:hover {
-            background: #3a8eef;
-        }
-    }
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 12px 18px !important;
+    border-bottom: 1px solid #232323 !important;
+    background: #121212 !important;
+    gap: 12px !important;
+    box-sizing: border-box !important;
 }
 
-.content {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    overflow-y: auto;
-    flex: 1;
-    min-height: 100px;
+.leftButtonGroup,
+.rightButtonGroup {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
 }
 
+/* Blue Buttons (Projects, Series, New Project) */
+.blueBtn {
+    background: #398be8 !important;
+    border: 1px solid #398be8 !important;
+    color: #ffffff !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    padding: 7px 16px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition:
+        background 0.15s ease,
+        filter 0.15s ease !important;
+}
+
+.blueBtn:hover {
+    background: #2b78d2 !important;
+    border-color: #2b78d2 !important;
+}
+
+.blueBtn:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+}
+
+.activeBlue {
+    filter: brightness(1.2) !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Black Buttons (Manage Series, Import, Secondary) */
+.blackBtn {
+    background: #181818 !important;
+    border: 1px solid #333333 !important;
+    color: #e0e0e0 !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    padding: 7px 16px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease !important;
+}
+
+.blackBtn:hover {
+    background: #242424 !important;
+    border-color: #444444 !important;
+    color: #ffffff !important;
+}
+
+/* Danger Button */
+.dangerBtn {
+    background: #781414 !important;
+    border: 1px solid #992222 !important;
+    color: #ffffff !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    padding: 7px 16px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+}
+
+.dangerBtn:hover {
+    background: #961b1b !important;
+}
+
+/* Books Grid */
+.booksGrid {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 20px !important;
+    padding: 24px !important;
+    max-height: 70vh !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+}
+
+/* Book Card */
+.projectCard {
+    width: 180px !important;
+    background: #141414 !important;
+    border: 1px solid #222222 !important;
+    border-radius: 12px !important;
+    padding: 10px !important;
+    cursor: pointer !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    box-sizing: border-box !important;
+    transition: all 0.15s ease !important;
+    user-select: none !important;
+}
+
+.projectCard:hover {
+    border-color: #3c3c3c !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Cover Container */
+.cardCover {
+    width: 100% !important;
+    height: 220px !important;
+    background: #1c1c1c !important;
+    border-radius: 8px !important;
+    position: relative !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 1px solid #282828 !important;
+}
+
+.coverImg {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+}
+
+.coverBookIcon {
+    color: #4a4a4a !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.cardQuickActions {
+    position: absolute !important;
+    top: 6px !important;
+    right: 6px !important;
+    display: flex !important;
+    gap: 4px !important;
+    opacity: 0 !important;
+    transition: opacity 0.15s ease !important;
+}
+
+.projectCard:hover .cardQuickActions {
+    opacity: 1 !important;
+}
+
+.cardQuickActions button {
+    background: rgba(20, 20, 20, 0.85) !important;
+    border: 1px solid #333333 !important;
+    color: #cccccc !important;
+    font-size: 11px !important;
+    padding: 3px 6px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+}
+
+.cardQuickActions button:hover {
+    background: #2a2a2a !important;
+    color: #ffffff !important;
+}
+
+.cardQuickActions button.deleteQuickBtn:hover {
+    background: rgba(120, 20, 20, 0.95) !important;
+    border-color: #992222 !important;
+    color: #ffffff !important;
+}
+
+/* Typography & Info */
+.cardDetails {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+}
+
+.cardTitle {
+    font-family: 'Georgia', 'Playfair Display', serif !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    color: #eae5d9 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+.metaRow {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-top: 2px !important;
+}
+
+.badgePill {
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.5px !important;
+    text-transform: uppercase !important;
+    color: #cca463 !important;
+    background: #2b2317 !important;
+    border: 1px solid #4a3a22 !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+}
+
+.badgeMeta {
+    font-size: 11px !important;
+    color: #7a756b !important;
+    text-transform: capitalize !important;
+}
+
+.phaseText {
+    font-size: 11px !important;
+    color: #8b877f !important;
+    margin-top: 2px !important;
+}
+
+.wordsCount {
+    font-size: 11px !important;
+    color: #5c5850 !important;
+}
+
+/* Series Listing */
+.seriesContainer {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding: 16px !important;
+    max-height: 70vh !important;
+    overflow-y: auto !important;
+}
+
+.seriesRow {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 12px 16px !important;
+    background: #151515 !important;
+    border: 1px solid #282828 !important;
+    borderradius: 8px !important;
+}
+
+.seriesArchBadge {
+    margin-left: 8px !important;
+    color: #888888 !important;
+    font-size: 12px !important;
+}
+
+.seriesDesc {
+    font-size: 12px !important;
+    color: #666666 !important;
+    margin-top: 4px !important;
+}
+
+.deleteSeriesBtn {
+    background: #181818 !important;
+    border: 1px solid #4d1e1a !important;
+    color: #e74c3c !important;
+    font-size: 13px !important;
+    padding: 7px 16px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+}
+
+.emptyState {
+    padding: 3rem !important;
+    text-align: center !important;
+    color: #888888 !important;
+}
+
+/* Forms & Dialog Inputs */
 .formGroup {
-    margin-bottom: 16px;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    margin-bottom: 14px !important;
+}
 
-    label {
-        display: block;
-        margin-bottom: 8px;
-        color: #aaa;
-        font-size: 14px;
-    }
+.formGroup label {
+    font-size: 12px !important;
+    color: #999999 !important;
+}
 
-    input,
-    select {
-        width: 100%;
-        padding: 10px 12px;
-        background: #1a1b1c;
-        border: 1px solid #393a3b;
-        border-radius: 6px;
-        color: #fff;
-        box-sizing: border-box;
-
-        &:focus {
-            outline: none;
-            border-color: #4a9eff;
-        }
-    }
+.formGroup input,
+.formGroup select,
+.formGroup textarea {
+    width: 100% !important;
+    padding: 8px 10px !important;
+    background: #161616 !important;
+    border: 1px solid #333333 !important;
+    border-radius: 5px !important;
+    color: #ffffff !important;
+    box-sizing: border-box !important;
+    outline: none !important;
 }
 
 .tagSelector {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 8px;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    margin-bottom: 8px !important;
 }
 
 .tagBtn {
-    padding: 6px 10px;
-    background: #1a1b1c;
-    border: 1px solid #393a3b;
-    border-radius: 4px;
-    color: #aaa;
-    font-size: 13px;
-    cursor: pointer;
-    transition: all 0.15s;
-
-    &:hover {
-        border-color: #4a9eff;
-        color: #fff;
-    }
-
-    &.selected {
-        background: #4a9eff;
-        border-color: #4a9eff;
-        color: #fff;
-    }
+    background: #222222 !important;
+    border: 1px solid #333333 !important;
+    color: #ffffff !important;
+    font-size: 11px !important;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
 }
 
-.customTagInput {
-    display: flex;
-    gap: 8px;
+.selectedTag {
+    background: #398be8 !important;
+    border-color: #398be8 !important;
+}
 
-    input {
-        flex: 1;
-        margin-bottom: 0;
-    }
+.customInputRow {
+    display: flex !important;
+    gap: 6px !important;
+}
 
-    button {
-        padding: 8px 12px;
-        background: #393a3b;
-        border: none;
-        border-radius: 4px;
-        color: #fff;
-        font-size: 13px;
-        cursor: pointer;
-
-        &:hover {
-            background: #494a4b;
-        }
-    }
+.customInputRow input {
+    flex: 1 !important;
+    padding: 6px 10px !important;
+    background: #161616 !important;
+    border: 1px solid #333333 !important;
+    border-radius: 5px !important;
+    color: #ffffff !important;
 }
 
 .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    padding-top: 8px;
-
-    button {
-        padding: 8px 16px;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 14px;
-
-        &:first-child {
-            background: transparent;
-            color: #aaa;
-
-            &:hover {
-                color: #fff;
-            }
-        }
-
-        &:last-child {
-            background: #4a9eff;
-            color: #fff;
-
-            &:hover {
-                background: #3a8eef;
-            }
-
-            &:disabled {
-                opacity: 0.5;
-                cursor: not-allowed;
-            }
-        }
-    }
-
-    .dangerBtn {
-        background: #ff4a4a;
-
-        &:hover {
-            background: #e03a3a;
-        }
-    }
-}
-
-#projectsDialog {
-    width: 70%;
-    max-width: 70%;
-    height: 80%;
-    max-height: 80%;
-}
-
-.overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-}
-
-.subDialog {
-    background: #1a1b1c;
-    border: 1px solid #393a3b;
-    border-radius: 8px;
-    padding: 1.5rem;
-    min-width: 400px;
-    max-width: 600px;
-    max-height: 80vh;
-    overflow-y: auto;
+    display: flex !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    margin-top: 14px !important;
 }
