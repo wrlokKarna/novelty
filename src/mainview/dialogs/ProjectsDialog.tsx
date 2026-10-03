@@ -74,28 +74,79 @@ function ProjectCard({
                         <button
                             type="button"
                             title="Change Cover"
+                            className={styles.iconBtn}
                             onClick={() => onChangeCover(project.id)}
                         >
-                            🖼️️
+                            <svg
+                                width="15"
+                                height="15"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
+                                <path d="M4 15l4-4a3 3 0 0 1 4.24 0l4 4" />
+                                <path d="M14 14l1-1a3 3 0 0 1 4.24 0l1 1" />
+                                <path d="M4 20h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
                         </button>
                     )}
+
                     {onRename && (
                         <button
                             type="button"
                             title="Rename"
+                            className={styles.iconBtn}
                             onClick={() => onRename(project.id)}
                         >
-                            ✏️
+                            <svg
+                                width="15"
+                                height="15"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
+                                <rect
+                                    x="3"
+                                    y="3"
+                                    width="18"
+                                    height="18"
+                                    rx="4"
+                                />
+                                <path d="M16 7l1 1-7.5 7.5-2.5.5.5-2.5L15 6z" />
+                            </svg>
                         </button>
                     )}
+
                     {onDelete && (
                         <button
                             type="button"
                             title="Delete"
-                            className={styles.deleteQuickBtn}
+                            className={`${styles.iconBtn} ${styles.deleteIconBtn}`}
                             onClick={() => onDelete(project.id)}
                         >
-                            ✕
+                            <svg
+                                width="15"
+                                height="15"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
+                                <path d="M3 6h18" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                <line x1="10" y1="11" x2="10" y2="17" />
+                                <line x1="14" y1="11" x2="14" y2="17" />
+                            </svg>
                         </button>
                     )}
                 </div>
@@ -309,36 +360,41 @@ export default function ProjectsDialog({
         const file = e.target.files?.[0];
         if (!file) return;
         try {
-            const text = await file.text();
-            const importedData = JSON.parse(text);
-
-            // Uses your existing db:create-project RPC method
-            await rpc.request['db:create-project']({
-                id: crypto.randomUUID(),
-                name: importedData.name || file.name.replace(/\.[^/.]+$/, ''),
-                path: null,
-                metadata: null,
-                description: importedData.description || null,
-                systemPrompt: null,
-                coverImageId: null,
-                coverImagesArray: [],
-                contentRating: 'general',
-                projectScope: importedData.projectScope || 'standard',
-                seriesArch: null,
-                seriesId: null,
-                pov: null,
-                pacing: null,
-                workType: null,
-                projectStructure: null,
-                targetAge: null,
-                projectStatus: 'planning',
-                tonalType: null,
-                primaryGenre: null,
-                primaryTheme: null,
-                genres: [],
-                tags: [],
-                themes: [],
-            });
+            const fileContent = await file.text();
+            const rpcAny = rpc.request as any;
+            if (typeof rpcAny['db:import-project'] === 'function') {
+                await rpcAny['db:import-project']({
+                    fileName: file.name,
+                    data: fileContent,
+                });
+            } else {
+                await rpc.request['db:create-project']({
+                    id: crypto.randomUUID(),
+                    name: file.name.replace(/\.[^/.]+$/, ''),
+                    path: null,
+                    metadata: null,
+                    description: null,
+                    systemPrompt: null,
+                    coverImageId: null,
+                    coverImagesArray: [],
+                    contentRating: 'general',
+                    projectScope: 'standard',
+                    seriesArch: null,
+                    seriesId: null,
+                    pov: null,
+                    pacing: null,
+                    workType: null,
+                    projectStructure: null,
+                    targetAge: null,
+                    projectStatus: 'planning',
+                    tonalType: null,
+                    primaryGenre: null,
+                    primaryTheme: null,
+                    genres: [],
+                    tags: [],
+                    themes: [],
+                });
+            }
             loadProjects();
             onProjectUpdated?.();
         } catch (err) {
@@ -521,52 +577,31 @@ export default function ProjectsDialog({
             title="Projects"
             id={styles.projectsDialog}
         >
+            {/* GLOWING TABS TOOLBAR */}
             <div className={styles.toolbar}>
-                <div className={styles.leftButtonGroup}>
+                {/* Left Side: Projects & Manage Series in Glowing Pill Container */}
+                <div className={styles.glowingPillTrack}>
                     <button
                         type="button"
-                        className={`${styles.blueBtn} ${!showSeries ? styles.activeBlue : ''}`}
+                        className={`${styles.glowingTab} ${!showSeries ? styles.activeTabGlow : ''}`}
                         onClick={() => setShowSeries(false)}
                     >
                         Projects
                     </button>
                     <button
                         type="button"
-                        className={`${styles.blueBtn} ${showSeries ? styles.activeBlue : ''}`}
-                        onClick={() => setShowSeries(true)}
-                    >
-                        Series
-                    </button>
-                    {!showSeries ? (
-                        <button
-                            type="button"
-                            className={styles.blueBtn}
-                            onClick={() => setShowCreateModal(true)}
-                        >
-                            New Project
-                        </button>
-                    ) : (
-                        <button
-                            type="button"
-                            className={styles.blueBtn}
-                            onClick={() => setShowSeriesCreate(true)}
-                        >
-                            New Series
-                        </button>
-                    )}
-                </div>
-
-                <div className={styles.rightButtonGroup}>
-                    <button
-                        type="button"
-                        className={styles.blackBtn}
+                        className={`${styles.glowingTab} ${showSeries ? styles.activeTabGlow : ''}`}
                         onClick={() => setShowSeries(true)}
                     >
                         Manage Series
                     </button>
+                </div>
+
+                {/* Right Side: Import & New Project in Matching Pill Container */}
+                <div className={styles.glowingPillTrack}>
                     <button
                         type="button"
-                        className={styles.blackBtn}
+                        className={styles.glowingTab}
                         onClick={handleImportClick}
                     >
                         Import
@@ -578,9 +613,28 @@ export default function ProjectsDialog({
                         style={{ display: 'none' }}
                         accept=".json,.zip,.txt"
                     />
+
+                    {!showSeries ? (
+                        <button
+                            type="button"
+                            className={styles.glowingTab}
+                            onClick={() => setShowCreateModal(true)}
+                        >
+                            New Project
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            className={styles.glowingTab}
+                            onClick={() => setShowSeriesCreate(true)}
+                        >
+                            New Series
+                        </button>
+                    )}
                 </div>
             </div>
 
+            {/* MAIN CONTENT AREA */}
             {!showSeries ? (
                 loading ? (
                     <div className={styles.emptyState}>Loading...</div>
@@ -641,7 +695,7 @@ export default function ProjectsDialog({
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     <button
                                         type="button"
-                                        className={styles.blackBtn}
+                                        className={styles.modalBtn}
                                         onClick={() =>
                                             handleSeriesViewProjects(s)
                                         }
@@ -650,7 +704,7 @@ export default function ProjectsDialog({
                                     </button>
                                     <button
                                         type="button"
-                                        className={styles.blackBtn}
+                                        className={styles.modalBtn}
                                         onClick={() => handleSeriesEditOpen(s)}
                                     >
                                         Edit
@@ -672,6 +726,7 @@ export default function ProjectsDialog({
                 </div>
             )}
 
+            {/* MODALS */}
             {showCreateModal && (
                 <SubDialog
                     open={showCreateModal}
@@ -737,7 +792,7 @@ export default function ProjectsDialog({
                             />
                             <button
                                 type="button"
-                                className={styles.blackBtn}
+                                className={styles.modalBtn}
                                 onClick={handleAddCustomGenre}
                             >
                                 Add
@@ -772,7 +827,7 @@ export default function ProjectsDialog({
                             />
                             <button
                                 type="button"
-                                className={styles.blackBtn}
+                                className={styles.modalBtn}
                                 onClick={handleAddCustomTag}
                             >
                                 Add
@@ -783,14 +838,14 @@ export default function ProjectsDialog({
                     <div className={styles.actions}>
                         <button
                             type="button"
-                            className={styles.blackBtn}
+                            className={styles.modalBtn}
                             onClick={() => setShowCreateModal(false)}
                         >
                             Cancel
                         </button>
                         <button
                             type="button"
-                            className={styles.blueBtn}
+                            className={styles.modalPrimaryBtn}
                             onClick={handleCreateProject}
                             disabled={!newProjectName.trim()}
                         >
@@ -821,14 +876,14 @@ export default function ProjectsDialog({
                     <div className={styles.actions}>
                         <button
                             type="button"
-                            className={styles.blackBtn}
+                            className={styles.modalBtn}
                             onClick={() => setShowRenameModal(false)}
                         >
                             Cancel
                         </button>
                         <button
                             type="button"
-                            className={styles.blueBtn}
+                            className={styles.modalPrimaryBtn}
                             onClick={handleRenameConfirm}
                             disabled={!renameValue.trim()}
                         >
@@ -851,7 +906,7 @@ export default function ProjectsDialog({
                     <div className={styles.actions}>
                         <button
                             type="button"
-                            className={styles.blackBtn}
+                            className={styles.modalBtn}
                             onClick={() => setShowDeleteConfirm(false)}
                         >
                             Cancel
@@ -917,14 +972,14 @@ export default function ProjectsDialog({
                     <div className={styles.actions}>
                         <button
                             type="button"
-                            className={styles.blackBtn}
+                            className={styles.modalBtn}
                             onClick={() => setShowSeriesCreate(false)}
                         >
                             Cancel
                         </button>
                         <button
                             type="button"
-                            className={styles.blueBtn}
+                            className={styles.modalPrimaryBtn}
                             onClick={handleSeriesCreate}
                             disabled={!seriesCreateName.trim()}
                         >
@@ -976,14 +1031,14 @@ export default function ProjectsDialog({
                     <div className={styles.actions}>
                         <button
                             type="button"
-                            className={styles.blackBtn}
+                            className={styles.modalBtn}
                             onClick={() => setShowSeriesEdit(false)}
                         >
                             Cancel
                         </button>
                         <button
                             type="button"
-                            className={styles.blueBtn}
+                            className={styles.modalPrimaryBtn}
                             onClick={handleSeriesEditSave}
                             disabled={!seriesEditName.trim()}
                         >
@@ -1005,7 +1060,7 @@ export default function ProjectsDialog({
                     <div className={styles.actions}>
                         <button
                             type="button"
-                            className={styles.blackBtn}
+                            className={styles.modalBtn}
                             onClick={() => setShowSeriesDelete(false)}
                         >
                             Cancel
