@@ -40,6 +40,7 @@ function ProjectCard({
             role="button"
             tabIndex={0}
         >
+            {/* Card Cover */}
             <div className={styles.cardCover}>
                 {project.coverImageId ? (
                     <img
@@ -50,8 +51,8 @@ function ProjectCard({
                 ) : (
                     <div className={styles.coverBookIcon}>
                         <svg
-                            width="30"
-                            height="30"
+                            width="28"
+                            height="28"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
@@ -66,6 +67,7 @@ function ProjectCard({
                     </div>
                 )}
 
+                {/* Top-Right Quick Action Icons */}
                 <div
                     className={styles.cardQuickActions}
                     onClick={(e) => e.stopPropagation()}
@@ -78,8 +80,8 @@ function ProjectCard({
                             onClick={() => onChangeCover(project.id)}
                         >
                             <svg
-                                width="15"
-                                height="15"
+                                width="14"
+                                height="14"
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
@@ -103,8 +105,8 @@ function ProjectCard({
                             onClick={() => onRename(project.id)}
                         >
                             <svg
-                                width="15"
-                                height="15"
+                                width="14"
+                                height="14"
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
@@ -132,8 +134,8 @@ function ProjectCard({
                             onClick={() => onDelete(project.id)}
                         >
                             <svg
-                                width="15"
-                                height="15"
+                                width="14"
+                                height="14"
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
@@ -152,6 +154,7 @@ function ProjectCard({
                 </div>
             </div>
 
+            {/* Bottom Meta & Typography */}
             <div className={styles.cardDetails}>
                 <h3 className={styles.cardTitle}>{project.name}</h3>
 
@@ -577,31 +580,31 @@ export default function ProjectsDialog({
             title="Projects"
             id={styles.projectsDialog}
         >
-            {/* GLOWING TABS TOOLBAR */}
+            {/* TOOLBAR */}
             <div className={styles.toolbar}>
-                {/* Left Side: Projects & Manage Series in Glowing Pill Container */}
-                <div className={styles.glowingPillTrack}>
+                {/* Left Side: Projects, Manage Series */}
+                <div className={styles.buttonGroup}>
                     <button
                         type="button"
-                        className={`${styles.glowingTab} ${!showSeries ? styles.activeTabGlow : ''}`}
+                        className={`${styles.floatingPillBtn} ${!showSeries ? styles.floatingPillActive : ''}`}
                         onClick={() => setShowSeries(false)}
                     >
                         Projects
                     </button>
                     <button
                         type="button"
-                        className={`${styles.glowingTab} ${showSeries ? styles.activeTabGlow : ''}`}
+                        className={`${styles.floatingPillBtn} ${showSeries ? styles.floatingPillActive : ''}`}
                         onClick={() => setShowSeries(true)}
                     >
                         Manage Series
                     </button>
                 </div>
 
-                {/* Right Side: Import & New Project in Matching Pill Container */}
-                <div className={styles.glowingPillTrack}>
+                {/* Right Side: Import, New Project */}
+                <div className={styles.buttonGroup}>
                     <button
                         type="button"
-                        className={styles.glowingTab}
+                        className={styles.floatingPillBtn}
                         onClick={handleImportClick}
                     >
                         Import
@@ -617,7 +620,7 @@ export default function ProjectsDialog({
                     {!showSeries ? (
                         <button
                             type="button"
-                            className={styles.glowingTab}
+                            className={styles.floatingPillBtn}
                             onClick={() => setShowCreateModal(true)}
                         >
                             New Project
@@ -625,7 +628,7 @@ export default function ProjectsDialog({
                     ) : (
                         <button
                             type="button"
-                            className={styles.glowingTab}
+                            className={styles.floatingPillBtn}
                             onClick={() => setShowSeriesCreate(true)}
                         >
                             New Series
@@ -695,7 +698,7 @@ export default function ProjectsDialog({
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     <button
                                         type="button"
-                                        className={styles.modalBtn}
+                                        className={styles.floatingPillBtn}
                                         onClick={() =>
                                             handleSeriesViewProjects(s)
                                         }
@@ -704,7 +707,7 @@ export default function ProjectsDialog({
                                     </button>
                                     <button
                                         type="button"
-                                        className={styles.modalBtn}
+                                        className={styles.floatingPillBtn}
                                         onClick={() => handleSeriesEditOpen(s)}
                                     >
                                         Edit
@@ -726,7 +729,7 @@ export default function ProjectsDialog({
                 </div>
             )}
 
-            {/* MODALS */}
+            {/* SUBDIALOGS */}
             {showCreateModal && (
                 <SubDialog
                     open={showCreateModal}

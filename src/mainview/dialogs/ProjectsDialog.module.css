@@ -1,73 +1,67 @@
 #projectsDialog {
     width: 900px;
     max-width: 95vw;
+    border-radius: 16px !important;
+    overflow: hidden !important;
 }
 
-/* Toolbar Container */
+/* Toolbar container with full pill rounding on both top and bottom edges */
 .toolbar {
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
-    padding: 16px 24px !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
-    background: #09090b !important;
+    padding: 12px 20px !important;
+    border: 1px solid #28282e !important; /* Full border matching cardCover outline */
+    background: #111114 !important;
+    border-radius: 16px !important; /* Curves both top and down edges */
+    margin: 12px 16px 0 16px !important; /* Slight inset so the curves show completely */
     gap: 16px !important;
     box-sizing: border-box !important;
 }
 
-/* The Outer Glowing Pill Track (exact replication of Image 1) */
-.glowingPillTrack {
-    display: inline-flex !important;
+.buttonGroup {
+    display: flex !important;
     align-items: center !important;
-    background: #0a0a0c !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
-    border-radius: 9999px !important;
-    padding: 4px !important;
-    gap: 2px !important;
-    box-shadow:
-        0 0 1px 1px rgba(255, 255, 255, 0.03),
-        inset 0 1px 1px rgba(255, 255, 255, 0.04) !important;
+    gap: 10px !important;
 }
 
-/* Individual Tab inside the track */
-.glowingTab {
-    position: relative !important;
-    background: transparent !important;
-    border: none !important;
-    color: #8a8894 !important;
+/* Button matching cardCover background and border colors */
+.floatingPillBtn {
+    background: #1c1c1f !important;
+    border: 1px solid #28282e !important;
+    color: #b5b0c2 !important;
     font-size: 13px !important;
-    font-weight: 400 !important;
-    font-family: inherit !important;
-    padding: 8px 22px !important;
+    font-weight: 500 !important;
+    padding: 7px 18px !important;
     border-radius: 9999px !important;
     cursor: pointer !important;
     outline: none !important;
-    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    transition: all 0.2s ease !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
     white-space: nowrap !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
 }
 
-.glowingTab:hover {
-    color: #dedede !important;
-}
-
-/* Active Glowing Tab Style (matches the "Home" highlighted tab in Image 1) */
-.activeTabGlow {
-    background: linear-gradient(180deg, #1f1f23 0%, #151517 100%) !important;
+.floatingPillBtn:hover {
+    background: #25252a !important;
+    border-color: #383842 !important;
     color: #ffffff !important;
-    font-weight: 500 !important;
-    border-radius: 9999px !important;
-    border: 1px solid rgba(255, 255, 255, 0.22) !important;
-    /* Ambient outer soft glow and specular inner rim */
-    box-shadow:
-        0 0 25px -4px rgba(255, 255, 255, 0.35),
-        0 0 10px 0 rgba(255, 255, 255, 0.15),
-        inset 0 1px 1px 0 rgba(255, 255, 255, 0.4) !important;
+    transform: translateY(-1px) !important;
 }
 
-/* Book Card */
+/* Active tab highlight */
+.floatingPillActive {
+    background: #27272e !important;
+    color: #ffffff !important;
+    border-color: #444452 !important;
+    box-shadow:
+        0 4px 14px rgba(0, 0, 0, 0.45),
+        inset 0 1px 1px rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Books Grid */
 .booksGrid {
     display: flex !important;
     flex-wrap: wrap !important;
@@ -78,38 +72,43 @@
     box-sizing: border-box !important;
 }
 
+/* Book Card Container */
 .projectCard {
     width: 180px !important;
-    background: #121214 !important;
-    border: 1px solid #1e1e24 !important;
-    border-radius: 12px !important;
+    background: #141416 !important;
+    border: 1px solid #222226 !important;
+    border-radius: 14px !important;
     padding: 10px !important;
     cursor: pointer !important;
     display: flex !important;
     flex-direction: column !important;
     gap: 10px !important;
     box-sizing: border-box !important;
-    transition: all 0.18s ease !important;
+    transition:
+        transform 0.18s ease,
+        border-color 0.18s ease,
+        box-shadow 0.18s ease !important;
     user-select: none !important;
 }
 
 .projectCard:hover {
-    border-color: #383842 !important;
+    border-color: #3a3a44 !important;
     transform: translateY(-2px) !important;
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5) !important;
+    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.55) !important;
 }
 
+/* Card Cover Surface */
 .cardCover {
     width: 100% !important;
     height: 220px !important;
-    background: #18181c !important;
-    border-radius: 8px !important;
+    background: #1c1c1f !important;
+    border-radius: 9px !important;
     position: relative !important;
     overflow: hidden !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    border: 1px solid #24242c !important;
+    border: 1px solid #28282e !important;
 }
 
 .coverImg {
@@ -119,22 +118,23 @@
 }
 
 .coverBookIcon {
-    color: #444450 !important;
+    color: #484852 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
 }
 
+/* Card Top-Right Action Badges */
 .cardQuickActions {
     position: absolute !important;
     top: 8px !important;
     right: 8px !important;
     display: flex !important;
     gap: 4px !important;
-    background: rgba(14, 14, 18, 0.9) !important;
-    padding: 4px 6px !important;
+    background: rgba(18, 18, 22, 0.88) !important;
+    padding: 3px 5px !important;
     border-radius: 6px !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
     backdrop-filter: blur(8px) !important;
     opacity: 0 !important;
     transition: opacity 0.15s ease !important;
@@ -147,7 +147,7 @@
 .iconBtn {
     background: transparent !important;
     border: none !important;
-    color: #9d96ad !important;
+    color: #b5b0c2 !important;
     padding: 4px !important;
     border-radius: 4px !important;
     display: inline-flex !important;
@@ -167,6 +167,7 @@
     color: #ff6b6b !important;
 }
 
+/* Typography & Metadata */
 .cardDetails {
     display: flex !important;
     flex-direction: column !important;
@@ -220,7 +221,7 @@
     color: #5c5850 !important;
 }
 
-/* Series Section */
+/* Series Listing */
 .seriesContainer {
     display: flex !important;
     flex-direction: column !important;
@@ -235,8 +236,8 @@
     align-items: center !important;
     justify-content: space-between !important;
     padding: 12px 16px !important;
-    background: #131317 !important;
-    border: 1px solid #22222a !important;
+    background: #141418 !important;
+    border: 1px solid #24242c !important;
     border-radius: 8px !important;
 }
 
@@ -253,12 +254,12 @@
 }
 
 .deleteSeriesBtn {
-    background: #18181c !important;
+    background: #1c1822 !important;
     border: 1px solid #4d1e1a !important;
     color: #e74c3c !important;
     font-size: 13px !important;
     padding: 7px 16px !important;
-    border-radius: 6px !important;
+    border-radius: 9999px !important;
     cursor: pointer !important;
 }
 
@@ -268,7 +269,7 @@
     color: #888888 !important;
 }
 
-/* Form Styles */
+/* Subdialog & Form Inputs */
 .formGroup {
     display: flex !important;
     flex-direction: column !important;
@@ -287,7 +288,7 @@
     width: 100% !important;
     padding: 8px 10px !important;
     background: #161618 !important;
-    border: 1px solid #2c2c34 !important;
+    border: 1px solid #28282e !important;
     border-radius: 5px !important;
     color: #ffffff !important;
     box-sizing: border-box !important;
@@ -302,8 +303,8 @@
 }
 
 .tagBtn {
-    background: #1e1e24 !important;
-    border: 1px solid #2e2e38 !important;
+    background: #1c1c1f !important;
+    border: 1px solid #28282e !important;
     color: #ffffff !important;
     font-size: 11px !important;
     padding: 4px 8px !important;
@@ -325,14 +326,14 @@
     flex: 1 !important;
     padding: 6px 10px !important;
     background: #161618 !important;
-    border: 1px solid #2c2c34 !important;
+    border: 1px solid #28282e !important;
     border-radius: 5px !important;
     color: #ffffff !important;
 }
 
 .modalBtn {
-    background: #18181c !important;
-    border: 1px solid #2c2c34 !important;
+    background: #1c1c1f !important;
+    border: 1px solid #28282e !important;
     color: #e0e0e0 !important;
     padding: 7px 16px !important;
     border-radius: 6px !important;
