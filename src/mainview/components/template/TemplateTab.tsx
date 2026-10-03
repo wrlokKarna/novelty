@@ -1,6 +1,4 @@
-import React from 'react';
 import { FieldDefinition } from '../../types';
-import TemplateField from './TemplateField';
 import TemplateFieldTarun from './TemplateField.tarun';
 import TemplateFieldChakri from './TemplateField.chakri';
 

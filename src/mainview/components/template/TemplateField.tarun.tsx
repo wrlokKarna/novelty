@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { FieldDefinition } from '../../types';
 import styles from './TemplateField.tarun.module.css';
 

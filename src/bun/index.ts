@@ -34,7 +34,6 @@ import * as tagsDB from './database/tags';
 import * as themesDB from './database/themes';
 import * as templatesDB from './database/templates';
 import * as seriesDB from './database/series';
-import * as globalTemplatesDB from './database/globalTemplates';
 import * as seriesTemplatesDB from './database/seriesTemplates';
 import * as timelineDB from './database/timeline';
 import * as usageDB from './database/usage';
@@ -567,34 +566,6 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
             'db:get-series-projects': async (seriesId: string) => {
                 return await seriesDB.getSeriesProjects(seriesId);
             },
-            'db:list-global-templates': async (
-                params: void | { baseType?: CompendiumCategory }
-            ) => {
-                const opts = params || undefined;
-                return await globalTemplatesDB.listGlobalTemplates(
-                    (opts as any)?.baseType
-                );
-            },
-            'db:get-global-template': async (id: string) => {
-                return await globalTemplatesDB.getGlobalTemplateById(id);
-            },
-            'db:create-global-template': async (
-                data: globalTemplatesDB.NewGlobalTemplate
-            ) => {
-                return await globalTemplatesDB.createGlobalTemplate(data);
-            },
-            'db:update-global-template': async ({
-                id,
-                data,
-            }: {
-                id: string;
-                data: Partial<globalTemplatesDB.NewGlobalTemplate>;
-            }) => {
-                return await globalTemplatesDB.updateGlobalTemplate(id, data);
-            },
-            'db:delete-global-template': async (id: string) => {
-                return await globalTemplatesDB.deleteGlobalTemplate(id);
-            },
             'db:list-series-templates': async ({
                 seriesId,
                 baseType,
@@ -622,7 +593,6 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 id: string;
                 data: Partial<seriesTemplatesDB.NewSeriesTemplate>;
             }) => {
-                console.log('[bun data]', data);
                 return await seriesTemplatesDB.updateSeriesTemplate(id, data);
             },
             'db:delete-series-template': async (id: string) => {
@@ -644,7 +614,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                         | 'item'
                         | 'lore'
                 );
-                return result as any;
+                return result;
             },
             'db:get-resolved-template': async ({
                 projectId,
@@ -662,19 +632,17 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                         | 'item'
                         | 'lore'
                 );
-                return result as any;
+                return result;
             },
             'db:save-template': async ({
                 projectId,
                 baseType,
                 customFields,
-                globalTemplateId,
                 seriesTemplateId,
             }: {
                 projectId: string;
                 baseType: string;
                 customFields: templatesDB.FieldDefinition[];
-                globalTemplateId?: string | null;
                 seriesTemplateId?: string | null;
             }) => {
                 return await templatesDB.upsertTemplate(
@@ -686,7 +654,6 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                         | 'item'
                         | 'lore',
                     customFields,
-                    globalTemplateId,
                     seriesTemplateId
                 );
             },

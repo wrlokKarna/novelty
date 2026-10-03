@@ -1,81 +1,26 @@
 import { db } from './index';
 import { seriesTemplates } from '../schema';
 import { eq, and, asc } from 'drizzle-orm';
-import type { CompendiumCategory } from '../../mainview/types';
+import type {
+    CompendiumCategory,
+    NewSeriesTemplate,
+    SeriesTemplate,
+} from '../../mainview/types';
 import { normalizeTreeFields } from '../../mainview/templates/tree';
 
-export type VisibilityOperator =
-    | 'isTrue'
-    | 'isFalse'
-    | 'isEmpty'
-    | 'notEmpty'
-    | 'equals'
-    | 'notEquals'
-    | 'contains'
-    | 'notContains'
-    | 'in'
-    | 'notIn'
-    | 'greaterThan'
-    | 'lessThan';
+// Canonical definitions live in mainview/types. Re-exported here because this
+// module is the public surface for series template reads/writes.
+export type {
+    CompendiumCategory,
+    FieldDefinition,
+    FieldVisibility,
+    NewSeriesTemplate,
+    SeriesTemplate,
+    VisibilityCondition,
+    VisibilityOperator,
+} from '../../mainview/types';
 
-export type VisibilityCondition = {
-    field: string;
-    operator: VisibilityOperator;
-    value?: string | number | boolean | string[];
-};
-
-export type FieldVisibility = {
-    mode: 'all' | 'any';
-    conditions: VisibilityCondition[];
-};
-
-export type FieldDefinition = {
-    name: string;
-    type:
-        | 'text'
-        | 'number'
-        | 'textarea'
-        | 'select'
-        | 'checkbox'
-        | 'date'
-        | 'file'
-        | 'multiselect'
-        | 'entitylink'
-        | 'richtext'
-        | 'color'
-        | 'toggle'
-        | 'range'
-        | 'portrait'
-        | 'images'
-        | 'tree';
-    label: string;
-    required: boolean;
-    disabled?: boolean;
-    span?: 1 | 2 | 3 | 4;
-    options?: string[];
-    rangeMin?: number;
-    rangeMax?: number;
-    rangeStep?: number;
-    entitylinkCategories?: CompendiumCategory[];
-    treeRelations?: { relation: string; inverse: string }[];
-    visibleWhen?: FieldVisibility;
-};
-
-export type SeriesTemplate = {
-    id: string;
-    seriesId: string;
-    name: string;
-    description: string | null;
-    baseType: CompendiumCategory;
-    globalTemplateId: string | null;
-    customFields: FieldDefinition[];
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewSeriesTemplate = Omit<SeriesTemplate, 'createdAt' | 'updatedAt'>;
-
-function parseTemplate(
+export function parseSeriesTemplateRow(
     row: typeof seriesTemplates.$inferSelect
 ): SeriesTemplate {
     return {
@@ -84,7 +29,6 @@ function parseTemplate(
         name: row.name,
         description: row.description,
         baseType: row.baseType as CompendiumCategory,
-        globalTemplateId: row.globalTemplateId || null,
         customFields: normalizeTreeFields(
             row.customFields ? JSON.parse(row.customFields) : []
         ),
@@ -106,7 +50,7 @@ export async function listSeriesTemplates(
         .from(seriesTemplates)
         .where(and(...conditions))
         .orderBy(asc(seriesTemplates.name));
-    return rows.map(parseTemplate);
+    return rows.map(parseSeriesTemplateRow);
 }
 
 export async function getSeriesTemplateById(
@@ -117,7 +61,7 @@ export async function getSeriesTemplateById(
         .from(seriesTemplates)
         .where(eq(seriesTemplates.id, id));
     if (!result[0]) return undefined;
-    return parseTemplate(result[0]);
+    return parseSeriesTemplateRow(result[0]);
 }
 
 export async function createSeriesTemplate(
@@ -150,18 +94,12 @@ export async function updateSeriesTemplate(
     if (data.baseType !== undefined) updateData.baseType = data.baseType;
     if (data.customFields !== undefined)
         updateData.customFields = JSON.stringify(data.customFields);
-    if (data.globalTemplateId !== undefined)
-        updateData.globalTemplateId = data.globalTemplateId;
 
     await db
         .update(seriesTemplates)
         .set(updateData)
         .where(eq(seriesTemplates.id, id));
-    const newData = getSeriesTemplateById(id);
-    newData.then((data) => {
-        console.log('[new data]', data);
-    });
-    return newData;
+    return getSeriesTemplateById(id);
 }
 
 export async function deleteSeriesTemplate(id: string): Promise<void> {

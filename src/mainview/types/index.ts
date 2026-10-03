@@ -473,24 +473,11 @@ export type NewSeries = Omit<
     'createdAt' | 'updatedAt' | 'projectCount'
 >;
 
-export type GlobalTemplate = {
-    id: string;
-    name: string;
-    description: string | null;
-    baseType: CompendiumCategory;
-    customFields: FieldDefinition[];
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewGlobalTemplate = Omit<GlobalTemplate, 'createdAt' | 'updatedAt'>;
-
 export type SeriesTemplate = {
     id: string;
     seriesId: string;
     name: string;
     description: string | null;
-    globalTemplateId: string | null;
     baseType: CompendiumCategory;
     customFields: FieldDefinition[];
     createdAt: Date;
@@ -504,7 +491,6 @@ export type CompendiumCategory =
 
 export type ResolvedTemplateInfo = {
     fields: FieldDefinition[];
-    globalTemplate: GlobalTemplate | null;
     seriesTemplate: SeriesTemplate | null;
     projectTemplate: EntityTemplate | null;
 };
@@ -570,7 +556,6 @@ export type EntityTemplate = {
     id: string;
     projectId: string | null;
     baseType: CompendiumCategory;
-    globalTemplateId: string | null;
     seriesTemplateId: string | null;
     customFields: FieldDefinition[];
     createdAt: Date;
@@ -942,23 +927,6 @@ export type SelectorSchema = {
             };
             'db:delete-series': { params: string; response: void };
             'db:get-series-projects': { params: string; response: Project[] };
-            'db:list-global-templates': {
-                params: { baseType?: CompendiumCategory } | void;
-                response: GlobalTemplate[];
-            };
-            'db:get-global-template': {
-                params: string;
-                response: GlobalTemplate | undefined;
-            };
-            'db:create-global-template': {
-                params: NewGlobalTemplate;
-                response: GlobalTemplate;
-            };
-            'db:update-global-template': {
-                params: { id: string; data: Partial<NewGlobalTemplate> };
-                response: GlobalTemplate | undefined;
-            };
-            'db:delete-global-template': { params: string; response: void };
             'db:list-series-templates': {
                 params: { seriesId: string; baseType?: CompendiumCategory };
                 response: SeriesTemplate[];
@@ -1131,7 +1099,6 @@ export type SelectorSchema = {
                     projectId: string;
                     baseType: CompendiumCategory;
                     customFields: FieldDefinition[];
-                    globalTemplateId?: string | null;
                     seriesTemplateId?: string | null;
                 };
                 response: EntityTemplate;

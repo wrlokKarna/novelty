@@ -1,76 +1,26 @@
 import { db } from './index';
-import { entityTemplates, globalTemplates, seriesTemplates } from '../schema';
+import { entityTemplates, seriesTemplates } from '../schema';
 import { eq, and } from 'drizzle-orm';
-import type { CompendiumCategory } from '../../mainview/types';
+import type {
+    CompendiumCategory,
+    EntityTemplate,
+    FieldDefinition,
+    ResolvedTemplateInfo,
+    SeriesTemplate,
+} from '../../mainview/types';
 import { normalizeTreeFields } from '../../mainview/templates/tree';
+import { parseSeriesTemplateRow } from './seriesTemplates';
 
-export type VisibilityOperator =
-    | 'isTrue'
-    | 'isFalse'
-    | 'isEmpty'
-    | 'notEmpty'
-    | 'equals'
-    | 'notEquals'
-    | 'contains'
-    | 'notContains'
-    | 'in'
-    | 'notIn'
-    | 'greaterThan'
-    | 'lessThan';
-
-export type VisibilityCondition = {
-    field: string;
-    operator: VisibilityOperator;
-    value?: string | number | boolean | string[];
-};
-
-export type FieldVisibility = {
-    mode: 'all' | 'any';
-    conditions: VisibilityCondition[];
-};
-
-export type FieldDefinition = {
-    name: string;
-    type:
-        | 'text'
-        | 'number'
-        | 'textarea'
-        | 'select'
-        | 'checkbox'
-        | 'date'
-        | 'file'
-        | 'multiselect'
-        | 'entitylink'
-        | 'richtext'
-        | 'color'
-        | 'toggle'
-        | 'range'
-        | 'portrait'
-        | 'images'
-        | 'tree';
-    label: string;
-    required: boolean;
-    disabled?: boolean;
-    span?: 1 | 2 | 3 | 4;
-    options?: string[];
-    rangeMin?: number;
-    rangeMax?: number;
-    rangeStep?: number;
-    entitylinkCategories?: CompendiumCategory[];
-    treeRelations?: { relation: string; inverse: string }[];
-    visibleWhen?: FieldVisibility;
-};
-
-export type EntityTemplate = {
-    id: string;
-    projectId: string | null;
-    baseType: CompendiumCategory;
-    globalTemplateId: string | null;
-    seriesTemplateId: string | null;
-    customFields: FieldDefinition[];
-    createdAt: Date;
-    updatedAt: Date;
-};
+export type {
+    CompendiumCategory,
+    EntityTemplate,
+    FieldDefinition,
+    FieldVisibility,
+    ResolvedTemplateInfo,
+    SeriesTemplate,
+    VisibilityCondition,
+    VisibilityOperator,
+} from '../../mainview/types';
 
 export type NewEntityTemplate = Omit<EntityTemplate, 'createdAt' | 'updatedAt'>;
 
@@ -118,7 +68,6 @@ export async function createTemplate(
         id: template.id,
         projectId: template.projectId,
         baseType: template.baseType,
-        globalTemplateId: template.globalTemplateId || null,
         seriesTemplateId: template.seriesTemplateId || null,
         customFields: JSON.stringify(template.customFields || []),
         createdAt: now,
@@ -137,8 +86,6 @@ export async function updateTemplate(
 ): Promise<EntityTemplate | undefined> {
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (data.baseType !== undefined) updateData.baseType = data.baseType;
-    if (data.globalTemplateId !== undefined)
-        updateData.globalTemplateId = data.globalTemplateId;
     if (data.seriesTemplateId !== undefined)
         updateData.seriesTemplateId = data.seriesTemplateId;
     if (data.customFields !== undefined)
@@ -165,14 +112,11 @@ export async function upsertTemplate(
     projectId: string,
     baseType: CompendiumCategory,
     customFields: FieldDefinition[],
-    globalTemplateId?: string | null,
     seriesTemplateId?: string | null
 ): Promise<EntityTemplate> {
     const existing = await getTemplateByProjectAndType(projectId, baseType);
     if (existing) {
         const updateData: Partial<NewEntityTemplate> = { customFields };
-        if (globalTemplateId !== undefined)
-            updateData.globalTemplateId = globalTemplateId;
         if (seriesTemplateId !== undefined)
             updateData.seriesTemplateId = seriesTemplateId;
         return (await updateTemplate(existing.id, updateData))!;
@@ -182,7 +126,6 @@ export async function upsertTemplate(
         id,
         projectId,
         baseType,
-        globalTemplateId: globalTemplateId || null,
         seriesTemplateId: seriesTemplateId || null,
         customFields,
     });
@@ -191,31 +134,10 @@ export async function upsertTemplate(
 export async function resolveTemplate(
     projectId: string,
     baseType: CompendiumCategory
-): Promise<{
-    fields: FieldDefinition[];
-    globalTemplate: Record<string, unknown> | null;
-    seriesTemplate: Record<string, unknown> | null;
-    projectTemplate: EntityTemplate | null;
-}> {
+): Promise<ResolvedTemplateInfo> {
     const projectTemplate =
         (await getTemplateByProjectAndType(projectId, baseType)) ?? null;
-    let globalTemplateData = null;
-    let seriesTemplateData = null;
-
-    if (projectTemplate?.globalTemplateId) {
-        const gt = await db
-            .select()
-            .from(globalTemplates)
-            .where(eq(globalTemplates.id, projectTemplate.globalTemplateId));
-        if (gt[0]) {
-            globalTemplateData = {
-                ...gt[0],
-                customFields: gt[0].customFields
-                    ? normalizeTreeFields(JSON.parse(gt[0].customFields))
-                    : [],
-            };
-        }
-    }
+    let seriesTemplate: SeriesTemplate | null = null;
 
     if (projectTemplate?.seriesTemplateId) {
         const st = await db
@@ -223,24 +145,13 @@ export async function resolveTemplate(
             .from(seriesTemplates)
             .where(eq(seriesTemplates.id, projectTemplate.seriesTemplateId));
         if (st[0]) {
-            seriesTemplateData = {
-                ...st[0],
-                customFields: st[0].customFields
-                    ? normalizeTreeFields(JSON.parse(st[0].customFields))
-                    : [],
-            };
+            seriesTemplate = parseSeriesTemplateRow(st[0]);
         }
     }
 
     const fieldMap = new Map<string, FieldDefinition>();
 
-    for (const field of (globalTemplateData?.customFields as FieldDefinition[]) ||
-        []) {
-        fieldMap.set(field.name, { ...field, disabled: false });
-    }
-
-    for (const field of (seriesTemplateData?.customFields as FieldDefinition[]) ||
-        []) {
+    for (const field of seriesTemplate?.customFields || []) {
         if (field.disabled) {
             fieldMap.delete(field.name);
         } else {
@@ -258,8 +169,7 @@ export async function resolveTemplate(
 
     return {
         fields: normalizeTreeFields(Array.from(fieldMap.values())),
-        globalTemplate: globalTemplateData as any,
-        seriesTemplate: seriesTemplateData as any,
+        seriesTemplate,
         projectTemplate,
     };
 }

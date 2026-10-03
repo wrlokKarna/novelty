@@ -291,20 +291,6 @@ export const scratchNotes = sqliteTable('scratch_notes', {
         .$defaultFn(() => new Date()),
 });
 
-export const globalTemplates = sqliteTable('global_templates', {
-    id: text('id').primaryKey(),
-    name: text('name').notNull(),
-    description: text('description'),
-    baseType: text('base_type').notNull(),
-    customFields: text('custom_fields'),
-    createdAt: integer('created_at', { mode: 'timestamp' })
-        .notNull()
-        .$defaultFn(() => new Date()),
-    updatedAt: integer('updated_at', { mode: 'timestamp' })
-        .notNull()
-        .$defaultFn(() => new Date()),
-});
-
 export const seriesTemplates = sqliteTable('series_templates', {
     id: text('id').primaryKey(),
     seriesId: text('series_id')
@@ -313,9 +299,6 @@ export const seriesTemplates = sqliteTable('series_templates', {
     name: text('name').notNull(),
     description: text('description'),
     baseType: text('base_type').notNull(),
-    globalTemplateId: text('global_template_id').references(
-        () => globalTemplates.id
-    ),
     customFields: text('custom_fields'),
     createdAt: integer('created_at', { mode: 'timestamp' })
         .notNull()
@@ -329,9 +312,6 @@ export const entityTemplates = sqliteTable('entity_templates', {
     id: text('id').primaryKey(),
     projectId: text('project_id').references(() => projects.id),
     baseType: text('base_type').notNull(),
-    globalTemplateId: text('global_template_id').references(
-        () => globalTemplates.id
-    ),
     seriesTemplateId: text('series_template_id').references(
         () => seriesTemplates.id
     ),

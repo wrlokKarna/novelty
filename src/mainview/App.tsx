@@ -1294,8 +1294,6 @@ function App() {
                         projectId: currentProject.id,
                         baseType: category,
                         customFields: updatedFields,
-                        globalTemplateId:
-                            existingTemplate?.globalTemplateId ?? undefined,
                         seriesTemplateId:
                             existingTemplate?.seriesTemplateId ?? undefined,
                     });
@@ -1583,7 +1581,6 @@ function App() {
                 projectId: currentProject.id,
                 baseType: update.baseType,
                 customFields: updatedFields,
-                globalTemplateId: existing?.globalTemplateId ?? undefined,
                 seriesTemplateId: existing?.seriesTemplateId ?? undefined,
             });
             const newResolved = await rpc.request['db:get-resolved-template']({

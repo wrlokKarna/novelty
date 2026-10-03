@@ -5,6 +5,7 @@ import { join } from 'path';
 import { mkdirSync, existsSync } from 'fs';
 import * as schema from '../schema';
 import * as sqliteVec from 'sqlite-vec';
+import { normalizeTreeFields } from '../../mainview/templates/tree';
 
 const dbPath = join(Utils.paths.userData, 'novelty.db');
 const dbDir = Utils.paths.userData;
@@ -305,16 +306,6 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 		updated_at INTEGER NOT NULL
 	);
 
-	CREATE TABLE IF NOT EXISTS global_templates (
-		id TEXT PRIMARY KEY,
-		name TEXT NOT NULL,
-		description TEXT,
-		base_type TEXT NOT NULL,
-		custom_fields TEXT,
-		created_at INTEGER NOT NULL,
-		updated_at INTEGER NOT NULL
-	);
-
 	CREATE TABLE IF NOT EXISTS series_templates (
 		id TEXT PRIMARY KEY,
 		series_id TEXT NOT NULL REFERENCES series(id) ON DELETE CASCADE,
@@ -566,11 +557,6 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
         },
         {
             table: 'entity_templates',
-            name: 'global_template_id',
-            type: 'TEXT REFERENCES global_templates(id)',
-        },
-        {
-            table: 'entity_templates',
             name: 'series_template_id',
             type: 'TEXT REFERENCES series_templates(id)',
         },
@@ -598,6 +584,8 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
     }
 
     migrateOutlineScenesToStoryScenes();
+
+    migrateGlobalTemplatesAway();
 
     try {
         sqlite.exec(
@@ -705,6 +693,127 @@ function migrateOutlineScenesToStoryScenes() {
         }
     } catch (err) {
         console.warn('Failed to migrate outline scenes:', err);
+    }
+}
+
+type TemplateFieldRecord = {
+    name: string;
+    type: string;
+    treeRelations?: { relation: string; inverse: string }[];
+    disabled?: boolean;
+    [key: string]: unknown;
+};
+
+function parseFieldList(raw: unknown): TemplateFieldRecord[] {
+    if (typeof raw !== 'string' || !raw) return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+function columnExists(table: string, column: string): boolean {
+    const cols = sqlite.query(`PRAGMA table_info(${table})`).all() as {
+        name: string;
+    }[];
+    return cols.some((c) => c.name === column);
+}
+
+function migrateGlobalTemplatesAway() {
+    try {
+        const exists = sqlite
+            .query(
+                `SELECT name FROM sqlite_master WHERE type='table' AND name='global_templates'`
+            )
+            .get();
+        if (!exists) return;
+
+        sqlite.exec('BEGIN');
+        try {
+            const rows = sqlite
+                .query(
+                    `SELECT et.id AS id,
+                            et.custom_fields AS project_fields,
+                            gt.custom_fields AS global_fields,
+                            st.custom_fields AS series_fields
+                     FROM entity_templates et
+                     LEFT JOIN global_templates gt
+                            ON gt.id = et.global_template_id
+                     LEFT JOIN series_templates st
+                            ON st.id = et.series_template_id`
+                )
+                .all() as {
+                id: string;
+                project_fields: string | null;
+                global_fields: string | null;
+                series_fields: string | null;
+            }[];
+
+            const updateStmt = sqlite.prepare(
+                `UPDATE entity_templates SET custom_fields = ?, updated_at = ? WHERE id = ?`
+            );
+            const now = Date.now();
+            let flattened = 0;
+
+            for (const row of rows) {
+                const fieldMap = new Map<string, TemplateFieldRecord>();
+
+                // Mirror the pre-removal resolve order exactly:
+                // global -> series -> project, so the flattened row yields
+                // the same effective field list the app resolves today.
+                for (const field of parseFieldList(row.global_fields)) {
+                    fieldMap.set(field.name, { ...field, disabled: false });
+                }
+
+                for (const field of parseFieldList(row.series_fields)) {
+                    if (field.disabled) {
+                        fieldMap.delete(field.name);
+                    } else {
+                        fieldMap.set(field.name, { ...field, disabled: false });
+                    }
+                }
+
+                for (const field of parseFieldList(row.project_fields)) {
+                    if (field.disabled) {
+                        fieldMap.delete(field.name);
+                    } else {
+                        fieldMap.set(field.name, { ...field, disabled: false });
+                    }
+                }
+
+                const merged = normalizeTreeFields(
+                    Array.from(fieldMap.values())
+                );
+                updateStmt.run(JSON.stringify(merged), now, row.id);
+                flattened++;
+            }
+
+            sqlite.exec(`DROP TABLE global_templates`);
+            // series_templates.global_template_id was never created by the
+            // original DDL or ALTER list, so guard every statement.
+            if (columnExists('entity_templates', 'global_template_id')) {
+                sqlite.exec(
+                    `ALTER TABLE entity_templates DROP COLUMN global_template_id`
+                );
+            }
+            if (columnExists('series_templates', 'global_template_id')) {
+                sqlite.exec(
+                    `ALTER TABLE series_templates DROP COLUMN global_template_id`
+                );
+            }
+
+            sqlite.exec('COMMIT');
+            console.log(
+                `Removed global templates; flattened ${flattened} project template(s)`
+            );
+        } catch (err) {
+            sqlite.exec('ROLLBACK');
+            throw err;
+        }
+    } catch (err) {
+        console.warn('Failed to remove global templates:', err);
     }
 }
 

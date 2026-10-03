@@ -4,18 +4,11 @@ import VisibilityEditor from './VisibilityEditor';
 import TreeRelationsEditor from './TreeRelationsEditor';
 import { describeVisibility } from '../templates/fieldVisibility';
 import { TREE_PRESETS } from '../templates/tree';
-import {
-    getInheritedNames,
-    getSeriesInheritedNames,
-    mergeGlobalFields,
-    fullMerge,
-} from '../templates/mergeFields';
+import { getSeriesInheritedNames, fullMerge } from '../templates/mergeFields';
 import type {
     CompendiumCategory,
     FieldDefinition,
-    GlobalTemplate,
     SeriesTemplate,
-    NewGlobalTemplate,
     NewSeriesTemplate,
 } from '../types/index';
 import { IconTrash } from '@tabler/icons-react';
@@ -92,23 +85,13 @@ interface SeriesEditorState {
     id: string | null;
     name: string;
     description: string;
-    refGlobalId: string | null;
-    fields: FieldDefinition[];
-}
-
-interface GlobalEditorState {
-    id: string | null;
-    name: string;
-    description: string;
     fields: FieldDefinition[];
 }
 
 interface CategoryDraft {
-    globalTemplateId: string | null;
     seriesTemplateId: string | null;
     projectFields: FieldDefinition[];
     seriesEditor: SeriesEditorState | null;
-    globalEditor: GlobalEditorState | null;
     seriesDeletes: string[];
     dirty: boolean;
 }
@@ -120,9 +103,6 @@ export default function TemplateManagerTab({
     initialCategory,
 }: TemplateManagerTabProps) {
     const rpc = useRPC();
-    const [globalTemplates, setGlobalTemplates] = useState<GlobalTemplate[]>(
-        []
-    );
     const [seriesTemplates, setSeriesTemplates] = useState<SeriesTemplate[]>(
         []
     );
@@ -142,15 +122,10 @@ export default function TemplateManagerTab({
         if (!projectId) return;
         setLoading(true);
         try {
-            const [globals, seriesRes] = await Promise.all([
-                rpc.request['db:list-global-templates'](),
-                seriesId
-                    ? rpc.request['db:list-series-templates']({ seriesId })
-                    : (Promise.resolve([]) as Promise<SeriesTemplate[]>),
-            ]);
-            const gl = Array.isArray(globals) ? globals : [];
+            const seriesRes = seriesId
+                ? await rpc.request['db:list-series-templates']({ seriesId })
+                : ([] as SeriesTemplate[]);
             const sl = Array.isArray(seriesRes) ? seriesRes : [];
-            setGlobalTemplates(gl);
             setSeriesTemplates(sl);
 
             const results = await Promise.all(
@@ -165,22 +140,16 @@ export default function TemplateManagerTab({
             const next = {} as Record<CompendiumCategory, CategoryDraft>;
             CATEGORIES.forEach((cat, i) => {
                 const info = results[i];
-                const globalId =
-                    info?.projectTemplate?.globalTemplateId ?? null;
                 const seriesIdApplied =
                     info?.projectTemplate?.seriesTemplateId ?? null;
                 next[cat] = {
-                    globalTemplateId: globalId,
                     seriesTemplateId: seriesIdApplied,
                     projectFields: fullMerge(
                         info?.projectTemplate?.customFields || [],
-                        globalId,
-                        gl,
                         seriesIdApplied,
                         sl
                     ),
                     seriesEditor: null,
-                    globalEditor: null,
                     seriesDeletes: [],
                     dirty: false,
                 };
@@ -199,8 +168,7 @@ export default function TemplateManagerTab({
     }, [projectId, seriesId]);
 
     async function reloadCategory(cat: CompendiumCategory) {
-        const [globals, seriesRes, info] = await Promise.all([
-            rpc.request['db:list-global-templates'](),
+        const [seriesRes, info] = await Promise.all([
             seriesId
                 ? rpc.request['db:list-series-templates']({ seriesId })
                 : (Promise.resolve([]) as Promise<SeriesTemplate[]>),
@@ -209,26 +177,19 @@ export default function TemplateManagerTab({
                 baseType: cat,
             }),
         ]);
-        const gl = Array.isArray(globals) ? globals : [];
         const sl = Array.isArray(seriesRes) ? seriesRes : [];
-        setGlobalTemplates(gl);
         setSeriesTemplates(sl);
-        const globalId = info?.projectTemplate?.globalTemplateId ?? null;
         const seriesIdApplied = info?.projectTemplate?.seriesTemplateId ?? null;
         setDrafts((prev) => ({
             ...prev,
             [cat]: {
-                globalTemplateId: globalId,
                 seriesTemplateId: seriesIdApplied,
                 projectFields: fullMerge(
                     info?.projectTemplate?.customFields || [],
-                    globalId,
-                    gl,
                     seriesIdApplied,
                     sl
                 ),
                 seriesEditor: null,
-                globalEditor: null,
                 seriesDeletes: [],
                 dirty: false,
             },
@@ -248,49 +209,19 @@ export default function TemplateManagerTab({
 
     function isSectionCollapsed(
         cat: CompendiumCategory,
-        section: 'global' | 'series' | 'project'
+        section: 'series' | 'project'
     ) {
         return !!collapsedSections[`${cat}:${section}`];
     }
 
     function toggleSection(
         cat: CompendiumCategory,
-        section: 'global' | 'series' | 'project'
+        section: 'series' | 'project'
     ) {
         setCollapsedSections((prev) => ({
             ...prev,
             [`${cat}:${section}`]: !prev[`${cat}:${section}`],
         }));
-    }
-
-    function handleGlobalChange(cat: CompendiumCategory, newId: string) {
-        const id = newId || null;
-        setDrafts((prev) => {
-            const d = prev[cat];
-            if (!d) return prev;
-            const oldInherited = getInheritedNames(
-                d.globalTemplateId,
-                globalTemplates
-            );
-            const cleaned = d.projectFields.filter(
-                (f) => !oldInherited.has(f.name)
-            );
-            return {
-                ...prev,
-                [cat]: {
-                    ...d,
-                    globalTemplateId: id,
-                    projectFields: fullMerge(
-                        cleaned,
-                        id,
-                        globalTemplates,
-                        d.seriesTemplateId,
-                        seriesTemplates
-                    ),
-                    dirty: true,
-                },
-            };
-        });
     }
 
     function handleSeriesChange(cat: CompendiumCategory, newId: string) {
@@ -312,8 +243,6 @@ export default function TemplateManagerTab({
                     seriesTemplateId: id,
                     projectFields: fullMerge(
                         cleaned,
-                        d.globalTemplateId,
-                        globalTemplates,
                         id,
                         seriesTemplates
                     ),
@@ -329,7 +258,6 @@ export default function TemplateManagerTab({
                 id: null,
                 name: '',
                 description: '',
-                refGlobalId: null,
                 fields: [],
             },
         });
@@ -341,7 +269,6 @@ export default function TemplateManagerTab({
                 id: tpl.id,
                 name: tpl.name,
                 description: tpl.description || '',
-                refGlobalId: null,
                 fields: tpl.customFields || [],
             },
         });
@@ -369,35 +296,6 @@ export default function TemplateManagerTab({
         });
     }
 
-    function handleSeriesEditorRefGlobal(
-        cat: CompendiumCategory,
-        newId: string
-    ) {
-        const id = newId || null;
-        setDrafts((prev) => {
-            const d = prev[cat];
-            const se = d?.seriesEditor;
-            if (!se) return prev;
-            const oldInherited = getInheritedNames(
-                se.refGlobalId,
-                globalTemplates
-            );
-            const cleaned = se.fields.filter((f) => !oldInherited.has(f.name));
-            return {
-                ...prev,
-                [cat]: {
-                    ...d,
-                    seriesEditor: {
-                        ...se,
-                        refGlobalId: id,
-                        fields: mergeGlobalFields(cleaned, id, globalTemplates),
-                    },
-                    dirty: true,
-                },
-            };
-        });
-    }
-
     function stageSeriesDelete(cat: CompendiumCategory, id: string) {
         setDrafts((prev) => {
             const d = prev[cat];
@@ -413,13 +311,7 @@ export default function TemplateManagerTab({
                     (f) => !oldInherited.has(f.name)
                 );
                 seriesTemplateId = null;
-                projectFields = fullMerge(
-                    cleaned,
-                    d.globalTemplateId,
-                    globalTemplates,
-                    null,
-                    seriesTemplates
-                );
+                projectFields = fullMerge(cleaned, null, seriesTemplates);
             }
             return {
                 ...prev,
@@ -434,178 +326,12 @@ export default function TemplateManagerTab({
         });
     }
 
-    function openGlobalCreate(cat: CompendiumCategory) {
-        updateDraft(cat, {
-            globalEditor: { id: null, name: '', description: '', fields: [] },
-        });
-    }
-
-    function openGlobalEdit(cat: CompendiumCategory, tpl: GlobalTemplate) {
-        updateDraft(cat, {
-            globalEditor: {
-                id: tpl.id,
-                name: tpl.name,
-                description: tpl.description || '',
-                fields: tpl.customFields || [],
-            },
-        });
-    }
-    /*
-    function handleCreateTemplate(
-        type: 'global' | 'series',
-        cat: CompendiumCategory
-    ) {
-        if (type === 'global') {
-            openGlobalCreate(cat);
-        } else {
-            openSeriesCreate(cat);
-        }
-    }
-    */
-
-    function cancelGlobalEditor(cat: CompendiumCategory) {
-        updateDraft(cat, { globalEditor: null });
-    }
-
-    function updateGlobalEditor(
-        cat: CompendiumCategory,
-        patch: Partial<GlobalEditorState>
-    ) {
-        setDrafts((prev) => {
-            const d = prev[cat];
-            if (!d?.globalEditor) return prev;
-            return {
-                ...prev,
-                [cat]: {
-                    ...d,
-                    globalEditor: { ...d.globalEditor, ...patch },
-                    dirty: true,
-                },
-            };
-        });
-    }
-
-    async function saveGlobalEditor(cat: CompendiumCategory) {
-        const d = drafts[cat];
-        const ge = d?.globalEditor;
-        if (!ge) return;
-        try {
-            const savable = ge.fields.filter(
-                (f) => f.name.trim() && f.label.trim()
-            );
-            if (ge.id) {
-                await rpc.request['db:update-global-template']({
-                    id: ge.id,
-                    data: {
-                        name: ge.name.trim(),
-                        description: ge.description.trim() || null,
-                        baseType: cat,
-                        customFields: savable,
-                    },
-                });
-            } else if (ge.name.trim()) {
-                const data: NewGlobalTemplate = {
-                    id: crypto.randomUUID(),
-                    name: ge.name.trim(),
-                    description: ge.description.trim() || null,
-                    baseType: cat,
-                    customFields: savable,
-                };
-                await rpc.request['db:create-global-template'](data);
-            }
-            await refreshGlobals(cat, null);
-        } catch (e) {
-            console.error('Failed to save global template:', e);
-        }
-    }
-
-    async function handleDeleteGlobal(cat: CompendiumCategory, id: string) {
-        const d = drafts[cat];
-        if (!d) return;
-        if (
-            !confirm(
-                `Delete this global template? Projects using it will lose the inherited fields.`
-            )
-        )
-            return;
-        try {
-            await rpc.request['db:delete-global-template'](id);
-            await refreshGlobals(cat, id);
-        } catch (e) {
-            console.error('Failed to delete global template:', e);
-        }
-    }
-
-    async function refreshGlobals(
-        cat: CompendiumCategory,
-        deletedGlobalId: string | null
-    ) {
-        const res = await rpc.request['db:list-global-templates']();
-        const gl = Array.isArray(res) ? res : [];
-        setGlobalTemplates(gl);
-        setDrafts((prev) => {
-            const d = prev[cat];
-            if (!d) return prev;
-            const appliedDeleted =
-                deletedGlobalId !== null &&
-                d.globalTemplateId === deletedGlobalId;
-            let globalTemplateId = d.globalTemplateId;
-            let projectFields = d.projectFields;
-            if (appliedDeleted) {
-                const deleted = globalTemplates.find(
-                    (g) => g.id === deletedGlobalId
-                );
-                const removedNames = new Set(
-                    (deleted?.customFields || []).map((f) => f.name)
-                );
-                const cleaned = d.projectFields.filter(
-                    (f) => !(f.disabled && removedNames.has(f.name))
-                );
-                globalTemplateId = null;
-                projectFields = fullMerge(
-                    cleaned,
-                    null,
-                    gl,
-                    d.seriesTemplateId,
-                    seriesTemplates
-                );
-            } else {
-                const cleaned = d.projectFields.filter(
-                    (f) =>
-                        !getInheritedNames(d.globalTemplateId, gl).has(f.name)
-                );
-                projectFields = fullMerge(
-                    cleaned,
-                    d.globalTemplateId,
-                    gl,
-                    d.seriesTemplateId,
-                    seriesTemplates
-                );
-            }
-            return {
-                ...prev,
-                [cat]: {
-                    ...d,
-                    globalTemplateId,
-                    projectFields,
-                    globalEditor: null,
-                    dirty: d.dirty || appliedDeleted,
-                },
-            };
-        });
-    }
-
     async function persistSeriesEditor(cat: CompendiumCategory) {
         const d = drafts[cat];
         const se = d?.seriesEditor;
         if (!se || !seriesId) return false;
-        /*const inheritedNames = getInheritedNames(se.refGlobalId, globalTemplates);*/
         const savable = se.fields
-            .filter((f) => {
-                /*if (!inheritedNames.has(f.name)) return true;*/
-                if (!f.disabled) return true;
-                return false;
-            })
+            .filter((f) => !f.disabled)
             .filter((f) => f.name.trim() && f.label.trim());
 
         if (se.id) {
@@ -613,9 +339,7 @@ export default function TemplateManagerTab({
                 name: se.name.trim(),
                 description: se.description.trim() || null,
                 customFields: savable,
-                globalTemplateId: se.refGlobalId,
             };
-            console.log('[data to save]', se.refGlobalId, data);
             await rpc.request['db:update-series-template']({
                 id: se.id,
                 data,
@@ -628,11 +352,9 @@ export default function TemplateManagerTab({
             seriesId,
             name: se.name.trim(),
             description: se.description.trim() || null,
-            globalTemplateId: se.refGlobalId,
             baseType: cat,
             customFields: savable,
         };
-        console.log('[new series temp data]', data);
         await rpc.request['db:create-series-template'](data);
         return true;
     }
@@ -655,8 +377,6 @@ export default function TemplateManagerTab({
                     ...d,
                     projectFields: fullMerge(
                         cleaned,
-                        d.globalTemplateId,
-                        globalTemplates,
                         d.seriesTemplateId,
                         sl
                     ),
@@ -667,7 +387,6 @@ export default function TemplateManagerTab({
     }
 
     async function saveSeriesEditor(cat: CompendiumCategory) {
-        console.log('[saving]', cat);
         try {
             const saved = await persistSeriesEditor(cat);
             if (saved) await refreshSeries(cat);
@@ -687,21 +406,13 @@ export default function TemplateManagerTab({
 
             await persistSeriesEditor(cat);
 
-            const globalInherited = getInheritedNames(
-                d.globalTemplateId,
-                globalTemplates
-            );
             const seriesInherited = getSeriesInheritedNames(
                 d.seriesTemplateId,
                 seriesTemplates
             );
             const savableProject = d.projectFields
                 .filter((f) => {
-                    if (
-                        !globalInherited.has(f.name) &&
-                        !seriesInherited.has(f.name)
-                    )
-                        return true;
+                    if (!seriesInherited.has(f.name)) return true;
                     if (f.disabled) return true;
                     return false;
                 })
@@ -711,7 +422,6 @@ export default function TemplateManagerTab({
                 projectId,
                 baseType: cat,
                 customFields: savableProject,
-                globalTemplateId: d.globalTemplateId,
                 seriesTemplateId: d.seriesTemplateId,
             });
 
@@ -725,27 +435,16 @@ export default function TemplateManagerTab({
     }
 
     function summaryFor(d: CategoryDraft): string {
-        const g =
-            globalTemplates.find((x) => x.id === d.globalTemplateId)
-                ?.customFields?.length || 0;
         const s =
             seriesTemplates.find((x) => x.id === d.seriesTemplateId)
                 ?.customFields?.length || 0;
-        const inherited = new Set([
-            ...Array.from(
-                getInheritedNames(d.globalTemplateId, globalTemplates)
-            ),
-            ...Array.from(
+        const inherited = new Set(
+            Array.from(
                 getSeriesInheritedNames(d.seriesTemplateId, seriesTemplates)
-            ),
-        ]);
+            )
+        );
         const p = d.projectFields.filter((f) => !inherited.has(f.name)).length;
-        return `${g} global · ${s} series · ${p} project`;
-    }
-
-    function globalSummary(d: CategoryDraft): string {
-        const g = globalTemplates.find((x) => x.id === d.globalTemplateId);
-        return g ? `${g.name} (${g.customFields?.length || 0} fields)` : 'None';
+        return `${s} series · ${p} project`;
     }
 
     function seriesSummary(d: CategoryDraft): string {
@@ -755,14 +454,11 @@ export default function TemplateManagerTab({
     }
 
     function projectSummary(d: CategoryDraft): string {
-        const inherited = new Set([
-            ...Array.from(
-                getInheritedNames(d.globalTemplateId, globalTemplates)
-            ),
-            ...Array.from(
+        const inherited = new Set(
+            Array.from(
                 getSeriesInheritedNames(d.seriesTemplateId, seriesTemplates)
-            ),
-        ]);
+            )
+        );
         return `${d.projectFields.filter((f) => !inherited.has(f.name)).length} project fields`;
     }
 
@@ -827,277 +523,8 @@ export default function TemplateManagerTab({
         );
     }
 
-    function renderGlobalSection(cat: CompendiumCategory, d: CategoryDraft) {
-        const globalsForCat = globalTemplates.filter((g) => g.baseType === cat);
-        const selected = globalTemplates.find(
-            (g) => g.id === d.globalTemplateId
-        );
-        return (
-            <div>
-                <div style={{ marginBottom: '0.5rem' }}>
-                    <label>Apply a global template to this project</label>
-                    <select
-                        value={d.globalTemplateId || ''}
-                        onChange={(e) =>
-                            handleGlobalChange(cat, e.target.value)
-                        }
-                        style={{ width: '100%', marginTop: '0.5rem' }}
-                    >
-                        <option value="">None (no global template)</option>
-                        {globalsForCat.map((gt) => (
-                            <option key={gt.id} value={gt.id}>
-                                {gt.name}
-                                {gt.description ? ` — ${gt.description}` : ''} (
-                                {gt.customFields?.length || 0} fields)
-                            </option>
-                        ))}
-                    </select>
-                </div>
-                <p
-                    style={{
-                        fontSize: '0.8em',
-                        color: '#888',
-                        margin: '0 0 0.5rem 0',
-                    }}
-                >
-                    Global templates apply to every project. Inherited fields
-                    appear in the Project Fields section below.
-                </p>
-                {selected ? (
-                    <div
-                        style={{
-                            padding: '0.5rem',
-                            background: 'var(--bg-secondary, #1a1a1a)',
-                            borderRadius: '4px',
-                        }}
-                    >
-                        {renderFieldPreview(
-                            selected.customFields,
-                            (name) =>
-                                d.projectFields.find((p) => p.name === name)
-                                    ?.label || name
-                        )}
-                    </div>
-                ) : (
-                    <div style={{ color: '#888', fontSize: '0.85em' }}>
-                        No global template applied to this project.
-                    </div>
-                )}
-
-                <div style={{ marginTop: '0.75rem' }}>
-                    <div
-                        style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: '0.5rem',
-                        }}
-                    >
-                        <span style={{ fontSize: '0.9em', color: '#ccc' }}>
-                            Global templates for {categoryLabels[cat]} (shared
-                            across all projects)
-                        </span>
-                        <button
-                            type="button"
-                            onClick={() => openGlobalCreate(cat)}
-                        >
-                            + New Global Template
-                        </button>
-                    </div>
-                    {globalsForCat.length === 0 ? (
-                        <div style={{ color: '#888', fontSize: '0.85em' }}>
-                            No global templates for this category yet.
-                        </div>
-                    ) : (
-                        <div
-                            style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '0.35rem',
-                            }}
-                        >
-                            {globalsForCat.map((g) => (
-                                <div
-                                    key={g.id}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        padding: '0.5rem',
-                                        border: '1px solid var(--border, #333)',
-                                        borderRadius: '4px',
-                                    }}
-                                >
-                                    <div>
-                                        <strong>{g.name}</strong>
-                                        {g.description && (
-                                            <span
-                                                style={{
-                                                    marginLeft: '0.5rem',
-                                                    color: '#888',
-                                                    fontSize: '0.85em',
-                                                }}
-                                            >
-                                                — {g.description}
-                                            </span>
-                                        )}
-                                        <span
-                                            style={{
-                                                marginLeft: '0.5rem',
-                                                color: '#888',
-                                                fontSize: '0.85em',
-                                            }}
-                                        >
-                                            ({g.customFields?.length || 0}{' '}
-                                            fields)
-                                        </span>
-                                        {g.id === d.globalTemplateId && (
-                                            <span
-                                                style={{
-                                                    marginLeft: '0.5rem',
-                                                    fontSize: '0.7em',
-                                                    color: '#4A9EFF',
-                                                    background:
-                                                        'rgba(74,158,255,0.15)',
-                                                    padding: '1px 6px',
-                                                    borderRadius: '3px',
-                                                }}
-                                            >
-                                                APPLIED
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            gap: '0.5rem',
-                                        }}
-                                    >
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                openGlobalEdit(cat, g)
-                                            }
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="danger"
-                                            onClick={() =>
-                                                handleDeleteGlobal(cat, g.id)
-                                            }
-                                            style={{ color: '#e74c3c' }}
-                                        >
-                                            Delete
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {d.globalEditor && renderGlobalEditor(cat, d)}
-            </div>
-        );
-    }
-
-    function renderGlobalEditor(cat: CompendiumCategory, d: CategoryDraft) {
-        const ge = d.globalEditor!;
-        return (
-            <div
-                style={{
-                    marginTop: '0.5rem',
-                    padding: '0.75rem',
-                    border: '1px solid #4A9EFF',
-                    borderRadius: '4px',
-                }}
-            >
-                <div
-                    style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '0.5rem',
-                    }}
-                >
-                    <strong>
-                        {ge.id
-                            ? 'Editing Global Template'
-                            : 'New Global Template'}
-                    </strong>
-                    <button
-                        type="button"
-                        onClick={() => cancelGlobalEditor(cat)}
-                    >
-                        Cancel
-                    </button>
-                </div>
-                <div style={{ marginBottom: '0.5rem' }}>
-                    <label>Template Name</label>
-                    <input
-                        type="text"
-                        value={ge.name}
-                        onChange={(e) =>
-                            updateGlobalEditor(cat, { name: e.target.value })
-                        }
-                        style={{ width: '100%' }}
-                    />
-                </div>
-                <div style={{ marginBottom: '0.5rem' }}>
-                    <label>Description</label>
-                    <textarea
-                        value={ge.description}
-                        onChange={(e) =>
-                            updateGlobalEditor(cat, {
-                                description: e.target.value,
-                            })
-                        }
-                        rows={2}
-                        style={{ width: '100%' }}
-                    />
-                </div>
-                <div>
-                    <label>Fields</label>
-                    <SimpleFieldsEditor
-                        fields={ge.fields}
-                        onChange={(fields) =>
-                            updateGlobalEditor(cat, { fields })
-                        }
-                        inheritedNames={new Set()}
-                    />
-                </div>
-                <div
-                    style={{
-                        display: 'flex',
-                        justifyContent: 'flex-end',
-                        gap: '0.5rem',
-                        marginTop: '0.5rem',
-                    }}
-                >
-                    <button
-                        type="button"
-                        onClick={() => cancelGlobalEditor(cat)}
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="button"
-                        className="save-btn"
-                        onClick={() => saveGlobalEditor(cat)}
-                        disabled={!ge.name.trim()}
-                    >
-                        Save Global Template
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
     function renderSeriesEditor(cat: CompendiumCategory, d: CategoryDraft) {
         const se = d.seriesEditor!;
-        const globalsForCat = globalTemplates.filter((g) => g.baseType === cat);
         return (
             <div
                 style={{
@@ -1151,31 +578,6 @@ export default function TemplateManagerTab({
                         style={{ width: '100%' }}
                     />
                 </div>
-                <div style={{ marginBottom: '0.5rem' }}>
-                    <label>
-                        Reference Global Template (optional, for inherited
-                        fields)
-                    </label>
-                    {/*Need Work 1 */}
-                    <select
-                        value={
-                            se.refGlobalId ||
-                            seriesTemplates?.[0]?.globalTemplateId ||
-                            ''
-                        }
-                        onChange={(e) =>
-                            handleSeriesEditorRefGlobal(cat, e.target.value)
-                        }
-                        style={{ width: '100%' }}
-                    >
-                        <option value="">— None —</option>
-                        {globalsForCat.map((g) => (
-                            <option key={g.id} value={g.id}>
-                                {g.name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
                 <div>
                     <label>Fields</label>
                     <SimpleFieldsEditor
@@ -1183,10 +585,7 @@ export default function TemplateManagerTab({
                         onChange={(fields) =>
                             updateSeriesEditor(cat, { fields })
                         }
-                        inheritedNames={getInheritedNames(
-                            se.refGlobalId,
-                            globalTemplates
-                        )}
+                        inheritedNames={new Set()}
                     />
                 </div>
                 <div
@@ -1432,19 +831,15 @@ export default function TemplateManagerTab({
                     }}
                 >
                     The effective template for this project. Inherited fields
-                    from the global and series templates are shown with an
-                    INHERITED badge.
+                    from the series template are shown with an INHERITED
+                    badge.
                 </p>
                 <ProjectFieldsEditor
                     fields={d.projectFields}
                     onChange={(fields) =>
                         updateDraft(cat, { projectFields: fields })
                     }
-                    inheritedNames={getInheritedNames(
-                        d.globalTemplateId,
-                        globalTemplates
-                    )}
-                    seriesInheritedNames={getSeriesInheritedNames(
+                    inheritedNames={getSeriesInheritedNames(
                         d.seriesTemplateId,
                         seriesTemplates
                     )}
@@ -1554,13 +949,6 @@ export default function TemplateManagerTab({
                         const seriesForCat = seriesTemplates.filter(
                             (s) => s.baseType === activeCat
                         );
-                        /*console.log("[series temp]", seriesTemplates, activeCat)*/
-                        console.log(
-                            '[series temp]',
-                            seriesTemplates,
-                            activeCat,
-                            seriesTemplates?.[0]?.globalTemplateId
-                        );
                         return (
                             <div
                                 style={{
@@ -1570,23 +958,6 @@ export default function TemplateManagerTab({
                                     padding: '0.25rem 0.25rem 0.5rem',
                                 }}
                             >
-                                {!seriesTemplates?.[0]?.globalTemplateId ? (
-                                    <CollapsibleSection
-                                        title="Global Template"
-                                        collapsed={isSectionCollapsed(
-                                            activeCat,
-                                            'global'
-                                        )}
-                                        onToggle={() =>
-                                            toggleSection(activeCat, 'global')
-                                        }
-                                        summary={globalSummary(d)}
-                                    >
-                                        {renderGlobalSection(activeCat, d)}
-                                    </CollapsibleSection>
-                                ) : (
-                                    ''
-                                )}
                                 {seriesForCat.length !== 0 ? (
                                     <CollapsibleSection
                                         title="Series Template"
@@ -1785,12 +1156,10 @@ function ProjectFieldsEditor({
     fields,
     onChange,
     inheritedNames,
-    seriesInheritedNames,
 }: {
     fields: FieldDefinition[];
     onChange: (fields: FieldDefinition[]) => void;
     inheritedNames: Set<string>;
-    seriesInheritedNames: Set<string>;
 }) {
     const [dragIndex, setDragIndex] = useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -1854,9 +1223,7 @@ function ProjectFieldsEditor({
     }
 
     function isInherited(fieldName: string): boolean {
-        return (
-            inheritedNames.has(fieldName) || seriesInheritedNames.has(fieldName)
-        );
+        return inheritedNames.has(fieldName);
     }
 
     function moveField(from: number, to: number) {
