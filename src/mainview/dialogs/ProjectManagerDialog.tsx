@@ -34,7 +34,7 @@ import {
     IconStarFilled,
     IconX,
 } from '@tabler/icons-react';
-import TemplateManagerTab from '../components/TemplateManagerTab';
+import TemplateManagerTab from '../components/template/TemplateManagerTab';
 import IconTextSideBar from '../ui/layout/IconTextSideBar';
 import {
     PROJECT_DIALOG_TABS,

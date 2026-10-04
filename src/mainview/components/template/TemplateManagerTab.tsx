@@ -1,17 +1,21 @@
-import { useState, useEffect, type ReactNode } from 'react';
-import { useRPC } from '../contexts/RPCContext';
-import VisibilityEditor from './VisibilityEditor';
-import TreeRelationsEditor from './TreeRelationsEditor';
-import { describeVisibility } from '../templates/fieldVisibility';
-import { TREE_PRESETS } from '../templates/tree';
-import { getSeriesInheritedNames, fullMerge } from '../templates/mergeFields';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useRPC } from '../../contexts/RPCContext';
+import VisibilityEditor from '../VisibilityEditor';
+import TreeRelationsEditor from '../TreeRelationsEditor';
+import { describeVisibility } from '../../templates/fieldVisibility';
+import { TREE_PRESETS } from '../../templates/tree';
+import {
+    getSeriesInheritedNames,
+    fullMerge,
+} from '../../templates/mergeFields';
 import type {
     CompendiumCategory,
     FieldDefinition,
     SeriesTemplate,
     NewSeriesTemplate,
-} from '../types/index';
+} from '../../types/index';
 import { IconTrash } from '@tabler/icons-react';
+import styles from './TemplateManagerTab.module.css';
 
 interface TemplateManagerTabProps {
     projectId: string;
@@ -95,6 +99,10 @@ interface CategoryDraft {
     seriesDeletes: string[];
     dirty: boolean;
 }
+
+type AddTarget = 'project' | 'series';
+
+const NEW_SERIES = '__new__';
 
 export default function TemplateManagerTab({
     projectId,
@@ -241,11 +249,7 @@ export default function TemplateManagerTab({
                 [cat]: {
                     ...d,
                     seriesTemplateId: id,
-                    projectFields: fullMerge(
-                        cleaned,
-                        id,
-                        seriesTemplates
-                    ),
+                    projectFields: fullMerge(cleaned, id, seriesTemplates),
                     dirty: true,
                 },
             };
@@ -359,7 +363,10 @@ export default function TemplateManagerTab({
         return true;
     }
 
-    async function refreshSeries(cat: CompendiumCategory) {
+    async function refreshSeries(
+        cat: CompendiumCategory,
+        opts?: { keepEditor?: boolean }
+    ) {
         if (!seriesId) return;
         const res = await rpc.request['db:list-series-templates']({ seriesId });
         const sl = Array.isArray(res) ? res : [];
@@ -375,12 +382,8 @@ export default function TemplateManagerTab({
                 ...prev,
                 [cat]: {
                     ...d,
-                    projectFields: fullMerge(
-                        cleaned,
-                        d.seriesTemplateId,
-                        sl
-                    ),
-                    seriesEditor: null,
+                    projectFields: fullMerge(cleaned, d.seriesTemplateId, sl),
+                    ...(opts?.keepEditor ? {} : { seriesEditor: null }),
                 },
             };
         });
@@ -431,6 +434,90 @@ export default function TemplateManagerTab({
             console.error('Failed to save category:', e);
         } finally {
             setSavingCat(null);
+        }
+    }
+
+    function toggleAddCard() {
+        const next = !showAddCard;
+        setShowAddCard(next);
+        if (!next) return;
+        const d = drafts[activeCat];
+        const preferred = d?.seriesEditor?.id || d?.seriesTemplateId || '';
+        setSeriesPick(
+            seriesTemplates.some((s) => s.id === preferred) ? preferred : ''
+        );
+        setAddTarget(d?.seriesEditor?.id ? 'series' : 'project');
+        setNewFieldName('');
+        setNewFieldType('text');
+        setNewSeriesName('');
+    }
+
+    function canSubmitField() {
+        if (!newFieldName.trim() || addingField) return false;
+        if (addTarget === 'series') {
+            if (!seriesId || !seriesPick) return false;
+            if (seriesPick === NEW_SERIES && !newSeriesName.trim())
+                return false;
+        }
+        return true;
+    }
+
+    function resetAddCard() {
+        setNewFieldName('');
+        setNewSeriesName('');
+        setShowAddCard(false);
+    }
+
+    async function handleAddFieldSubmit() {
+        const d = drafts[activeCat];
+        if (!d || !newFieldName.trim()) return;
+        const field = buildFieldDefinition(newFieldName.trim(), newFieldType);
+
+        if (addTarget === 'project') {
+            updateDraft(activeCat, {
+                projectFields: [...d.projectFields, field],
+            });
+            resetAddCard();
+            return;
+        }
+
+        if (!seriesId) return;
+        if (seriesPick === NEW_SERIES) {
+            if (!newSeriesName.trim()) return;
+        } else if (!seriesTemplates.some((s) => s.id === seriesPick)) {
+            return;
+        }
+
+        setAddingField(true);
+        try {
+            if (seriesPick === NEW_SERIES) {
+                const data: NewSeriesTemplate = {
+                    id: crypto.randomUUID(),
+                    seriesId,
+                    name: newSeriesName.trim(),
+                    description: null,
+                    baseType: activeCat,
+                    customFields: [field],
+                };
+                await rpc.request['db:create-series-template'](data);
+            } else {
+                const tpl = seriesTemplates.find((s) => s.id === seriesPick);
+                if (!tpl) return;
+                await rpc.request['db:update-series-template']({
+                    id: tpl.id,
+                    data: {
+                        name: tpl.name,
+                        description: tpl.description || null,
+                        customFields: [...(tpl.customFields || []), field],
+                    },
+                });
+            }
+            await refreshSeries(activeCat, { keepEditor: true });
+            resetAddCard();
+        } catch (e) {
+            console.error('Failed to add series field:', e);
+        } finally {
+            setAddingField(false);
         }
     }
 
@@ -831,8 +918,7 @@ export default function TemplateManagerTab({
                     }}
                 >
                     The effective template for this project. Inherited fields
-                    from the series template are shown with an INHERITED
-                    badge.
+                    from the series template are shown with an INHERITED badge.
                 </p>
                 <ProjectFieldsEditor
                     fields={d.projectFields}
@@ -848,11 +934,50 @@ export default function TemplateManagerTab({
         );
     }
 
+    const [showAddCard, setShowAddCard] = useState(false);
+    const [addTarget, setAddTarget] = useState<AddTarget>('project');
+    const [newFieldName, setNewFieldName] = useState('');
+    const [newFieldType, setNewFieldType] =
+        useState<FieldDefinition['type']>('text');
+    const [seriesPick, setSeriesPick] = useState('');
+    const [newSeriesName, setNewSeriesName] = useState('');
+    const [addingField, setAddingField] = useState(false);
+    const addCardRef = useRef<HTMLDivElement | null>(null);
+    const addButtonGroupRef = useRef<HTMLDivElement | null>(null);
+
+    const activeDraft = drafts[activeCat];
+
+    useEffect(() => {
+        if (!showAddCard) return;
+        const onPointerDown = (e: PointerEvent) => {
+            const t = e.target as Node;
+            if (
+                addCardRef.current?.contains(t) ||
+                addButtonGroupRef.current?.contains(t)
+            ) {
+                return;
+            }
+            setShowAddCard(false);
+        };
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setShowAddCard(false);
+        };
+        document.addEventListener('pointerdown', onPointerDown);
+        document.addEventListener('keydown', onKeyDown);
+        return () => {
+            document.removeEventListener('pointerdown', onPointerDown);
+            document.removeEventListener('keydown', onKeyDown);
+        };
+    }, [showAddCard]);
+
+    useEffect(() => {
+        setShowAddCard(false);
+    }, [activeCat]);
+
     return (
         <div
             style={{
                 flex: 1,
-                overflowY: 'auto',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '0.75rem',
@@ -871,78 +996,250 @@ export default function TemplateManagerTab({
                 </div>
             ) : (
                 <>
-                    <div
-                        style={{
-                            display: 'flex',
-                            gap: '0.4rem',
-                            borderBottom: '1px solid var(--border, #333)',
-                            paddingBottom: '0.5rem',
-                            flexWrap: 'wrap',
-                            flexShrink: 0,
-                        }}
-                    >
-                        {CATEGORIES.map((cat) => {
-                            const d = drafts[cat];
-                            if (!d) return null;
-                            const isActive = activeCat === cat;
-                            return (
-                                <button
-                                    key={cat}
-                                    type="button"
-                                    onClick={() => setActiveCat(cat)}
-                                    style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'flex-start',
-                                        gap: '0.15rem',
-                                        padding: '0.4rem 0.75rem',
-                                        borderRadius: '4px',
-                                        border: `1px solid ${isActive ? 'var(--accent)' : 'var(--border, #333)'}`,
-                                        cursor: 'pointer',
-                                        background: isActive
-                                            ? 'var(--accent-subtle, rgba(240,160,80,0.08))'
-                                            : 'transparent',
-                                        color: isActive
-                                            ? 'var(--accent)'
-                                            : '#ccc',
-                                    }}
-                                >
-                                    <span
+                    <div className={styles.header}>
+                        <div className={styles.headerTabs}>
+                            {CATEGORIES.map((cat) => {
+                                const d = drafts[cat];
+                                if (!d) return null;
+                                const isActive = activeCat === cat;
+                                return (
+                                    <button
+                                        key={cat}
+                                        type="button"
+                                        onClick={() => setActiveCat(cat)}
                                         style={{
                                             display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.4rem',
+                                            flexDirection: 'column',
+                                            alignItems: 'flex-start',
+                                            gap: '0.15rem',
+                                            padding: '0.4rem 0.75rem',
+                                            borderRadius: '4px',
+                                            border: `1px solid ${isActive ? 'var(--accent)' : 'var(--border, #333)'}`,
+                                            cursor: 'pointer',
+                                            background: isActive
+                                                ? 'var(--accent-subtle, rgba(240,160,80,0.08))'
+                                                : 'transparent',
+                                            color: isActive
+                                                ? 'var(--accent)'
+                                                : '#ccc',
                                         }}
                                     >
-                                        <strong>{categoryLabels[cat]}</strong>
-                                        {d.dirty && (
-                                            <span
-                                                style={{
-                                                    fontSize: '0.65em',
-                                                    color: '#FFA500',
-                                                    background:
-                                                        'rgba(255,165,0,0.15)',
-                                                    padding: '1px 5px',
-                                                    borderRadius: '3px',
-                                                    fontWeight: 500,
-                                                }}
-                                            >
-                                                UNSAVED
-                                            </span>
-                                        )}
-                                    </span>
+                                        <span
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.4rem',
+                                            }}
+                                        >
+                                            <strong>
+                                                {categoryLabels[cat]}
+                                            </strong>
+                                            {d.dirty && (
+                                                <span
+                                                    style={{
+                                                        fontSize: '0.65em',
+                                                        color: '#FFA500',
+                                                        background:
+                                                            'rgba(255,165,0,0.15)',
+                                                        padding: '1px 5px',
+                                                        borderRadius: '3px',
+                                                        fontWeight: 500,
+                                                    }}
+                                                >
+                                                    UNSAVED
+                                                </span>
+                                            )}
+                                        </span>
+                                        <span
+                                            style={{
+                                                fontSize: '0.72em',
+                                                opacity: 0.75,
+                                            }}
+                                        >
+                                            {summaryFor(d)}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <div
+                            className={styles.headerActions}
+                            ref={addButtonGroupRef}
+                        >
+                            {activeDraft?.dirty && (
+                                <button
+                                    type="button"
+                                    onClick={() => reloadCategory(activeCat)}
+                                >
+                                    Discard
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                className="save-btn"
+                                onClick={() => handleSaveCategory(activeCat)}
+                                disabled={
+                                    !activeDraft?.dirty ||
+                                    savingCat === activeCat
+                                }
+                            >
+                                {savingCat === activeCat ? 'Saving...' : 'Save'}
+                            </button>
+                            <button
+                                type="button"
+                                className={`${styles.addFieldBtn} ${
+                                    showAddCard ? styles.addFieldBtnOpen : ''
+                                }`}
+                                onClick={toggleAddCard}
+                            >
+                                {showAddCard ? 'cancel' : 'add'}
+                            </button>
+                        </div>
+                        {showAddCard && (
+                            <div className={styles.addField} ref={addCardRef}>
+                                <div className={styles.addCardTarget}>
+                                    <button
+                                        type="button"
+                                        className={
+                                            addTarget === 'project'
+                                                ? styles.addCardTargetOn
+                                                : undefined
+                                        }
+                                        onClick={() => setAddTarget('project')}
+                                    >
+                                        Project field
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={
+                                            addTarget === 'series'
+                                                ? styles.addCardTargetOn
+                                                : undefined
+                                        }
+                                        onClick={() => setAddTarget('series')}
+                                        disabled={!seriesId}
+                                        title={
+                                            seriesId
+                                                ? 'Shared across the series'
+                                                : 'This project has no series'
+                                        }
+                                    >
+                                        Series field
+                                    </button>
+                                </div>
+                                {!seriesId && (
                                     <span
                                         style={{
-                                            fontSize: '0.72em',
-                                            opacity: 0.75,
+                                            color: '#888',
+                                            fontSize: '0.8em',
                                         }}
                                     >
-                                        {summaryFor(d)}
+                                        This project is not assigned to a
+                                        series, so only project fields can be
+                                        added.
                                     </span>
-                                </button>
-                            );
-                        })}
+                                )}
+                                <div>
+                                    <label>Field name</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Field name"
+                                        value={newFieldName}
+                                        onChange={(e) =>
+                                            setNewFieldName(e.target.value)
+                                        }
+                                        onKeyDown={(e) => {
+                                            if (
+                                                e.key === 'Enter' &&
+                                                canSubmitField()
+                                            ) {
+                                                handleAddFieldSubmit();
+                                            }
+                                        }}
+                                    />
+                                </div>
+                                <div>
+                                    <label>Type</label>
+                                    <FieldTypePills
+                                        value={newFieldType}
+                                        onChange={setNewFieldType}
+                                    />
+                                </div>
+                                {addTarget === 'series' && (
+                                    <div>
+                                        <label>Series template</label>
+                                        <select
+                                            value={seriesPick}
+                                            onChange={(e) =>
+                                                setSeriesPick(e.target.value)
+                                            }
+                                        >
+                                            <option value="">
+                                                None — pick one
+                                            </option>
+                                            {seriesTemplates
+                                                .filter(
+                                                    (s) =>
+                                                        s.baseType === activeCat
+                                                )
+                                                .map((s) => (
+                                                    <option
+                                                        key={s.id}
+                                                        value={s.id}
+                                                    >
+                                                        {s.name} (
+                                                        {s.customFields
+                                                            ?.length || 0}{' '}
+                                                        fields)
+                                                    </option>
+                                                ))}
+                                            <option value={NEW_SERIES}>
+                                                + New series template…
+                                            </option>
+                                        </select>
+                                        {seriesPick === NEW_SERIES && (
+                                            <div
+                                                style={{
+                                                    marginTop: '0.35rem',
+                                                }}
+                                            >
+                                                <input
+                                                    type="text"
+                                                    placeholder="Series template name"
+                                                    value={newSeriesName}
+                                                    onChange={(e) =>
+                                                        setNewSeriesName(
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                <div className={styles.addCardFooter}>
+                                    <span>
+                                        {addTarget === 'series'
+                                            ? 'Saved immediately to the series template.'
+                                            : 'Staged — press Save to apply.'}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className="save-btn"
+                                        onClick={handleAddFieldSubmit}
+                                        disabled={!canSubmitField()}
+                                    >
+                                        {addingField
+                                            ? 'Saving…'
+                                            : addTarget === 'series'
+                                              ? 'Save series field'
+                                              : 'Add field'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
+
                     {(() => {
                         const d = drafts[activeCat];
                         if (!d) return null;
@@ -990,38 +1287,6 @@ export default function TemplateManagerTab({
                                 >
                                     {renderProjectSection(activeCat, d)}
                                 </CollapsibleSection>
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        justifyContent: 'flex-end',
-                                        gap: '0.5rem',
-                                    }}
-                                >
-                                    {d.dirty && (
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                reloadCategory(activeCat)
-                                            }
-                                        >
-                                            Discard
-                                        </button>
-                                    )}
-                                    <button
-                                        type="button"
-                                        className="save-btn"
-                                        onClick={() =>
-                                            handleSaveCategory(activeCat)
-                                        }
-                                        disabled={
-                                            !d.dirty || savingCat === activeCat
-                                        }
-                                    >
-                                        {savingCat === activeCat
-                                            ? 'Saving...'
-                                            : `Save ${categoryLabels[activeCat]}`}
-                                    </button>
-                                </div>
                             </div>
                         );
                     })()}
@@ -1089,6 +1354,39 @@ function CollapsibleSection({
             )}
         </div>
     );
+}
+
+function buildFieldDefinition(
+    name: string,
+    type: FieldDefinition['type']
+): FieldDefinition {
+    return {
+        name: name.toLowerCase().replace(/\s+/g, '_'),
+        type,
+        label: name,
+        required: false,
+        ...(type === 'select' || type === 'multiselect' ? { options: [] } : {}),
+        ...(type === 'range'
+            ? { rangeMin: 0, rangeMax: 100, rangeStep: 1 }
+            : {}),
+        ...(type === 'entitylink'
+            ? {
+                  entitylinkCategories: [
+                      'character',
+                      'location',
+                      'organization',
+                      'item',
+                      'lore',
+                  ],
+              }
+            : {}),
+        ...(type === 'tree'
+            ? {
+                  entitylinkCategories: ['character'],
+                  treeRelations: TREE_PRESETS.family,
+              }
+            : {}),
+    };
 }
 
 function FieldTypePills({
@@ -1163,46 +1461,6 @@ function ProjectFieldsEditor({
 }) {
     const [dragIndex, setDragIndex] = useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-    const [newFieldName, setNewFieldName] = useState('');
-    const [newFieldType, setNewFieldType] =
-        useState<FieldDefinition['type']>('text');
-    const [showAddField, setShowAddField] = useState(false);
-
-    function addField() {
-        if (!newFieldName.trim()) return;
-        const field: FieldDefinition = {
-            name: newFieldName.trim().toLowerCase().replace(/\s+/g, '_'),
-            type: newFieldType,
-            label: newFieldName.trim(),
-            required: false,
-            ...(newFieldType === 'select' || newFieldType === 'multiselect'
-                ? { options: [] }
-                : {}),
-            ...(newFieldType === 'range'
-                ? { rangeMin: 0, rangeMax: 100, rangeStep: 1 }
-                : {}),
-            ...(newFieldType === 'entitylink'
-                ? {
-                      entitylinkCategories: [
-                          'character',
-                          'location',
-                          'organization',
-                          'item',
-                          'lore',
-                      ],
-                  }
-                : {}),
-            ...(newFieldType === 'tree'
-                ? {
-                      entitylinkCategories: ['character'],
-                      treeRelations: TREE_PRESETS.family,
-                  }
-                : {}),
-        };
-        onChange([...fields, field]);
-        setNewFieldName('');
-        setShowAddField(false);
-    }
 
     function updateField(index: number, updates: Partial<FieldDefinition>) {
         const newFields = [...fields];
@@ -1262,54 +1520,6 @@ function ProjectFieldsEditor({
 
     return (
         <div>
-            {showAddField ? (
-                <>
-                    <div
-                        style={{
-                            display: 'flex',
-                            gap: '0.5rem',
-                            marginBottom: '0.5rem',
-                        }}
-                    >
-                        <input
-                            type="text"
-                            placeholder="Field name"
-                            value={newFieldName}
-                            onChange={(e) => setNewFieldName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && addField()}
-                            style={{
-                                flex: 1,
-                                padding: '10px 12px',
-                                background: '#2a2b2c',
-                                border: '1px solid #393a3b',
-                                borderRadius: '6px',
-                                color: '#fff',
-                                fontSize: '14px',
-                            }}
-                        />
-                        <button
-                            type="button"
-                            onClick={addField}
-                            disabled={!newFieldName.trim()}
-                        >
-                            Create
-                        </button>
-                    </div>
-                    <FieldTypePills
-                        value={newFieldType}
-                        onChange={setNewFieldType}
-                    />
-                </>
-            ) : (
-                <button
-                    type="button"
-                    onClick={() => setShowAddField(true)}
-                    style={{ marginBottom: '0.5rem' }}
-                >
-                    + Add New Field
-                </button>
-            )}
-
             {fields.length === 0 ? (
                 <div style={{ color: '#888', fontSize: '0.85em' }}>
                     No fields defined.
@@ -1810,47 +2020,6 @@ function SimpleFieldsEditor({
     onChange: (fields: FieldDefinition[]) => void;
     inheritedNames: Set<string>;
 }) {
-    const [newFieldName, setNewFieldName] = useState('');
-    const [newFieldType, setNewFieldType] =
-        useState<FieldDefinition['type']>('text');
-    const [showAddField, setShowAddField] = useState(false);
-
-    function addField() {
-        if (!newFieldName.trim()) return;
-        const field: FieldDefinition = {
-            name: newFieldName.trim().toLowerCase().replace(/\s+/g, '_'),
-            type: newFieldType,
-            label: newFieldName.trim(),
-            required: false,
-            ...(newFieldType === 'select' || newFieldType === 'multiselect'
-                ? { options: [] }
-                : {}),
-            ...(newFieldType === 'range'
-                ? { rangeMin: 0, rangeMax: 100, rangeStep: 1 }
-                : {}),
-            ...(newFieldType === 'entitylink'
-                ? {
-                      entitylinkCategories: [
-                          'character',
-                          'location',
-                          'organization',
-                          'item',
-                          'lore',
-                      ],
-                  }
-                : {}),
-            ...(newFieldType === 'tree'
-                ? {
-                      entitylinkCategories: ['character'],
-                      treeRelations: TREE_PRESETS.family,
-                  }
-                : {}),
-        };
-        onChange([...fields, field]);
-        setNewFieldName('');
-        setShowAddField(false);
-    }
-
     function updateField(index: number, updates: Partial<FieldDefinition>) {
         const newFields = [...fields];
         newFields[index] = { ...newFields[index], ...updates };
@@ -1879,45 +2048,6 @@ function SimpleFieldsEditor({
 
     return (
         <div>
-            {showAddField ? (
-                <>
-                    <div
-                        style={{
-                            display: 'flex',
-                            gap: '0.5rem',
-                            marginBottom: '0.5rem',
-                        }}
-                    >
-                        <input
-                            type="text"
-                            placeholder="Field name"
-                            value={newFieldName}
-                            onChange={(e) => setNewFieldName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && addField()}
-                            style={{ flex: 1 }}
-                        />
-                        <button
-                            type="button"
-                            onClick={addField}
-                            disabled={!newFieldName.trim()}
-                        >
-                            Add
-                        </button>
-                    </div>
-                    <FieldTypePills
-                        value={newFieldType}
-                        onChange={setNewFieldType}
-                    />
-                </>
-            ) : (
-                <button
-                    type="button"
-                    onClick={() => setShowAddField(true)}
-                    style={{ marginBottom: '0.5rem' }}
-                >
-                    + Add New Field
-                </button>
-            )}
             {fields.length === 0 ? (
                 <div style={{ color: '#888', fontSize: '0.85em' }}>
                     No fields defined

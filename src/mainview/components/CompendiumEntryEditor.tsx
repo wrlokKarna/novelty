@@ -90,6 +90,12 @@ export default function CompendiumEntryEditor({
         );
     }
 
+    const [entryLabel, setEntryLabel] = useState(entry.name);
+    useEffect(() => {
+        onUpdate('name', entryLabel);
+        console.log('label', entryLabel);
+    }, [entryLabel]);
+
     return (
         <div className="compendium-entry-editor">
             <div className="entry-header">
@@ -99,8 +105,8 @@ export default function CompendiumEntryEditor({
                 <input
                     type="text"
                     className="entry-name-input"
-                    value={entry.name}
-                    onChange={(e) => onUpdate('name', e.target.value)}
+                    value={entryLabel}
+                    onChange={(e) => setEntryLabel(e.target.value)}
                     placeholder="Untitled Entry"
                 />
             </div>
