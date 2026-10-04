@@ -291,13 +291,15 @@ export const scratchNotes = sqliteTable('scratch_notes', {
         .$defaultFn(() => new Date()),
 });
 
+// One series template per (series, category). The link from a project to its
+// series template is derived through projects.series_id + base_type rather than
+// stored, so reassigning a project to another series cannot leave a stale
+// reference behind.
 export const seriesTemplates = sqliteTable('series_templates', {
     id: text('id').primaryKey(),
     seriesId: text('series_id')
         .notNull()
         .references(() => series.id, { onDelete: 'cascade' }),
-    name: text('name').notNull(),
-    description: text('description'),
     baseType: text('base_type').notNull(),
     customFields: text('custom_fields'),
     createdAt: integer('created_at', { mode: 'timestamp' })
@@ -312,9 +314,6 @@ export const entityTemplates = sqliteTable('entity_templates', {
     id: text('id').primaryKey(),
     projectId: text('project_id').references(() => projects.id),
     baseType: text('base_type').notNull(),
-    seriesTemplateId: text('series_template_id').references(
-        () => seriesTemplates.id
-    ),
     customFields: text('custom_fields'),
     createdAt: integer('created_at', { mode: 'timestamp' })
         .notNull()

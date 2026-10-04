@@ -568,35 +568,27 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
             },
             'db:list-series-templates': async ({
                 seriesId,
+            }: {
+                seriesId: string;
+            }) => {
+                return await seriesTemplatesDB.listSeriesTemplates(seriesId);
+            },
+            'db:upsert-series-template': async (
+                data: seriesTemplatesDB.SeriesTemplateInput
+            ) => {
+                return await seriesTemplatesDB.upsertSeriesTemplate(data);
+            },
+            'db:delete-series-template': async ({
+                seriesId,
                 baseType,
             }: {
                 seriesId: string;
-                baseType?: CompendiumCategory;
+                baseType: CompendiumCategory;
             }) => {
-                return await seriesTemplatesDB.listSeriesTemplates(
+                return await seriesTemplatesDB.deleteSeriesTemplate(
                     seriesId,
-                    baseType as any
+                    baseType
                 );
-            },
-            'db:get-series-template': async (id: string) => {
-                return await seriesTemplatesDB.getSeriesTemplateById(id);
-            },
-            'db:create-series-template': async (
-                data: seriesTemplatesDB.NewSeriesTemplate
-            ) => {
-                return await seriesTemplatesDB.createSeriesTemplate(data);
-            },
-            'db:update-series-template': async ({
-                id,
-                data,
-            }: {
-                id: string;
-                data: Partial<seriesTemplatesDB.NewSeriesTemplate>;
-            }) => {
-                return await seriesTemplatesDB.updateSeriesTemplate(id, data);
-            },
-            'db:delete-series-template': async (id: string) => {
-                return await seriesTemplatesDB.deleteSeriesTemplate(id);
             },
             'db:get-template': async ({
                 projectId,
@@ -638,12 +630,10 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 projectId,
                 baseType,
                 customFields,
-                seriesTemplateId,
             }: {
                 projectId: string;
                 baseType: string;
                 customFields: templatesDB.FieldDefinition[];
-                seriesTemplateId?: string | null;
             }) => {
                 return await templatesDB.upsertTemplate(
                     projectId,
@@ -653,8 +643,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                         | 'organization'
                         | 'item'
                         | 'lore',
-                    customFields,
-                    seriesTemplateId
+                    customFields
                 );
             },
             'db:get-timeline-events': async (projectId: string) => {

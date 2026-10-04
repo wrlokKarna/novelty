@@ -12,7 +12,6 @@ import type {
     CompendiumCategory,
     FieldDefinition,
     SeriesTemplate,
-    NewSeriesTemplate,
 } from '../../types/index';
 import { IconTrash } from '@tabler/icons-react';
 import styles from './TemplateManagerTab.module.css';
@@ -86,23 +85,26 @@ const FIELD_TYPE_GROUPS: {
 ];
 
 interface SeriesEditorState {
-    id: string | null;
-    name: string;
-    description: string;
     fields: FieldDefinition[];
 }
 
 interface CategoryDraft {
-    seriesTemplateId: string | null;
     projectFields: FieldDefinition[];
     seriesEditor: SeriesEditorState | null;
-    seriesDeletes: string[];
     dirty: boolean;
 }
 
 type AddTarget = 'project' | 'series';
 
-const NEW_SERIES = '__new__';
+type SeriesTemplateMap = Partial<Record<CompendiumCategory, SeriesTemplate>>;
+
+function toSeriesTemplateMap(
+    list: SeriesTemplate[] | undefined
+): SeriesTemplateMap {
+    const map: SeriesTemplateMap = {};
+    for (const st of list ?? []) map[st.baseType] = st;
+    return map;
+}
 
 export default function TemplateManagerTab({
     projectId,
@@ -111,8 +113,8 @@ export default function TemplateManagerTab({
     initialCategory,
 }: TemplateManagerTabProps) {
     const rpc = useRPC();
-    const [seriesTemplates, setSeriesTemplates] = useState<SeriesTemplate[]>(
-        []
+    const [seriesTemplates, setSeriesTemplates] = useState<SeriesTemplateMap>(
+        {}
     );
     const [drafts, setDrafts] = useState<
         Partial<Record<CompendiumCategory, CategoryDraft>>
@@ -133,7 +135,9 @@ export default function TemplateManagerTab({
             const seriesRes = seriesId
                 ? await rpc.request['db:list-series-templates']({ seriesId })
                 : ([] as SeriesTemplate[]);
-            const sl = Array.isArray(seriesRes) ? seriesRes : [];
+            const sl = toSeriesTemplateMap(
+                Array.isArray(seriesRes) ? seriesRes : []
+            );
             setSeriesTemplates(sl);
 
             const results = await Promise.all(
@@ -147,18 +151,12 @@ export default function TemplateManagerTab({
 
             const next = {} as Record<CompendiumCategory, CategoryDraft>;
             CATEGORIES.forEach((cat, i) => {
-                const info = results[i];
-                const seriesIdApplied =
-                    info?.projectTemplate?.seriesTemplateId ?? null;
                 next[cat] = {
-                    seriesTemplateId: seriesIdApplied,
                     projectFields: fullMerge(
-                        info?.projectTemplate?.customFields || [],
-                        seriesIdApplied,
-                        sl
+                        results[i]?.projectTemplate?.customFields || [],
+                        sl[cat] ?? null
                     ),
                     seriesEditor: null,
-                    seriesDeletes: [],
                     dirty: false,
                 };
             });
@@ -185,20 +183,18 @@ export default function TemplateManagerTab({
                 baseType: cat,
             }),
         ]);
-        const sl = Array.isArray(seriesRes) ? seriesRes : [];
+        const sl = toSeriesTemplateMap(
+            Array.isArray(seriesRes) ? seriesRes : []
+        );
         setSeriesTemplates(sl);
-        const seriesIdApplied = info?.projectTemplate?.seriesTemplateId ?? null;
         setDrafts((prev) => ({
             ...prev,
             [cat]: {
-                seriesTemplateId: seriesIdApplied,
                 projectFields: fullMerge(
                     info?.projectTemplate?.customFields || [],
-                    seriesIdApplied,
-                    sl
+                    sl[cat] ?? null
                 ),
                 seriesEditor: null,
-                seriesDeletes: [],
                 dirty: false,
             },
         }));
@@ -232,54 +228,29 @@ export default function TemplateManagerTab({
         }));
     }
 
-    function handleSeriesChange(cat: CompendiumCategory, newId: string) {
-        const id = newId || null;
+    function setSeriesEditor(
+        cat: CompendiumCategory,
+        editor: SeriesEditorState | null
+    ) {
         setDrafts((prev) => {
             const d = prev[cat];
             if (!d) return prev;
-            const oldInherited = getSeriesInheritedNames(
-                d.seriesTemplateId,
-                seriesTemplates
-            );
-            const cleaned = d.projectFields.filter(
-                (f) => !oldInherited.has(f.name)
-            );
-            return {
-                ...prev,
-                [cat]: {
-                    ...d,
-                    seriesTemplateId: id,
-                    projectFields: fullMerge(cleaned, id, seriesTemplates),
-                    dirty: true,
-                },
-            };
+            return { ...prev, [cat]: { ...d, seriesEditor: editor } };
         });
     }
 
     function openSeriesCreate(cat: CompendiumCategory) {
-        updateDraft(cat, {
-            seriesEditor: {
-                id: null,
-                name: '',
-                description: '',
-                fields: [],
-            },
-        });
+        setSeriesEditor(cat, { fields: [] });
     }
 
-    function openSeriesEdit(cat: CompendiumCategory, tpl: SeriesTemplate) {
-        updateDraft(cat, {
-            seriesEditor: {
-                id: tpl.id,
-                name: tpl.name,
-                description: tpl.description || '',
-                fields: tpl.customFields || [],
-            },
-        });
+    function openSeriesEdit(cat: CompendiumCategory) {
+        const st = seriesTemplates[cat];
+        if (!st) return;
+        setSeriesEditor(cat, { fields: [...(st.customFields || [])] });
     }
 
     function cancelSeriesEditor(cat: CompendiumCategory) {
-        updateDraft(cat, { seriesEditor: null });
+        setSeriesEditor(cat, null);
     }
 
     function updateSeriesEditor(
@@ -300,66 +271,18 @@ export default function TemplateManagerTab({
         });
     }
 
-    function stageSeriesDelete(cat: CompendiumCategory, id: string) {
-        setDrafts((prev) => {
-            const d = prev[cat];
-            if (!d) return prev;
-            let seriesTemplateId = d.seriesTemplateId;
-            let projectFields = d.projectFields;
-            if (d.seriesTemplateId === id) {
-                const oldInherited = getSeriesInheritedNames(
-                    id,
-                    seriesTemplates
-                );
-                const cleaned = d.projectFields.filter(
-                    (f) => !oldInherited.has(f.name)
-                );
-                seriesTemplateId = null;
-                projectFields = fullMerge(cleaned, null, seriesTemplates);
-            }
-            return {
-                ...prev,
-                [cat]: {
-                    ...d,
-                    seriesTemplateId,
-                    projectFields,
-                    seriesDeletes: [...d.seriesDeletes, id],
-                    dirty: true,
-                },
-            };
-        });
-    }
-
     async function persistSeriesEditor(cat: CompendiumCategory) {
-        const d = drafts[cat];
-        const se = d?.seriesEditor;
+        const se = drafts[cat]?.seriesEditor;
         if (!se || !seriesId) return false;
         const savable = se.fields
             .filter((f) => !f.disabled)
             .filter((f) => f.name.trim() && f.label.trim());
 
-        if (se.id) {
-            const data = {
-                name: se.name.trim(),
-                description: se.description.trim() || null,
-                customFields: savable,
-            };
-            await rpc.request['db:update-series-template']({
-                id: se.id,
-                data,
-            });
-            return true;
-        }
-        if (!se.name.trim()) return false;
-        const data: NewSeriesTemplate = {
-            id: crypto.randomUUID(),
+        await rpc.request['db:upsert-series-template']({
             seriesId,
-            name: se.name.trim(),
-            description: se.description.trim() || null,
             baseType: cat,
             customFields: savable,
-        };
-        await rpc.request['db:create-series-template'](data);
+        });
         return true;
     }
 
@@ -369,20 +292,20 @@ export default function TemplateManagerTab({
     ) {
         if (!seriesId) return;
         const res = await rpc.request['db:list-series-templates']({ seriesId });
-        const sl = Array.isArray(res) ? res : [];
+        const sl = toSeriesTemplateMap(Array.isArray(res) ? res : []);
         setSeriesTemplates(sl);
         setDrafts((prev) => {
             const d = prev[cat];
             if (!d) return prev;
+            const st = sl[cat] ?? null;
             const cleaned = d.projectFields.filter(
-                (f) =>
-                    !getSeriesInheritedNames(d.seriesTemplateId, sl).has(f.name)
+                (f) => !getSeriesInheritedNames(st).has(f.name)
             );
             return {
                 ...prev,
                 [cat]: {
                     ...d,
-                    projectFields: fullMerge(cleaned, d.seriesTemplateId, sl),
+                    projectFields: fullMerge(cleaned, st),
                     ...(opts?.keepEditor ? {} : { seriesEditor: null }),
                 },
             };
@@ -398,20 +321,39 @@ export default function TemplateManagerTab({
         }
     }
 
+    async function removeSeriesTemplate(cat: CompendiumCategory) {
+        if (!seriesId) return;
+        if (
+            !confirm(
+                `Delete the series ${categoryLabels[cat].toLowerCase()} fields? This affects every project in the series.`
+            )
+        ) {
+            return;
+        }
+        try {
+            await rpc.request['db:delete-series-template']({
+                seriesId,
+                baseType: cat,
+            });
+            await refreshSeries(cat);
+            // Fields that were inherited are no longer supplied by the series,
+            // so the effective project template changed - flag it for review.
+            updateDraft(cat, {});
+            onTemplatesChanged();
+        } catch (e) {
+            console.error('Failed to delete series template:', e);
+        }
+    }
+
     async function handleSaveCategory(cat: CompendiumCategory) {
         const d = drafts[cat];
         if (!d) return;
         setSavingCat(cat);
         try {
-            for (const id of d.seriesDeletes) {
-                await rpc.request['db:delete-series-template'](id);
-            }
-
             await persistSeriesEditor(cat);
 
             const seriesInherited = getSeriesInheritedNames(
-                d.seriesTemplateId,
-                seriesTemplates
+                seriesTemplates[cat] ?? null
             );
             const savableProject = d.projectFields
                 .filter((f) => {
@@ -425,7 +367,6 @@ export default function TemplateManagerTab({
                 projectId,
                 baseType: cat,
                 customFields: savableProject,
-                seriesTemplateId: d.seriesTemplateId,
             });
 
             await reloadCategory(cat);
@@ -441,30 +382,22 @@ export default function TemplateManagerTab({
         const next = !showAddCard;
         setShowAddCard(next);
         if (!next) return;
-        const d = drafts[activeCat];
-        const preferred = d?.seriesEditor?.id || d?.seriesTemplateId || '';
-        setSeriesPick(
-            seriesTemplates.some((s) => s.id === preferred) ? preferred : ''
-        );
-        setAddTarget(d?.seriesEditor?.id ? 'series' : 'project');
+        setAddTarget('project');
         setNewFieldName('');
         setNewFieldType('text');
-        setNewSeriesName('');
     }
 
     function canSubmitField() {
         if (!newFieldName.trim() || addingField) return false;
         if (addTarget === 'series') {
-            if (!seriesId || !seriesPick) return false;
-            if (seriesPick === NEW_SERIES && !newSeriesName.trim())
-                return false;
+            if (!seriesId) return false;
+            if (!seriesTemplates[activeCat]) return false;
         }
         return true;
     }
 
     function resetAddCard() {
         setNewFieldName('');
-        setNewSeriesName('');
         setShowAddCard(false);
     }
 
@@ -482,37 +415,18 @@ export default function TemplateManagerTab({
         }
 
         if (!seriesId) return;
-        if (seriesPick === NEW_SERIES) {
-            if (!newSeriesName.trim()) return;
-        } else if (!seriesTemplates.some((s) => s.id === seriesPick)) {
-            return;
-        }
+        const tpl = seriesTemplates[activeCat];
+        if (!tpl) return;
 
         setAddingField(true);
         try {
-            if (seriesPick === NEW_SERIES) {
-                const data: NewSeriesTemplate = {
-                    id: crypto.randomUUID(),
-                    seriesId,
-                    name: newSeriesName.trim(),
-                    description: null,
-                    baseType: activeCat,
-                    customFields: [field],
-                };
-                await rpc.request['db:create-series-template'](data);
-            } else {
-                const tpl = seriesTemplates.find((s) => s.id === seriesPick);
-                if (!tpl) return;
-                await rpc.request['db:update-series-template']({
-                    id: tpl.id,
-                    data: {
-                        name: tpl.name,
-                        description: tpl.description || null,
-                        customFields: [...(tpl.customFields || []), field],
-                    },
-                });
-            }
+            await rpc.request['db:upsert-series-template']({
+                seriesId,
+                baseType: activeCat,
+                customFields: [...(tpl.customFields || []), field],
+            });
             await refreshSeries(activeCat, { keepEditor: true });
+            onTemplatesChanged();
             resetAddCard();
         } catch (e) {
             console.error('Failed to add series field:', e);
@@ -521,30 +435,24 @@ export default function TemplateManagerTab({
         }
     }
 
-    function summaryFor(d: CategoryDraft): string {
-        const s =
-            seriesTemplates.find((x) => x.id === d.seriesTemplateId)
-                ?.customFields?.length || 0;
-        const inherited = new Set(
-            Array.from(
-                getSeriesInheritedNames(d.seriesTemplateId, seriesTemplates)
-            )
-        );
+    function summaryFor(cat: CompendiumCategory, d: CategoryDraft): string {
+        const s = seriesTemplates[cat]?.customFields?.length || 0;
+        const inherited = getSeriesInheritedNames(seriesTemplates[cat] ?? null);
         const p = d.projectFields.filter((f) => !inherited.has(f.name)).length;
         return `${s} series · ${p} project`;
     }
 
-    function seriesSummary(d: CategoryDraft): string {
+    function seriesSummary(cat: CompendiumCategory): string {
         if (!seriesId) return 'Not applicable';
-        const s = seriesTemplates.find((x) => x.id === d.seriesTemplateId);
-        return s ? `${s.name} (${s.customFields?.length || 0} fields)` : 'None';
+        const s = seriesTemplates[cat];
+        return s
+            ? `${s.customFields?.length || 0} fields · shared across the series`
+            : 'None yet';
     }
 
     function projectSummary(d: CategoryDraft): string {
-        const inherited = new Set(
-            Array.from(
-                getSeriesInheritedNames(d.seriesTemplateId, seriesTemplates)
-            )
+        const inherited = getSeriesInheritedNames(
+            seriesTemplates[activeCat] ?? null
         );
         return `${d.projectFields.filter((f) => !inherited.has(f.name)).length} project fields`;
     }
@@ -612,6 +520,7 @@ export default function TemplateManagerTab({
 
     function renderSeriesEditor(cat: CompendiumCategory, d: CategoryDraft) {
         const se = d.seriesEditor!;
+        const existing = !!seriesTemplates[cat];
         return (
             <div
                 style={{
@@ -630,9 +539,8 @@ export default function TemplateManagerTab({
                     }}
                 >
                     <strong>
-                        {se.id
-                            ? 'Editing Series Template'
-                            : 'New Series Template'}
+                        {existing ? 'Editing' : 'Creating'} series{' '}
+                        {categoryLabels[cat].toLowerCase()} fields
                     </strong>
                     <button
                         type="button"
@@ -640,30 +548,6 @@ export default function TemplateManagerTab({
                     >
                         Cancel
                     </button>
-                </div>
-                <div style={{ marginBottom: '0.5rem' }}>
-                    <label>Template Name</label>
-                    <input
-                        type="text"
-                        value={se.name}
-                        onChange={(e) =>
-                            updateSeriesEditor(cat, { name: e.target.value })
-                        }
-                        style={{ width: '100%' }}
-                    />
-                </div>
-                <div style={{ marginBottom: '0.5rem' }}>
-                    <label>Description</label>
-                    <textarea
-                        value={se.description}
-                        onChange={(e) =>
-                            updateSeriesEditor(cat, {
-                                description: e.target.value,
-                            })
-                        }
-                        rows={2}
-                        style={{ width: '100%' }}
-                    />
                 </div>
                 <div>
                     <label>Fields</label>
@@ -693,9 +577,10 @@ export default function TemplateManagerTab({
                         type="button"
                         className="save-btn"
                         onClick={() => saveSeriesEditor(cat)}
-                        disabled={!se.name.trim()}
                     >
-                        Save Series Template
+                        {existing
+                            ? 'Save Series Fields'
+                            : 'Create Series Fields'}
                     </button>
                 </div>
             </div>
@@ -705,202 +590,81 @@ export default function TemplateManagerTab({
     function renderSeriesSection(cat: CompendiumCategory, d: CategoryDraft) {
         if (!seriesId) {
             return (
-                <div>
-                    <div style={{ color: '#888', fontSize: '0.85em' }}>
-                        This project is not assigned to a series, so no series
-                        templates apply. Assign a series in the General tab.
-                    </div>
+                <div style={{ color: '#888', fontSize: '0.85em' }}>
+                    This project is not assigned to a series, so no series
+                    fields apply. Assign a series in the General tab.
                 </div>
             );
         }
-        const seriesForCat = seriesTemplates.filter((s) => s.baseType === cat);
-        const applied = seriesTemplates.find(
-            (s) => s.id === d.seriesTemplateId
-        );
+        const st = seriesTemplates[cat] ?? null;
         return (
             <div>
-                <select
-                    value={d.seriesTemplateId || ''}
-                    onChange={(e) => handleSeriesChange(cat, e.target.value)}
-                    style={{ width: '100%' }}
+                <p
+                    style={{
+                        fontSize: '0.85em',
+                        color: '#888',
+                        margin: '0 0 0.5rem 0',
+                    }}
                 >
-                    <option value="">None (no series template)</option>
-                    {seriesForCat.map((st) => (
-                        <option key={st.id} value={st.id}>
-                            {st.name}
-                            {st.description ? ` — ${st.description}` : ''} (
-                            {st.customFields?.length || 0} fields)
-                        </option>
-                    ))}
-                </select>
-                {applied && (
-                    <div
-                        style={{
-                            padding: '0.5rem',
-                            background: 'var(--bg-secondary, #1a1a1a)',
-                            borderRadius: '4px',
-                            marginTop: '0.5rem',
-                        }}
-                    >
-                        <div
-                            style={{
-                                color: '#888',
-                                fontSize: '0.8em',
-                                marginBottom: '0.5rem',
-                            }}
-                        >
-                            Applied series fields (also shown as inherited
-                            below):
-                        </div>
+                    The {categoryLabels[cat].toLowerCase()} fields shared by
+                    every project in this series. Changes here apply to all of
+                    them immediately.
+                </p>
+                {st ? (
+                    <>
                         {renderFieldPreview(
-                            applied.customFields,
+                            st.customFields,
                             (name) =>
                                 d.projectFields.find((p) => p.name === name)
                                     ?.label || name
                         )}
-                    </div>
-                )}
-
-                <div style={{ marginTop: '0.75rem' }}>
+                        <div
+                            style={{
+                                display: 'flex',
+                                gap: '0.5rem',
+                                marginTop: '0.75rem',
+                            }}
+                        >
+                            <button
+                                type="button"
+                                onClick={() => openSeriesEdit(cat)}
+                            >
+                                Edit series fields
+                            </button>
+                            <button
+                                type="button"
+                                className="danger"
+                                onClick={() => removeSeriesTemplate(cat)}
+                                style={{ color: '#e74c3c' }}
+                            >
+                                Delete series fields
+                            </button>
+                        </div>
+                    </>
+                ) : (
                     <div
                         style={{
                             display: 'flex',
-                            justifyContent: 'space-between',
                             alignItems: 'center',
-                            marginBottom: '0.5rem',
+                            justifyContent: 'space-between',
+                            gap: '0.5rem',
+                            padding: '0.5rem',
+                            border: '1px solid var(--border, #333)',
+                            borderRadius: '4px',
                         }}
                     >
-                        <span style={{ fontSize: '0.9em', color: '#ccc' }}>
-                            Series templates for {categoryLabels[cat]} (shared
-                            across the series)
+                        <span style={{ color: '#888', fontSize: '0.85em' }}>
+                            No series {categoryLabels[cat].toLowerCase()} fields
+                            yet.
                         </span>
                         <button
                             type="button"
                             onClick={() => openSeriesCreate(cat)}
                         >
-                            + New Series Template
+                            + Create series fields
                         </button>
                     </div>
-                    {seriesForCat.length === 0 ? (
-                        <div style={{ color: '#888', fontSize: '0.85em' }}>
-                            No series templates for this category yet.
-                        </div>
-                    ) : (
-                        <div
-                            style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '0.35rem',
-                            }}
-                        >
-                            {seriesForCat.map((st) => {
-                                const stagedDelete = d.seriesDeletes.includes(
-                                    st.id
-                                );
-                                return (
-                                    <div
-                                        key={st.id}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            padding: '0.5rem',
-                                            border: '1px solid var(--border, #333)',
-                                            borderRadius: '4px',
-                                            opacity: stagedDelete ? 0.5 : 1,
-                                        }}
-                                    >
-                                        <div>
-                                            <strong>{st.name}</strong>
-                                            <span
-                                                style={{
-                                                    marginLeft: '0.5rem',
-                                                    color: '#888',
-                                                    fontSize: '0.85em',
-                                                }}
-                                            >
-                                                ({st.customFields?.length || 0}{' '}
-                                                fields)
-                                            </span>
-                                            {st.id === d.seriesTemplateId && (
-                                                <span
-                                                    style={{
-                                                        marginLeft: '0.5rem',
-                                                        fontSize: '0.7em',
-                                                        color: '#4A9EFF',
-                                                        background:
-                                                            'rgba(74,158,255,0.15)',
-                                                        padding: '1px 6px',
-                                                        borderRadius: '3px',
-                                                    }}
-                                                >
-                                                    APPLIED
-                                                </span>
-                                            )}
-                                            {stagedDelete && (
-                                                <span
-                                                    style={{
-                                                        marginLeft: '0.5rem',
-                                                        fontSize: '0.7em',
-                                                        color: '#e74c3c',
-                                                        background:
-                                                            'rgba(231,76,60,0.15)',
-                                                        padding: '1px 6px',
-                                                        borderRadius: '3px',
-                                                    }}
-                                                >
-                                                    PENDING DELETE
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                gap: '0.5rem',
-                                            }}
-                                        >
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    openSeriesEdit(cat, st)
-                                                }
-                                                disabled={stagedDelete}
-                                            >
-                                                Edit
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="danger"
-                                                onClick={() =>
-                                                    stageSeriesDelete(
-                                                        cat,
-                                                        st.id
-                                                    )
-                                                }
-                                                style={{ color: '#e74c3c' }}
-                                                disabled={stagedDelete}
-                                            >
-                                                Delete
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                    {d.seriesDeletes.length > 0 && (
-                        <div
-                            style={{
-                                color: '#FFA500',
-                                fontSize: '0.85em',
-                                marginTop: '0.35rem',
-                            }}
-                        >
-                            {d.seriesDeletes.length} template(s) marked for
-                            deletion — removed when you Save.
-                        </div>
-                    )}
-                </div>
+                )}
 
                 {d.seriesEditor && renderSeriesEditor(cat, d)}
             </div>
@@ -918,7 +682,8 @@ export default function TemplateManagerTab({
                     }}
                 >
                     The effective template for this project. Inherited fields
-                    from the series template are shown with an INHERITED badge.
+                    from the series are shown with an INHERITED badge and can be
+                    disabled per project.
                 </p>
                 <ProjectFieldsEditor
                     fields={d.projectFields}
@@ -926,8 +691,7 @@ export default function TemplateManagerTab({
                         updateDraft(cat, { projectFields: fields })
                     }
                     inheritedNames={getSeriesInheritedNames(
-                        d.seriesTemplateId,
-                        seriesTemplates
+                        seriesTemplates[cat] ?? null
                     )}
                 />
             </div>
@@ -939,8 +703,6 @@ export default function TemplateManagerTab({
     const [newFieldName, setNewFieldName] = useState('');
     const [newFieldType, setNewFieldType] =
         useState<FieldDefinition['type']>('text');
-    const [seriesPick, setSeriesPick] = useState('');
-    const [newSeriesName, setNewSeriesName] = useState('');
     const [addingField, setAddingField] = useState(false);
     const addCardRef = useRef<HTMLDivElement | null>(null);
     const addButtonGroupRef = useRef<HTMLDivElement | null>(null);
@@ -1056,7 +818,7 @@ export default function TemplateManagerTab({
                                                 opacity: 0.75,
                                             }}
                                         >
-                                            {summaryFor(d)}
+                                            {summaryFor(cat, d)}
                                         </span>
                                     </button>
                                 );
@@ -1067,24 +829,29 @@ export default function TemplateManagerTab({
                             ref={addButtonGroupRef}
                         >
                             {activeDraft?.dirty && (
-                                <button
-                                    type="button"
-                                    onClick={() => reloadCategory(activeCat)}
-                                >
-                                    Discard
-                                </button>
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            reloadCategory(activeCat)
+                                        }
+                                    >
+                                        Discard
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="save-btn"
+                                        onClick={() =>
+                                            handleSaveCategory(activeCat)
+                                        }
+                                        disabled={savingCat === activeCat}
+                                    >
+                                        {savingCat === activeCat
+                                            ? 'Saving...'
+                                            : 'Save'}
+                                    </button>
+                                </>
                             )}
-                            <button
-                                type="button"
-                                className="save-btn"
-                                onClick={() => handleSaveCategory(activeCat)}
-                                disabled={
-                                    !activeDraft?.dirty ||
-                                    savingCat === activeCat
-                                }
-                            >
-                                {savingCat === activeCat ? 'Saving...' : 'Save'}
-                            </button>
                             <button
                                 type="button"
                                 className={`${styles.addFieldBtn} ${
@@ -1097,47 +864,45 @@ export default function TemplateManagerTab({
                         </div>
                         {showAddCard && (
                             <div className={styles.addField} ref={addCardRef}>
-                                <div className={styles.addCardTarget}>
-                                    <button
-                                        type="button"
-                                        className={
-                                            addTarget === 'project'
-                                                ? styles.addCardTargetOn
-                                                : undefined
-                                        }
-                                        onClick={() => setAddTarget('project')}
-                                    >
-                                        Project field
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={
-                                            addTarget === 'series'
-                                                ? styles.addCardTargetOn
-                                                : undefined
-                                        }
-                                        onClick={() => setAddTarget('series')}
-                                        disabled={!seriesId}
-                                        title={
-                                            seriesId
-                                                ? 'Shared across the series'
-                                                : 'This project has no series'
-                                        }
-                                    >
-                                        Series field
-                                    </button>
-                                </div>
-                                {!seriesId && (
-                                    <span
-                                        style={{
-                                            color: '#888',
-                                            fontSize: '0.8em',
-                                        }}
-                                    >
-                                        This project is not assigned to a
-                                        series, so only project fields can be
-                                        added.
-                                    </span>
+                                {seriesId && (
+                                    <div className={styles.addCardTarget}>
+                                        <button
+                                            type="button"
+                                            className={
+                                                addTarget === 'project'
+                                                    ? styles.addCardTargetOn
+                                                    : undefined
+                                            }
+                                            onClick={() =>
+                                                setAddTarget('project')
+                                            }
+                                        >
+                                            Project field
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={
+                                                addTarget === 'series'
+                                                    ? styles.addCardTargetOn
+                                                    : undefined
+                                            }
+                                            onClick={() =>
+                                                setAddTarget('series')
+                                            }
+                                            disabled={
+                                                !seriesTemplates[activeCat]
+                                            }
+                                            title={
+                                                seriesTemplates[activeCat]
+                                                    ? 'Shared across the series'
+                                                    : `No series ${categoryLabels[
+                                                          activeCat
+                                                      ].toLowerCase()} fields yet — create them in the Series section`
+                                            }
+                                        >
+                                            Series field
+                                        </button>
+                                    </div>
                                 )}
                                 <div>
                                     <label>Field name</label>
@@ -1165,62 +930,22 @@ export default function TemplateManagerTab({
                                         onChange={setNewFieldType}
                                     />
                                 </div>
-                                {addTarget === 'series' && (
-                                    <div>
-                                        <label>Series template</label>
-                                        <select
-                                            value={seriesPick}
-                                            onChange={(e) =>
-                                                setSeriesPick(e.target.value)
-                                            }
-                                        >
-                                            <option value="">
-                                                None — pick one
-                                            </option>
-                                            {seriesTemplates
-                                                .filter(
-                                                    (s) =>
-                                                        s.baseType === activeCat
-                                                )
-                                                .map((s) => (
-                                                    <option
-                                                        key={s.id}
-                                                        value={s.id}
-                                                    >
-                                                        {s.name} (
-                                                        {s.customFields
-                                                            ?.length || 0}{' '}
-                                                        fields)
-                                                    </option>
-                                                ))}
-                                            <option value={NEW_SERIES}>
-                                                + New series template…
-                                            </option>
-                                        </select>
-                                        {seriesPick === NEW_SERIES && (
-                                            <div
-                                                style={{
-                                                    marginTop: '0.35rem',
-                                                }}
-                                            >
-                                                <input
-                                                    type="text"
-                                                    placeholder="Series template name"
-                                                    value={newSeriesName}
-                                                    onChange={(e) =>
-                                                        setNewSeriesName(
-                                                            e.target.value
-                                                        )
-                                                    }
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
+                                {!seriesId && (
+                                    <span
+                                        style={{
+                                            color: '#888',
+                                            fontSize: '0.8em',
+                                        }}
+                                    >
+                                        This project is not assigned to a
+                                        series, so only project fields can be
+                                        added.
+                                    </span>
                                 )}
                                 <div className={styles.addCardFooter}>
                                     <span>
                                         {addTarget === 'series'
-                                            ? 'Saved immediately to the series template.'
+                                            ? 'Saved immediately to the series.'
                                             : 'Staged — press Save to apply.'}
                                     </span>
                                     <button
@@ -1243,9 +968,6 @@ export default function TemplateManagerTab({
                     {(() => {
                         const d = drafts[activeCat];
                         if (!d) return null;
-                        const seriesForCat = seriesTemplates.filter(
-                            (s) => s.baseType === activeCat
-                        );
                         return (
                             <div
                                 style={{
@@ -1255,9 +977,9 @@ export default function TemplateManagerTab({
                                     padding: '0.25rem 0.25rem 0.5rem',
                                 }}
                             >
-                                {seriesForCat.length !== 0 ? (
+                                {seriesId && (
                                     <CollapsibleSection
-                                        title="Series Template"
+                                        title={`Series ${categoryLabels[activeCat]} Fields`}
                                         collapsed={
                                             isSectionCollapsed(
                                                 activeCat,
@@ -1267,12 +989,10 @@ export default function TemplateManagerTab({
                                         onToggle={() =>
                                             toggleSection(activeCat, 'series')
                                         }
-                                        summary={seriesSummary(d)}
+                                        summary={seriesSummary(activeCat)}
                                     >
                                         {renderSeriesSection(activeCat, d)}
                                     </CollapsibleSection>
-                                ) : (
-                                    ''
                                 )}
                                 <CollapsibleSection
                                     title="Project Fields"

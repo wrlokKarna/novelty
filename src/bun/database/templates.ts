@@ -1,15 +1,14 @@
 import { db } from './index';
-import { entityTemplates, seriesTemplates } from '../schema';
+import { entityTemplates } from '../schema';
 import { eq, and } from 'drizzle-orm';
 import type {
     CompendiumCategory,
     EntityTemplate,
     FieldDefinition,
     ResolvedTemplateInfo,
-    SeriesTemplate,
 } from '../../mainview/types';
 import { normalizeTreeFields } from '../../mainview/templates/tree';
-import { parseSeriesTemplateRow } from './seriesTemplates';
+import { getSeriesTemplateForProject } from './seriesTemplates';
 
 export type {
     CompendiumCategory,
@@ -68,7 +67,6 @@ export async function createTemplate(
         id: template.id,
         projectId: template.projectId,
         baseType: template.baseType,
-        seriesTemplateId: template.seriesTemplateId || null,
         customFields: JSON.stringify(template.customFields || []),
         createdAt: now,
         updatedAt: now,
@@ -86,8 +84,6 @@ export async function updateTemplate(
 ): Promise<EntityTemplate | undefined> {
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (data.baseType !== undefined) updateData.baseType = data.baseType;
-    if (data.seriesTemplateId !== undefined)
-        updateData.seriesTemplateId = data.seriesTemplateId;
     if (data.customFields !== undefined)
         updateData.customFields = JSON.stringify(data.customFields);
 
@@ -111,22 +107,17 @@ export async function deleteTemplate(id: string): Promise<void> {
 export async function upsertTemplate(
     projectId: string,
     baseType: CompendiumCategory,
-    customFields: FieldDefinition[],
-    seriesTemplateId?: string | null
+    customFields: FieldDefinition[]
 ): Promise<EntityTemplate> {
     const existing = await getTemplateByProjectAndType(projectId, baseType);
     if (existing) {
-        const updateData: Partial<NewEntityTemplate> = { customFields };
-        if (seriesTemplateId !== undefined)
-            updateData.seriesTemplateId = seriesTemplateId;
-        return (await updateTemplate(existing.id, updateData))!;
+        return (await updateTemplate(existing.id, { customFields }))!;
     }
     const id = `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     return createTemplate({
         id,
         projectId,
         baseType,
-        seriesTemplateId: seriesTemplateId || null,
         customFields,
     });
 }
@@ -137,17 +128,8 @@ export async function resolveTemplate(
 ): Promise<ResolvedTemplateInfo> {
     const projectTemplate =
         (await getTemplateByProjectAndType(projectId, baseType)) ?? null;
-    let seriesTemplate: SeriesTemplate | null = null;
-
-    if (projectTemplate?.seriesTemplateId) {
-        const st = await db
-            .select()
-            .from(seriesTemplates)
-            .where(eq(seriesTemplates.id, projectTemplate.seriesTemplateId));
-        if (st[0]) {
-            seriesTemplate = parseSeriesTemplateRow(st[0]);
-        }
-    }
+    const seriesTemplate =
+        (await getSeriesTemplateForProject(projectId, baseType)) ?? null;
 
     const fieldMap = new Map<string, FieldDefinition>();
 

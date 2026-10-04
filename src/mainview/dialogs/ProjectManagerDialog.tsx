@@ -1842,8 +1842,8 @@ export default function ProjectManager({
                                 <div className={styles.tabPanelHeader}>
                                     <h3>Templates</h3>
                                     <p>
-                                        Manage global, series, and project
-                                        templates for each entry category
+                                        Manage the series and project fields
+                                        shared by each entry category
                                     </p>
                                 </div>
                                 <div className={styles.tabPanelContent}>

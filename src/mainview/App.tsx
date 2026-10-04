@@ -1294,8 +1294,6 @@ function App() {
                         projectId: currentProject.id,
                         baseType: category,
                         customFields: updatedFields,
-                        seriesTemplateId:
-                            existingTemplate?.seriesTemplateId ?? undefined,
                     });
                     // Refresh resolved fields
                     const newResolved = await rpc.request[
@@ -1581,7 +1579,6 @@ function App() {
                 projectId: currentProject.id,
                 baseType: update.baseType,
                 customFields: updatedFields,
-                seriesTemplateId: existing?.seriesTemplateId ?? undefined,
             });
             const newResolved = await rpc.request['db:get-resolved-template']({
                 projectId: currentProject.id,

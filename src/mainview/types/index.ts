@@ -473,18 +473,22 @@ export type NewSeries = Omit<
     'createdAt' | 'updatedAt' | 'projectCount'
 >;
 
+// There is exactly one series template per (series, category). A project's
+// series template is derived from projects.series_id + base_type.
 export type SeriesTemplate = {
     id: string;
     seriesId: string;
-    name: string;
-    description: string | null;
     baseType: CompendiumCategory;
     customFields: FieldDefinition[];
     createdAt: Date;
     updatedAt: Date;
 };
 
-export type NewSeriesTemplate = Omit<SeriesTemplate, 'createdAt' | 'updatedAt'>;
+export type SeriesTemplateInput = {
+    seriesId: string;
+    baseType: CompendiumCategory;
+    customFields: FieldDefinition[];
+};
 
 export type CompendiumCategory =
     'character' | 'location' | 'organization' | 'item' | 'lore';
@@ -556,7 +560,6 @@ export type EntityTemplate = {
     id: string;
     projectId: string | null;
     baseType: CompendiumCategory;
-    seriesTemplateId: string | null;
     customFields: FieldDefinition[];
     createdAt: Date;
     updatedAt: Date;
@@ -928,22 +931,17 @@ export type SelectorSchema = {
             'db:delete-series': { params: string; response: void };
             'db:get-series-projects': { params: string; response: Project[] };
             'db:list-series-templates': {
-                params: { seriesId: string; baseType?: CompendiumCategory };
+                params: { seriesId: string };
                 response: SeriesTemplate[];
             };
-            'db:get-series-template': {
-                params: string;
-                response: SeriesTemplate | undefined;
-            };
-            'db:create-series-template': {
-                params: NewSeriesTemplate;
+            'db:upsert-series-template': {
+                params: SeriesTemplateInput;
                 response: SeriesTemplate;
             };
-            'db:update-series-template': {
-                params: { id: string; data: Partial<NewSeriesTemplate> };
-                response: SeriesTemplate | undefined;
+            'db:delete-series-template': {
+                params: { seriesId: string; baseType: CompendiumCategory };
+                response: void;
             };
-            'db:delete-series-template': { params: string; response: void };
             'db:get-template': {
                 params: { projectId: string; baseType: CompendiumCategory };
                 response: EntityTemplate | undefined;
@@ -1099,7 +1097,6 @@ export type SelectorSchema = {
                     projectId: string;
                     baseType: CompendiumCategory;
                     customFields: FieldDefinition[];
-                    seriesTemplateId?: string | null;
                 };
                 response: EntityTemplate;
             };

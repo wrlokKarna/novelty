@@ -1,32 +1,29 @@
 import type { FieldDefinition, SeriesTemplate } from '../types';
 
+// Series fields are keyed by name, so a project override is recognised purely by
+// name collision with the series template for its category.
 export function getSeriesInheritedNames(
-    seriesId: string | null,
-    list: SeriesTemplate[]
+    seriesTemplate: SeriesTemplate | null | undefined
 ): Set<string> {
-    if (!seriesId) return new Set();
-    const st = list.find((s) => s.id === seriesId);
-    if (!st?.customFields) return new Set();
-    return new Set(st.customFields.map((f) => f.name));
+    if (!seriesTemplate?.customFields) return new Set();
+    return new Set(seriesTemplate.customFields.map((f) => f.name));
 }
 
 export function mergeSeriesFields(
     fields: FieldDefinition[],
-    seriesId: string | null,
-    list: SeriesTemplate[]
+    seriesTemplate: SeriesTemplate | null | undefined
 ): FieldDefinition[] {
-    const inherited = getSeriesInheritedNames(seriesId, list);
+    const inherited = getSeriesInheritedNames(seriesTemplate);
     const nonInherited = fields.filter((f) => !inherited.has(f.name));
-    if (inherited.size === 0) return nonInherited;
+    if (!seriesTemplate || inherited.size === 0) return nonInherited;
 
-    const seriesTpl = list.find((s) => s.id === seriesId)!;
     const savedOverrides = new Map(
         fields
             .filter((f) => inherited.has(f.name))
             .map((f) => [f.name, f] as const)
     );
 
-    const inheritedFields = seriesTpl.customFields.map((f) => {
+    const inheritedFields = seriesTemplate.customFields.map((f) => {
         const existing = savedOverrides.get(f.name);
         if (existing)
             return { ...f, ...existing, disabled: existing.disabled ?? false };
@@ -38,8 +35,7 @@ export function mergeSeriesFields(
 
 export function fullMerge(
     fields: FieldDefinition[],
-    seriesId: string | null,
-    seriesList: SeriesTemplate[]
+    seriesTemplate: SeriesTemplate | null | undefined
 ): FieldDefinition[] {
-    return mergeSeriesFields(fields, seriesId, seriesList);
+    return mergeSeriesFields(fields, seriesTemplate);
 }
