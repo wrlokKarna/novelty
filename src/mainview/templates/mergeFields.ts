@@ -1,21 +1,19 @@
-import type { FieldDefinition, SeriesTemplate } from '../types';
+import type { FieldDefinition } from '../types';
 
-// Series fields are keyed by name, so a project override is recognised purely by
-// name collision with the series template for its category.
 export function getSeriesInheritedNames(
-    seriesTemplate: SeriesTemplate | null | undefined
+    seriesFields: FieldDefinition[] | null | undefined
 ): Set<string> {
-    if (!seriesTemplate?.customFields) return new Set();
-    return new Set(seriesTemplate.customFields.map((f) => f.name));
+    if (!seriesFields?.length) return new Set();
+    return new Set(seriesFields.map((f) => f.name));
 }
 
 export function mergeSeriesFields(
     fields: FieldDefinition[],
-    seriesTemplate: SeriesTemplate | null | undefined
+    seriesFields: FieldDefinition[] | null | undefined
 ): FieldDefinition[] {
-    const inherited = getSeriesInheritedNames(seriesTemplate);
+    const inherited = getSeriesInheritedNames(seriesFields);
     const nonInherited = fields.filter((f) => !inherited.has(f.name));
-    if (!seriesTemplate || inherited.size === 0) return nonInherited;
+    if (!seriesFields || inherited.size === 0) return nonInherited;
 
     const savedOverrides = new Map(
         fields
@@ -23,7 +21,7 @@ export function mergeSeriesFields(
             .map((f) => [f.name, f] as const)
     );
 
-    const inheritedFields = seriesTemplate.customFields.map((f) => {
+    const inheritedFields = seriesFields.map((f) => {
         const existing = savedOverrides.get(f.name);
         if (existing)
             return { ...f, ...existing, disabled: existing.disabled ?? false };
@@ -35,7 +33,7 @@ export function mergeSeriesFields(
 
 export function fullMerge(
     fields: FieldDefinition[],
-    seriesTemplate: SeriesTemplate | null | undefined
+    seriesFields: FieldDefinition[] | null | undefined
 ): FieldDefinition[] {
-    return mergeSeriesFields(fields, seriesTemplate);
+    return mergeSeriesFields(fields, seriesFields);
 }

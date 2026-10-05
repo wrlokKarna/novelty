@@ -92,25 +92,41 @@ const FIELD_TYPE_GROUPS: {
 
 type AddTarget = 'project' | 'series';
 
-type SeriesTemplateMap = Partial<Record<CompendiumCategory, SeriesTemplate>>;
 type FieldsByCategory = Partial<Record<CompendiumCategory, FieldDefinition[]>>;
 
-// The project template only ever stores project-owned fields plus the disabled
-// overrides for inherited ones, so this is how a merged view round-trips back
-// without losing a project's "disable this inherited field" choice.
+interface SeriesFields {
+    exists: boolean;
+    fields: FieldDefinition[];
+}
+
+type SeriesByCategory = Partial<Record<CompendiumCategory, SeriesFields>>;
+
 function projectOwnedFields(
     merged: FieldDefinition[],
-    seriesTemplate: SeriesTemplate | null
+    seriesFields: FieldDefinition[] | null
 ): FieldDefinition[] {
-    const inherited = getSeriesInheritedNames(seriesTemplate);
+    const inherited = getSeriesInheritedNames(seriesFields);
     return merged.filter((f) => !inherited.has(f.name) || f.disabled);
 }
 
-function toSeriesTemplateMap(
-    list: SeriesTemplate[] | undefined
-): SeriesTemplateMap {
-    const map: SeriesTemplateMap = {};
-    for (const st of list ?? []) map[st.baseType] = st;
+function serverMatchesShown(
+    stored: FieldDefinition[],
+    shown: FieldDefinition[] | null | undefined
+): boolean {
+    if (!shown) return false;
+    if (stored.length !== shown.length) return false;
+    return stored.every(
+        (f, i) =>
+            f.name === shown[i]?.name &&
+            f.label === shown[i]?.label &&
+            f.type === shown[i]?.type
+    );
+}
+
+function toSeriesFields(list: SeriesTemplate[] | undefined): SeriesByCategory {
+    const map: SeriesByCategory = {};
+    for (const st of list ?? [])
+        map[st.baseType] = { exists: true, fields: st.customFields ?? [] };
     return map;
 }
 
@@ -126,10 +142,7 @@ export default function TemplateManagerTab({
     initialCategory,
 }: TemplateManagerTabProps) {
     const rpc = useRPC();
-    const [seriesTemplates, setSeriesTemplates] = useState<SeriesTemplateMap>(
-        {}
-    );
-    const [seriesFields, setSeriesFields] = useState<FieldsByCategory>({});
+    const [series, setSeries] = useState<SeriesByCategory>({});
     const [projectFields, setProjectFields] = useState<FieldsByCategory>({});
     const [activeCat, setActiveCat] = useState<CompendiumCategory>(
         initialCategory ?? 'character'
@@ -144,9 +157,7 @@ export default function TemplateManagerTab({
     const [toast, setToast] = useState<ToastState | null>(null);
     const [loadNonce, setLoadNonce] = useState(0);
 
-    // Refs so async commits and undo handlers always read current values.
-    const seriesTemplatesRef = useRef<SeriesTemplateMap>({});
-    const seriesFieldsRef = useRef<FieldsByCategory>({});
+    const seriesRef = useRef<SeriesByCategory>({});
     const projectFieldsRef = useRef<FieldsByCategory>({});
     const commitQueueRef = useRef<
         Partial<Record<CompendiumCategory, Promise<void>>>
@@ -175,13 +186,20 @@ export default function TemplateManagerTab({
         setProjectFields(map);
     }
 
-    function setSeriesFieldsFor(
+    function setSeriesFields(cat: CompendiumCategory, next: SeriesFields) {
+        const map = { ...seriesRef.current, [cat]: next };
+        seriesRef.current = map;
+        setSeries(map);
+    }
+
+    function updateSeriesFields(
         cat: CompendiumCategory,
-        next: FieldDefinition[]
+        fields: FieldDefinition[]
     ) {
-        const map = { ...seriesFieldsRef.current, [cat]: next };
-        seriesFieldsRef.current = map;
-        setSeriesFields(map);
+        setSeriesFields(cat, {
+            exists: seriesRef.current[cat]?.exists ?? false,
+            fields,
+        });
     }
 
     function scheduleNotify() {
@@ -193,7 +211,6 @@ export default function TemplateManagerTab({
         }, 350);
     }
 
-    // A pending runtime refresh must not be dropped when the tab goes away.
     useEffect(
         () => () => {
             if (notifyTimerRef.current !== null) {
@@ -215,8 +232,6 @@ export default function TemplateManagerTab({
         []
     );
 
-    // Commits are serialized per category so a slow write can never land after a
-    // newer one and resurrect stale data.
     function enqueueCommit(
         cat: CompendiumCategory,
         task: () => Promise<void>
@@ -258,7 +273,7 @@ export default function TemplateManagerTab({
     ): Promise<void> {
         return enqueueCommit(cat, async () => {
             const inherited = getSeriesInheritedNames(
-                seriesTemplatesRef.current[cat] ?? null
+                seriesRef.current[cat]?.fields ?? null
             );
             const savable = fields
                 .filter((f) => !inherited.has(f.name) || f.disabled)
@@ -280,26 +295,29 @@ export default function TemplateManagerTab({
             const savable = fields
                 .filter((f) => !f.disabled)
                 .filter((f) => f.name.trim() && f.label.trim());
-            await rpc.request['db:upsert-series-template']({
+            const saved = await rpc.request['db:upsert-series-template']({
                 seriesId,
                 baseType: cat,
                 customFields: savable,
             });
-            // Re-read so row existence and ids are authoritative, then re-merge
-            // the project view against the new series fields.
-            const res = await rpc.request['db:list-series-templates']({
-                seriesId,
-            });
-            const sl = toSeriesTemplateMap(Array.isArray(res) ? res : []);
-            seriesTemplatesRef.current = sl;
-            setSeriesTemplates(sl);
-            setSeriesFieldsFor(cat, sl[cat]?.customFields ?? []);
-            const st = sl[cat] ?? null;
+
+            const stored = saved?.customFields ?? savable;
+            const cur = seriesRef.current[cat];
+            const shown = cur?.fields ?? [];
+            const nextFields = serverMatchesShown(stored, shown)
+                ? shown
+                : stored;
+            if (!cur?.exists || nextFields !== cur?.fields) {
+                setSeriesFields(cat, { exists: true, fields: nextFields });
+            }
             setProjectFieldsFor(
                 cat,
                 fullMerge(
-                    projectOwnedFields(projectFieldsRef.current[cat] ?? [], st),
-                    st
+                    projectOwnedFields(
+                        projectFieldsRef.current[cat] ?? [],
+                        stored
+                    ),
+                    stored
                 )
             );
         });
@@ -312,7 +330,7 @@ export default function TemplateManagerTab({
             const seriesRes = seriesId
                 ? await rpc.request['db:list-series-templates']({ seriesId })
                 : ([] as SeriesTemplate[]);
-            const sl = toSeriesTemplateMap(
+            const nextSeries = toSeriesFields(
                 Array.isArray(seriesRes) ? seriesRes : []
             );
             const results = await Promise.all(
@@ -324,24 +342,18 @@ export default function TemplateManagerTab({
                 )
             );
 
-            const nextSeries: FieldsByCategory = {};
             const nextProject: FieldsByCategory = {};
             CATEGORIES.forEach((cat, i) => {
-                const st = sl[cat] ?? null;
-                nextSeries[cat] = st?.customFields ?? [];
                 nextProject[cat] = fullMerge(
                     results[i]?.projectTemplate?.customFields || [],
-                    st
+                    nextSeries[cat]?.fields ?? null
                 );
             });
 
-            seriesTemplatesRef.current = sl;
-            seriesFieldsRef.current = nextSeries;
+            seriesRef.current = nextSeries;
             projectFieldsRef.current = nextProject;
-            setSeriesTemplates(sl);
-            setSeriesFields(nextSeries);
+            setSeries(nextSeries);
             setProjectFields(nextProject);
-            // Remount the editors so their text-commit baselines reset.
             setLoadNonce((n) => n + 1);
         } catch (e) {
             console.error('Failed to load templates:', e);
@@ -352,7 +364,6 @@ export default function TemplateManagerTab({
 
     useEffect(() => {
         load();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [projectId, seriesId]);
 
     function isSectionCollapsed(
@@ -409,21 +420,21 @@ export default function TemplateManagerTab({
     }
 
     function removeSeriesField(cat: CompendiumCategory, index: number) {
-        const current = seriesFieldsRef.current[cat] ?? [];
+        const current = seriesRef.current[cat]?.fields ?? [];
         const removed = current[index];
         if (!removed) return;
         const next = current.filter((_, i) => i !== index);
-        setSeriesFieldsFor(cat, next);
+        updateSeriesFields(cat, next);
         commitSeries(cat, next);
         showToast(`Removed "${removed.label || removed.name}"`, () => {
-            const cur = seriesFieldsRef.current[cat] ?? [];
+            const cur = seriesRef.current[cat]?.fields ?? [];
             if (cur.some((f) => f.name === removed.name)) return;
             const restored = [
                 ...cur.slice(0, index),
                 removed,
                 ...cur.slice(index),
             ];
-            setSeriesFieldsFor(cat, restored);
+            updateSeriesFields(cat, restored);
             commitSeries(cat, restored);
         });
     }
@@ -441,13 +452,7 @@ export default function TemplateManagerTab({
                 seriesId,
                 baseType: cat,
             });
-            const res = await rpc.request['db:list-series-templates']({
-                seriesId,
-            });
-            const sl = toSeriesTemplateMap(Array.isArray(res) ? res : []);
-            seriesTemplatesRef.current = sl;
-            setSeriesTemplates(sl);
-            setSeriesFieldsFor(cat, sl[cat]?.customFields ?? []);
+            setSeriesFields(cat, { exists: false, fields: [] });
             setProjectFieldsFor(
                 cat,
                 fullMerge(
@@ -495,10 +500,12 @@ export default function TemplateManagerTab({
         }
 
         if (!seriesId) return;
-        const current = seriesFieldsRef.current[cat] ?? [];
+        const current = seriesRef.current[cat]?.fields ?? [];
         setAddingField(true);
         try {
-            await commitSeries(cat, [...current, field]);
+            const next = [...current, field];
+            updateSeriesFields(cat, next);
+            await commitSeries(cat, next);
             resetAddCard();
         } finally {
             setAddingField(false);
@@ -520,8 +527,8 @@ export default function TemplateManagerTab({
           : '#888';
 
     function summaryFor(cat: CompendiumCategory): string {
-        const s = seriesFields[cat]?.length || 0;
-        const inherited = getSeriesInheritedNames(seriesTemplates[cat] ?? null);
+        const s = series[cat]?.fields.length || 0;
+        const inherited = getSeriesInheritedNames(series[cat]?.fields ?? null);
         const merged = projectFields[cat] ?? [];
         const p = merged.filter((f) => !inherited.has(f.name)).length;
         return `${s} series · ${p} project`;
@@ -529,11 +536,11 @@ export default function TemplateManagerTab({
 
     function seriesSummary(cat: CompendiumCategory): string {
         if (!seriesId) return 'Not applicable';
-        return `${seriesFields[cat]?.length || 0} fields · shared across the series`;
+        return `${series[cat]?.fields.length || 0} fields · shared across the series`;
     }
 
     function projectSummary(cat: CompendiumCategory): string {
-        const inherited = getSeriesInheritedNames(seriesTemplates[cat] ?? null);
+        const inherited = getSeriesInheritedNames(series[cat]?.fields ?? null);
         const merged = projectFields[cat] ?? [];
         return `${merged.filter((f) => !inherited.has(f.name)).length} project fields`;
     }
@@ -547,8 +554,8 @@ export default function TemplateManagerTab({
                 </div>
             );
         }
-        const st = seriesTemplates[cat] ?? null;
-        const fields = seriesFields[cat] ?? [];
+        const s = series[cat] ?? null;
+        const fields = s?.fields ?? [];
 
         return (
             <div>
@@ -566,12 +573,12 @@ export default function TemplateManagerTab({
                 <SimpleFieldsEditor
                     key={`series:${cat}:${loadNonce}`}
                     fields={fields}
-                    onChange={(next) => setSeriesFieldsFor(cat, next)}
+                    onChange={(next) => updateSeriesFields(cat, next)}
                     onCommit={(next) => commitSeries(cat, next)}
                     onRemove={(index) => removeSeriesField(cat, index)}
                     inheritedNames={new Set()}
                 />
-                {st && (
+                {s?.exists && (
                     <button
                         type="button"
                         className="danger"
@@ -607,7 +614,7 @@ export default function TemplateManagerTab({
                     onCommit={(next) => commitProject(cat, next)}
                     onRemove={(index) => removeProjectField(cat, index)}
                     inheritedNames={getSeriesInheritedNames(
-                        seriesTemplates[cat] ?? null
+                        series[cat]?.fields ?? null
                     )}
                 />
             </div>
@@ -815,14 +822,7 @@ export default function TemplateManagerTab({
                         )}
                     </div>
 
-                    <div
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '1rem',
-                            padding: '0.25rem 0.25rem 0.5rem',
-                        }}
-                    >
+                    <div className={styles.fieldsContent}>
                         {seriesId && (
                             <CollapsibleSection
                                 title={`Series ${categoryLabels[activeCat]} Fields`}
@@ -1022,9 +1022,6 @@ function FieldTypePills({
     );
 }
 
-// Autosave lives here so both editors share one set of rules: free-text edits
-// only mutate local state and persist on blur/Enter, while discrete actions
-// (toggles, selects, reorders, deletes) persist immediately.
 interface FieldEditorHandlers {
     editField: (index: number, updates: Partial<FieldDefinition>) => void;
     commitField: (index: number, updates: Partial<FieldDefinition>) => void;

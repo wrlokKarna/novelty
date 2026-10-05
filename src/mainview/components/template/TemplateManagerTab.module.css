@@ -129,3 +129,10 @@
         background: var(--accent-subtle, rgba(240, 160, 80, 0.12));
     }
 }
+
+.fieldsContent {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 0.25rem 0.25rem 0.5rem;
+}

@@ -473,8 +473,6 @@ export type NewSeries = Omit<
     'createdAt' | 'updatedAt' | 'projectCount'
 >;
 
-// There is exactly one series template per (series, category). A project's
-// series template is derived from projects.series_id + base_type.
 export type SeriesTemplate = {
     id: string;
     seriesId: string;
