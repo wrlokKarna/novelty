@@ -2035,9 +2035,6 @@ export default function ProjectManager({
                     </div>
                 </>
             </SplitDialogLayout>
-            <div
-                className={`${styles.dialogContent} ${localStyles.dialogContent}`}
-            ></div>
 
             {showDeleteConfirm && (
                 <SubDialog

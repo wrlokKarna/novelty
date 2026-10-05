@@ -1,4 +1,10 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import {
+    useState,
+    useEffect,
+    useRef,
+    type ReactNode,
+    type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { useRPC } from '../../contexts/RPCContext';
 import VisibilityEditor from '../VisibilityEditor';
 import TreeRelationsEditor from '../TreeRelationsEditor';
@@ -84,19 +90,21 @@ const FIELD_TYPE_GROUPS: {
     },
 ];
 
-interface SeriesEditorState {
-    fields: FieldDefinition[];
-}
-
-interface CategoryDraft {
-    projectFields: FieldDefinition[];
-    seriesEditor: SeriesEditorState | null;
-    dirty: boolean;
-}
-
 type AddTarget = 'project' | 'series';
 
 type SeriesTemplateMap = Partial<Record<CompendiumCategory, SeriesTemplate>>;
+type FieldsByCategory = Partial<Record<CompendiumCategory, FieldDefinition[]>>;
+
+// The project template only ever stores project-owned fields plus the disabled
+// overrides for inherited ones, so this is how a merged view round-trips back
+// without losing a project's "disable this inherited field" choice.
+function projectOwnedFields(
+    merged: FieldDefinition[],
+    seriesTemplate: SeriesTemplate | null
+): FieldDefinition[] {
+    const inherited = getSeriesInheritedNames(seriesTemplate);
+    return merged.filter((f) => !inherited.has(f.name) || f.disabled);
+}
 
 function toSeriesTemplateMap(
     list: SeriesTemplate[] | undefined
@@ -104,6 +112,11 @@ function toSeriesTemplateMap(
     const map: SeriesTemplateMap = {};
     for (const st of list ?? []) map[st.baseType] = st;
     return map;
+}
+
+interface ToastState {
+    message: string;
+    undo?: () => void;
 }
 
 export default function TemplateManagerTab({
@@ -116,17 +129,181 @@ export default function TemplateManagerTab({
     const [seriesTemplates, setSeriesTemplates] = useState<SeriesTemplateMap>(
         {}
     );
-    const [drafts, setDrafts] = useState<
-        Partial<Record<CompendiumCategory, CategoryDraft>>
-    >({});
+    const [seriesFields, setSeriesFields] = useState<FieldsByCategory>({});
+    const [projectFields, setProjectFields] = useState<FieldsByCategory>({});
     const [activeCat, setActiveCat] = useState<CompendiumCategory>(
         initialCategory ?? 'character'
     );
     const [loading, setLoading] = useState(true);
-    const [savingCat, setSavingCat] = useState<CompendiumCategory | null>(null);
     const [collapsedSections, setCollapsedSections] = useState<
         Record<string, boolean>
     >({});
+    const [savingCount, setSavingCount] = useState(0);
+    const [savedRecently, setSavedRecently] = useState(false);
+    const [saveFailed, setSaveFailed] = useState(false);
+    const [toast, setToast] = useState<ToastState | null>(null);
+    const [loadNonce, setLoadNonce] = useState(0);
+
+    // Refs so async commits and undo handlers always read current values.
+    const seriesTemplatesRef = useRef<SeriesTemplateMap>({});
+    const seriesFieldsRef = useRef<FieldsByCategory>({});
+    const projectFieldsRef = useRef<FieldsByCategory>({});
+    const commitQueueRef = useRef<
+        Partial<Record<CompendiumCategory, Promise<void>>>
+    >({});
+    const notifyRef = useRef(onTemplatesChanged);
+    notifyRef.current = onTemplatesChanged;
+    const notifyTimerRef = useRef<number | null>(null);
+    const savedTimerRef = useRef<number | null>(null);
+    const toastTimerRef = useRef<number | null>(null);
+
+    const [showAddCard, setShowAddCard] = useState(false);
+    const [addTarget, setAddTarget] = useState<AddTarget>('project');
+    const [newFieldName, setNewFieldName] = useState('');
+    const [newFieldType, setNewFieldType] =
+        useState<FieldDefinition['type']>('text');
+    const [addingField, setAddingField] = useState(false);
+    const addCardRef = useRef<HTMLDivElement | null>(null);
+    const addButtonGroupRef = useRef<HTMLDivElement | null>(null);
+
+    function setProjectFieldsFor(
+        cat: CompendiumCategory,
+        next: FieldDefinition[]
+    ) {
+        const map = { ...projectFieldsRef.current, [cat]: next };
+        projectFieldsRef.current = map;
+        setProjectFields(map);
+    }
+
+    function setSeriesFieldsFor(
+        cat: CompendiumCategory,
+        next: FieldDefinition[]
+    ) {
+        const map = { ...seriesFieldsRef.current, [cat]: next };
+        seriesFieldsRef.current = map;
+        setSeriesFields(map);
+    }
+
+    function scheduleNotify() {
+        if (notifyTimerRef.current !== null)
+            window.clearTimeout(notifyTimerRef.current);
+        notifyTimerRef.current = window.setTimeout(() => {
+            notifyTimerRef.current = null;
+            notifyRef.current();
+        }, 350);
+    }
+
+    // A pending runtime refresh must not be dropped when the tab goes away.
+    useEffect(
+        () => () => {
+            if (notifyTimerRef.current !== null) {
+                window.clearTimeout(notifyTimerRef.current);
+                notifyTimerRef.current = null;
+                notifyRef.current();
+            }
+        },
+        []
+    );
+
+    useEffect(
+        () => () => {
+            if (savedTimerRef.current !== null)
+                window.clearTimeout(savedTimerRef.current);
+            if (toastTimerRef.current !== null)
+                window.clearTimeout(toastTimerRef.current);
+        },
+        []
+    );
+
+    // Commits are serialized per category so a slow write can never land after a
+    // newer one and resurrect stale data.
+    function enqueueCommit(
+        cat: CompendiumCategory,
+        task: () => Promise<void>
+    ): Promise<void> {
+        const prev = commitQueueRef.current[cat] ?? Promise.resolve();
+        const run = prev.then(async () => {
+            setSavingCount((c) => c + 1);
+            try {
+                await task();
+                setSaveFailed(false);
+                setSavedRecently(true);
+                if (savedTimerRef.current !== null)
+                    window.clearTimeout(savedTimerRef.current);
+                savedTimerRef.current = window.setTimeout(
+                    () => setSavedRecently(false),
+                    1600
+                );
+                scheduleNotify();
+            } catch (e) {
+                console.error('Failed to save template:', e);
+                setSaveFailed(true);
+                if (savedTimerRef.current !== null)
+                    window.clearTimeout(savedTimerRef.current);
+                savedTimerRef.current = window.setTimeout(
+                    () => setSaveFailed(false),
+                    4000
+                );
+            } finally {
+                setSavingCount((c) => Math.max(0, c - 1));
+            }
+        });
+        commitQueueRef.current[cat] = run;
+        return run;
+    }
+
+    function commitProject(
+        cat: CompendiumCategory,
+        fields: FieldDefinition[]
+    ): Promise<void> {
+        return enqueueCommit(cat, async () => {
+            const inherited = getSeriesInheritedNames(
+                seriesTemplatesRef.current[cat] ?? null
+            );
+            const savable = fields
+                .filter((f) => !inherited.has(f.name) || f.disabled)
+                .filter((f) => f.name.trim() && f.label.trim());
+            await rpc.request['db:save-template']({
+                projectId,
+                baseType: cat,
+                customFields: savable,
+            });
+        });
+    }
+
+    function commitSeries(
+        cat: CompendiumCategory,
+        fields: FieldDefinition[]
+    ): Promise<void> {
+        if (!seriesId) return Promise.resolve();
+        return enqueueCommit(cat, async () => {
+            const savable = fields
+                .filter((f) => !f.disabled)
+                .filter((f) => f.name.trim() && f.label.trim());
+            await rpc.request['db:upsert-series-template']({
+                seriesId,
+                baseType: cat,
+                customFields: savable,
+            });
+            // Re-read so row existence and ids are authoritative, then re-merge
+            // the project view against the new series fields.
+            const res = await rpc.request['db:list-series-templates']({
+                seriesId,
+            });
+            const sl = toSeriesTemplateMap(Array.isArray(res) ? res : []);
+            seriesTemplatesRef.current = sl;
+            setSeriesTemplates(sl);
+            setSeriesFieldsFor(cat, sl[cat]?.customFields ?? []);
+            const st = sl[cat] ?? null;
+            setProjectFieldsFor(
+                cat,
+                fullMerge(
+                    projectOwnedFields(projectFieldsRef.current[cat] ?? [], st),
+                    st
+                )
+            );
+        });
+    }
 
     async function load() {
         if (!projectId) return;
@@ -138,8 +315,6 @@ export default function TemplateManagerTab({
             const sl = toSeriesTemplateMap(
                 Array.isArray(seriesRes) ? seriesRes : []
             );
-            setSeriesTemplates(sl);
-
             const results = await Promise.all(
                 CATEGORIES.map((cat) =>
                     rpc.request['db:get-resolved-template']({
@@ -149,18 +324,25 @@ export default function TemplateManagerTab({
                 )
             );
 
-            const next = {} as Record<CompendiumCategory, CategoryDraft>;
+            const nextSeries: FieldsByCategory = {};
+            const nextProject: FieldsByCategory = {};
             CATEGORIES.forEach((cat, i) => {
-                next[cat] = {
-                    projectFields: fullMerge(
-                        results[i]?.projectTemplate?.customFields || [],
-                        sl[cat] ?? null
-                    ),
-                    seriesEditor: null,
-                    dirty: false,
-                };
+                const st = sl[cat] ?? null;
+                nextSeries[cat] = st?.customFields ?? [];
+                nextProject[cat] = fullMerge(
+                    results[i]?.projectTemplate?.customFields || [],
+                    st
+                );
             });
-            setDrafts(next);
+
+            seriesTemplatesRef.current = sl;
+            seriesFieldsRef.current = nextSeries;
+            projectFieldsRef.current = nextProject;
+            setSeriesTemplates(sl);
+            setSeriesFields(nextSeries);
+            setProjectFields(nextProject);
+            // Remount the editors so their text-commit baselines reset.
+            setLoadNonce((n) => n + 1);
         } catch (e) {
             console.error('Failed to load templates:', e);
         } finally {
@@ -172,44 +354,6 @@ export default function TemplateManagerTab({
         load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [projectId, seriesId]);
-
-    async function reloadCategory(cat: CompendiumCategory) {
-        const [seriesRes, info] = await Promise.all([
-            seriesId
-                ? rpc.request['db:list-series-templates']({ seriesId })
-                : (Promise.resolve([]) as Promise<SeriesTemplate[]>),
-            rpc.request['db:get-resolved-template']({
-                projectId,
-                baseType: cat,
-            }),
-        ]);
-        const sl = toSeriesTemplateMap(
-            Array.isArray(seriesRes) ? seriesRes : []
-        );
-        setSeriesTemplates(sl);
-        setDrafts((prev) => ({
-            ...prev,
-            [cat]: {
-                projectFields: fullMerge(
-                    info?.projectTemplate?.customFields || [],
-                    sl[cat] ?? null
-                ),
-                seriesEditor: null,
-                dirty: false,
-            },
-        }));
-    }
-
-    function updateDraft(
-        cat: CompendiumCategory,
-        patch: Partial<CategoryDraft>
-    ) {
-        setDrafts((prev) => {
-            const d = prev[cat];
-            if (!d) return prev;
-            return { ...prev, [cat]: { ...d, ...patch, dirty: true } };
-        });
-    }
 
     function isSectionCollapsed(
         cat: CompendiumCategory,
@@ -228,97 +372,60 @@ export default function TemplateManagerTab({
         }));
     }
 
-    function setSeriesEditor(
-        cat: CompendiumCategory,
-        editor: SeriesEditorState | null
-    ) {
-        setDrafts((prev) => {
-            const d = prev[cat];
-            if (!d) return prev;
-            return { ...prev, [cat]: { ...d, seriesEditor: editor } };
+    function showToast(message: string, undo?: () => void) {
+        if (toastTimerRef.current !== null)
+            window.clearTimeout(toastTimerRef.current);
+        setToast({ message, undo });
+        toastTimerRef.current = window.setTimeout(() => setToast(null), 6000);
+    }
+
+    function runUndo() {
+        const fn = toast?.undo;
+        if (toastTimerRef.current !== null)
+            window.clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+        setToast(null);
+        fn?.();
+    }
+
+    function removeProjectField(cat: CompendiumCategory, index: number) {
+        const merged = projectFieldsRef.current[cat] ?? [];
+        const removed = merged[index];
+        if (!removed) return;
+        const next = merged.filter((_, i) => i !== index);
+        setProjectFieldsFor(cat, next);
+        commitProject(cat, next);
+        showToast(`Removed "${removed.label || removed.name}"`, () => {
+            const cur = projectFieldsRef.current[cat] ?? [];
+            if (cur.some((f) => f.name === removed.name)) return;
+            const restored = [
+                ...cur.slice(0, index),
+                removed,
+                ...cur.slice(index),
+            ];
+            setProjectFieldsFor(cat, restored);
+            commitProject(cat, restored);
         });
     }
 
-    function openSeriesCreate(cat: CompendiumCategory) {
-        setSeriesEditor(cat, { fields: [] });
-    }
-
-    function openSeriesEdit(cat: CompendiumCategory) {
-        const st = seriesTemplates[cat];
-        if (!st) return;
-        setSeriesEditor(cat, { fields: [...(st.customFields || [])] });
-    }
-
-    function cancelSeriesEditor(cat: CompendiumCategory) {
-        setSeriesEditor(cat, null);
-    }
-
-    function updateSeriesEditor(
-        cat: CompendiumCategory,
-        patch: Partial<SeriesEditorState>
-    ) {
-        setDrafts((prev) => {
-            const d = prev[cat];
-            if (!d?.seriesEditor) return prev;
-            return {
-                ...prev,
-                [cat]: {
-                    ...d,
-                    seriesEditor: { ...d.seriesEditor, ...patch },
-                    dirty: true,
-                },
-            };
+    function removeSeriesField(cat: CompendiumCategory, index: number) {
+        const current = seriesFieldsRef.current[cat] ?? [];
+        const removed = current[index];
+        if (!removed) return;
+        const next = current.filter((_, i) => i !== index);
+        setSeriesFieldsFor(cat, next);
+        commitSeries(cat, next);
+        showToast(`Removed "${removed.label || removed.name}"`, () => {
+            const cur = seriesFieldsRef.current[cat] ?? [];
+            if (cur.some((f) => f.name === removed.name)) return;
+            const restored = [
+                ...cur.slice(0, index),
+                removed,
+                ...cur.slice(index),
+            ];
+            setSeriesFieldsFor(cat, restored);
+            commitSeries(cat, restored);
         });
-    }
-
-    async function persistSeriesEditor(cat: CompendiumCategory) {
-        const se = drafts[cat]?.seriesEditor;
-        if (!se || !seriesId) return false;
-        const savable = se.fields
-            .filter((f) => !f.disabled)
-            .filter((f) => f.name.trim() && f.label.trim());
-
-        await rpc.request['db:upsert-series-template']({
-            seriesId,
-            baseType: cat,
-            customFields: savable,
-        });
-        return true;
-    }
-
-    async function refreshSeries(
-        cat: CompendiumCategory,
-        opts?: { keepEditor?: boolean }
-    ) {
-        if (!seriesId) return;
-        const res = await rpc.request['db:list-series-templates']({ seriesId });
-        const sl = toSeriesTemplateMap(Array.isArray(res) ? res : []);
-        setSeriesTemplates(sl);
-        setDrafts((prev) => {
-            const d = prev[cat];
-            if (!d) return prev;
-            const st = sl[cat] ?? null;
-            const cleaned = d.projectFields.filter(
-                (f) => !getSeriesInheritedNames(st).has(f.name)
-            );
-            return {
-                ...prev,
-                [cat]: {
-                    ...d,
-                    projectFields: fullMerge(cleaned, st),
-                    ...(opts?.keepEditor ? {} : { seriesEditor: null }),
-                },
-            };
-        });
-    }
-
-    async function saveSeriesEditor(cat: CompendiumCategory) {
-        try {
-            const saved = await persistSeriesEditor(cat);
-            if (saved) await refreshSeries(cat);
-        } catch (e) {
-            console.error('Failed to save series template:', e);
-        }
     }
 
     async function removeSeriesTemplate(cat: CompendiumCategory) {
@@ -327,55 +434,31 @@ export default function TemplateManagerTab({
             !confirm(
                 `Delete the series ${categoryLabels[cat].toLowerCase()} fields? This affects every project in the series.`
             )
-        ) {
+        )
             return;
-        }
-        try {
+        await enqueueCommit(cat, async () => {
             await rpc.request['db:delete-series-template']({
                 seriesId,
                 baseType: cat,
             });
-            await refreshSeries(cat);
-            // Fields that were inherited are no longer supplied by the series,
-            // so the effective project template changed - flag it for review.
-            updateDraft(cat, {});
-            onTemplatesChanged();
-        } catch (e) {
-            console.error('Failed to delete series template:', e);
-        }
-    }
-
-    async function handleSaveCategory(cat: CompendiumCategory) {
-        const d = drafts[cat];
-        if (!d) return;
-        setSavingCat(cat);
-        try {
-            await persistSeriesEditor(cat);
-
-            const seriesInherited = getSeriesInheritedNames(
-                seriesTemplates[cat] ?? null
-            );
-            const savableProject = d.projectFields
-                .filter((f) => {
-                    if (!seriesInherited.has(f.name)) return true;
-                    if (f.disabled) return true;
-                    return false;
-                })
-                .filter((f) => f.name.trim() && f.label.trim());
-
-            await rpc.request['db:save-template']({
-                projectId,
-                baseType: cat,
-                customFields: savableProject,
+            const res = await rpc.request['db:list-series-templates']({
+                seriesId,
             });
-
-            await reloadCategory(cat);
-            onTemplatesChanged();
-        } catch (e) {
-            console.error('Failed to save category:', e);
-        } finally {
-            setSavingCat(null);
-        }
+            const sl = toSeriesTemplateMap(Array.isArray(res) ? res : []);
+            seriesTemplatesRef.current = sl;
+            setSeriesTemplates(sl);
+            setSeriesFieldsFor(cat, sl[cat]?.customFields ?? []);
+            setProjectFieldsFor(
+                cat,
+                fullMerge(
+                    projectOwnedFields(
+                        projectFieldsRef.current[cat] ?? [],
+                        null
+                    ),
+                    null
+                )
+            );
+        });
     }
 
     function toggleAddCard() {
@@ -389,10 +472,7 @@ export default function TemplateManagerTab({
 
     function canSubmitField() {
         if (!newFieldName.trim() || addingField) return false;
-        if (addTarget === 'series') {
-            if (!seriesId) return false;
-            if (!seriesTemplates[activeCat]) return false;
-        }
+        if (addTarget === 'series' && !seriesId) return false;
         return true;
     }
 
@@ -402,192 +482,63 @@ export default function TemplateManagerTab({
     }
 
     async function handleAddFieldSubmit() {
-        const d = drafts[activeCat];
-        if (!d || !newFieldName.trim()) return;
+        const cat = activeCat;
+        if (!newFieldName.trim()) return;
         const field = buildFieldDefinition(newFieldName.trim(), newFieldType);
 
         if (addTarget === 'project') {
-            updateDraft(activeCat, {
-                projectFields: [...d.projectFields, field],
-            });
+            const next = [...(projectFieldsRef.current[cat] ?? []), field];
+            setProjectFieldsFor(cat, next);
+            commitProject(cat, next);
             resetAddCard();
             return;
         }
 
         if (!seriesId) return;
-        const tpl = seriesTemplates[activeCat];
-        if (!tpl) return;
-
+        const current = seriesFieldsRef.current[cat] ?? [];
         setAddingField(true);
         try {
-            await rpc.request['db:upsert-series-template']({
-                seriesId,
-                baseType: activeCat,
-                customFields: [...(tpl.customFields || []), field],
-            });
-            await refreshSeries(activeCat, { keepEditor: true });
-            onTemplatesChanged();
+            await commitSeries(cat, [...current, field]);
             resetAddCard();
-        } catch (e) {
-            console.error('Failed to add series field:', e);
         } finally {
             setAddingField(false);
         }
     }
 
-    function summaryFor(cat: CompendiumCategory, d: CategoryDraft): string {
-        const s = seriesTemplates[cat]?.customFields?.length || 0;
+    const saveStatusLabel = savingCount
+        ? 'Saving…'
+        : saveFailed
+          ? 'Save failed'
+          : savedRecently
+            ? 'Saved'
+            : '';
+
+    const saveStatusColor = saveFailed
+        ? '#e74c3c'
+        : savedRecently && !savingCount
+          ? '#4CAF50'
+          : '#888';
+
+    function summaryFor(cat: CompendiumCategory): string {
+        const s = seriesFields[cat]?.length || 0;
         const inherited = getSeriesInheritedNames(seriesTemplates[cat] ?? null);
-        const p = d.projectFields.filter((f) => !inherited.has(f.name)).length;
+        const merged = projectFields[cat] ?? [];
+        const p = merged.filter((f) => !inherited.has(f.name)).length;
         return `${s} series · ${p} project`;
     }
 
     function seriesSummary(cat: CompendiumCategory): string {
         if (!seriesId) return 'Not applicable';
-        const s = seriesTemplates[cat];
-        return s
-            ? `${s.customFields?.length || 0} fields · shared across the series`
-            : 'None yet';
+        return `${seriesFields[cat]?.length || 0} fields · shared across the series`;
     }
 
-    function projectSummary(d: CategoryDraft): string {
-        const inherited = getSeriesInheritedNames(
-            seriesTemplates[activeCat] ?? null
-        );
-        return `${d.projectFields.filter((f) => !inherited.has(f.name)).length} project fields`;
+    function projectSummary(cat: CompendiumCategory): string {
+        const inherited = getSeriesInheritedNames(seriesTemplates[cat] ?? null);
+        const merged = projectFields[cat] ?? [];
+        return `${merged.filter((f) => !inherited.has(f.name)).length} project fields`;
     }
 
-    function renderFieldPreview(
-        fields: FieldDefinition[],
-        labelResolver: (name: string) => string
-    ) {
-        if (fields.length === 0) {
-            return (
-                <span style={{ color: '#888', fontStyle: 'italic' }}>
-                    No fields
-                </span>
-            );
-        }
-        return (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                {fields.map((f) => {
-                    const visDesc = describeVisibility(
-                        f.visibleWhen,
-                        labelResolver
-                    );
-                    return (
-                        <span
-                            key={f.name}
-                            title={visDesc || undefined}
-                            style={{
-                                padding: '0.15rem 0.4rem',
-                                background: 'var(--bg-secondary, #222)',
-                                borderRadius: '3px',
-                                fontSize: '0.85em',
-                                color: '#ccc',
-                            }}
-                        >
-                            {f.label || f.name}
-                            {f.required && (
-                                <span style={{ color: '#e74c3c' }}>*</span>
-                            )}
-                            <span
-                                style={{
-                                    color: '#888',
-                                    marginLeft: '0.25rem',
-                                    fontSize: '0.85em',
-                                }}
-                            >
-                                ({f.type})
-                            </span>
-                            {visDesc && (
-                                <span
-                                    style={{
-                                        color: '#4A9EFF',
-                                        marginLeft: '0.25rem',
-                                        fontSize: '0.85em',
-                                    }}
-                                >
-                                    👁
-                                </span>
-                            )}
-                        </span>
-                    );
-                })}
-            </div>
-        );
-    }
-
-    function renderSeriesEditor(cat: CompendiumCategory, d: CategoryDraft) {
-        const se = d.seriesEditor!;
-        const existing = !!seriesTemplates[cat];
-        return (
-            <div
-                style={{
-                    marginTop: '0.5rem',
-                    padding: '0.75rem',
-                    border: '1px solid #4A9EFF',
-                    borderRadius: '4px',
-                }}
-            >
-                <div
-                    style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '0.5rem',
-                    }}
-                >
-                    <strong>
-                        {existing ? 'Editing' : 'Creating'} series{' '}
-                        {categoryLabels[cat].toLowerCase()} fields
-                    </strong>
-                    <button
-                        type="button"
-                        onClick={() => cancelSeriesEditor(cat)}
-                    >
-                        Cancel
-                    </button>
-                </div>
-                <div>
-                    <label>Fields</label>
-                    <SimpleFieldsEditor
-                        fields={se.fields}
-                        onChange={(fields) =>
-                            updateSeriesEditor(cat, { fields })
-                        }
-                        inheritedNames={new Set()}
-                    />
-                </div>
-                <div
-                    style={{
-                        display: 'flex',
-                        justifyContent: 'flex-end',
-                        gap: '0.5rem',
-                        marginTop: '0.5rem',
-                    }}
-                >
-                    <button
-                        type="button"
-                        onClick={() => cancelSeriesEditor(cat)}
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="button"
-                        className="save-btn"
-                        onClick={() => saveSeriesEditor(cat)}
-                    >
-                        {existing
-                            ? 'Save Series Fields'
-                            : 'Create Series Fields'}
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    function renderSeriesSection(cat: CompendiumCategory, d: CategoryDraft) {
+    function renderSeriesSection(cat: CompendiumCategory) {
         if (!seriesId) {
             return (
                 <div style={{ color: '#888', fontSize: '0.85em' }}>
@@ -597,6 +548,8 @@ export default function TemplateManagerTab({
             );
         }
         const st = seriesTemplates[cat] ?? null;
+        const fields = seriesFields[cat] ?? [];
+
         return (
             <div>
                 <p
@@ -607,71 +560,33 @@ export default function TemplateManagerTab({
                     }}
                 >
                     The {categoryLabels[cat].toLowerCase()} fields shared by
-                    every project in this series. Changes here apply to all of
-                    them immediately.
+                    every project in this series. Changes save automatically and
+                    apply to all of them immediately.
                 </p>
-                {st ? (
-                    <>
-                        {renderFieldPreview(
-                            st.customFields,
-                            (name) =>
-                                d.projectFields.find((p) => p.name === name)
-                                    ?.label || name
-                        )}
-                        <div
-                            style={{
-                                display: 'flex',
-                                gap: '0.5rem',
-                                marginTop: '0.75rem',
-                            }}
-                        >
-                            <button
-                                type="button"
-                                onClick={() => openSeriesEdit(cat)}
-                            >
-                                Edit series fields
-                            </button>
-                            <button
-                                type="button"
-                                className="danger"
-                                onClick={() => removeSeriesTemplate(cat)}
-                                style={{ color: '#e74c3c' }}
-                            >
-                                Delete series fields
-                            </button>
-                        </div>
-                    </>
-                ) : (
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: '0.5rem',
-                            padding: '0.5rem',
-                            border: '1px solid var(--border, #333)',
-                            borderRadius: '4px',
-                        }}
+                <SimpleFieldsEditor
+                    key={`series:${cat}:${loadNonce}`}
+                    fields={fields}
+                    onChange={(next) => setSeriesFieldsFor(cat, next)}
+                    onCommit={(next) => commitSeries(cat, next)}
+                    onRemove={(index) => removeSeriesField(cat, index)}
+                    inheritedNames={new Set()}
+                />
+                {st && (
+                    <button
+                        type="button"
+                        className="danger"
+                        onClick={() => removeSeriesTemplate(cat)}
+                        style={{ color: '#e74c3c', marginTop: '0.5rem' }}
                     >
-                        <span style={{ color: '#888', fontSize: '0.85em' }}>
-                            No series {categoryLabels[cat].toLowerCase()} fields
-                            yet.
-                        </span>
-                        <button
-                            type="button"
-                            onClick={() => openSeriesCreate(cat)}
-                        >
-                            + Create series fields
-                        </button>
-                    </div>
+                        Delete series fields
+                    </button>
                 )}
-
-                {d.seriesEditor && renderSeriesEditor(cat, d)}
             </div>
         );
     }
 
-    function renderProjectSection(cat: CompendiumCategory, d: CategoryDraft) {
+    function renderProjectSection(cat: CompendiumCategory) {
+        const fields = projectFields[cat] ?? [];
         return (
             <div>
                 <p
@@ -683,13 +598,14 @@ export default function TemplateManagerTab({
                 >
                     The effective template for this project. Inherited fields
                     from the series are shown with an INHERITED badge and can be
-                    disabled per project.
+                    disabled per project. Changes save automatically.
                 </p>
                 <ProjectFieldsEditor
-                    fields={d.projectFields}
-                    onChange={(fields) =>
-                        updateDraft(cat, { projectFields: fields })
-                    }
+                    key={`project:${cat}:${loadNonce}`}
+                    fields={fields}
+                    onChange={(next) => setProjectFieldsFor(cat, next)}
+                    onCommit={(next) => commitProject(cat, next)}
+                    onRemove={(index) => removeProjectField(cat, index)}
                     inheritedNames={getSeriesInheritedNames(
                         seriesTemplates[cat] ?? null
                     )}
@@ -697,17 +613,6 @@ export default function TemplateManagerTab({
             </div>
         );
     }
-
-    const [showAddCard, setShowAddCard] = useState(false);
-    const [addTarget, setAddTarget] = useState<AddTarget>('project');
-    const [newFieldName, setNewFieldName] = useState('');
-    const [newFieldType, setNewFieldType] =
-        useState<FieldDefinition['type']>('text');
-    const [addingField, setAddingField] = useState(false);
-    const addCardRef = useRef<HTMLDivElement | null>(null);
-    const addButtonGroupRef = useRef<HTMLDivElement | null>(null);
-
-    const activeDraft = drafts[activeCat];
 
     useEffect(() => {
         if (!showAddCard) return;
@@ -761,8 +666,6 @@ export default function TemplateManagerTab({
                     <div className={styles.header}>
                         <div className={styles.headerTabs}>
                             {CATEGORIES.map((cat) => {
-                                const d = drafts[cat];
-                                if (!d) return null;
                                 const isActive = activeCat === cat;
                                 return (
                                     <button
@@ -786,39 +689,14 @@ export default function TemplateManagerTab({
                                                 : '#ccc',
                                         }}
                                     >
-                                        <span
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '0.4rem',
-                                            }}
-                                        >
-                                            <strong>
-                                                {categoryLabels[cat]}
-                                            </strong>
-                                            {d.dirty && (
-                                                <span
-                                                    style={{
-                                                        fontSize: '0.65em',
-                                                        color: '#FFA500',
-                                                        background:
-                                                            'rgba(255,165,0,0.15)',
-                                                        padding: '1px 5px',
-                                                        borderRadius: '3px',
-                                                        fontWeight: 500,
-                                                    }}
-                                                >
-                                                    UNSAVED
-                                                </span>
-                                            )}
-                                        </span>
+                                        <strong>{categoryLabels[cat]}</strong>
                                         <span
                                             style={{
                                                 fontSize: '0.72em',
                                                 opacity: 0.75,
                                             }}
                                         >
-                                            {summaryFor(cat, d)}
+                                            {summaryFor(cat)}
                                         </span>
                                     </button>
                                 );
@@ -828,29 +706,15 @@ export default function TemplateManagerTab({
                             className={styles.headerActions}
                             ref={addButtonGroupRef}
                         >
-                            {activeDraft?.dirty && (
-                                <>
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            reloadCategory(activeCat)
-                                        }
-                                    >
-                                        Discard
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="save-btn"
-                                        onClick={() =>
-                                            handleSaveCategory(activeCat)
-                                        }
-                                        disabled={savingCat === activeCat}
-                                    >
-                                        {savingCat === activeCat
-                                            ? 'Saving...'
-                                            : 'Save'}
-                                    </button>
-                                </>
+                            {saveStatusLabel && (
+                                <span
+                                    style={{
+                                        fontSize: '0.8em',
+                                        color: saveStatusColor,
+                                    }}
+                                >
+                                    {saveStatusLabel}
+                                </span>
                             )}
                             <button
                                 type="button"
@@ -889,16 +753,7 @@ export default function TemplateManagerTab({
                                             onClick={() =>
                                                 setAddTarget('series')
                                             }
-                                            disabled={
-                                                !seriesTemplates[activeCat]
-                                            }
-                                            title={
-                                                seriesTemplates[activeCat]
-                                                    ? 'Shared across the series'
-                                                    : `No series ${categoryLabels[
-                                                          activeCat
-                                                      ].toLowerCase()} fields yet — create them in the Series section`
-                                            }
+                                            title="Shared across every project in this series"
                                         >
                                             Series field
                                         </button>
@@ -943,21 +798,16 @@ export default function TemplateManagerTab({
                                     </span>
                                 )}
                                 <div className={styles.addCardFooter}>
-                                    <span>
-                                        {addTarget === 'series'
-                                            ? 'Saved immediately to the series.'
-                                            : 'Staged — press Save to apply.'}
-                                    </span>
+                                    <span>Saved automatically.</span>
                                     <button
                                         type="button"
-                                        className="save-btn"
                                         onClick={handleAddFieldSubmit}
                                         disabled={!canSubmitField()}
                                     >
                                         {addingField
                                             ? 'Saving…'
                                             : addTarget === 'series'
-                                              ? 'Save series field'
+                                              ? 'Add series field'
                                               : 'Add field'}
                                     </button>
                                 </div>
@@ -965,52 +815,54 @@ export default function TemplateManagerTab({
                         )}
                     </div>
 
-                    {(() => {
-                        const d = drafts[activeCat];
-                        if (!d) return null;
-                        return (
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '1rem',
-                                    padding: '0.25rem 0.25rem 0.5rem',
-                                }}
-                            >
-                                {seriesId && (
-                                    <CollapsibleSection
-                                        title={`Series ${categoryLabels[activeCat]} Fields`}
-                                        collapsed={
-                                            isSectionCollapsed(
-                                                activeCat,
-                                                'series'
-                                            ) && !d.seriesEditor
-                                        }
-                                        onToggle={() =>
-                                            toggleSection(activeCat, 'series')
-                                        }
-                                        summary={seriesSummary(activeCat)}
-                                    >
-                                        {renderSeriesSection(activeCat, d)}
-                                    </CollapsibleSection>
+                    <div
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '1rem',
+                            padding: '0.25rem 0.25rem 0.5rem',
+                        }}
+                    >
+                        {seriesId && (
+                            <CollapsibleSection
+                                title={`Series ${categoryLabels[activeCat]} Fields`}
+                                collapsed={isSectionCollapsed(
+                                    activeCat,
+                                    'series'
                                 )}
-                                <CollapsibleSection
-                                    title="Project Fields"
-                                    collapsed={isSectionCollapsed(
-                                        activeCat,
-                                        'project'
-                                    )}
-                                    onToggle={() =>
-                                        toggleSection(activeCat, 'project')
-                                    }
-                                    summary={projectSummary(d)}
-                                >
-                                    {renderProjectSection(activeCat, d)}
-                                </CollapsibleSection>
-                            </div>
-                        );
-                    })()}
+                                onToggle={() =>
+                                    toggleSection(activeCat, 'series')
+                                }
+                                summary={seriesSummary(activeCat)}
+                            >
+                                {renderSeriesSection(activeCat)}
+                            </CollapsibleSection>
+                        )}
+                        <CollapsibleSection
+                            title="Project Fields"
+                            collapsed={isSectionCollapsed(activeCat, 'project')}
+                            onToggle={() => toggleSection(activeCat, 'project')}
+                            summary={projectSummary(activeCat)}
+                        >
+                            {renderProjectSection(activeCat)}
+                        </CollapsibleSection>
+                    </div>
                 </>
+            )}
+
+            {toast && (
+                <div className={styles.toast} role="status">
+                    <span>{toast.message}</span>
+                    {toast.undo && (
+                        <button
+                            type="button"
+                            className={styles.toastAction}
+                            onClick={runUndo}
+                        >
+                            Undo
+                        </button>
+                    )}
+                </div>
             )}
         </div>
     );
@@ -1170,46 +1022,110 @@ function FieldTypePills({
     );
 }
 
+// Autosave lives here so both editors share one set of rules: free-text edits
+// only mutate local state and persist on blur/Enter, while discrete actions
+// (toggles, selects, reorders, deletes) persist immediately.
+interface FieldEditorHandlers {
+    editField: (index: number, updates: Partial<FieldDefinition>) => void;
+    commitField: (index: number, updates: Partial<FieldDefinition>) => void;
+    commitPending: () => void;
+    commitOnEnter: (e: ReactKeyboardEvent) => void;
+    removeField: (index: number) => void;
+    toggleDisabled: (fieldName: string) => void;
+    moveField: (from: number, to: number) => void;
+}
+
+function useFieldEditorHandlers({
+    fields,
+    onChange,
+    onCommit,
+    onRemove,
+}: {
+    fields: FieldDefinition[];
+    onChange: (fields: FieldDefinition[]) => void;
+    onCommit: (fields: FieldDefinition[]) => void;
+    onRemove: (index: number) => void;
+}): FieldEditorHandlers {
+    const lastCommittedRef = useRef(fields);
+
+    function change(next: FieldDefinition[], persist: boolean) {
+        onChange(next);
+        if (!persist) return;
+        lastCommittedRef.current = next;
+        onCommit(next);
+    }
+
+    function withField(
+        index: number,
+        updates: Partial<FieldDefinition>
+    ): FieldDefinition[] {
+        const next = [...fields];
+        next[index] = { ...next[index], ...updates };
+        return next;
+    }
+
+    function commitPending() {
+        if (fields === lastCommittedRef.current) return;
+        lastCommittedRef.current = fields;
+        onCommit(fields);
+    }
+
+    return {
+        editField: (index, updates) => change(withField(index, updates), false),
+        commitField: (index, updates) =>
+            change(withField(index, updates), true),
+        commitPending,
+        commitOnEnter: (e) => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            commitPending();
+        },
+        removeField: onRemove,
+        toggleDisabled: (fieldName) =>
+            change(
+                fields.map((f) =>
+                    f.name === fieldName ? { ...f, disabled: !f.disabled } : f
+                ),
+                true
+            ),
+        moveField: (from, to) => {
+            if (from === to) return;
+            const next = [...fields];
+            const [moved] = next.splice(from, 1);
+            next.splice(to, 0, moved);
+            change(next, true);
+        },
+    };
+}
+
 function ProjectFieldsEditor({
     fields,
     onChange,
+    onCommit,
+    onRemove,
     inheritedNames,
 }: {
     fields: FieldDefinition[];
     onChange: (fields: FieldDefinition[]) => void;
+    onCommit: (fields: FieldDefinition[]) => void;
+    onRemove: (index: number) => void;
     inheritedNames: Set<string>;
 }) {
     const [dragIndex, setDragIndex] = useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
-    function updateField(index: number, updates: Partial<FieldDefinition>) {
-        const newFields = [...fields];
-        newFields[index] = { ...newFields[index], ...updates };
-        onChange(newFields);
-    }
-
-    function removeField(index: number) {
-        onChange(fields.filter((_, i) => i !== index));
-    }
-
-    function toggleFieldDisabled(fieldName: string) {
-        onChange(
-            fields.map((f) =>
-                f.name === fieldName ? { ...f, disabled: !f.disabled } : f
-            )
-        );
-    }
+    const {
+        editField,
+        commitField,
+        commitPending,
+        commitOnEnter,
+        removeField,
+        toggleDisabled,
+        moveField,
+    } = useFieldEditorHandlers({ fields, onChange, onCommit, onRemove });
 
     function isInherited(fieldName: string): boolean {
         return inheritedNames.has(fieldName);
-    }
-
-    function moveField(from: number, to: number) {
-        if (from === to) return;
-        const newFields = [...fields];
-        const [moved] = newFields.splice(from, 1);
-        newFields.splice(to, 0, moved);
-        onChange(newFields);
     }
 
     function handleDragStart(index: number) {
@@ -1247,8 +1163,7 @@ function ProjectFieldsEditor({
             ) : (
                 <div
                     style={{
-                        /*display: "flex", flexDirection: "column", gap: "0.5rem",*/ display:
-                            'grid',
+                        display: 'grid',
                         gridTemplateColumns:
                             'repeat(auto-fill, minmax(420px, 1fr))',
                         gap: '12px',
@@ -1304,7 +1219,6 @@ function ProjectFieldsEditor({
                                             ≡
                                         </span>
                                         <div
-                                            className=""
                                             style={{
                                                 display: 'flex',
                                                 flexDirection: 'column',
@@ -1393,7 +1307,7 @@ function ProjectFieldsEditor({
                                             <select
                                                 value={field.span || 4}
                                                 onChange={(e) =>
-                                                    updateField(index, {
+                                                    commitField(index, {
                                                         span: Number(
                                                             e.target.value
                                                         ) as 1 | 2 | 3 | 4,
@@ -1468,7 +1382,7 @@ function ProjectFieldsEditor({
                                                     type="checkbox"
                                                     checked={!field.disabled}
                                                     onChange={() =>
-                                                        toggleFieldDisabled(
+                                                        toggleDisabled(
                                                             field.name
                                                         )
                                                     }
@@ -1490,11 +1404,13 @@ function ProjectFieldsEditor({
                                                     placeholder="Label"
                                                     value={field.label}
                                                     onChange={(e) =>
-                                                        updateField(index, {
+                                                        editField(index, {
                                                             label: e.target
                                                                 .value,
                                                         })
                                                     }
+                                                    onBlur={commitPending}
+                                                    onKeyDown={commitOnEnter}
                                                     style={{ flex: 1 }}
                                                 />
                                                 <label
@@ -1509,7 +1425,7 @@ function ProjectFieldsEditor({
                                                         type="checkbox"
                                                         checked={field.required}
                                                         onChange={(e) =>
-                                                            updateField(index, {
+                                                            commitField(index, {
                                                                 required:
                                                                     e.target
                                                                         .checked,
@@ -1531,7 +1447,7 @@ function ProjectFieldsEditor({
                                                         ) || ''
                                                     }
                                                     onChange={(e) =>
-                                                        updateField(index, {
+                                                        editField(index, {
                                                             options:
                                                                 e.target.value
                                                                     .split(',')
@@ -1543,6 +1459,8 @@ function ProjectFieldsEditor({
                                                                     ),
                                                         })
                                                     }
+                                                    onBlur={commitPending}
+                                                    onKeyDown={commitOnEnter}
                                                     style={{ width: '100%' }}
                                                 />
                                             )}
@@ -1561,13 +1479,17 @@ function ProjectFieldsEditor({
                                                             field.rangeMin ?? 0
                                                         }
                                                         onChange={(e) =>
-                                                            updateField(index, {
+                                                            editField(index, {
                                                                 rangeMin:
                                                                     Number(
                                                                         e.target
                                                                             .value
                                                                     ),
                                                             })
+                                                        }
+                                                        onBlur={commitPending}
+                                                        onKeyDown={
+                                                            commitOnEnter
                                                         }
                                                     />
                                                     <input
@@ -1578,13 +1500,17 @@ function ProjectFieldsEditor({
                                                             100
                                                         }
                                                         onChange={(e) =>
-                                                            updateField(index, {
+                                                            editField(index, {
                                                                 rangeMax:
                                                                     Number(
                                                                         e.target
                                                                             .value
                                                                     ),
                                                             })
+                                                        }
+                                                        onBlur={commitPending}
+                                                        onKeyDown={
+                                                            commitOnEnter
                                                         }
                                                     />
                                                     <input
@@ -1594,13 +1520,17 @@ function ProjectFieldsEditor({
                                                             field.rangeStep ?? 1
                                                         }
                                                         onChange={(e) =>
-                                                            updateField(index, {
+                                                            editField(index, {
                                                                 rangeStep:
                                                                     Number(
                                                                         e.target
                                                                             .value
                                                                     ),
                                                             })
+                                                        }
+                                                        onBlur={commitPending}
+                                                        onKeyDown={
+                                                            commitOnEnter
                                                         }
                                                     />
                                                 </div>
@@ -1681,7 +1611,7 @@ function ProjectFieldsEditor({
                                                                                           x !==
                                                                                           c
                                                                                   );
-                                                                        updateField(
+                                                                        commitField(
                                                                             index,
                                                                             {
                                                                                 entitylinkCategories:
@@ -1703,7 +1633,7 @@ function ProjectFieldsEditor({
                                                         TREE_PRESETS.family
                                                     }
                                                     onChange={(treeRelations) =>
-                                                        updateField(index, {
+                                                        commitField(index, {
                                                             treeRelations,
                                                         })
                                                     }
@@ -1714,7 +1644,7 @@ function ProjectFieldsEditor({
                                                 currentIndex={index}
                                                 value={field.visibleWhen}
                                                 onChange={(v) =>
-                                                    updateField(index, {
+                                                    commitField(index, {
                                                         visibleWhen: v,
                                                     })
                                                 }
@@ -1734,37 +1664,24 @@ function ProjectFieldsEditor({
 function SimpleFieldsEditor({
     fields,
     onChange,
+    onCommit,
+    onRemove,
     inheritedNames,
 }: {
     fields: FieldDefinition[];
     onChange: (fields: FieldDefinition[]) => void;
+    onCommit: (fields: FieldDefinition[]) => void;
+    onRemove: (index: number) => void;
     inheritedNames: Set<string>;
 }) {
-    function updateField(index: number, updates: Partial<FieldDefinition>) {
-        const newFields = [...fields];
-        newFields[index] = { ...newFields[index], ...updates };
-        onChange(newFields);
-    }
-
-    function removeField(index: number) {
-        onChange(fields.filter((_, i) => i !== index));
-    }
-
-    function toggleFieldDisabled(fieldName: string) {
-        onChange(
-            fields.map((f) =>
-                f.name === fieldName ? { ...f, disabled: !f.disabled } : f
-            )
-        );
-    }
-
-    function moveField(from: number, to: number) {
-        if (from === to) return;
-        const newFields = [...fields];
-        const [moved] = newFields.splice(from, 1);
-        newFields.splice(to, 0, moved);
-        onChange(newFields);
-    }
+    const {
+        editField,
+        commitField,
+        commitPending,
+        commitOnEnter,
+        removeField,
+        toggleDisabled,
+    } = useFieldEditorHandlers({ fields, onChange, onCommit, onRemove });
 
     return (
         <div>
@@ -1821,244 +1738,157 @@ function SimpleFieldsEditor({
                                             INHERITED
                                         </span>
                                     )}
-                                    {f.visibleWhen && (
-                                        <span
-                                            title={
-                                                describeVisibility(
-                                                    f.visibleWhen,
-                                                    (name) =>
-                                                        fields.find(
-                                                            (p) =>
-                                                                p.name === name
-                                                        )?.label || name
-                                                ) || undefined
-                                            }
-                                            style={{
-                                                fontSize: '0.7em',
-                                                color: '#4A9EFF',
-                                                background:
-                                                    'rgba(74,158,255,0.15)',
-                                                padding: '1px 6px',
-                                                borderRadius: '3px',
-                                                fontWeight: 500,
-                                            }}
-                                        >
-                                            👁 CONDITIONAL
-                                        </span>
-                                    )}
                                 </div>
-                                <div
+                                <label
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.4rem',
+                                        fontSize: '0.85em',
+                                        cursor: 'pointer',
+                                        color: f.disabled ? '#e74c3c' : '#aaa',
+                                    }}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={!f.disabled}
+                                        onChange={() => toggleDisabled(f.name)}
+                                    />
+                                    Enabled
+                                </label>
+                            </div>
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    gap: '0.5rem',
+                                    marginTop: '0.5rem',
+                                }}
+                            >
+                                <input
+                                    type="text"
+                                    placeholder="Label"
+                                    value={f.label}
+                                    onChange={(e) =>
+                                        editField(i, { label: e.target.value })
+                                    }
+                                    onBlur={commitPending}
+                                    onKeyDown={commitOnEnter}
+                                    style={{ flex: 1 }}
+                                />
+                                <label
                                     style={{
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '0.5rem',
+                                        fontSize: '0.85em',
                                     }}
                                 >
-                                    <span
-                                        style={{
-                                            color: '#888',
-                                            fontSize: '0.85em',
-                                        }}
-                                    >
-                                        {f.type}
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={() => moveField(i, i - 1)}
-                                        disabled={i === 0}
-                                        title="Move up"
-                                    >
-                                        ↑
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => moveField(i, i + 1)}
-                                        disabled={i === fields.length - 1}
-                                        title="Move down"
-                                    >
-                                        ↓
-                                    </button>
-                                </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={f.required}
+                                        onChange={(e) =>
+                                            commitField(i, {
+                                                required: e.target.checked,
+                                            })
+                                        }
+                                    />
+                                    Required
+                                </label>
                             </div>
-                            {inheritedNames.has(f.name) ? (
+                            {(f.type === 'select' ||
+                                f.type === 'multiselect') && (
+                                <input
+                                    type="text"
+                                    placeholder="Options (comma-separated)"
+                                    value={f.options?.join(', ') || ''}
+                                    onChange={(e) =>
+                                        editField(i, {
+                                            options: e.target.value
+                                                .split(',')
+                                                .map((o) => o.trim())
+                                                .filter(Boolean),
+                                        })
+                                    }
+                                    onBlur={commitPending}
+                                    onKeyDown={commitOnEnter}
+                                    style={{
+                                        width: '100%',
+                                        marginTop: '0.5rem',
+                                    }}
+                                />
+                            )}
+                            {f.type === 'range' && (
                                 <div
                                     style={{
                                         display: 'flex',
                                         gap: '0.5rem',
                                         marginTop: '0.5rem',
-                                        alignItems: 'center',
                                     }}
                                 >
-                                    <span
-                                        style={{
-                                            flex: 1,
-                                            color: '#aaa',
-                                            fontSize: '0.9em',
-                                        }}
-                                    >
-                                        {f.label}
-                                    </span>
-                                    {f.required && (
-                                        <span
-                                            style={{
-                                                color: '#e74c3c',
-                                                fontSize: '0.85em',
-                                            }}
-                                        >
-                                            Required *
-                                        </span>
-                                    )}
-                                    <label
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.5rem',
-                                            fontSize: '0.85em',
-                                            cursor: 'pointer',
-                                            color: f.disabled
-                                                ? '#e74c3c'
-                                                : '#aaa',
-                                        }}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={!f.disabled}
-                                            onChange={() =>
-                                                toggleFieldDisabled(f.name)
-                                            }
-                                        />
-                                        Enabled
-                                    </label>
-                                </div>
-                            ) : (
-                                <>
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            gap: '0.5rem',
-                                            marginTop: '0.5rem',
-                                        }}
-                                    >
-                                        <input
-                                            type="text"
-                                            placeholder="Label"
-                                            value={f.label}
-                                            onChange={(e) =>
-                                                updateField(i, {
-                                                    label: e.target.value,
-                                                })
-                                            }
-                                            style={{ flex: 1 }}
-                                        />
-                                        <label
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '0.5rem',
-                                                fontSize: '0.85em',
-                                            }}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={f.required}
-                                                onChange={(e) =>
-                                                    updateField(i, {
-                                                        required:
-                                                            e.target.checked,
-                                                    })
-                                                }
-                                            />
-                                            Required
-                                        </label>
-                                    </div>
-                                    {(f.type === 'select' ||
-                                        f.type === 'multiselect') && (
-                                        <input
-                                            type="text"
-                                            placeholder="Options (comma-separated)"
-                                            value={f.options?.join(', ') || ''}
-                                            onChange={(e) =>
-                                                updateField(i, {
-                                                    options: e.target.value
-                                                        .split(',')
-                                                        .map((o) => o.trim())
-                                                        .filter(Boolean),
-                                                })
-                                            }
-                                            style={{
-                                                width: '100%',
-                                                marginTop: '0.5rem',
-                                            }}
-                                        />
-                                    )}
-                                    {f.type === 'range' && (
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                gap: '0.5rem',
-                                                marginTop: '0.5rem',
-                                            }}
-                                        >
-                                            <input
-                                                type="number"
-                                                placeholder="Min"
-                                                value={f.rangeMin ?? 0}
-                                                onChange={(e) =>
-                                                    updateField(i, {
-                                                        rangeMin: Number(
-                                                            e.target.value
-                                                        ),
-                                                    })
-                                                }
-                                            />
-                                            <input
-                                                type="number"
-                                                placeholder="Max"
-                                                value={f.rangeMax ?? 100}
-                                                onChange={(e) =>
-                                                    updateField(i, {
-                                                        rangeMax: Number(
-                                                            e.target.value
-                                                        ),
-                                                    })
-                                                }
-                                            />
-                                            <input
-                                                type="number"
-                                                placeholder="Step"
-                                                value={f.rangeStep ?? 1}
-                                                onChange={(e) =>
-                                                    updateField(i, {
-                                                        rangeStep: Number(
-                                                            e.target.value
-                                                        ),
-                                                    })
-                                                }
-                                            />
-                                        </div>
-                                    )}
-                                    <VisibilityEditor
-                                        fields={fields}
-                                        currentIndex={i}
-                                        value={f.visibleWhen}
-                                        onChange={(v) =>
-                                            updateField(i, { visibleWhen: v })
+                                    <input
+                                        type="number"
+                                        placeholder="Min"
+                                        value={f.rangeMin ?? 0}
+                                        onChange={(e) =>
+                                            editField(i, {
+                                                rangeMin: Number(
+                                                    e.target.value
+                                                ),
+                                            })
                                         }
+                                        onBlur={commitPending}
+                                        onKeyDown={commitOnEnter}
                                     />
-                                    <button
-                                        type="button"
-                                        className="danger"
-                                        onClick={() => removeField(i)}
-                                        style={{
-                                            marginTop: '0.5rem',
-                                            color: '#e74c3c',
-                                            fontSize: '0.85em',
-                                        }}
-                                    >
-                                        Remove
-                                    </button>
-                                </>
+                                    <input
+                                        type="number"
+                                        placeholder="Max"
+                                        value={f.rangeMax ?? 100}
+                                        onChange={(e) =>
+                                            editField(i, {
+                                                rangeMax: Number(
+                                                    e.target.value
+                                                ),
+                                            })
+                                        }
+                                        onBlur={commitPending}
+                                        onKeyDown={commitOnEnter}
+                                    />
+                                    <input
+                                        type="number"
+                                        placeholder="Step"
+                                        value={f.rangeStep ?? 1}
+                                        onChange={(e) =>
+                                            editField(i, {
+                                                rangeStep: Number(
+                                                    e.target.value
+                                                ),
+                                            })
+                                        }
+                                        onBlur={commitPending}
+                                        onKeyDown={commitOnEnter}
+                                    />
+                                </div>
                             )}
+                            <VisibilityEditor
+                                fields={fields}
+                                currentIndex={i}
+                                value={f.visibleWhen}
+                                onChange={(v) =>
+                                    commitField(i, { visibleWhen: v })
+                                }
+                            />
+                            <button
+                                type="button"
+                                className="danger"
+                                onClick={() => removeField(i)}
+                                style={{
+                                    marginTop: '0.5rem',
+                                    color: '#e74c3c',
+                                    fontSize: '0.85em',
+                                }}
+                            >
+                                Remove
+                            </button>
                         </div>
                     ))}
                 </div>
