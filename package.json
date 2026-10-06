@@ -23,6 +23,7 @@
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/sortable": "^10.0.0",
         "@dnd-kit/utilities": "^3.2.2",
+        "@modelcontextprotocol/sdk": "^1.31.0",
         "@tabler/icons-react": "^3.41.1",
         "drizzle-orm": "^0.39.3",
         "electrobun": "^2.0.1",
@@ -36,7 +37,8 @@
         "rehype-highlight": "^7.0.2",
         "remark-gfm": "^4.0.1",
         "sqlite-vec": "^0.1.9",
-        "vis-timeline": "^8.5.1"
+        "vis-timeline": "^8.5.1",
+        "zod": "^4.6.5"
     },
     "devDependencies": {
         "@eslint/css": "^1.4.0",
