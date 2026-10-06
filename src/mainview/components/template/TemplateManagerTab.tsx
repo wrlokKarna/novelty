@@ -2,14 +2,13 @@ import {
     useState,
     useEffect,
     useRef,
-    type ReactNode,
     type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 import { useRPC } from '../../contexts/RPCContext';
 import VisibilityEditor from '../VisibilityEditor';
 import TreeRelationsEditor from '../TreeRelationsEditor';
 import { describeVisibility } from '../../templates/fieldVisibility';
-import { TREE_PRESETS } from '../../templates/tree';
+import { TREE_PRESETS, normalizeTreeFields } from '../../templates/tree';
 import {
     getSeriesInheritedNames,
     fullMerge,
@@ -101,14 +100,37 @@ interface SeriesFields {
 
 type SeriesByCategory = Partial<Record<CompendiumCategory, SeriesFields>>;
 
-function projectOwnedFields(
-    merged: FieldDefinition[],
-    seriesFields: FieldDefinition[] | null
-): FieldDefinition[] {
-    const inherited = getSeriesInheritedNames(seriesFields);
-    return merged.filter((f) => !inherited.has(f.name) || f.disabled);
+// Whether two field lists would persist to the same rows. Only the properties
+// that are actually stored are compared, and `order` is included because it is.
+function sameFieldList(a: FieldDefinition[], b: FieldDefinition[]): boolean {
+    if (a === b) return true;
+    if (a.length !== b.length) return false;
+    return a.every((f, i) => {
+        const o = b[i];
+        return (
+            f.name === o?.name &&
+            f.label === o?.label &&
+            f.type === o?.type &&
+            f.required === o?.required &&
+            f.disabled === o?.disabled &&
+            f.order === o?.order
+        );
+    });
 }
 
+// Clears a property that the receiving side owns. `undefined` rather than a
+// rest-destructure so the key is dropped on serialisation without leaving an
+// unused binding behind.
+function withoutKey<T extends object, K extends keyof T>(
+    obj: T,
+    key: K
+): Omit<T, K> {
+    return { ...obj, [key]: undefined } as Omit<T, K>;
+}
+
+// The series template stores exactly the list it is handed, so the response to an
+// upsert only differs from what was sent when a legacy type was normalized on
+// read. Comparing the identifying parts is enough to decide whether to adopt it.
 function serverMatchesShown(
     stored: FieldDefinition[],
     shown: FieldDefinition[] | null | undefined
@@ -148,9 +170,6 @@ export default function TemplateManagerTab({
         initialCategory ?? 'character'
     );
     const [loading, setLoading] = useState(true);
-    const [collapsedSections, setCollapsedSections] = useState<
-        Record<string, boolean>
-    >({});
     const [savingCount, setSavingCount] = useState(0);
     const [savedRecently, setSavedRecently] = useState(false);
     const [saveFailed, setSaveFailed] = useState(false);
@@ -190,16 +209,6 @@ export default function TemplateManagerTab({
         const map = { ...seriesRef.current, [cat]: next };
         seriesRef.current = map;
         setSeries(map);
-    }
-
-    function updateSeriesFields(
-        cat: CompendiumCategory,
-        fields: FieldDefinition[]
-    ) {
-        setSeriesFields(cat, {
-            exists: seriesRef.current[cat]?.exists ?? false,
-            fields,
-        });
     }
 
     function scheduleNotify() {
@@ -267,62 +276,109 @@ export default function TemplateManagerTab({
         return run;
     }
 
-    function commitProject(
+    // The editor shows one merged list, so a single commit can touch both tables.
+    // Each row is routed by name: rows owned by the series template go there,
+    // everything else goes to the project. Both payloads are renumbered from the
+    // merged position so the two tables share one total order, which is what
+    // lets a project field sit between two series fields.
+    function commitMerged(
         cat: CompendiumCategory,
         fields: FieldDefinition[]
     ): Promise<void> {
         return enqueueCommit(cat, async () => {
-            const inherited = getSeriesInheritedNames(
-                seriesRef.current[cat]?.fields ?? null
+            const seriesFields = seriesRef.current[cat]?.fields ?? [];
+            const inherited = getSeriesInheritedNames(seriesFields);
+            const seriesByName = new Map(
+                seriesFields.map((f) => [f.name, f] as const)
             );
-            const savable = fields
-                .filter((f) => !inherited.has(f.name) || f.disabled)
-                .filter((f) => f.name.trim() && f.label.trim());
-            await rpc.request['db:save-template']({
-                projectId,
-                baseType: cat,
-                customFields: savable,
-            });
-        });
-    }
+            const numbered = fields.map((f, i) => ({ ...f, order: i }));
 
-    function commitSeries(
-        cat: CompendiumCategory,
-        fields: FieldDefinition[]
-    ): Promise<void> {
-        if (!seriesId) return Promise.resolve();
-        return enqueueCommit(cat, async () => {
-            const savable = fields
-                .filter((f) => !f.disabled)
-                .filter((f) => f.name.trim() && f.label.trim());
-            const saved = await rpc.request['db:upsert-series-template']({
-                seriesId,
-                baseType: cat,
-                customFields: savable,
-            });
+            // --- series payload ---
+            const nextSeries = numbered
+                .filter((f) => inherited.has(f.name))
+                .map((f) => {
+                    // A row this project has disabled still belongs to the
+                    // series, so take its definition from the series row. Using
+                    // the merged view here would drop the field for everyone.
+                    const base = f.disabled
+                        ? (seriesByName.get(f.name) ?? f)
+                        : f;
+                    // `disabled` is the project's to set, never the series'.
+                    return withoutKey(base, 'disabled');
+                })
+                // Guarded on `name` alone. `name` is read-only in the editor, so
+                // it cannot go blank; `label` can, and dropping a row for having
+                // an empty label would quietly delete that field for every other
+                // project in the series.
+                .filter((f) => f.name.trim());
 
-            const stored = saved?.customFields ?? savable;
-            const cur = seriesRef.current[cat];
-            const shown = cur?.fields ?? [];
-            const nextFields = serverMatchesShown(stored, shown)
-                ? shown
-                : stored;
-            if (!cur?.exists || nextFields !== cur?.fields) {
-                setSeriesFields(cat, { exists: true, fields: nextFields });
+            // --- project payload ---
+            const projectPayload = (
+                merged: FieldDefinition[]
+            ): FieldDefinition[] =>
+                merged
+                    .filter((f) => !inherited.has(f.name) || f.disabled)
+                    .filter((f) => f.name.trim() && f.label.trim())
+                    .map((f) =>
+                        // Ordering an inherited field is the series' job, so the
+                        // stored override carries only this project's choice.
+                        inherited.has(f.name) ? withoutKey(f, 'order') : f
+                    );
+            const nextProject = projectPayload(numbered);
+
+            // Materialise the order locally so the list keeps rendering exactly
+            // what was just committed, including text still mid-edit.
+            const mergedNow = projectFieldsRef.current[cat] ?? [];
+            if (!sameFieldList(mergedNow, numbered))
+                setProjectFieldsFor(cat, numbered);
+
+            const seriesChanged =
+                !!seriesId && !sameFieldList(seriesFields, nextSeries);
+            // Compare like with like: what the current state would store against
+            // what we are about to store, or this fires a write every commit.
+            const projectChanged = !sameFieldList(
+                projectPayload(mergedNow),
+                nextProject
+            );
+
+            if (seriesChanged) {
+                if (nextSeries.length === 0) {
+                    // Removing the last shared field deletes the row rather than
+                    // upserting an empty one.
+                    await rpc.request['db:delete-series-template']({
+                        seriesId,
+                        baseType: cat,
+                    });
+                    setSeriesFields(cat, { exists: false, fields: [] });
+                } else {
+                    const saved = await rpc.request[
+                        'db:upsert-series-template'
+                    ]({
+                        seriesId,
+                        baseType: cat,
+                        customFields: nextSeries,
+                    });
+                    const stored = normalizeTreeFields(
+                        saved?.customFields ?? nextSeries
+                    );
+                    setSeriesFields(cat, {
+                        exists: true,
+                        fields: serverMatchesShown(stored, nextSeries)
+                            ? nextSeries
+                            : stored,
+                    });
+                }
             }
-            setProjectFieldsFor(
-                cat,
-                fullMerge(
-                    projectOwnedFields(
-                        projectFieldsRef.current[cat] ?? [],
-                        stored
-                    ),
-                    stored
-                )
-            );
+
+            if (projectChanged) {
+                await rpc.request['db:save-template']({
+                    projectId,
+                    baseType: cat,
+                    customFields: nextProject,
+                });
+            }
         });
     }
-
     async function load() {
         if (!projectId) return;
         setLoading(true);
@@ -366,23 +422,6 @@ export default function TemplateManagerTab({
         load();
     }, [projectId, seriesId]);
 
-    function isSectionCollapsed(
-        cat: CompendiumCategory,
-        section: 'series' | 'project'
-    ) {
-        return !!collapsedSections[`${cat}:${section}`];
-    }
-
-    function toggleSection(
-        cat: CompendiumCategory,
-        section: 'series' | 'project'
-    ) {
-        setCollapsedSections((prev) => ({
-            ...prev,
-            [`${cat}:${section}`]: !prev[`${cat}:${section}`],
-        }));
-    }
-
     function showToast(message: string, undo?: () => void) {
         if (toastTimerRef.current !== null)
             window.clearTimeout(toastTimerRef.current);
@@ -399,71 +438,88 @@ export default function TemplateManagerTab({
         fn?.();
     }
 
-    function removeProjectField(cat: CompendiumCategory, index: number) {
+    // Trash is routed by ownership. An inherited row is shared with every project in
+    // the series, so deleting one is confirmed and worded accordingly; a project
+    // row is this project's business alone. Both are undoable from the toast.
+    function removeField(cat: CompendiumCategory, index: number) {
         const merged = projectFieldsRef.current[cat] ?? [];
         const removed = merged[index];
         if (!removed) return;
-        const next = merged.filter((_, i) => i !== index);
-        setProjectFieldsFor(cat, next);
-        commitProject(cat, next);
-        showToast(`Removed "${removed.label || removed.name}"`, () => {
-            const cur = projectFieldsRef.current[cat] ?? [];
-            if (cur.some((f) => f.name === removed.name)) return;
-            const restored = [
-                ...cur.slice(0, index),
-                removed,
-                ...cur.slice(index),
-            ];
-            setProjectFieldsFor(cat, restored);
-            commitProject(cat, restored);
-        });
-    }
 
-    function removeSeriesField(cat: CompendiumCategory, index: number) {
-        const current = seriesRef.current[cat]?.fields ?? [];
-        const removed = current[index];
-        if (!removed) return;
-        const next = current.filter((_, i) => i !== index);
-        updateSeriesFields(cat, next);
-        commitSeries(cat, next);
-        showToast(`Removed "${removed.label || removed.name}"`, () => {
-            const cur = seriesRef.current[cat]?.fields ?? [];
-            if (cur.some((f) => f.name === removed.name)) return;
-            const restored = [
-                ...cur.slice(0, index),
-                removed,
-                ...cur.slice(index),
-            ];
-            updateSeriesFields(cat, restored);
-            commitSeries(cat, restored);
-        });
-    }
+        const seriesEntry = seriesRef.current[cat];
+        const isInherited = getSeriesInheritedNames(
+            seriesEntry?.fields ?? null
+        ).has(removed.name);
+        const label = removed.label || removed.name;
 
-    async function removeSeriesTemplate(cat: CompendiumCategory) {
-        if (!seriesId) return;
         if (
+            isInherited &&
             !confirm(
-                `Delete the series ${categoryLabels[cat].toLowerCase()} fields? This affects every project in the series.`
+                `"${label}" is shared with every project in this series. Delete it for all of them?`
             )
         )
             return;
-        await enqueueCommit(cat, async () => {
-            await rpc.request['db:delete-series-template']({
-                seriesId,
-                baseType: cat,
-            });
-            setSeriesFields(cat, { exists: false, fields: [] });
-            setProjectFieldsFor(
-                cat,
-                fullMerge(
-                    projectOwnedFields(
-                        projectFieldsRef.current[cat] ?? [],
-                        null
-                    ),
-                    null
-                )
-            );
-        });
+
+        // `disabled` belongs to this project, not the series.
+        const definition = withoutKey(removed, 'disabled');
+
+        const next = merged.filter((_, i) => i !== index);
+        setProjectFieldsFor(cat, next);
+        // The series list is deliberately left alone here: commitMerged derives
+        // the series payload from the merged list, so clearing it up front would
+        // make the deletion look already-applied and skip the write. The undo
+        // below puts the definition back before re-committing, which is what
+        // restores ownership.
+        commitMerged(cat, next);
+
+        showToast(
+            `Removed "${label}"${isInherited ? ' from the series' : ''}`,
+            () => {
+                const cur = projectFieldsRef.current[cat] ?? [];
+                if (cur.some((f) => f.name === removed.name)) return;
+                if (isInherited) {
+                    const curSeries = seriesRef.current[cat];
+                    if (curSeries) {
+                        setSeriesFields(cat, {
+                            exists: curSeries.exists,
+                            fields: [...curSeries.fields, definition],
+                        });
+                    }
+                }
+                const restored = [
+                    ...cur.slice(0, index),
+                    removed,
+                    ...cur.slice(index),
+                ];
+                setProjectFieldsFor(cat, restored);
+                commitMerged(cat, restored);
+            }
+        );
+    }
+
+    async function removeAllSeriesFields(cat: CompendiumCategory) {
+        if (!seriesId) return;
+        const seriesEntry = seriesRef.current[cat];
+        const owned = seriesEntry?.fields ?? [];
+        if (!owned.length) return;
+
+        if (
+            !confirm(
+                `Delete all ${owned.length} shared ${categoryLabels[cat].toLowerCase()} field${
+                    owned.length === 1 ? '' : 's'
+                }? This affects every project in the series.`
+            )
+        )
+            return;
+
+        const inherited = getSeriesInheritedNames(owned);
+        const next = (projectFieldsRef.current[cat] ?? []).filter(
+            (f) => !inherited.has(f.name)
+        );
+        // As in removeField: leave the series list intact so commitMerged can see
+        // that the shared fields are gone and actually issue the delete.
+        setProjectFieldsFor(cat, next);
+        await commitMerged(cat, next);
     }
 
     function toggleAddCard() {
@@ -491,21 +547,14 @@ export default function TemplateManagerTab({
         if (!newFieldName.trim()) return;
         const field = buildFieldDefinition(newFieldName.trim(), newFieldType);
 
-        if (addTarget === 'project') {
-            const next = [...(projectFieldsRef.current[cat] ?? []), field];
-            setProjectFieldsFor(cat, next);
-            commitProject(cat, next);
-            resetAddCard();
-            return;
-        }
-
-        if (!seriesId) return;
-        const current = seriesRef.current[cat]?.fields ?? [];
+        if (addTarget === 'series' && !seriesId) return;
         setAddingField(true);
         try {
-            const next = [...current, field];
-            updateSeriesFields(cat, next);
-            await commitSeries(cat, next);
+            // Appending is the only time a field's order is chosen rather than
+            // inherited, so it goes to the end of the merged list.
+            const next = [...(projectFieldsRef.current[cat] ?? []), field];
+            setProjectFieldsFor(cat, next);
+            await commitMerged(cat, next);
             resetAddCard();
         } finally {
             setAddingField(false);
@@ -534,28 +583,10 @@ export default function TemplateManagerTab({
         return `${s} series · ${p} project`;
     }
 
-    function seriesSummary(cat: CompendiumCategory): string {
-        if (!seriesId) return 'Not applicable';
-        return `${series[cat]?.fields.length || 0} fields · shared across the series`;
-    }
-
-    function projectSummary(cat: CompendiumCategory): string {
+    function renderFields(cat: CompendiumCategory) {
+        const fields = projectFields[cat] ?? [];
         const inherited = getSeriesInheritedNames(series[cat]?.fields ?? null);
-        const merged = projectFields[cat] ?? [];
-        return `${merged.filter((f) => !inherited.has(f.name)).length} project fields`;
-    }
-
-    function renderSeriesSection(cat: CompendiumCategory) {
-        if (!seriesId) {
-            return (
-                <div style={{ color: '#888', fontSize: '0.85em' }}>
-                    This project is not assigned to a series, so no series
-                    fields apply. Assign a series in the General tab.
-                </div>
-            );
-        }
-        const s = series[cat] ?? null;
-        const fields = s?.fields ?? [];
+        const sharedCount = series[cat]?.fields.length ?? 0;
 
         return (
             <div>
@@ -566,61 +597,35 @@ export default function TemplateManagerTab({
                         margin: '0 0 0.5rem 0',
                     }}
                 >
-                    The {categoryLabels[cat].toLowerCase()} fields shared by
-                    every project in this series. Changes save automatically and
-                    apply to all of them immediately.
+                    The effective template for this project. Rows marked{' '}
+                    <strong style={{ color: '#FFA500' }}>INHERITED</strong> come
+                    from the series and are edited once for every project in it;
+                    turning one off here only affects this project. Changes save
+                    automatically.
                 </p>
-                <SimpleFieldsEditor
-                    key={`series:${cat}:${loadNonce}`}
+                <ProjectFieldsEditor
+                    key={`merged:${cat}:${loadNonce}`}
                     fields={fields}
-                    onChange={(next) => updateSeriesFields(cat, next)}
-                    onCommit={(next) => commitSeries(cat, next)}
-                    onRemove={(index) => removeSeriesField(cat, index)}
-                    inheritedNames={new Set()}
+                    onChange={(next) => setProjectFieldsFor(cat, next)}
+                    onCommit={(next) => commitMerged(cat, next)}
+                    onRemove={(index) => removeField(cat, index)}
+                    inheritedNames={inherited}
                 />
-                {s?.exists && (
+                {sharedCount > 0 && (
                     <button
                         type="button"
                         className="danger"
-                        onClick={() => removeSeriesTemplate(cat)}
+                        onClick={() => removeAllSeriesFields(cat)}
                         style={{ color: '#e74c3c', marginTop: '0.5rem' }}
                     >
-                        Delete series fields
+                        Delete {sharedCount} shared{' '}
+                        {categoryLabels[cat].toLowerCase()} field
+                        {sharedCount === 1 ? '' : 's'}
                     </button>
                 )}
             </div>
         );
     }
-
-    function renderProjectSection(cat: CompendiumCategory) {
-        const fields = projectFields[cat] ?? [];
-        return (
-            <div>
-                <p
-                    style={{
-                        fontSize: '0.85em',
-                        color: '#888',
-                        margin: '0 0 0.5rem 0',
-                    }}
-                >
-                    The effective template for this project. Inherited fields
-                    from the series are shown with an INHERITED badge and can be
-                    disabled per project. Changes save automatically.
-                </p>
-                <ProjectFieldsEditor
-                    key={`project:${cat}:${loadNonce}`}
-                    fields={fields}
-                    onChange={(next) => setProjectFieldsFor(cat, next)}
-                    onCommit={(next) => commitProject(cat, next)}
-                    onRemove={(index) => removeProjectField(cat, index)}
-                    inheritedNames={getSeriesInheritedNames(
-                        series[cat]?.fields ?? null
-                    )}
-                />
-            </div>
-        );
-    }
-
     useEffect(() => {
         if (!showAddCard) return;
         const onPointerDown = (e: PointerEvent) => {
@@ -823,29 +828,7 @@ export default function TemplateManagerTab({
                     </div>
 
                     <div className={styles.fieldsContent}>
-                        {seriesId && (
-                            <CollapsibleSection
-                                title={`Series ${categoryLabels[activeCat]} Fields`}
-                                collapsed={isSectionCollapsed(
-                                    activeCat,
-                                    'series'
-                                )}
-                                onToggle={() =>
-                                    toggleSection(activeCat, 'series')
-                                }
-                                summary={seriesSummary(activeCat)}
-                            >
-                                {renderSeriesSection(activeCat)}
-                            </CollapsibleSection>
-                        )}
-                        <CollapsibleSection
-                            title="Project Fields"
-                            collapsed={isSectionCollapsed(activeCat, 'project')}
-                            onToggle={() => toggleSection(activeCat, 'project')}
-                            summary={projectSummary(activeCat)}
-                        >
-                            {renderProjectSection(activeCat)}
-                        </CollapsibleSection>
+                        {renderFields(activeCat)}
                     </div>
                 </>
             )}
@@ -863,66 +846,6 @@ export default function TemplateManagerTab({
                         </button>
                     )}
                 </div>
-            )}
-        </div>
-    );
-}
-
-function CollapsibleSection({
-    title,
-    collapsed,
-    onToggle,
-    summary,
-    children,
-}: {
-    title: string;
-    collapsed: boolean;
-    onToggle: () => void;
-    summary: string;
-    children: ReactNode;
-}) {
-    return (
-        <div>
-            <button
-                type="button"
-                onClick={onToggle}
-                style={{
-                    width: '100%',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.5rem 0.75rem',
-                    background: 'var(--bg-secondary, #1a1a1a)',
-                    border: '1px solid var(--border, #333)',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                }}
-            >
-                <span
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                    }}
-                >
-                    <span style={{ color: '#888' }}>
-                        {collapsed ? '▸' : '▾'}
-                    </span>
-                    <strong style={{ color: '#ccc' }}>{title}</strong>
-                </span>
-                <span
-                    style={{
-                        color: '#888',
-                        fontSize: '0.8em',
-                        textAlign: 'right',
-                    }}
-                >
-                    {summary}
-                </span>
-            </button>
-            {!collapsed && (
-                <div style={{ marginTop: '0.5rem' }}>{children}</div>
             )}
         </div>
     );
@@ -1336,558 +1259,268 @@ function ProjectFieldsEditor({
                                     </button>
                                 </div>
                                 <div style={{ marginTop: '0.5rem' }}>
-                                    {isInherited(field.name) ? (
+                                    {/* Turning a field off is this
+                                            project's choice alone, whether the
+                                            row is shared or project-owned. */}
+                                    <label
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            marginBottom: '0.5rem',
+                                            fontSize: '0.85em',
+                                            cursor: 'pointer',
+                                            color: field.disabled
+                                                ? '#e74c3c'
+                                                : '#aaa',
+                                        }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={!field.disabled}
+                                            onChange={() =>
+                                                toggleDisabled(field.name)
+                                            }
+                                        />
+                                        Enabled for this project
+                                    </label>
+                                    <>
                                         <div
                                             style={{
                                                 display: 'flex',
                                                 gap: '0.5rem',
-                                                alignItems: 'center',
+                                                marginBottom: '0.5rem',
                                             }}
                                         >
-                                            <span
-                                                style={{
-                                                    flex: 1,
-                                                    color: '#aaa',
-                                                    fontSize: '0.9em',
-                                                }}
-                                            >
-                                                {field.label}
-                                            </span>
-                                            {field.required && (
-                                                <span
-                                                    style={{
-                                                        color: '#e74c3c',
-                                                        fontSize: '0.85em',
-                                                    }}
-                                                >
-                                                    Required *
-                                                </span>
-                                            )}
+                                            <input
+                                                type="text"
+                                                placeholder="Label"
+                                                value={field.label}
+                                                onChange={(e) =>
+                                                    editField(index, {
+                                                        label: e.target.value,
+                                                    })
+                                                }
+                                                onBlur={commitPending}
+                                                onKeyDown={commitOnEnter}
+                                                style={{ flex: 1 }}
+                                            />
                                             <label
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     gap: '0.5rem',
                                                     fontSize: '0.85em',
-                                                    cursor: 'pointer',
-                                                    color: field.disabled
-                                                        ? '#e74c3c'
-                                                        : '#aaa',
                                                 }}
                                             >
                                                 <input
                                                     type="checkbox"
-                                                    checked={!field.disabled}
-                                                    onChange={() =>
-                                                        toggleDisabled(
-                                                            field.name
-                                                        )
+                                                    checked={field.required}
+                                                    onChange={(e) =>
+                                                        commitField(index, {
+                                                            required:
+                                                                e.target
+                                                                    .checked,
+                                                        })
                                                     }
                                                 />
-                                                Enabled
+                                                Required
                                             </label>
                                         </div>
-                                    ) : (
-                                        <>
+                                        {(field.type === 'select' ||
+                                            field.type === 'multiselect') && (
+                                            <input
+                                                type="text"
+                                                placeholder="Options (comma-separated)"
+                                                value={
+                                                    field.options?.join(', ') ||
+                                                    ''
+                                                }
+                                                onChange={(e) =>
+                                                    editField(index, {
+                                                        options: e.target.value
+                                                            .split(',')
+                                                            .map((o) =>
+                                                                o.trim()
+                                                            )
+                                                            .filter(Boolean),
+                                                    })
+                                                }
+                                                onBlur={commitPending}
+                                                onKeyDown={commitOnEnter}
+                                                style={{ width: '100%' }}
+                                            />
+                                        )}
+                                        {field.type === 'range' && (
                                             <div
                                                 style={{
                                                     display: 'flex',
                                                     gap: '0.5rem',
-                                                    marginBottom: '0.5rem',
+                                                    marginTop: '0.5rem',
                                                 }}
                                             >
                                                 <input
-                                                    type="text"
-                                                    placeholder="Label"
-                                                    value={field.label}
+                                                    type="number"
+                                                    placeholder="Min"
+                                                    value={field.rangeMin ?? 0}
                                                     onChange={(e) =>
                                                         editField(index, {
-                                                            label: e.target
-                                                                .value,
+                                                            rangeMin: Number(
+                                                                e.target.value
+                                                            ),
                                                         })
                                                     }
                                                     onBlur={commitPending}
                                                     onKeyDown={commitOnEnter}
-                                                    style={{ flex: 1 }}
                                                 />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Max"
+                                                    value={
+                                                        field.rangeMax ?? 100
+                                                    }
+                                                    onChange={(e) =>
+                                                        editField(index, {
+                                                            rangeMax: Number(
+                                                                e.target.value
+                                                            ),
+                                                        })
+                                                    }
+                                                    onBlur={commitPending}
+                                                    onKeyDown={commitOnEnter}
+                                                />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Step"
+                                                    value={field.rangeStep ?? 1}
+                                                    onChange={(e) =>
+                                                        editField(index, {
+                                                            rangeStep: Number(
+                                                                e.target.value
+                                                            ),
+                                                        })
+                                                    }
+                                                    onBlur={commitPending}
+                                                    onKeyDown={commitOnEnter}
+                                                />
+                                            </div>
+                                        )}
+                                        {(field.type === 'entitylink' ||
+                                            field.type === 'tree') && (
+                                            <div
+                                                style={{
+                                                    marginTop: '0.5rem',
+                                                }}
+                                            >
                                                 <label
                                                     style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '0.5rem',
                                                         fontSize: '0.85em',
                                                     }}
                                                 >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={field.required}
-                                                        onChange={(e) =>
-                                                            commitField(index, {
-                                                                required:
-                                                                    e.target
-                                                                        .checked,
-                                                            })
-                                                        }
-                                                    />
-                                                    Required
+                                                    Allowed Categories:
                                                 </label>
-                                            </div>
-                                            {(field.type === 'select' ||
-                                                field.type ===
-                                                    'multiselect') && (
-                                                <input
-                                                    type="text"
-                                                    placeholder="Options (comma-separated)"
-                                                    value={
-                                                        field.options?.join(
-                                                            ', '
-                                                        ) || ''
-                                                    }
-                                                    onChange={(e) =>
-                                                        editField(index, {
-                                                            options:
-                                                                e.target.value
-                                                                    .split(',')
-                                                                    .map((o) =>
-                                                                        o.trim()
-                                                                    )
-                                                                    .filter(
-                                                                        Boolean
-                                                                    ),
-                                                        })
-                                                    }
-                                                    onBlur={commitPending}
-                                                    onKeyDown={commitOnEnter}
-                                                    style={{ width: '100%' }}
-                                                />
-                                            )}
-                                            {field.type === 'range' && (
                                                 <div
                                                     style={{
                                                         display: 'flex',
                                                         gap: '0.5rem',
-                                                        marginTop: '0.5rem',
+                                                        flexWrap: 'wrap',
                                                     }}
                                                 >
-                                                    <input
-                                                        type="number"
-                                                        placeholder="Min"
-                                                        value={
-                                                            field.rangeMin ?? 0
-                                                        }
-                                                        onChange={(e) =>
-                                                            editField(index, {
-                                                                rangeMin:
-                                                                    Number(
+                                                    {(
+                                                        [
+                                                            'character',
+                                                            'location',
+                                                            'organization',
+                                                            'item',
+                                                            'lore',
+                                                        ] as CompendiumCategory[]
+                                                    ).map((c) => (
+                                                        <label
+                                                            key={c}
+                                                            style={{
+                                                                fontSize:
+                                                                    '0.85em',
+                                                                display: 'flex',
+                                                                alignItems:
+                                                                    'center',
+                                                                gap: '0.2rem',
+                                                            }}
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={
+                                                                    field.entitylinkCategories?.includes(
+                                                                        c
+                                                                    ) ?? true
+                                                                }
+                                                                onChange={(
+                                                                    e
+                                                                ) => {
+                                                                    const current =
+                                                                        field.entitylinkCategories || [
+                                                                            'character',
+                                                                            'location',
+                                                                            'organization',
+                                                                            'item',
+                                                                            'lore',
+                                                                        ];
+                                                                    const updated =
                                                                         e.target
-                                                                            .value
-                                                                    ),
-                                                            })
-                                                        }
-                                                        onBlur={commitPending}
-                                                        onKeyDown={
-                                                            commitOnEnter
-                                                        }
-                                                    />
-                                                    <input
-                                                        type="number"
-                                                        placeholder="Max"
-                                                        value={
-                                                            field.rangeMax ??
-                                                            100
-                                                        }
-                                                        onChange={(e) =>
-                                                            editField(index, {
-                                                                rangeMax:
-                                                                    Number(
-                                                                        e.target
-                                                                            .value
-                                                                    ),
-                                                            })
-                                                        }
-                                                        onBlur={commitPending}
-                                                        onKeyDown={
-                                                            commitOnEnter
-                                                        }
-                                                    />
-                                                    <input
-                                                        type="number"
-                                                        placeholder="Step"
-                                                        value={
-                                                            field.rangeStep ?? 1
-                                                        }
-                                                        onChange={(e) =>
-                                                            editField(index, {
-                                                                rangeStep:
-                                                                    Number(
-                                                                        e.target
-                                                                            .value
-                                                                    ),
-                                                            })
-                                                        }
-                                                        onBlur={commitPending}
-                                                        onKeyDown={
-                                                            commitOnEnter
-                                                        }
-                                                    />
-                                                </div>
-                                            )}
-                                            {(field.type === 'entitylink' ||
-                                                field.type === 'tree') && (
-                                                <div
-                                                    style={{
-                                                        marginTop: '0.5rem',
-                                                    }}
-                                                >
-                                                    <label
-                                                        style={{
-                                                            fontSize: '0.85em',
-                                                        }}
-                                                    >
-                                                        Allowed Categories:
-                                                    </label>
-                                                    <div
-                                                        style={{
-                                                            display: 'flex',
-                                                            gap: '0.5rem',
-                                                            flexWrap: 'wrap',
-                                                        }}
-                                                    >
-                                                        {(
-                                                            [
-                                                                'character',
-                                                                'location',
-                                                                'organization',
-                                                                'item',
-                                                                'lore',
-                                                            ] as CompendiumCategory[]
-                                                        ).map((c) => (
-                                                            <label
-                                                                key={c}
-                                                                style={{
-                                                                    fontSize:
-                                                                        '0.85em',
-                                                                    display:
-                                                                        'flex',
-                                                                    alignItems:
-                                                                        'center',
-                                                                    gap: '0.2rem',
+                                                                            .checked
+                                                                            ? [
+                                                                                  ...current,
+                                                                                  c,
+                                                                              ]
+                                                                            : current.filter(
+                                                                                  (
+                                                                                      x
+                                                                                  ) =>
+                                                                                      x !==
+                                                                                      c
+                                                                              );
+                                                                    commitField(
+                                                                        index,
+                                                                        {
+                                                                            entitylinkCategories:
+                                                                                updated,
+                                                                        }
+                                                                    );
                                                                 }}
-                                                            >
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={
-                                                                        field.entitylinkCategories?.includes(
-                                                                            c
-                                                                        ) ??
-                                                                        true
-                                                                    }
-                                                                    onChange={(
-                                                                        e
-                                                                    ) => {
-                                                                        const current =
-                                                                            field.entitylinkCategories || [
-                                                                                'character',
-                                                                                'location',
-                                                                                'organization',
-                                                                                'item',
-                                                                                'lore',
-                                                                            ];
-                                                                        const updated =
-                                                                            e
-                                                                                .target
-                                                                                .checked
-                                                                                ? [
-                                                                                      ...current,
-                                                                                      c,
-                                                                                  ]
-                                                                                : current.filter(
-                                                                                      (
-                                                                                          x
-                                                                                      ) =>
-                                                                                          x !==
-                                                                                          c
-                                                                                  );
-                                                                        commitField(
-                                                                            index,
-                                                                            {
-                                                                                entitylinkCategories:
-                                                                                    updated,
-                                                                            }
-                                                                        );
-                                                                    }}
-                                                                />
-                                                                {c}
-                                                            </label>
-                                                        ))}
-                                                    </div>
+                                                            />
+                                                            {c}
+                                                        </label>
+                                                    ))}
                                                 </div>
-                                            )}
-                                            {field.type === 'tree' && (
-                                                <TreeRelationsEditor
-                                                    relations={
-                                                        field.treeRelations ||
-                                                        TREE_PRESETS.family
-                                                    }
-                                                    onChange={(treeRelations) =>
-                                                        commitField(index, {
-                                                            treeRelations,
-                                                        })
-                                                    }
-                                                />
-                                            )}
-                                            <VisibilityEditor
-                                                fields={fields}
-                                                currentIndex={index}
-                                                value={field.visibleWhen}
-                                                onChange={(v) =>
+                                            </div>
+                                        )}
+                                        {field.type === 'tree' && (
+                                            <TreeRelationsEditor
+                                                relations={
+                                                    field.treeRelations ||
+                                                    TREE_PRESETS.family
+                                                }
+                                                onChange={(treeRelations) =>
                                                     commitField(index, {
-                                                        visibleWhen: v,
+                                                        treeRelations,
                                                     })
                                                 }
                                             />
-                                        </>
-                                    )}
+                                        )}
+                                        <VisibilityEditor
+                                            fields={fields}
+                                            currentIndex={index}
+                                            value={field.visibleWhen}
+                                            onChange={(v) =>
+                                                commitField(index, {
+                                                    visibleWhen: v,
+                                                })
+                                            }
+                                        />
+                                    </>
                                 </div>
                             </div>
                         );
                     })}
-                </div>
-            )}
-        </div>
-    );
-}
-
-function SimpleFieldsEditor({
-    fields,
-    onChange,
-    onCommit,
-    onRemove,
-    inheritedNames,
-}: {
-    fields: FieldDefinition[];
-    onChange: (fields: FieldDefinition[]) => void;
-    onCommit: (fields: FieldDefinition[]) => void;
-    onRemove: (index: number) => void;
-    inheritedNames: Set<string>;
-}) {
-    const {
-        editField,
-        commitField,
-        commitPending,
-        commitOnEnter,
-        removeField,
-        toggleDisabled,
-    } = useFieldEditorHandlers({ fields, onChange, onCommit, onRemove });
-
-    return (
-        <div>
-            {fields.length === 0 ? (
-                <div style={{ color: '#888', fontSize: '0.85em' }}>
-                    No fields defined
-                </div>
-            ) : (
-                <div
-                    style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '0.5rem',
-                        maxHeight: '300px',
-                        overflowY: 'auto',
-                    }}
-                >
-                    {fields.map((f, i) => (
-                        <div
-                            key={`${f.name}-${i}`}
-                            style={{
-                                padding: '0.5rem',
-                                border: '1px solid var(--border, #333)',
-                                borderRadius: '4px',
-                            }}
-                        >
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.4rem',
-                                    }}
-                                >
-                                    <strong>{f.name}</strong>
-                                    {inheritedNames.has(f.name) && (
-                                        <span
-                                            style={{
-                                                fontSize: '0.7em',
-                                                color: '#FFA500',
-                                                background:
-                                                    'rgba(255,165,0,0.15)',
-                                                padding: '1px 6px',
-                                                borderRadius: '3px',
-                                                fontWeight: 500,
-                                            }}
-                                        >
-                                            INHERITED
-                                        </span>
-                                    )}
-                                </div>
-                                <label
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.4rem',
-                                        fontSize: '0.85em',
-                                        cursor: 'pointer',
-                                        color: f.disabled ? '#e74c3c' : '#aaa',
-                                    }}
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={!f.disabled}
-                                        onChange={() => toggleDisabled(f.name)}
-                                    />
-                                    Enabled
-                                </label>
-                            </div>
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    gap: '0.5rem',
-                                    marginTop: '0.5rem',
-                                }}
-                            >
-                                <input
-                                    type="text"
-                                    placeholder="Label"
-                                    value={f.label}
-                                    onChange={(e) =>
-                                        editField(i, { label: e.target.value })
-                                    }
-                                    onBlur={commitPending}
-                                    onKeyDown={commitOnEnter}
-                                    style={{ flex: 1 }}
-                                />
-                                <label
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.5rem',
-                                        fontSize: '0.85em',
-                                    }}
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={f.required}
-                                        onChange={(e) =>
-                                            commitField(i, {
-                                                required: e.target.checked,
-                                            })
-                                        }
-                                    />
-                                    Required
-                                </label>
-                            </div>
-                            {(f.type === 'select' ||
-                                f.type === 'multiselect') && (
-                                <input
-                                    type="text"
-                                    placeholder="Options (comma-separated)"
-                                    value={f.options?.join(', ') || ''}
-                                    onChange={(e) =>
-                                        editField(i, {
-                                            options: e.target.value
-                                                .split(',')
-                                                .map((o) => o.trim())
-                                                .filter(Boolean),
-                                        })
-                                    }
-                                    onBlur={commitPending}
-                                    onKeyDown={commitOnEnter}
-                                    style={{
-                                        width: '100%',
-                                        marginTop: '0.5rem',
-                                    }}
-                                />
-                            )}
-                            {f.type === 'range' && (
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        gap: '0.5rem',
-                                        marginTop: '0.5rem',
-                                    }}
-                                >
-                                    <input
-                                        type="number"
-                                        placeholder="Min"
-                                        value={f.rangeMin ?? 0}
-                                        onChange={(e) =>
-                                            editField(i, {
-                                                rangeMin: Number(
-                                                    e.target.value
-                                                ),
-                                            })
-                                        }
-                                        onBlur={commitPending}
-                                        onKeyDown={commitOnEnter}
-                                    />
-                                    <input
-                                        type="number"
-                                        placeholder="Max"
-                                        value={f.rangeMax ?? 100}
-                                        onChange={(e) =>
-                                            editField(i, {
-                                                rangeMax: Number(
-                                                    e.target.value
-                                                ),
-                                            })
-                                        }
-                                        onBlur={commitPending}
-                                        onKeyDown={commitOnEnter}
-                                    />
-                                    <input
-                                        type="number"
-                                        placeholder="Step"
-                                        value={f.rangeStep ?? 1}
-                                        onChange={(e) =>
-                                            editField(i, {
-                                                rangeStep: Number(
-                                                    e.target.value
-                                                ),
-                                            })
-                                        }
-                                        onBlur={commitPending}
-                                        onKeyDown={commitOnEnter}
-                                    />
-                                </div>
-                            )}
-                            <VisibilityEditor
-                                fields={fields}
-                                currentIndex={i}
-                                value={f.visibleWhen}
-                                onChange={(v) =>
-                                    commitField(i, { visibleWhen: v })
-                                }
-                            />
-                            <button
-                                type="button"
-                                className="danger"
-                                onClick={() => removeField(i)}
-                                style={{
-                                    marginTop: '0.5rem',
-                                    color: '#e74c3c',
-                                    fontSize: '0.85em',
-                                }}
-                            >
-                                Remove
-                            </button>
-                        </div>
-                    ))}
                 </div>
             )}
         </div>

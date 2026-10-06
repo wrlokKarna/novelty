@@ -8,6 +8,9 @@ import type {
     ResolvedTemplateInfo,
 } from '../../mainview/types';
 import { normalizeTreeFields } from '../../mainview/templates/tree';
+// Shared so the server's resolved order and the editor's merged order can never
+// disagree - both call sites use this exact sort, including its legacy fallback.
+import { sortByOrder } from '../../mainview/templates/mergeFields';
 import { getSeriesTemplateForProject } from './seriesTemplates';
 
 export type {
@@ -142,15 +145,21 @@ export async function resolveTemplate(
     }
 
     for (const field of projectTemplate?.customFields || []) {
+        // A project row that shadows a series field carries only this project's
+        // on/off choice for it - the definition and ordering stay with the
+        // series, so a later series edit is never masked by the copy stored here.
         if (field.disabled) {
             fieldMap.delete(field.name);
-        } else {
+        } else if (!fieldMap.has(field.name)) {
             fieldMap.set(field.name, { ...field, disabled: false });
         }
     }
 
+    // The Map gives series-first insertion order, which is the right fallback for
+    // templates saved before `order` existed. Once any row carries an `order`,
+    // sortByOrder takes over so series and project rows can interleave.
     return {
-        fields: normalizeTreeFields(Array.from(fieldMap.values())),
+        fields: normalizeTreeFields(sortByOrder(Array.from(fieldMap.values()))),
         seriesTemplate,
         projectTemplate,
     };

@@ -544,6 +544,11 @@ export type FieldDefinition = {
     label: string;
     required: boolean;
     disabled?: boolean;
+    // Position within the merged (series + project) field list. Series and
+    // project rows share one order space so they can interleave. Optional:
+    // templates saved before ordering existed fall back to their stored
+    // position, and get renumbered the first time the editor saves.
+    order?: number;
     span?: 1 | 2 | 3 | 4;
     options?: string[];
     rangeMin?: number;
