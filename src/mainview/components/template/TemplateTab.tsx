@@ -1,6 +1,7 @@
 import { FieldDefinition } from '../../types';
-import TemplateFieldTarun from './TemplateField.tarun';
-import TemplateFieldChakri from './TemplateField.chakri';
+//import TemplateFieldTarun from './TemplateField.tarun';
+//import TemplateFieldChakri from './TemplateField.chakri';
+import TemplateField from './TemplateField';
 
 type Props = {
     tmplFields: FieldDefinition[];
@@ -19,9 +20,11 @@ export default function TemplateTab({ tmplFields }: Props) {
             >
                 {tmplFields.map((f, index) => (
                     <>
-                        {/* <TemplateField field={f} index={index} /> */}
+                        {/* 
                         <TemplateFieldChakri field={f} index={index} />
                         <TemplateFieldTarun field={f} index={index} />
+                        */}
+                        <TemplateField field={f} index={index} />
                     </>
                 ))}
             </div>

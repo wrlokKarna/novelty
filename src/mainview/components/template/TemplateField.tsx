@@ -9,7 +9,12 @@ type Props = {
 
 export default function TemplateField({ field, index }: Props) {
     if (field.type === 'text') {
-        return <FieldText field={field} index={index} />;
+        return (
+            <>
+                <FieldText field={field} index={index} />
+                <FieldTextEdit />
+            </>
+        );
     } else if (field.type === 'textarea' || field.type === 'richtext') {
         return <FieldTextArea field={field} index={index} />;
     } else if (field.type === 'number') {
@@ -28,7 +33,9 @@ type FieldTextProps = {
 export function FieldText({ field, index }: FieldTextProps) {
     const [textVaule, setTextVaule] = useState(field.name);
     return (
-        <div className={`${styles.tmplField} ${styles.field}`}>
+        <div
+            className={`${styles.tmplField} ${styles.field} ${styles.tmplFieldText} ${styles.tmplFieldTextView}`}
+        >
             <label className={styles.fieldLabel} htmlFor={field.label + index}>
                 {field.label} ({field.type}: {textVaule})
             </label>
@@ -37,6 +44,23 @@ export function FieldText({ field, index }: FieldTextProps) {
                 value={textVaule}
                 onChange={(e) => setTextVaule(e.target.value)}
             />
+        </div>
+    );
+}
+
+type FieldTextEditProps = {};
+export function FieldTextEdit(props: FieldTextEditProps) {
+    console.log(props);
+    return (
+        <div
+            className={`${styles.tmplField} ${styles.field} ${styles.tmplFieldText} ${styles.tmplFieldTextEdit}`}
+        >
+            <label className={styles.fieldLabel} htmlFor="">
+                test
+            </label>
+            <div className={styles.inputPlaceholder}>
+                <div className={styles.textPlaceholder}></div>
+            </div>
         </div>
     );
 }
