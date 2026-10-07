@@ -36,8 +36,10 @@ function saveValue<T>(key: string, value: T) {
 export default function TemplateFieldTarun({ field, index }: Props) {
     if (field.type === 'text') {
         return <FieldText field={field} index={index} />;
-    } else if (field.type === 'textarea' || field.type === 'richtext') {
+    } else if (field.type === 'textarea') {
         return <FieldTextArea field={field} index={index} />;
+    } else if (field.type === 'richtext') {
+        return <FieldRichText field={field} index={index} />;
     } else if (field.type === 'number') {
         return <FieldNumber field={field} index={index} />;
     } else if (field.type === 'range') {
@@ -85,12 +87,46 @@ export function FieldText({ field, index }: FieldTextProps) {
     return (
         <div className={`${styles.tmplField} ${styles.field}`}>
             <label className={styles.fieldLabel} htmlFor={field.label + index}>
-                {field.label} ({field.type}: {textVaule})
+                {field.label}
             </label>
 
             <input
                 id={field.label + index}
                 value={textVaule}
+                onChange={(e) => handleChange(e.target.value)}
+            />
+        </div>
+    );
+}
+
+type FieldRichTextProps = {
+    field: FieldDefinition;
+    index: number;
+};
+
+export function FieldRichText({ field, index }: FieldRichTextProps) {
+    const storageKey = getStorageKey(field, index);
+
+    const [textAreaVaule, setTextAreaVaule] = useState(() =>
+        getStoredValue(storageKey, field.name)
+    );
+
+    const handleChange = (value: string) => {
+        setTextAreaVaule(value);
+        saveValue(storageKey, value);
+    };
+
+    return (
+        <div className={`${styles.tmplField} ${styles.field}`}>
+            <label className={styles.fieldLabel} htmlFor={field.label + index}>
+                {field.label}
+            </label>
+
+            <textarea
+                id={field.label + index}
+                wrap="on"
+                placeholder="Rich Text"
+                value={textAreaVaule}
                 onChange={(e) => handleChange(e.target.value)}
             />
         </div>
@@ -117,12 +153,12 @@ export function FieldTextArea({ field, index }: FieldTextAreaProps) {
     return (
         <div className={`${styles.tmplField} ${styles.field}`}>
             <label className={styles.fieldLabel} htmlFor={field.label + index}>
-                {field.label} ({field.type}: {textAreaVaule})
+                {field.label}
             </label>
 
             <textarea
                 id={field.label + index}
-                wrap="off"
+                wrap="on"
                 placeholder="Describe this entity... (use / to reference)"
                 value={textAreaVaule}
                 onChange={(e) => handleChange(e.target.value)}
@@ -151,7 +187,7 @@ export function FieldNumber({ field, index }: FieldNumberProps) {
     return (
         <div className={`${styles.tmplField} ${styles.field}`}>
             <label className={styles.fieldLabel} htmlFor={field.label + index}>
-                {field.label} ({field.type}: {numberVaule})
+                {field.label}
             </label>
 
             <input
@@ -184,7 +220,7 @@ export function FieldRange({ field, index }: FieldRangeProps) {
     return (
         <div className={`${styles.tmplField} ${styles.field}`}>
             <label className={styles.fieldLabel} htmlFor={field.label + index}>
-                {field.label} ({field.type}: {rangeValue})
+                {field.label}
             </label>
 
             <input
@@ -217,7 +253,7 @@ export function FieldMultiselect({ field, index }: FieldMultiselectProps) {
     return (
         <div className={`${styles.tmplField} ${styles.field}`}>
             <label className={styles.fieldLabel} htmlFor={field.label + index}>
-                {field.label} ({field.type}: {multiselectValue.join(', ')})
+                {field.label}
             </label>
 
             <select
@@ -261,7 +297,7 @@ export function FieldDate({ field, index }: FieldDateProps) {
     return (
         <div className={`${styles.tmplField} ${styles.field}`}>
             <label className={styles.fieldLabel} htmlFor={field.label + index}>
-                {field.label} ({field.type}: {dateValue})
+                {field.label}
             </label>
 
             <input
@@ -294,7 +330,7 @@ export function FieldPortrait({ field, index }: FieldPortraitProps) {
     return (
         <div className={`${styles.tmplField} ${styles.field}`}>
             <label className={styles.fieldLabel} htmlFor={field.label + index}>
-                {field.label} ({field.type}: {portraitValue})
+                {field.label}
             </label>
 
             <input
@@ -327,7 +363,7 @@ export function FieldEntityLink({ field, index }: FieldEntityLinkProps) {
     return (
         <div className={`${styles.tmplField} ${styles.field}`}>
             <label className={styles.fieldLabel} htmlFor={field.label + index}>
-                {field.label} ({field.type}: {entityLinkValue})
+                {field.label}
             </label>
 
             <input
@@ -360,7 +396,7 @@ export function FieldSelect({ field, index }: FieldSelectProps) {
     return (
         <div className={`${styles.tmplField} ${styles.field}`}>
             <label className={styles.fieldLabel} htmlFor={field.label + index}>
-                {field.label} ({field.type}: {selectValue})
+                {field.label}
             </label>
 
             <select
@@ -397,7 +433,7 @@ export function FieldToggle({ field, index }: FieldToggleProps) {
     return (
         <div className={`${styles.tmplField} ${styles.field}`}>
             <label className={styles.fieldLabel} htmlFor={field.label + index}>
-                {field.label} ({field.type}: {toggleValue ? 'true' : 'false'})
+                {field.label}
             </label>
 
             <input
@@ -430,7 +466,7 @@ export function FieldColor({ field, index }: FieldColorProps) {
     return (
         <div className={`${styles.tmplField} ${styles.field}`}>
             <label className={styles.fieldLabel} htmlFor={field.label + index}>
-                {field.label} ({field.type}: {colorValue})
+                {field.label}
             </label>
 
             <input
@@ -463,7 +499,7 @@ export function FieldImages({ field, index }: FieldImagesProps) {
     return (
         <div className={`${styles.tmplField} ${styles.field}`}>
             <label className={styles.fieldLabel} htmlFor={field.label + index}>
-                {field.label} ({field.type}: {imagesValue.join(', ')})
+                {field.label}
             </label>
 
             <input
@@ -501,7 +537,7 @@ export function FieldTree({ field, index }: FieldTreeProps) {
     return (
         <div className={`${styles.tmplField} ${styles.field}`}>
             <label className={styles.fieldLabel} htmlFor={field.label + index}>
-                {field.label} ({field.type}: {treeValue})
+                {field.label}
             </label>
 
             <select
