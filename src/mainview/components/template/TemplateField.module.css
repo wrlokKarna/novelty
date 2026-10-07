@@ -29,6 +29,7 @@
     .fieldLabel {
         display: block;
         color: #999;
+        color: #8f9aaa;
         font-size: 16px;
         letter-spacing: 1px;
         text-transform: uppercase;
@@ -60,6 +61,14 @@
     }
 }
 
+.tmplFieldText,
+.tmplFieldTextAreaEdit {
+    border-radius: 6px;
+}
+.tmplFieldTextAreaEdit {
+    background-color: #272729cf;
+    border-radius: 6px;
+}
 .tmplFieldText {
     &.tmplFieldTextView {
     }
@@ -67,10 +76,8 @@
     &.tmplFieldTextEdit {
         min-height: 32px;
         background-color: #272729cf;
-        border-radius: 6px;
 
         .inputPlaceholder {
-            width: 100%;
             width: 100%;
             padding: 17px;
             background: #252628;
@@ -85,6 +92,214 @@
                 background-color: #373739;
                 border-radius: 6px;
             }
+        }
+    }
+}
+.tmplFieldTextAreaEdit {
+    width: 100%;
+
+    .textAreaPlaceholder {
+        /*min-height: 75px;*/
+        width: 100%;
+        background-color: #373739;
+        border-radius: 6px;
+        border: 1px solid var(--accent-subtle);
+        /*outline: 1px solid var(--accent-subtle);*/
+        /*box-shadow: 0.3em 0.3em 1em (var(--accent), 60%);*/
+        overflow: hidden;
+    }
+
+    .textAreaPlaceholderLine {
+        height: 16px;
+        background-color: #2e2e30;
+        background-color: #51515112;
+    }
+    .textAreaPlaceholderLine:nth-child(odd) {
+        background-color: #e0e0e0;
+        background-color: #323234;
+        background-color: #262627cf;
+    }
+}
+
+.fieldEditCard {
+    display: flex;
+
+    label {
+        margin-right: auto;
+    }
+    button {
+        &:hover {
+            background-color: #323234;
+
+            .dragBtn {
+                fill: var(--accent);
+            }
+
+            .deleteBtn {
+                path {
+                    stroke: red !important;
+                }
+            }
+        }
+        svg {
+            path {
+                stroke: #8f9aaa;
+            }
+        }
+        &.dragBtn {
+            svg {
+                width: 18px;
+                height: 18px;
+                fill: #8f9aaa;
+            }
+        }
+        &.deleteBtn {
+            svg {
+                width: 22px;
+                height: 22px;
+            }
+        }
+    }
+}
+
+.tmplFieldEdit {
+    background-color: #373739;
+    background-color: #222325;
+    width: 100%;
+    border-radius: 6px;
+    border: 1px solid var(--accent-subtle);
+    overflow: hidden;
+}
+
+.numberInputPlaceholder {
+    background-color: #222325;
+    background-color: #252628;
+    background-color: #2b2b2d;
+    width: 100%;
+    padding: 17px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--accent-subtle);
+
+    .lineBar {
+        display: block;
+        width: 100%;
+        height: 11px;
+        background-color: #373739;
+        border-radius: 6px;
+    }
+}
+
+.selectcont {
+    width: 100%;
+    display: flex;
+    gap: 12px;
+    padding: 8px 12px;
+    color: #eee;
+    background-color: rgba(255, 0, 0, 0.356);
+    background: #252628;
+    background: #2b2b2d;
+    border: 1px solid #343538;
+    border-radius: 6px;
+
+    .multiselectInputPills {
+        width: 12%;
+        height: 32px;
+        background-color: #373739;
+        border-radius: 12px;
+    }
+}
+.options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 18px 0;
+
+    .option {
+        height: 32px;
+        min-width: 120px;
+        padding: 8px;
+        background-color: #8f9aaa;
+        background-color: #373739;
+        border-radius: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        /*
+        cursor: pointer;
+        &:hover {
+            background-color: #8f9aaa;
+        }
+        */
+        button {
+            &:hover {
+                transform: scale(1.2);
+                transform-origin: center center;
+                transition: transform 0.2s ease;
+                background-color: transparent;
+
+                .optToggle {
+                    &:not(.inactive) {
+                        background-color: var(--accent);
+                    }
+
+                    &.inactive {
+                        background-color: red;
+                        background-color: #ff4500;
+                    }
+                }
+            }
+
+            .optToggle {
+                aspect-ratio: 1/1;
+                width: 14px;
+                border: 2px solid;
+                border-radius: 100%;
+
+                &:not(.inactive) {
+                    border-color: var(--accent);
+                }
+
+                &.inactive {
+                    border-color: #ff4500;
+                }
+
+                &:hover {
+                }
+            }
+
+            &.delOptBtn {
+                &:hover {
+                    background-color: transparent;
+                    svg {
+                        path {
+                            stroke: #ff4500;
+                        }
+                    }
+                }
+                svg {
+                    path {
+                        stroke: #8f9aaa;
+                    }
+                }
+            }
+        }
+    }
+}
+.addForm {
+    form {
+        display: flex;
+        gap: 12px;
+
+        input {
+            &::placeholder {
+                font-size: 16px;
+            }
+        }
+
+        button {
+            min-width: 120px;
+            background-color: #252628;
+            border: 1px solid #343538;
         }
     }
 }
