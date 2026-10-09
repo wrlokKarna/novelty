@@ -1,35 +1,53 @@
-import { FieldDefinition } from '../../types';
-import TemplateFieldTarun from './TemplateField.tarun';
-import TemplateFieldChakri from './TemplateField.chakri';
-import TemplateField from './TemplateField';
+import type { FieldDefinition } from '../../types';
+import TemplateField, { type EntryRef } from './TemplateField';
 
 type Props = {
     tmplFields: FieldDefinition[];
+    templateData?: Record<string, unknown> | null;
+    onUpdate?: (fieldName: string, value: unknown) => void;
+    entry?: { id: string; name: string };
+    characters?: EntryRef[];
+    locations?: EntryRef[];
+    organizations?: EntryRef[];
+    items?: EntryRef[];
+    loreEntries?: EntryRef[];
 };
 
-export default function TemplateTab({ tmplFields }: Props) {
-    console.log('[fields]: ', tmplFields);
+export default function TemplateTab({
+    tmplFields,
+    templateData,
+    onUpdate,
+    entry,
+    characters,
+    locations,
+    organizations,
+    items,
+    loreEntries,
+}: Props) {
     return (
-        <div>
-            <div
-                style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(40%, auto))',
-                    gap: '12px',
-                }}
-            >
-                {tmplFields.map((f, index) => (
-                    <>
-                        {/*
-                        
-                        */}
-                        <TemplateFieldChakri field={f} index={index} />
-                        <TemplateFieldTarun field={f} index={index} />
-
-                        <TemplateField field={f} index={index} />
-                    </>
-                ))}
-            </div>
+        <div
+            style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '16px',
+            }}
+        >
+            {tmplFields.map((field, index) => (
+                <TemplateField
+                    key={field.name}
+                    mode="view"
+                    field={field}
+                    index={index}
+                    value={templateData?.[field.name]}
+                    onChange={(value) => onUpdate?.(field.name, value)}
+                    entry={entry}
+                    characters={characters}
+                    locations={locations}
+                    organizations={organizations}
+                    items={items}
+                    loreEntries={loreEntries}
+                />
+            ))}
         </div>
     );
 }

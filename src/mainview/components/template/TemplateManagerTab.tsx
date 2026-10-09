@@ -5,9 +5,6 @@ import {
     type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 import { useRPC } from '../../contexts/RPCContext';
-import VisibilityEditor from '../VisibilityEditor';
-import TreeRelationsEditor from '../TreeRelationsEditor';
-import { describeVisibility } from '../../templates/fieldVisibility';
 import { TREE_PRESETS, normalizeTreeFields } from '../../templates/tree';
 import {
     getSeriesInheritedNames,
@@ -18,7 +15,7 @@ import type {
     FieldDefinition,
     SeriesTemplate,
 } from '../../types/index';
-import { IconTrash } from '@tabler/icons-react';
+import TemplateField from './TemplateField';
 import styles from './TemplateManagerTab.module.css';
 
 interface TemplateManagerTabProps {
@@ -100,22 +97,31 @@ interface SeriesFields {
 
 type SeriesByCategory = Partial<Record<CompendiumCategory, SeriesFields>>;
 
-// Whether two field lists would persist to the same rows. Only the properties
-// that are actually stored are compared, and `order` is included because it is.
-function sameFieldList(a: FieldDefinition[], b: FieldDefinition[]): boolean {
+// Recursively serialises a value with object keys sorted, so two structurally
+// equal field lists compare equal regardless of property order. `undefined`
+// properties drop out, matching what JSON storage keeps.
+function stableStringify(value: unknown): string {
+    if (Array.isArray(value)) {
+        return `[${value.map(stableStringify).join(',')}]`;
+    }
+    if (value && typeof value === 'object') {
+        const entries = Object.entries(value as Record<string, unknown>)
+            .filter(([, v]) => v !== undefined)
+            .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+        return `{${entries
+            .map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`)
+            .join(',')}}`;
+    }
+    return JSON.stringify(value) ?? 'null';
+}
+
+// Whether two field lists would persist to the same rows. Compares every
+// stored property, so edits that only touch a condition, option, span, range
+// config, category list or tree relations are not mistaken for "no change".
+function fieldsEqual(a: FieldDefinition[], b: FieldDefinition[]): boolean {
     if (a === b) return true;
     if (a.length !== b.length) return false;
-    return a.every((f, i) => {
-        const o = b[i];
-        return (
-            f.name === o?.name &&
-            f.label === o?.label &&
-            f.type === o?.type &&
-            f.required === o?.required &&
-            f.disabled === o?.disabled &&
-            f.order === o?.order
-        );
-    });
+    return a.every((f, i) => stableStringify(f) === stableStringify(b[i]));
 }
 
 // Clears a property that the receiving side owns. `undefined` rather than a
@@ -178,9 +184,22 @@ export default function TemplateManagerTab({
 
     const seriesRef = useRef<SeriesByCategory>({});
     const projectFieldsRef = useRef<FieldsByCategory>({});
+    // The project payload last written to (or read from) the database, kept
+    // separate from `projectFieldsRef` because the live list is mutated by
+    // `onChange` before a commit, which would otherwise defeat change detection.
+    const savedProjectRef = useRef<FieldsByCategory>({});
     const commitQueueRef = useRef<
         Partial<Record<CompendiumCategory, Promise<void>>>
     >({});
+    // Pointed at the latest `commitMerged` each render so the unmount flush can
+    // persist pending edits without capturing a stale closure.
+    const commitMergedRef = useRef<
+        | ((
+              cat: CompendiumCategory,
+              fields: FieldDefinition[]
+          ) => Promise<void>)
+        | null
+    >(null);
     const notifyRef = useRef(onTemplatesChanged);
     notifyRef.current = onTemplatesChanged;
     const notifyTimerRef = useRef<number | null>(null);
@@ -222,11 +241,23 @@ export default function TemplateManagerTab({
 
     useEffect(
         () => () => {
+            // Persist edits still sitting in the live list. Text inputs only
+            // commit on blur, which never fires when the dialog/tab unmounts, so
+            // flush anything that changed. The commit gate makes this a no-op
+            // for categories with nothing new to write.
+            const flushed = CATEGORIES.map((cat) =>
+                commitMergedRef.current
+                    ? commitMergedRef.current(
+                          cat,
+                          projectFieldsRef.current[cat] ?? []
+                      )
+                    : Promise.resolve()
+            );
             if (notifyTimerRef.current !== null) {
                 window.clearTimeout(notifyTimerRef.current);
                 notifyTimerRef.current = null;
-                notifyRef.current();
             }
+            Promise.allSettled(flushed).then(() => notifyRef.current());
         },
         []
     );
@@ -329,15 +360,16 @@ export default function TemplateManagerTab({
             // Materialise the order locally so the list keeps rendering exactly
             // what was just committed, including text still mid-edit.
             const mergedNow = projectFieldsRef.current[cat] ?? [];
-            if (!sameFieldList(mergedNow, numbered))
+            if (!fieldsEqual(mergedNow, numbered))
                 setProjectFieldsFor(cat, numbered);
 
             const seriesChanged =
-                !!seriesId && !sameFieldList(seriesFields, nextSeries);
-            // Compare like with like: what the current state would store against
-            // what we are about to store, or this fires a write every commit.
-            const projectChanged = !sameFieldList(
-                projectPayload(mergedNow),
+                !!seriesId && !fieldsEqual(seriesFields, nextSeries);
+            // Compare against the last *persisted* payload, not the live list:
+            // `onChange` has already folded these edits into `projectFieldsRef`,
+            // so comparing against it would always look unchanged.
+            const projectChanged = !fieldsEqual(
+                savedProjectRef.current[cat] ?? [],
                 nextProject
             );
 
@@ -376,9 +408,14 @@ export default function TemplateManagerTab({
                     baseType: cat,
                     customFields: nextProject,
                 });
+                savedProjectRef.current = {
+                    ...savedProjectRef.current,
+                    [cat]: nextProject,
+                };
             }
         });
     }
+    commitMergedRef.current = commitMerged;
     async function load() {
         if (!projectId) return;
         setLoading(true);
@@ -399,15 +436,21 @@ export default function TemplateManagerTab({
             );
 
             const nextProject: FieldsByCategory = {};
+            const nextSavedProject: FieldsByCategory = {};
             CATEGORIES.forEach((cat, i) => {
+                const stored = results[i]?.projectTemplate?.customFields || [];
                 nextProject[cat] = fullMerge(
-                    results[i]?.projectTemplate?.customFields || [],
+                    stored,
                     nextSeries[cat]?.fields ?? null
                 );
+                // The raw stored payload, not the merged view, is what a later
+                // commit must diff against to know whether anything changed.
+                nextSavedProject[cat] = stored;
             });
 
             seriesRef.current = nextSeries;
             projectFieldsRef.current = nextProject;
+            savedProjectRef.current = nextSavedProject;
             setSeries(nextSeries);
             setProjectFields(nextProject);
             setLoadNonce((n) => n + 1);
@@ -1040,7 +1083,6 @@ function ProjectFieldsEditor({
         commitPending,
         commitOnEnter,
         removeField,
-        toggleDisabled,
         moveField,
     } = useFieldEditorHandlers({ fields, onChange, onCommit, onRemove });
 
@@ -1102,422 +1144,27 @@ function ProjectFieldsEditor({
                                 onDrop={() => handleDrop(index)}
                                 onDragEnd={handleDragEnd}
                                 style={{
-                                    padding: '0.5rem',
-                                    border: `1px solid ${isOver ? '#4A9EFF' : 'var(--border, #333)'}`,
-                                    borderRadius: '4px',
+                                    border: `1px solid ${
+                                        isOver ? '#4A9EFF' : 'transparent'
+                                    }`,
                                     borderStyle: isOver ? 'dashed' : 'solid',
+                                    borderRadius: '6px',
                                     opacity: dragIndex === index ? 0.4 : 1,
                                     cursor: field.disabled ? 'default' : 'grab',
-                                    backgroundColor: '#1a1b1c',
                                 }}
                             >
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'baseline',
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'baseline',
-                                            gap: '0.5rem',
-                                        }}
-                                    >
-                                        <span
-                                            style={{
-                                                cursor: field.disabled
-                                                    ? 'default'
-                                                    : 'grab',
-                                                color: '#888',
-                                                userSelect: 'none',
-                                                fontSize: '22px',
-                                                lineHeight: '16px',
-                                            }}
-                                        >
-                                            ≡
-                                        </span>
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                            }}
-                                        >
-                                            <span
-                                                style={{
-                                                    fontFamily: 'var(--ui)',
-                                                    fontSize: '14px',
-                                                    fontWeight: 'bold',
-                                                    textTransform: 'uppercase',
-                                                }}
-                                            >
-                                                {field.name}
-                                            </span>
-                                            <span
-                                                style={{
-                                                    fontFamily: 'var(--mono)',
-                                                    color: '#888',
-                                                    fontSize: '0.85em',
-                                                }}
-                                            >
-                                                {field.type}
-                                            </span>
-                                        </div>
-                                        {isInherited(field.name) && (
-                                            <span
-                                                style={{
-                                                    fontSize: '0.7em',
-                                                    color: '#FFA500',
-                                                    background:
-                                                        'rgba(255,165,0,0.15)',
-                                                    padding: '1px 6px',
-                                                    borderRadius: '3px',
-                                                    fontWeight: 500,
-                                                }}
-                                            >
-                                                INHERITED
-                                            </span>
-                                        )}
-                                        {field.visibleWhen && (
-                                            <span
-                                                title={
-                                                    describeVisibility(
-                                                        field.visibleWhen,
-                                                        (name) =>
-                                                            fields.find(
-                                                                (p) =>
-                                                                    p.name ===
-                                                                    name
-                                                            )?.label || name
-                                                    ) || undefined
-                                                }
-                                                style={{
-                                                    fontSize: '0.7em',
-                                                    color: '#4A9EFF',
-                                                    background:
-                                                        'rgba(74,158,255,0.15)',
-                                                    padding: '1px 6px',
-                                                    borderRadius: '3px',
-                                                    fontWeight: 500,
-                                                }}
-                                            >
-                                                👁 CONDITIONAL
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.5rem',
-                                            margin: '0px 12px 0px auto',
-                                        }}
-                                    >
-                                        <label
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '0.2rem',
-                                                fontSize: '0.8em',
-                                                color: '#888',
-                                            }}
-                                        >
-                                            Span
-                                            <select
-                                                value={field.span || 4}
-                                                onChange={(e) =>
-                                                    commitField(index, {
-                                                        span: Number(
-                                                            e.target.value
-                                                        ) as 1 | 2 | 3 | 4,
-                                                    })
-                                                }
-                                                style={{
-                                                    padding: '2px 4px',
-                                                    fontSize: '0.85em',
-                                                }}
-                                            >
-                                                <option value={1}>1</option>
-                                                <option value={2}>2</option>
-                                                <option value={3}>3</option>
-                                                <option value={4}>4</option>
-                                            </select>
-                                        </label>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="danger"
-                                        onClick={() => removeField(index)}
-                                        style={{
-                                            marginTop: '0.5rem',
-                                            color: '#e74c3c',
-                                            fontSize: '0.85em',
-                                        }}
-                                    >
-                                        <IconTrash size={'18px'} />
-                                    </button>
-                                </div>
-                                <div style={{ marginTop: '0.5rem' }}>
-                                    {/* Turning a field off is this
-                                            project's choice alone, whether the
-                                            row is shared or project-owned. */}
-                                    <label
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.5rem',
-                                            marginBottom: '0.5rem',
-                                            fontSize: '0.85em',
-                                            cursor: 'pointer',
-                                            color: field.disabled
-                                                ? '#e74c3c'
-                                                : '#aaa',
-                                        }}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={!field.disabled}
-                                            onChange={() =>
-                                                toggleDisabled(field.name)
-                                            }
-                                        />
-                                        Enabled for this project
-                                    </label>
-                                    <>
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                gap: '0.5rem',
-                                                marginBottom: '0.5rem',
-                                            }}
-                                        >
-                                            <input
-                                                type="text"
-                                                placeholder="Label"
-                                                value={field.label}
-                                                onChange={(e) =>
-                                                    editField(index, {
-                                                        label: e.target.value,
-                                                    })
-                                                }
-                                                onBlur={commitPending}
-                                                onKeyDown={commitOnEnter}
-                                                style={{ flex: 1 }}
-                                            />
-                                            <label
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '0.5rem',
-                                                    fontSize: '0.85em',
-                                                }}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={field.required}
-                                                    onChange={(e) =>
-                                                        commitField(index, {
-                                                            required:
-                                                                e.target
-                                                                    .checked,
-                                                        })
-                                                    }
-                                                />
-                                                Required
-                                            </label>
-                                        </div>
-                                        {(field.type === 'select' ||
-                                            field.type === 'multiselect') && (
-                                            <input
-                                                type="text"
-                                                placeholder="Options (comma-separated)"
-                                                value={
-                                                    field.options?.join(', ') ||
-                                                    ''
-                                                }
-                                                onChange={(e) =>
-                                                    editField(index, {
-                                                        options: e.target.value
-                                                            .split(',')
-                                                            .map((o) =>
-                                                                o.trim()
-                                                            )
-                                                            .filter(Boolean),
-                                                    })
-                                                }
-                                                onBlur={commitPending}
-                                                onKeyDown={commitOnEnter}
-                                                style={{ width: '100%' }}
-                                            />
-                                        )}
-                                        {field.type === 'range' && (
-                                            <div
-                                                style={{
-                                                    display: 'flex',
-                                                    gap: '0.5rem',
-                                                    marginTop: '0.5rem',
-                                                }}
-                                            >
-                                                <input
-                                                    type="number"
-                                                    placeholder="Min"
-                                                    value={field.rangeMin ?? 0}
-                                                    onChange={(e) =>
-                                                        editField(index, {
-                                                            rangeMin: Number(
-                                                                e.target.value
-                                                            ),
-                                                        })
-                                                    }
-                                                    onBlur={commitPending}
-                                                    onKeyDown={commitOnEnter}
-                                                />
-                                                <input
-                                                    type="number"
-                                                    placeholder="Max"
-                                                    value={
-                                                        field.rangeMax ?? 100
-                                                    }
-                                                    onChange={(e) =>
-                                                        editField(index, {
-                                                            rangeMax: Number(
-                                                                e.target.value
-                                                            ),
-                                                        })
-                                                    }
-                                                    onBlur={commitPending}
-                                                    onKeyDown={commitOnEnter}
-                                                />
-                                                <input
-                                                    type="number"
-                                                    placeholder="Step"
-                                                    value={field.rangeStep ?? 1}
-                                                    onChange={(e) =>
-                                                        editField(index, {
-                                                            rangeStep: Number(
-                                                                e.target.value
-                                                            ),
-                                                        })
-                                                    }
-                                                    onBlur={commitPending}
-                                                    onKeyDown={commitOnEnter}
-                                                />
-                                            </div>
-                                        )}
-                                        {(field.type === 'entitylink' ||
-                                            field.type === 'tree') && (
-                                            <div
-                                                style={{
-                                                    marginTop: '0.5rem',
-                                                }}
-                                            >
-                                                <label
-                                                    style={{
-                                                        fontSize: '0.85em',
-                                                    }}
-                                                >
-                                                    Allowed Categories:
-                                                </label>
-                                                <div
-                                                    style={{
-                                                        display: 'flex',
-                                                        gap: '0.5rem',
-                                                        flexWrap: 'wrap',
-                                                    }}
-                                                >
-                                                    {(
-                                                        [
-                                                            'character',
-                                                            'location',
-                                                            'organization',
-                                                            'item',
-                                                            'lore',
-                                                        ] as CompendiumCategory[]
-                                                    ).map((c) => (
-                                                        <label
-                                                            key={c}
-                                                            style={{
-                                                                fontSize:
-                                                                    '0.85em',
-                                                                display: 'flex',
-                                                                alignItems:
-                                                                    'center',
-                                                                gap: '0.2rem',
-                                                            }}
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={
-                                                                    field.entitylinkCategories?.includes(
-                                                                        c
-                                                                    ) ?? true
-                                                                }
-                                                                onChange={(
-                                                                    e
-                                                                ) => {
-                                                                    const current =
-                                                                        field.entitylinkCategories || [
-                                                                            'character',
-                                                                            'location',
-                                                                            'organization',
-                                                                            'item',
-                                                                            'lore',
-                                                                        ];
-                                                                    const updated =
-                                                                        e.target
-                                                                            .checked
-                                                                            ? [
-                                                                                  ...current,
-                                                                                  c,
-                                                                              ]
-                                                                            : current.filter(
-                                                                                  (
-                                                                                      x
-                                                                                  ) =>
-                                                                                      x !==
-                                                                                      c
-                                                                              );
-                                                                    commitField(
-                                                                        index,
-                                                                        {
-                                                                            entitylinkCategories:
-                                                                                updated,
-                                                                        }
-                                                                    );
-                                                                }}
-                                                            />
-                                                            {c}
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                        {field.type === 'tree' && (
-                                            <TreeRelationsEditor
-                                                relations={
-                                                    field.treeRelations ||
-                                                    TREE_PRESETS.family
-                                                }
-                                                onChange={(treeRelations) =>
-                                                    commitField(index, {
-                                                        treeRelations,
-                                                    })
-                                                }
-                                            />
-                                        )}
-                                        <VisibilityEditor
-                                            fields={fields}
-                                            currentIndex={index}
-                                            value={field.visibleWhen}
-                                            onChange={(v) =>
-                                                commitField(index, {
-                                                    visibleWhen: v,
-                                                })
-                                            }
-                                        />
-                                    </>
-                                </div>
+                                <TemplateField
+                                    mode="edit"
+                                    field={field}
+                                    index={index}
+                                    fields={fields}
+                                    inherited={isInherited(field.name)}
+                                    editField={editField}
+                                    commitField={commitField}
+                                    commitPending={commitPending}
+                                    commitOnEnter={commitOnEnter}
+                                    onRemove={removeField}
+                                />
                             </div>
                         );
                     })}
