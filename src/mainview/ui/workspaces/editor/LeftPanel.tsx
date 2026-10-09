@@ -24,6 +24,7 @@ import {
     LoreEntry,
     Organization,
 } from '../../../types';
+import type { CompendiumCategory } from '../../../types';
 
 const COMPENDIUM_CONFIG = {
     character: { label: 'Characters', icon: IconUsers, dataKey: 'characters' },
@@ -35,7 +36,10 @@ const COMPENDIUM_CONFIG = {
     },
     item: { label: 'Items', icon: IconSwords, dataKey: 'items' },
     lore: { label: 'Lore', icon: IconBook, dataKey: 'loreEntries' },
-} as const;
+} as const satisfies Record<
+    CompendiumCategory,
+    { label: string; icon: unknown; dataKey: string }
+>;
 const MANUSCRIPT_CONFIG = {
     chapters: { label: 'Chapters', icon: IconFiles, dataKey: 'chapters' },
 } as const;
@@ -48,7 +52,6 @@ const EXPLORER_CONFIG = {
 
 export type EditorPanelTabs = 'manuscript' | 'compendium';
 
-export type CompendiumCategory = keyof typeof COMPENDIUM_CONFIG;
 export type ExplorerTabCategories = keyof typeof EXPLORER_CONFIG;
 
 type Props = {

@@ -34,7 +34,7 @@ import {
     IconStarFilled,
     IconX,
 } from '@tabler/icons-react';
-import TemplateManagerTab from '../components/TemplateManagerTab';
+import TemplateManagerTab from '../components/template/TemplateManagerTab';
 import IconTextSideBar from '../ui/layout/IconTextSideBar';
 import {
     PROJECT_DIALOG_TABS,
@@ -1842,8 +1842,8 @@ export default function ProjectManager({
                                 <div className={styles.tabPanelHeader}>
                                     <h3>Templates</h3>
                                     <p>
-                                        Manage global, series, and project
-                                        templates for each entry category
+                                        Manage the series and project fields
+                                        shared by each entry category
                                     </p>
                                 </div>
                                 <div className={styles.tabPanelContent}>
@@ -2035,9 +2035,6 @@ export default function ProjectManager({
                     </div>
                 </>
             </SplitDialogLayout>
-            <div
-                className={`${styles.dialogContent} ${localStyles.dialogContent}`}
-            ></div>
 
             {showDeleteConfirm && (
                 <SubDialog

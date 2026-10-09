@@ -5,6 +5,7 @@ import { join } from 'path';
 import { mkdirSync, existsSync } from 'fs';
 import * as schema from '../schema';
 import * as sqliteVec from 'sqlite-vec';
+import { normalizeTreeFields } from '../../mainview/templates/tree';
 
 const dbPath = join(Utils.paths.userData, 'novelty.db');
 const dbDir = Utils.paths.userData;
@@ -291,6 +292,7 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 		project_id TEXT REFERENCES projects(id),
 		base_type TEXT NOT NULL,
 		custom_fields TEXT,
+		columns INTEGER,
 		created_at INTEGER NOT NULL,
 		updated_at INTEGER NOT NULL
 	);
@@ -305,21 +307,9 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 		updated_at INTEGER NOT NULL
 	);
 
-	CREATE TABLE IF NOT EXISTS global_templates (
-		id TEXT PRIMARY KEY,
-		name TEXT NOT NULL,
-		description TEXT,
-		base_type TEXT NOT NULL,
-		custom_fields TEXT,
-		created_at INTEGER NOT NULL,
-		updated_at INTEGER NOT NULL
-	);
-
 	CREATE TABLE IF NOT EXISTS series_templates (
 		id TEXT PRIMARY KEY,
 		series_id TEXT NOT NULL REFERENCES series(id) ON DELETE CASCADE,
-		name TEXT NOT NULL,
-		description TEXT,
 		base_type TEXT NOT NULL,
 		custom_fields TEXT,
 		created_at INTEGER NOT NULL,
@@ -564,16 +554,6 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
             name: 'content_rating',
             type: "TEXT NOT NULL DEFAULT 'Unrated'",
         },
-        {
-            table: 'entity_templates',
-            name: 'global_template_id',
-            type: 'TEXT REFERENCES global_templates(id)',
-        },
-        {
-            table: 'entity_templates',
-            name: 'series_template_id',
-            type: 'TEXT REFERENCES series_templates(id)',
-        },
         { table: 'lore_entries', name: 'file_path', type: 'TEXT' },
         {
             table: 'story_sequences',
@@ -585,6 +565,7 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
             name: 'display_order',
             type: 'INTEGER NOT NULL DEFAULT 0',
         },
+        { table: 'entity_templates', name: 'columns', type: 'INTEGER' },
     ];
 
     for (const col of migrations) {
@@ -598,6 +579,17 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
     }
 
     migrateOutlineScenesToStoryScenes();
+
+    migrateGlobalTemplatesAway();
+
+    migrateSeriesTemplatesToSinglePerCategory();
+
+    // Enforced after the collapse above, since pre-migration databases can
+    // hold more than one row per (series_id, base_type).
+    sqlite.exec(
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_series_templates_series_base
+         ON series_templates (series_id, base_type)`
+    );
 
     try {
         sqlite.exec(
@@ -705,6 +697,288 @@ function migrateOutlineScenesToStoryScenes() {
         }
     } catch (err) {
         console.warn('Failed to migrate outline scenes:', err);
+    }
+}
+
+type TemplateFieldRecord = {
+    name: string;
+    type: string;
+    treeRelations?: { relation: string; inverse: string }[];
+    disabled?: boolean;
+    [key: string]: unknown;
+};
+
+function parseFieldList(raw: unknown): TemplateFieldRecord[] {
+    if (typeof raw !== 'string' || !raw) return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+function columnExists(table: string, column: string): boolean {
+    const cols = sqlite.query(`PRAGMA table_info(${table})`).all() as {
+        name: string;
+    }[];
+    return cols.some((c) => c.name === column);
+}
+
+function migrateGlobalTemplatesAway() {
+    try {
+        const exists = sqlite
+            .query(
+                `SELECT name FROM sqlite_master WHERE type='table' AND name='global_templates'`
+            )
+            .get();
+        if (!exists) return;
+
+        sqlite.exec('BEGIN');
+        try {
+            const rows = sqlite
+                .query(
+                    `SELECT et.id AS id,
+                            et.custom_fields AS project_fields,
+                            gt.custom_fields AS global_fields,
+                            st.custom_fields AS series_fields
+                     FROM entity_templates et
+                     LEFT JOIN global_templates gt
+                            ON gt.id = et.global_template_id
+                     LEFT JOIN series_templates st
+                            ON st.id = et.series_template_id`
+                )
+                .all() as {
+                id: string;
+                project_fields: string | null;
+                global_fields: string | null;
+                series_fields: string | null;
+            }[];
+
+            const updateStmt = sqlite.prepare(
+                `UPDATE entity_templates SET custom_fields = ?, updated_at = ? WHERE id = ?`
+            );
+            const now = Date.now();
+            let flattened = 0;
+
+            for (const row of rows) {
+                const fieldMap = new Map<string, TemplateFieldRecord>();
+
+                // Mirror the pre-removal resolve order exactly:
+                // global -> series -> project, so the flattened row yields
+                // the same effective field list the app resolves today.
+                for (const field of parseFieldList(row.global_fields)) {
+                    fieldMap.set(field.name, { ...field, disabled: false });
+                }
+
+                for (const field of parseFieldList(row.series_fields)) {
+                    if (field.disabled) {
+                        fieldMap.delete(field.name);
+                    } else {
+                        fieldMap.set(field.name, { ...field, disabled: false });
+                    }
+                }
+
+                for (const field of parseFieldList(row.project_fields)) {
+                    if (field.disabled) {
+                        fieldMap.delete(field.name);
+                    } else {
+                        fieldMap.set(field.name, { ...field, disabled: false });
+                    }
+                }
+
+                const merged = normalizeTreeFields(
+                    Array.from(fieldMap.values())
+                );
+                updateStmt.run(JSON.stringify(merged), now, row.id);
+                flattened++;
+            }
+
+            sqlite.exec(`DROP TABLE global_templates`);
+            // series_templates.global_template_id was never created by the
+            // original DDL or ALTER list, so guard every statement.
+            if (columnExists('entity_templates', 'global_template_id')) {
+                sqlite.exec(
+                    `ALTER TABLE entity_templates DROP COLUMN global_template_id`
+                );
+            }
+            if (columnExists('series_templates', 'global_template_id')) {
+                sqlite.exec(
+                    `ALTER TABLE series_templates DROP COLUMN global_template_id`
+                );
+            }
+
+            sqlite.exec('COMMIT');
+            console.log(
+                `Removed global templates; flattened ${flattened} project template(s)`
+            );
+        } catch (err) {
+            sqlite.exec('ROLLBACK');
+            throw err;
+        }
+    } catch (err) {
+        console.warn('Failed to remove global templates:', err);
+    }
+}
+
+// Collapses series templates to one per (series, category) and drops the stored
+// project -> series template link in favour of deriving it from projects.series_id.
+// Every step is independently guarded so an interrupted run resumes cleanly.
+function migrateSeriesTemplatesToSinglePerCategory() {
+    try {
+        const legacyLink = columnExists(
+            'entity_templates',
+            'series_template_id'
+        );
+        const legacyName = columnExists('series_templates', 'name');
+        if (!legacyLink && !legacyName) return;
+
+        sqlite.exec('BEGIN');
+        try {
+            let staleLinks = 0;
+            let collapsed = 0;
+            let pruned = 0;
+
+            // A project reassigned to another series (or to none) kept pointing
+            // at its old series' template, so those fields kept merging in
+            // invisibly. The derived model makes this state unrepresentable.
+            if (legacyLink) {
+                const repair = sqlite
+                    .query(
+                        `UPDATE entity_templates
+                         SET series_template_id = NULL
+                         WHERE series_template_id IS NOT NULL
+                           AND series_template_id IN (
+                               SELECT st.id
+                               FROM series_templates st
+                               JOIN projects p
+                                 ON p.id = entity_templates.project_id
+                               WHERE p.series_id IS NOT st.series_id
+                           )`
+                    )
+                    .run();
+                staleLinks = repair.changes;
+            }
+
+            // Winner per (series_id, base_type): most projects applied it, then
+            // oldest. Losers are dropped; their per-project overrides stay in
+            // entity_templates.custom_fields as ordinary project fields.
+            const groups = sqlite
+                .query(
+                    `SELECT series_id, base_type
+                     FROM series_templates
+                     GROUP BY series_id, base_type
+                     HAVING COUNT(*) > 1`
+                )
+                .all() as { series_id: string; base_type: string }[];
+
+            const repoint = sqlite.prepare(
+                `UPDATE entity_templates
+                 SET series_template_id = ?
+                 WHERE series_template_id = ?`
+            );
+            const removeTpl = sqlite.prepare(
+                `DELETE FROM series_templates WHERE id = ?`
+            );
+
+            for (const group of groups) {
+                const candidates = sqlite
+                    .query(
+                        `SELECT st.id AS id,
+                                st.created_at AS created_at,
+                                (SELECT COUNT(*) FROM entity_templates et
+                                  WHERE et.series_template_id = st.id) AS uses
+                         FROM series_templates st
+                         WHERE st.series_id = ? AND st.base_type = ?
+                         ORDER BY uses DESC, created_at ASC`
+                    )
+                    .all(group.series_id, group.base_type) as {
+                    id: string;
+                }[];
+
+                const winner = candidates[0];
+                if (!winner) continue;
+
+                for (const loser of candidates.slice(1)) {
+                    repoint.run(winner.id, loser.id);
+                    removeTpl.run(loser.id);
+                    collapsed++;
+                }
+            }
+
+            // migrateGlobalTemplatesAway() flattened series fields into every
+            // project row. Drop entries byte-identical to the live series field
+            // so removing that field later doesn't leave a project-level ghost.
+            if (legacyLink) {
+                const rows = sqlite
+                    .query(
+                        `SELECT et.id AS id, et.custom_fields AS project_fields,
+                                st.custom_fields AS series_fields
+                         FROM entity_templates et
+                         JOIN projects p ON p.id = et.project_id
+                         JOIN series_templates st ON st.series_id = p.series_id
+                                           AND st.base_type = et.base_type
+                         WHERE et.custom_fields IS NOT NULL
+                           AND st.custom_fields IS NOT NULL`
+                    )
+                    .all() as {
+                    id: string;
+                    project_fields: string;
+                    series_fields: string;
+                }[];
+
+                const updateFields = sqlite.prepare(
+                    `UPDATE entity_templates
+                     SET custom_fields = ?, updated_at = ?
+                     WHERE id = ?`
+                );
+                const now = Date.now();
+
+                // The flatten wrote series fields as a copy with
+                // `disabled: false` forced on, so both sides are normalized
+                // the same way instead of compared verbatim.
+                const canonical = (f: TemplateFieldRecord) =>
+                    JSON.stringify({ ...f, disabled: f.disabled ?? false });
+
+                for (const row of rows) {
+                    const projectFields = parseFieldList(row.project_fields);
+                    const seriesByName = new Map(
+                        parseFieldList(row.series_fields).map((f) => [
+                            f.name,
+                            canonical(f),
+                        ])
+                    );
+                    const kept = projectFields.filter(
+                        (f) => seriesByName.get(f.name) !== canonical(f)
+                    );
+                    if (kept.length === projectFields.length) continue;
+                    updateFields.run(JSON.stringify(kept), now, row.id);
+                    pruned += projectFields.length - kept.length;
+                }
+            }
+
+            for (const [table, column] of [
+                ['entity_templates', 'series_template_id'],
+                ['series_templates', 'name'],
+                ['series_templates', 'description'],
+            ] as const) {
+                if (!columnExists(table, column)) continue;
+                sqlite.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
+            }
+
+            sqlite.exec('COMMIT');
+            console.log(
+                `Collapsed series templates to one per category: ` +
+                    `${collapsed} duplicate(s) removed, ` +
+                    `${staleLinks} stale link(s) cleared, ` +
+                    `${pruned} shadow field(s) pruned`
+            );
+        } catch (err) {
+            sqlite.exec('ROLLBACK');
+            throw err;
+        }
+    } catch (err) {
+        console.warn('Failed to collapse series templates:', err);
     }
 }
 

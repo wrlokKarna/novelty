@@ -1,76 +1,29 @@
 import { db } from './index';
-import { entityTemplates, globalTemplates, seriesTemplates } from '../schema';
+import { entityTemplates } from '../schema';
 import { eq, and } from 'drizzle-orm';
-import type { CompendiumCategory } from '../../mainview/types';
+import type {
+    CompendiumCategory,
+    EntityTemplate,
+    FieldDefinition,
+    ResolvedTemplateInfo,
+} from '../../mainview/types';
+import { DEFAULT_TEMPLATE_COLUMNS } from '../../mainview/types';
 import { normalizeTreeFields } from '../../mainview/templates/tree';
+// Shared so the server's resolved order and the editor's merged order can never
+// disagree - both call sites use this exact sort, including its legacy fallback.
+import { sortByOrder } from '../../mainview/templates/mergeFields';
+import { getSeriesTemplateForProject } from './seriesTemplates';
 
-export type VisibilityOperator =
-    | 'isTrue'
-    | 'isFalse'
-    | 'isEmpty'
-    | 'notEmpty'
-    | 'equals'
-    | 'notEquals'
-    | 'contains'
-    | 'notContains'
-    | 'in'
-    | 'notIn'
-    | 'greaterThan'
-    | 'lessThan';
-
-export type VisibilityCondition = {
-    field: string;
-    operator: VisibilityOperator;
-    value?: string | number | boolean | string[];
-};
-
-export type FieldVisibility = {
-    mode: 'all' | 'any';
-    conditions: VisibilityCondition[];
-};
-
-export type FieldDefinition = {
-    name: string;
-    type:
-        | 'text'
-        | 'number'
-        | 'textarea'
-        | 'select'
-        | 'checkbox'
-        | 'date'
-        | 'file'
-        | 'multiselect'
-        | 'entitylink'
-        | 'richtext'
-        | 'color'
-        | 'toggle'
-        | 'range'
-        | 'portrait'
-        | 'images'
-        | 'tree';
-    label: string;
-    required: boolean;
-    disabled?: boolean;
-    span?: 1 | 2 | 3 | 4;
-    options?: string[];
-    rangeMin?: number;
-    rangeMax?: number;
-    rangeStep?: number;
-    entitylinkCategories?: CompendiumCategory[];
-    treeRelations?: { relation: string; inverse: string }[];
-    visibleWhen?: FieldVisibility;
-};
-
-export type EntityTemplate = {
-    id: string;
-    projectId: string | null;
-    baseType: CompendiumCategory;
-    globalTemplateId: string | null;
-    seriesTemplateId: string | null;
-    customFields: FieldDefinition[];
-    createdAt: Date;
-    updatedAt: Date;
-};
+export type {
+    CompendiumCategory,
+    EntityTemplate,
+    FieldDefinition,
+    FieldVisibility,
+    ResolvedTemplateInfo,
+    SeriesTemplate,
+    VisibilityCondition,
+    VisibilityOperator,
+} from '../../mainview/types';
 
 export type NewEntityTemplate = Omit<EntityTemplate, 'createdAt' | 'updatedAt'>;
 
@@ -118,9 +71,8 @@ export async function createTemplate(
         id: template.id,
         projectId: template.projectId,
         baseType: template.baseType,
-        globalTemplateId: template.globalTemplateId || null,
-        seriesTemplateId: template.seriesTemplateId || null,
         customFields: JSON.stringify(template.customFields || []),
+        columns: template.columns ?? null,
         createdAt: now,
         updatedAt: now,
     };
@@ -137,12 +89,9 @@ export async function updateTemplate(
 ): Promise<EntityTemplate | undefined> {
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (data.baseType !== undefined) updateData.baseType = data.baseType;
-    if (data.globalTemplateId !== undefined)
-        updateData.globalTemplateId = data.globalTemplateId;
-    if (data.seriesTemplateId !== undefined)
-        updateData.seriesTemplateId = data.seriesTemplateId;
     if (data.customFields !== undefined)
         updateData.customFields = JSON.stringify(data.customFields);
+    if (data.columns !== undefined) updateData.columns = data.columns;
 
     await db
         .update(entityTemplates)
@@ -164,83 +113,38 @@ export async function deleteTemplate(id: string): Promise<void> {
 export async function upsertTemplate(
     projectId: string,
     baseType: CompendiumCategory,
-    customFields: FieldDefinition[],
-    globalTemplateId?: string | null,
-    seriesTemplateId?: string | null
+    customFields?: FieldDefinition[],
+    columns?: number | null
 ): Promise<EntityTemplate> {
     const existing = await getTemplateByProjectAndType(projectId, baseType);
     if (existing) {
-        const updateData: Partial<NewEntityTemplate> = { customFields };
-        if (globalTemplateId !== undefined)
-            updateData.globalTemplateId = globalTemplateId;
-        if (seriesTemplateId !== undefined)
-            updateData.seriesTemplateId = seriesTemplateId;
-        return (await updateTemplate(existing.id, updateData))!;
+        const data: Partial<NewEntityTemplate> = {};
+        if (customFields !== undefined) data.customFields = customFields;
+        if (columns !== undefined) data.columns = columns;
+        return (await updateTemplate(existing.id, data))!;
     }
     const id = `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     return createTemplate({
         id,
         projectId,
         baseType,
-        globalTemplateId: globalTemplateId || null,
-        seriesTemplateId: seriesTemplateId || null,
-        customFields,
+        customFields: customFields ?? [],
+        columns: columns ?? null,
     });
 }
 
 export async function resolveTemplate(
     projectId: string,
     baseType: CompendiumCategory
-): Promise<{
-    fields: FieldDefinition[];
-    globalTemplate: Record<string, unknown> | null;
-    seriesTemplate: Record<string, unknown> | null;
-    projectTemplate: EntityTemplate | null;
-}> {
+): Promise<ResolvedTemplateInfo> {
     const projectTemplate =
         (await getTemplateByProjectAndType(projectId, baseType)) ?? null;
-    let globalTemplateData = null;
-    let seriesTemplateData = null;
-
-    if (projectTemplate?.globalTemplateId) {
-        const gt = await db
-            .select()
-            .from(globalTemplates)
-            .where(eq(globalTemplates.id, projectTemplate.globalTemplateId));
-        if (gt[0]) {
-            globalTemplateData = {
-                ...gt[0],
-                customFields: gt[0].customFields
-                    ? normalizeTreeFields(JSON.parse(gt[0].customFields))
-                    : [],
-            };
-        }
-    }
-
-    if (projectTemplate?.seriesTemplateId) {
-        const st = await db
-            .select()
-            .from(seriesTemplates)
-            .where(eq(seriesTemplates.id, projectTemplate.seriesTemplateId));
-        if (st[0]) {
-            seriesTemplateData = {
-                ...st[0],
-                customFields: st[0].customFields
-                    ? normalizeTreeFields(JSON.parse(st[0].customFields))
-                    : [],
-            };
-        }
-    }
+    const seriesTemplate =
+        (await getSeriesTemplateForProject(projectId, baseType)) ?? null;
 
     const fieldMap = new Map<string, FieldDefinition>();
 
-    for (const field of (globalTemplateData?.customFields as FieldDefinition[]) ||
-        []) {
-        fieldMap.set(field.name, { ...field, disabled: false });
-    }
-
-    for (const field of (seriesTemplateData?.customFields as FieldDefinition[]) ||
-        []) {
+    for (const field of seriesTemplate?.customFields || []) {
         if (field.disabled) {
             fieldMap.delete(field.name);
         } else {
@@ -249,17 +153,23 @@ export async function resolveTemplate(
     }
 
     for (const field of projectTemplate?.customFields || []) {
+        // A project row that shadows a series field carries only this project's
+        // on/off choice for it - the definition and ordering stay with the
+        // series, so a later series edit is never masked by the copy stored here.
         if (field.disabled) {
             fieldMap.delete(field.name);
-        } else {
+        } else if (!fieldMap.has(field.name)) {
             fieldMap.set(field.name, { ...field, disabled: false });
         }
     }
 
+    // The Map gives series-first insertion order, which is the right fallback for
+    // templates saved before `order` existed. Once any row carries an `order`,
+    // sortByOrder takes over so series and project rows can interleave.
     return {
-        fields: normalizeTreeFields(Array.from(fieldMap.values())),
-        globalTemplate: globalTemplateData as any,
-        seriesTemplate: seriesTemplateData as any,
+        fields: normalizeTreeFields(sortByOrder(Array.from(fieldMap.values()))),
+        columns: projectTemplate?.columns ?? DEFAULT_TEMPLATE_COLUMNS,
+        seriesTemplate,
         projectTemplate,
     };
 }

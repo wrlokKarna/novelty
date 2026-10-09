@@ -1,90 +1,32 @@
 import { db } from './index';
-import { seriesTemplates } from '../schema';
-import { eq, and, asc } from 'drizzle-orm';
-import type { CompendiumCategory } from '../../mainview/types';
+import { projects, seriesTemplates } from '../schema';
+import { eq, and } from 'drizzle-orm';
+import type {
+    CompendiumCategory,
+    FieldDefinition,
+    SeriesTemplate,
+} from '../../mainview/types';
 import { normalizeTreeFields } from '../../mainview/templates/tree';
 
-export type VisibilityOperator =
-    | 'isTrue'
-    | 'isFalse'
-    | 'isEmpty'
-    | 'notEmpty'
-    | 'equals'
-    | 'notEquals'
-    | 'contains'
-    | 'notContains'
-    | 'in'
-    | 'notIn'
-    | 'greaterThan'
-    | 'lessThan';
+// Canonical definitions live in mainview/types. Re-exported here because this
+// module is the public surface for series template reads/writes.
+export type {
+    CompendiumCategory,
+    FieldDefinition,
+    FieldVisibility,
+    SeriesTemplate,
+    SeriesTemplateInput,
+    VisibilityCondition,
+    VisibilityOperator,
+} from '../../mainview/types';
 
-export type VisibilityCondition = {
-    field: string;
-    operator: VisibilityOperator;
-    value?: string | number | boolean | string[];
-};
-
-export type FieldVisibility = {
-    mode: 'all' | 'any';
-    conditions: VisibilityCondition[];
-};
-
-export type FieldDefinition = {
-    name: string;
-    type:
-        | 'text'
-        | 'number'
-        | 'textarea'
-        | 'select'
-        | 'checkbox'
-        | 'date'
-        | 'file'
-        | 'multiselect'
-        | 'entitylink'
-        | 'richtext'
-        | 'color'
-        | 'toggle'
-        | 'range'
-        | 'portrait'
-        | 'images'
-        | 'tree';
-    label: string;
-    required: boolean;
-    disabled?: boolean;
-    span?: 1 | 2 | 3 | 4;
-    options?: string[];
-    rangeMin?: number;
-    rangeMax?: number;
-    rangeStep?: number;
-    entitylinkCategories?: CompendiumCategory[];
-    treeRelations?: { relation: string; inverse: string }[];
-    visibleWhen?: FieldVisibility;
-};
-
-export type SeriesTemplate = {
-    id: string;
-    seriesId: string;
-    name: string;
-    description: string | null;
-    baseType: CompendiumCategory;
-    globalTemplateId: string | null;
-    customFields: FieldDefinition[];
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewSeriesTemplate = Omit<SeriesTemplate, 'createdAt' | 'updatedAt'>;
-
-function parseTemplate(
+export function parseSeriesTemplateRow(
     row: typeof seriesTemplates.$inferSelect
 ): SeriesTemplate {
     return {
         id: row.id,
         seriesId: row.seriesId,
-        name: row.name,
-        description: row.description,
         baseType: row.baseType as CompendiumCategory,
-        globalTemplateId: row.globalTemplateId || null,
         customFields: normalizeTreeFields(
             row.customFields ? JSON.parse(row.customFields) : []
         ),
@@ -94,76 +36,108 @@ function parseTemplate(
 }
 
 export async function listSeriesTemplates(
-    seriesId: string,
-    baseType?: CompendiumCategory
+    seriesId: string
 ): Promise<SeriesTemplate[]> {
-    const conditions = [eq(seriesTemplates.seriesId, seriesId)];
-    if (baseType) {
-        conditions.push(eq(seriesTemplates.baseType, baseType));
-    }
     const rows = await db
         .select()
         .from(seriesTemplates)
-        .where(and(...conditions))
-        .orderBy(asc(seriesTemplates.name));
-    return rows.map(parseTemplate);
+        .where(eq(seriesTemplates.seriesId, seriesId));
+    return rows.map(parseSeriesTemplateRow);
 }
 
-export async function getSeriesTemplateById(
-    id: string
+export async function getSeriesTemplateBySeriesAndType(
+    seriesId: string,
+    baseType: CompendiumCategory
 ): Promise<SeriesTemplate | undefined> {
     const result = await db
         .select()
         .from(seriesTemplates)
-        .where(eq(seriesTemplates.id, id));
+        .where(
+            and(
+                eq(seriesTemplates.seriesId, seriesId),
+                eq(seriesTemplates.baseType, baseType)
+            )
+        );
     if (!result[0]) return undefined;
-    return parseTemplate(result[0]);
+    return parseSeriesTemplateRow(result[0]);
 }
 
-export async function createSeriesTemplate(
-    data: NewSeriesTemplate
-): Promise<SeriesTemplate> {
+export async function upsertSeriesTemplate(input: {
+    seriesId: string;
+    baseType: CompendiumCategory;
+    customFields: FieldDefinition[];
+}): Promise<SeriesTemplate> {
     const now = new Date();
-    const insertData = {
-        ...data,
-        customFields: JSON.stringify(data.customFields || []),
+    const existing = await getSeriesTemplateBySeriesAndType(
+        input.seriesId,
+        input.baseType
+    );
+
+    if (existing) {
+        await db
+            .update(seriesTemplates)
+            .set({
+                customFields: JSON.stringify(input.customFields || []),
+                updatedAt: now,
+            })
+            .where(eq(seriesTemplates.id, existing.id));
+        return {
+            ...existing,
+            customFields: input.customFields || [],
+            updatedAt: now,
+        };
+    }
+
+    const id = `stpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    await db.insert(seriesTemplates).values({
+        id,
+        seriesId: input.seriesId,
+        baseType: input.baseType,
+        customFields: JSON.stringify(input.customFields || []),
         createdAt: now,
         updatedAt: now,
-    };
-    await db.insert(seriesTemplates).values(insertData);
-    return {
-        ...data,
-        customFields: data.customFields || [],
-        createdAt: now,
-        updatedAt: now,
-    };
-}
-
-export async function updateSeriesTemplate(
-    id: string,
-    data: Partial<NewSeriesTemplate>
-): Promise<SeriesTemplate | undefined> {
-    const updateData: Record<string, unknown> = { updatedAt: new Date() };
-    if (data.name !== undefined) updateData.name = data.name;
-    if (data.description !== undefined)
-        updateData.description = data.description;
-    if (data.baseType !== undefined) updateData.baseType = data.baseType;
-    if (data.customFields !== undefined)
-        updateData.customFields = JSON.stringify(data.customFields);
-    if (data.globalTemplateId !== undefined)
-        updateData.globalTemplateId = data.globalTemplateId;
-
-    await db
-        .update(seriesTemplates)
-        .set(updateData)
-        .where(eq(seriesTemplates.id, id));
-    const newData = getSeriesTemplateById(id);
-    newData.then((data) => {
-        console.log('[new data]', data);
     });
-    return newData;
+    return {
+        id,
+        seriesId: input.seriesId,
+        baseType: input.baseType,
+        customFields: input.customFields || [],
+        createdAt: now,
+        updatedAt: now,
+    };
 }
 
-export async function deleteSeriesTemplate(id: string): Promise<void> {
-    await db.delete(seriesTemplates).where(eq(seriesTemplates.id, id));
+export async function deleteSeriesTemplate(
+    seriesId: string,
+    baseType: CompendiumCategory
+): Promise<void> {
+    await db
+        .delete(seriesTemplates)
+        .where(
+            and(
+                eq(seriesTemplates.seriesId, seriesId),
+                eq(seriesTemplates.baseType, baseType)
+            )
+        );
+}
+
+// Walks project -> series -> the single template for that category, which is
+// how every read resolves a project's series template.
+export async function getSeriesTemplateForProject(
+    projectId: string,
+    baseType: CompendiumCategory
+): Promise<SeriesTemplate | undefined> {
+    const rows = await db
+        .select()
+        .from(seriesTemplates)
+        .innerJoin(projects, eq(projects.seriesId, seriesTemplates.seriesId))
+        .where(
+            and(
+                eq(projects.id, projectId),
+                eq(seriesTemplates.baseType, baseType)
+            )
+        )
+        .limit(1);
+    if (!rows[0]) return undefined;
+    return parseSeriesTemplateRow(rows[0].series_templates);
 }

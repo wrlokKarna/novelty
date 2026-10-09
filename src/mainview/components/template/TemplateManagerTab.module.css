@@ -1,0 +1,138 @@
+.addField {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    right: 0;
+    z-index: 5;
+    width: 380px;
+    max-width: calc(100vw - 64px);
+    max-height: 70vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    background: #1a1b1c;
+    background-color: #1a1b1c;
+    padding: 12px;
+    border: 1px solid #393a3b;
+    border-radius: 6px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+}
+
+.addCardTarget {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.addCardTarget button {
+    flex: 1;
+    padding: 0.35rem 0.6rem;
+    border-radius: 4px;
+    border: 1px solid var(--border, #333);
+    background: transparent;
+    color: #ccc;
+    cursor: pointer;
+}
+
+.addCardTarget button.addCardTargetOn {
+    border-color: var(--accent);
+    background: var(--accent-subtle, rgba(240, 160, 80, 0.12));
+    color: var(--accent);
+}
+
+.addCardFooter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    border-top: 1px solid var(--border, #333);
+    padding-top: 0.6rem;
+}
+
+.addCardFooter > span {
+    color: #888;
+    font-size: 0.8em;
+}
+
+.header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    background: #222324;
+    border-bottom: 1px solid var(--border, #333);
+}
+
+.headerTabs {
+    display: flex;
+    gap: 0.4rem;
+    padding-bottom: 0.5rem;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+.addFieldBtn {
+    font-size: 0.9em;
+    opacity: 0.75;
+    background-color: var(--accent-subtle);
+
+    &:hover {
+        background-color: var(--accent-subtle);
+        color: var(--text-accent);
+        opacity: 1;
+    }
+
+    &.active,
+    &.addFieldBtnOpen {
+        opacity: 1;
+        color: var(--text-accent);
+    }
+}
+
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.9rem;
+    background: #1a1b1c;
+    border: 1px solid #393a3b;
+    border-radius: 6px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+    color: #ccc;
+    font-size: 0.9em;
+}
+
+.toastAction {
+    background: transparent;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    color: var(--accent);
+    cursor: pointer;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.95em;
+
+    &:hover {
+        background: var(--accent-subtle, rgba(240, 160, 80, 0.12));
+    }
+}
+
+.fieldsContent {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 0.25rem 0.25rem 0.5rem;
+}

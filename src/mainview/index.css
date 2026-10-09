@@ -2743,11 +2743,21 @@ select {
     font-size: 24px;
     font-weight: 500;
     box-sizing: border-box;
+    padding: 4px 0;
+    border-bottom: 1px solid transparent;
+    color: #9ca3af;
+    transition: all 0.2s;
+
+    &:hover {
+        outline: none;
+        border-color: var(--accent);
+    }
 }
 
 .entry-name-input:focus {
     outline: none;
-    border-color: #4a9eff;
+    border-bottom: 1px solid var(--accent);
+    color: #fff;
 }
 
 .entry-fields {
@@ -2997,36 +3007,20 @@ select {
     margin-bottom: 32px;
 }
 
-.entry-name-input {
-    width: 100%;
-    padding: 4px 0;
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid transparent;
-    /* No border initially to match mockup */
-    color: #9ca3af;
-    /* Dimmed name like in mockup */
-    font-size: 24px;
-    font-weight: 500;
-    box-sizing: border-box;
-    transition: all 0.2s;
-}
-
-.entry-name-input:focus {
-    outline: none;
-    border-bottom: 1px solid #4a9eff;
-    color: #fff;
-}
-
 .entry-content-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 40px;
+}
+
+.entry-content-grid.has-sidebar {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
 }
 
 .entry-fields-column {
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
 
 .entry-sidebar-column {
