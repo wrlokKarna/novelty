@@ -3009,13 +3009,18 @@ select {
 
 .entry-content-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 40px;
+}
+
+.entry-content-grid.has-sidebar {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
 }
 
 .entry-fields-column {
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
 
 .entry-sidebar-column {

@@ -27,6 +27,7 @@ import type {
     StoryScene,
     ChapterPlotThread,
 } from './types/index';
+import { DEFAULT_TEMPLATE_COLUMNS } from './types/index';
 import { type TreeEdge, treeEdgeKey } from './templates/tree';
 import type { ParsedEntry } from './services/entryParser';
 import type { ExtractionSource } from './services/textExtractor';
@@ -213,6 +214,15 @@ function App() {
         organization: [],
         item: [],
         lore: [],
+    });
+    const [resolvedTemplateColumns, setResolvedTemplateColumns] = useState<
+        Record<CompendiumCategory, number>
+    >({
+        character: DEFAULT_TEMPLATE_COLUMNS,
+        location: DEFAULT_TEMPLATE_COLUMNS,
+        organization: DEFAULT_TEMPLATE_COLUMNS,
+        item: DEFAULT_TEMPLATE_COLUMNS,
+        lore: DEFAULT_TEMPLATE_COLUMNS,
     });
 
     // Bulk extraction state
@@ -544,6 +554,10 @@ function App() {
         setResolvedTemplateFields((prev) => ({
             ...prev,
             [category]: resolved?.fields || [],
+        }));
+        setResolvedTemplateColumns((prev) => ({
+            ...prev,
+            [category]: resolved?.columns ?? DEFAULT_TEMPLATE_COLUMNS,
         }));
     }
 
@@ -1306,6 +1320,11 @@ function App() {
                         ...prev,
                         [category]: newResolved?.fields || [],
                     }));
+                    setResolvedTemplateColumns((prev) => ({
+                        ...prev,
+                        [category]:
+                            newResolved?.columns ?? DEFAULT_TEMPLATE_COLUMNS,
+                    }));
                 }
             }
 
@@ -1587,6 +1606,11 @@ function App() {
             setResolvedTemplateFields((prev) => ({
                 ...prev,
                 [update.baseType]: newResolved?.fields || [],
+            }));
+            setResolvedTemplateColumns((prev) => ({
+                ...prev,
+                [update.baseType]:
+                    newResolved?.columns ?? DEFAULT_TEMPLATE_COLUMNS,
             }));
         }
 
@@ -2270,6 +2294,7 @@ function App() {
                     }
                     category={category}
                     template={effectiveTemplate}
+                    columns={resolvedTemplateColumns[category]}
                     characters={characters}
                     locations={locations}
                     organizations={organizations}

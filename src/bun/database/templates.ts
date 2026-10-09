@@ -7,6 +7,7 @@ import type {
     FieldDefinition,
     ResolvedTemplateInfo,
 } from '../../mainview/types';
+import { DEFAULT_TEMPLATE_COLUMNS } from '../../mainview/types';
 import { normalizeTreeFields } from '../../mainview/templates/tree';
 // Shared so the server's resolved order and the editor's merged order can never
 // disagree - both call sites use this exact sort, including its legacy fallback.
@@ -71,6 +72,7 @@ export async function createTemplate(
         projectId: template.projectId,
         baseType: template.baseType,
         customFields: JSON.stringify(template.customFields || []),
+        columns: template.columns ?? null,
         createdAt: now,
         updatedAt: now,
     };
@@ -89,6 +91,7 @@ export async function updateTemplate(
     if (data.baseType !== undefined) updateData.baseType = data.baseType;
     if (data.customFields !== undefined)
         updateData.customFields = JSON.stringify(data.customFields);
+    if (data.columns !== undefined) updateData.columns = data.columns;
 
     await db
         .update(entityTemplates)
@@ -110,18 +113,23 @@ export async function deleteTemplate(id: string): Promise<void> {
 export async function upsertTemplate(
     projectId: string,
     baseType: CompendiumCategory,
-    customFields: FieldDefinition[]
+    customFields?: FieldDefinition[],
+    columns?: number | null
 ): Promise<EntityTemplate> {
     const existing = await getTemplateByProjectAndType(projectId, baseType);
     if (existing) {
-        return (await updateTemplate(existing.id, { customFields }))!;
+        const data: Partial<NewEntityTemplate> = {};
+        if (customFields !== undefined) data.customFields = customFields;
+        if (columns !== undefined) data.columns = columns;
+        return (await updateTemplate(existing.id, data))!;
     }
     const id = `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     return createTemplate({
         id,
         projectId,
         baseType,
-        customFields,
+        customFields: customFields ?? [],
+        columns: columns ?? null,
     });
 }
 
@@ -160,6 +168,7 @@ export async function resolveTemplate(
     // sortByOrder takes over so series and project rows can interleave.
     return {
         fields: normalizeTreeFields(sortByOrder(Array.from(fieldMap.values()))),
+        columns: projectTemplate?.columns ?? DEFAULT_TEMPLATE_COLUMNS,
         seriesTemplate,
         projectTemplate,
     };

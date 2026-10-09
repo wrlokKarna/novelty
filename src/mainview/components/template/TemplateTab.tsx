@@ -1,9 +1,11 @@
 import type { FieldDefinition } from '../../types';
+import { DEFAULT_TEMPLATE_COLUMNS } from '../../types';
 import TemplateField, { type EntryRef } from './TemplateField';
 
 type Props = {
     tmplFields: FieldDefinition[];
     templateData?: Record<string, unknown> | null;
+    columns?: number;
     onUpdate?: (fieldName: string, value: unknown) => void;
     entry?: { id: string; name: string };
     characters?: EntryRef[];
@@ -16,6 +18,7 @@ type Props = {
 export default function TemplateTab({
     tmplFields,
     templateData,
+    columns = DEFAULT_TEMPLATE_COLUMNS,
     onUpdate,
     entry,
     characters,
@@ -28,7 +31,7 @@ export default function TemplateTab({
         <div
             style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
+                gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
                 gap: '16px',
             }}
         >
@@ -38,6 +41,7 @@ export default function TemplateTab({
                     mode="view"
                     field={field}
                     index={index}
+                    columns={columns}
                     value={templateData?.[field.name]}
                     onChange={(value) => onUpdate?.(field.name, value)}
                     entry={entry}

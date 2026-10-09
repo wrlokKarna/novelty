@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { IconCheck, IconPencil, IconPhoto, IconX } from '@tabler/icons-react';
 import type { CompendiumCategory, FieldDefinition } from '../../types';
+import { DEFAULT_TEMPLATE_COLUMNS } from '../../types';
 import type { TreeEdge } from '../../templates/tree';
 import { TREE_PRESETS, getTreeRelations } from '../../templates/tree';
 import { RichTextEditor } from '../RichTextEditor';
@@ -15,6 +16,7 @@ export type EntryRef = { id: string; name: string };
 export type ViewProps = {
     field: FieldDefinition;
     index: number;
+    columns?: number;
     value?: unknown;
     onChange?: (value: unknown) => void;
     entry?: { id: string; name: string };
@@ -29,6 +31,7 @@ export type EditProps = {
     field: FieldDefinition;
     index: number;
     fields: FieldDefinition[];
+    columns?: number;
     inherited?: boolean;
     editField: (index: number, updates: Partial<FieldDefinition>) => void;
     commitField: (index: number, updates: Partial<FieldDefinition>) => void;
@@ -38,8 +41,7 @@ export type EditProps = {
 };
 
 export type TemplateFieldProps =
-    | ({ mode: 'view' } & ViewProps)
-    | ({ mode: 'edit' } & EditProps);
+    ({ mode: 'view' } & ViewProps) | ({ mode: 'edit' } & EditProps);
 
 const ALL_CATEGORIES: CompendiumCategory[] = [
     'character',
@@ -48,6 +50,19 @@ const ALL_CATEGORIES: CompendiumCategory[] = [
     'item',
     'lore',
 ];
+
+// Fields default to a full row (span = column count) and are clamped so a span
+// saved against a wider layout can never overflow a narrower one.
+function clampSpan(
+    span: number | undefined,
+    columns: number
+): FieldDefinition['span'] {
+    const max = Math.max(
+        1,
+        Math.min(6, Math.floor(columns) || DEFAULT_TEMPLATE_COLUMNS)
+    );
+    return Math.min(span ?? max, max) as FieldDefinition['span'];
+}
 
 function useClickOutside<T extends HTMLElement>(
     ref: React.RefObject<T | null>,
@@ -175,7 +190,9 @@ function FieldNumber({ field, index, value, onChange }: ViewProps) {
                 type="number"
                 className={styles.textInput}
                 placeholder={field.label}
-                value={value === undefined || value === null ? '' : String(value)}
+                value={
+                    value === undefined || value === null ? '' : String(value)
+                }
                 onChange={(e) =>
                     onChange?.(
                         e.target.value === ''
@@ -515,7 +532,9 @@ function FieldMultiSelect({ field, index, value, onChange }: ViewProps) {
     );
 
     const selectOption = (option: string) => {
-        onChange?.(selected.includes(option) ? selected : [...selected, option]);
+        onChange?.(
+            selected.includes(option) ? selected : [...selected, option]
+        );
         setQuery('');
         setOpen(true);
     };
@@ -670,9 +689,7 @@ function FieldTree({
                 edges={edges}
                 entryId={entry?.id ?? ''}
                 entryName={entry?.name ?? field.label}
-                allowedCategories={
-                    field.entitylinkCategories ?? ['character']
-                }
+                allowedCategories={field.entitylinkCategories ?? ['character']}
                 relations={getTreeRelations(field)}
                 characters={characters}
                 locations={locations}
@@ -686,39 +703,45 @@ function FieldTree({
 }
 
 export function TemplateFieldView(props: ViewProps) {
-    switch (props.field.type) {
+    const columns = props.columns ?? DEFAULT_TEMPLATE_COLUMNS;
+    const field = {
+        ...props.field,
+        span: clampSpan(props.field.span, columns),
+    };
+    const viewProps: ViewProps = { ...props, field, columns };
+    switch (field.type) {
         case 'text':
-            return <FieldText {...props} />;
+            return <FieldText {...viewProps} />;
         case 'textarea':
-            return <FieldTextArea {...props} />;
+            return <FieldTextArea {...viewProps} />;
         case 'richtext':
-            return <FieldRichText {...props} />;
+            return <FieldRichText {...viewProps} />;
         case 'number':
-            return <FieldNumber {...props} />;
+            return <FieldNumber {...viewProps} />;
         case 'range':
-            return <FieldRange {...props} />;
+            return <FieldRange {...viewProps} />;
         case 'select':
-            return <FieldSelect {...props} />;
+            return <FieldSelect {...viewProps} />;
         case 'multiselect':
-            return <FieldMultiSelect {...props} />;
+            return <FieldMultiSelect {...viewProps} />;
         case 'checkbox':
-            return <FieldCheckbox {...props} />;
+            return <FieldCheckbox {...viewProps} />;
         case 'toggle':
-            return <FieldToggle {...props} />;
+            return <FieldToggle {...viewProps} />;
         case 'date':
-            return <FieldDate {...props} />;
+            return <FieldDate {...viewProps} />;
         case 'color':
-            return <FieldColor {...props} />;
+            return <FieldColor {...viewProps} />;
         case 'file':
-            return <FieldFile {...props} />;
+            return <FieldFile {...viewProps} />;
         case 'portrait':
-            return <FieldPortrait {...props} />;
+            return <FieldPortrait {...viewProps} />;
         case 'images':
-            return <FieldImages {...props} />;
+            return <FieldImages {...viewProps} />;
         case 'entitylink':
-            return <FieldEntityLink {...props} />;
+            return <FieldEntityLink {...viewProps} />;
         case 'tree':
-            return <FieldTree {...props} />;
+            return <FieldTree {...viewProps} />;
         default:
             return null;
     }
@@ -731,12 +754,21 @@ export function TemplateFieldView(props: ViewProps) {
 function FieldEditHeader({
     field,
     index,
+    columns,
     inherited,
     onRemove,
     commitField,
-}: Pick<EditProps, 'field' | 'index' | 'inherited' | 'onRemove' | 'commitField'>) {
+}: Pick<
+    EditProps,
+    'field' | 'index' | 'columns' | 'inherited' | 'onRemove' | 'commitField'
+>) {
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(field.label);
+    const maxSpan = Math.max(
+        1,
+        Math.min(6, Math.floor(columns ?? DEFAULT_TEMPLATE_COLUMNS))
+    );
+    const spanOptions = Array.from({ length: maxSpan }, (_, i) => i + 1);
 
     const startEdit = () => {
         setDraft(field.label);
@@ -822,17 +854,20 @@ function FieldEditHeader({
             <label className={styles.spanControl}>
                 Span
                 <select
-                    value={field.span || 4}
+                    value={field.span ?? maxSpan}
                     onChange={(e) =>
                         commitField(index, {
-                            span: Number(e.target.value) as 1 | 2 | 3 | 4,
+                            span: Number(
+                                e.target.value
+                            ) as FieldDefinition['span'],
                         })
                     }
                 >
-                    <option value={1}>1</option>
-                    <option value={2}>2</option>
-                    <option value={3}>3</option>
-                    <option value={4}>4</option>
+                    {spanOptions.map((n) => (
+                        <option key={n} value={n}>
+                            {n}
+                        </option>
+                    ))}
                 </select>
             </label>
             <button
@@ -899,32 +934,30 @@ function EditBase({
     );
 }
 
-function EditShell(
-    props: EditProps & { children?: ReactNode }
-) {
+function EditShell(props: EditProps & { children?: ReactNode }) {
     const {
         field,
         index,
         fields,
+        columns,
         inherited,
         commitField,
         onRemove,
         children,
     } = props;
     return (
-        <div className={`${styles.tmplField} ${styles.tmplFieldEdit} ${styles.field}`}>
+        <div
+            className={`${styles.tmplField} ${styles.tmplFieldEdit} ${styles.field}`}
+        >
             <FieldEditHeader
                 field={field}
                 index={index}
+                columns={columns}
                 inherited={inherited}
                 onRemove={onRemove}
                 commitField={commitField}
             />
-            <EditBase
-                field={field}
-                index={index}
-                commitField={commitField}
-            />
+            <EditBase field={field} index={index} commitField={commitField} />
             {children}
             <VisibilityEditor
                 fields={fields}
@@ -1219,39 +1252,45 @@ function FieldTreeEdit(props: EditProps) {
 }
 
 export function TemplateFieldEdit(props: EditProps) {
-    switch (props.field.type) {
+    const columns = props.columns ?? DEFAULT_TEMPLATE_COLUMNS;
+    const field = {
+        ...props.field,
+        span: clampSpan(props.field.span, columns),
+    };
+    const editProps: EditProps = { ...props, field, columns };
+    switch (field.type) {
         case 'text':
-            return <FieldTextEdit {...props} />;
+            return <FieldTextEdit {...editProps} />;
         case 'textarea':
-            return <FieldTextAreaEdit {...props} />;
+            return <FieldTextAreaEdit {...editProps} />;
         case 'richtext':
-            return <FieldRichTextEdit {...props} />;
+            return <FieldRichTextEdit {...editProps} />;
         case 'number':
-            return <FieldNumberEdit {...props} />;
+            return <FieldNumberEdit {...editProps} />;
         case 'range':
-            return <FieldRangeEdit {...props} />;
+            return <FieldRangeEdit {...editProps} />;
         case 'select':
-            return <FieldSelectEdit {...props} />;
+            return <FieldSelectEdit {...editProps} />;
         case 'multiselect':
-            return <FieldMultiSelectEdit {...props} />;
+            return <FieldMultiSelectEdit {...editProps} />;
         case 'checkbox':
-            return <FieldCheckboxEdit {...props} />;
+            return <FieldCheckboxEdit {...editProps} />;
         case 'toggle':
-            return <FieldToggleEdit {...props} />;
+            return <FieldToggleEdit {...editProps} />;
         case 'date':
-            return <FieldDateEdit {...props} />;
+            return <FieldDateEdit {...editProps} />;
         case 'color':
-            return <FieldColorEdit {...props} />;
+            return <FieldColorEdit {...editProps} />;
         case 'file':
-            return <FieldFileEdit {...props} />;
+            return <FieldFileEdit {...editProps} />;
         case 'portrait':
-            return <FieldPortraitEdit {...props} />;
+            return <FieldPortraitEdit {...editProps} />;
         case 'images':
-            return <FieldImagesEdit {...props} />;
+            return <FieldImagesEdit {...editProps} />;
         case 'entitylink':
-            return <FieldEntityLinkEdit {...props} />;
+            return <FieldEntityLinkEdit {...editProps} />;
         case 'tree':
-            return <FieldTreeEdit {...props} />;
+            return <FieldTreeEdit {...editProps} />;
         default:
             return null;
     }

@@ -315,6 +315,7 @@ export const entityTemplates = sqliteTable('entity_templates', {
     projectId: text('project_id').references(() => projects.id),
     baseType: text('base_type').notNull(),
     customFields: text('custom_fields'),
+    columns: integer('columns'),
     createdAt: integer('created_at', { mode: 'timestamp' })
         .notNull()
         .$defaultFn(() => new Date()),

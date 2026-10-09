@@ -630,10 +630,12 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 projectId,
                 baseType,
                 customFields,
+                columns,
             }: {
                 projectId: string;
                 baseType: string;
-                customFields: templatesDB.FieldDefinition[];
+                customFields?: templatesDB.FieldDefinition[];
+                columns?: number | null;
             }) => {
                 return await templatesDB.upsertTemplate(
                     projectId,
@@ -643,7 +645,8 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                         | 'organization'
                         | 'item'
                         | 'lore',
-                    customFields
+                    customFields,
+                    columns
                 );
             },
             'db:get-timeline-events': async (projectId: string) => {

@@ -292,6 +292,7 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 		project_id TEXT REFERENCES projects(id),
 		base_type TEXT NOT NULL,
 		custom_fields TEXT,
+		columns INTEGER,
 		created_at INTEGER NOT NULL,
 		updated_at INTEGER NOT NULL
 	);
@@ -564,6 +565,7 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
             name: 'display_order',
             type: 'INTEGER NOT NULL DEFAULT 0',
         },
+        { table: 'entity_templates', name: 'columns', type: 'INTEGER' },
     ];
 
     for (const col of migrations) {

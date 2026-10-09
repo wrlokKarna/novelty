@@ -491,8 +491,12 @@ export type SeriesTemplateInput = {
 export type CompendiumCategory =
     'character' | 'location' | 'organization' | 'item' | 'lore';
 
+// Number of grid columns a template's fields are laid out in by default.
+export const DEFAULT_TEMPLATE_COLUMNS = 4;
+
 export type ResolvedTemplateInfo = {
     fields: FieldDefinition[];
+    columns: number;
     seriesTemplate: SeriesTemplate | null;
     projectTemplate: EntityTemplate | null;
 };
@@ -549,7 +553,7 @@ export type FieldDefinition = {
     // templates saved before ordering existed fall back to their stored
     // position, and get renumbered the first time the editor saves.
     order?: number;
-    span?: 1 | 2 | 3 | 4;
+    span?: 1 | 2 | 3 | 4 | 5 | 6;
     options?: string[];
     rangeMin?: number;
     rangeMax?: number;
@@ -564,6 +568,9 @@ export type EntityTemplate = {
     projectId: string | null;
     baseType: CompendiumCategory;
     customFields: FieldDefinition[];
+    // Grid column count for this project's layout. Null/absent falls back to
+    // DEFAULT_TEMPLATE_COLUMNS.
+    columns: number | null;
     createdAt: Date;
     updatedAt: Date;
 };
@@ -1099,7 +1106,8 @@ export type SelectorSchema = {
                 params: {
                     projectId: string;
                     baseType: CompendiumCategory;
-                    customFields: FieldDefinition[];
+                    customFields?: FieldDefinition[];
+                    columns?: number | null;
                 };
                 response: EntityTemplate;
             };

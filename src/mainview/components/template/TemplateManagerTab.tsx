@@ -15,6 +15,7 @@ import type {
     FieldDefinition,
     SeriesTemplate,
 } from '../../types/index';
+import { DEFAULT_TEMPLATE_COLUMNS } from '../../types/index';
 import TemplateField from './TemplateField';
 import styles from './TemplateManagerTab.module.css';
 
@@ -89,6 +90,18 @@ const FIELD_TYPE_GROUPS: {
 type AddTarget = 'project' | 'series';
 
 type FieldsByCategory = Partial<Record<CompendiumCategory, FieldDefinition[]>>;
+
+type ColumnsByCategory = Record<CompendiumCategory, number>;
+
+function defaultColumns(): ColumnsByCategory {
+    return {
+        character: DEFAULT_TEMPLATE_COLUMNS,
+        location: DEFAULT_TEMPLATE_COLUMNS,
+        organization: DEFAULT_TEMPLATE_COLUMNS,
+        item: DEFAULT_TEMPLATE_COLUMNS,
+        lore: DEFAULT_TEMPLATE_COLUMNS,
+    };
+}
 
 interface SeriesFields {
     exists: boolean;
@@ -172,6 +185,8 @@ export default function TemplateManagerTab({
     const rpc = useRPC();
     const [series, setSeries] = useState<SeriesByCategory>({});
     const [projectFields, setProjectFields] = useState<FieldsByCategory>({});
+    const [columnsByCategory, setColumnsByCategory] =
+        useState<ColumnsByCategory>(defaultColumns);
     const [activeCat, setActiveCat] = useState<CompendiumCategory>(
         initialCategory ?? 'character'
     );
@@ -188,6 +203,10 @@ export default function TemplateManagerTab({
     // separate from `projectFieldsRef` because the live list is mutated by
     // `onChange` before a commit, which would otherwise defeat change detection.
     const savedProjectRef = useRef<FieldsByCategory>({});
+    // Column count last persisted per category, used to detect layout changes
+    // independently of the field list.
+    const columnsRef = useRef<ColumnsByCategory>(defaultColumns());
+    const savedColumnsRef = useRef<ColumnsByCategory>(defaultColumns());
     const commitQueueRef = useRef<
         Partial<Record<CompendiumCategory, Promise<void>>>
     >({});
@@ -228,6 +247,16 @@ export default function TemplateManagerTab({
         const map = { ...seriesRef.current, [cat]: next };
         seriesRef.current = map;
         setSeries(map);
+    }
+
+    // Column count is project layout, so it rides the same project write as the
+    // field list; commitMerged detects the change and persists it even when no
+    // field was touched.
+    function setColumnsFor(cat: CompendiumCategory, columns: number) {
+        const map = { ...columnsRef.current, [cat]: columns };
+        columnsRef.current = map;
+        setColumnsByCategory(map);
+        commitMerged(cat, projectFieldsRef.current[cat] ?? []);
     }
 
     function scheduleNotify() {
@@ -368,10 +397,11 @@ export default function TemplateManagerTab({
             // Compare against the last *persisted* payload, not the live list:
             // `onChange` has already folded these edits into `projectFieldsRef`,
             // so comparing against it would always look unchanged.
-            const projectChanged = !fieldsEqual(
-                savedProjectRef.current[cat] ?? [],
-                nextProject
-            );
+            const columnsChanged =
+                columnsRef.current[cat] !== savedColumnsRef.current[cat];
+            const projectChanged =
+                columnsChanged ||
+                !fieldsEqual(savedProjectRef.current[cat] ?? [], nextProject);
 
             if (seriesChanged) {
                 if (nextSeries.length === 0) {
@@ -403,14 +433,20 @@ export default function TemplateManagerTab({
             }
 
             if (projectChanged) {
+                const columns = columnsRef.current[cat];
                 await rpc.request['db:save-template']({
                     projectId,
                     baseType: cat,
                     customFields: nextProject,
+                    columns,
                 });
                 savedProjectRef.current = {
                     ...savedProjectRef.current,
                     [cat]: nextProject,
+                };
+                savedColumnsRef.current = {
+                    ...savedColumnsRef.current,
+                    [cat]: columns,
                 };
             }
         });
@@ -437,6 +473,7 @@ export default function TemplateManagerTab({
 
             const nextProject: FieldsByCategory = {};
             const nextSavedProject: FieldsByCategory = {};
+            const nextColumns = defaultColumns();
             CATEGORIES.forEach((cat, i) => {
                 const stored = results[i]?.projectTemplate?.customFields || [];
                 nextProject[cat] = fullMerge(
@@ -446,13 +483,18 @@ export default function TemplateManagerTab({
                 // The raw stored payload, not the merged view, is what a later
                 // commit must diff against to know whether anything changed.
                 nextSavedProject[cat] = stored;
+                nextColumns[cat] =
+                    results[i]?.columns ?? DEFAULT_TEMPLATE_COLUMNS;
             });
 
             seriesRef.current = nextSeries;
             projectFieldsRef.current = nextProject;
             savedProjectRef.current = nextSavedProject;
+            columnsRef.current = nextColumns;
+            savedColumnsRef.current = nextColumns;
             setSeries(nextSeries);
             setProjectFields(nextProject);
+            setColumnsByCategory(nextColumns);
             setLoadNonce((n) => n + 1);
         } catch (e) {
             console.error('Failed to load templates:', e);
@@ -646,9 +688,45 @@ export default function TemplateManagerTab({
                     turning one off here only affects this project. Changes save
                     automatically.
                 </p>
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        margin: '0 0 0.75rem 0',
+                        fontSize: '0.85em',
+                        color: '#ccc',
+                    }}
+                >
+                    <label
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                        }}
+                    >
+                        Columns
+                        <select
+                            value={
+                                columnsByCategory[cat] ??
+                                DEFAULT_TEMPLATE_COLUMNS
+                            }
+                            onChange={(e) =>
+                                setColumnsFor(cat, Number(e.target.value))
+                            }
+                        >
+                            {[1, 2, 3, 4, 5, 6].map((n) => (
+                                <option key={n} value={n}>
+                                    {n}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                </div>
                 <ProjectFieldsEditor
                     key={`merged:${cat}:${loadNonce}`}
                     fields={fields}
+                    columns={columnsByCategory[cat] ?? DEFAULT_TEMPLATE_COLUMNS}
                     onChange={(next) => setProjectFieldsFor(cat, next)}
                     onCommit={(next) => commitMerged(cat, next)}
                     onRemove={(index) => removeField(cat, index)}
@@ -1063,12 +1141,14 @@ function useFieldEditorHandlers({
 
 function ProjectFieldsEditor({
     fields,
+    columns,
     onChange,
     onCommit,
     onRemove,
     inheritedNames,
 }: {
     fields: FieldDefinition[];
+    columns: number;
     onChange: (fields: FieldDefinition[]) => void;
     onCommit: (fields: FieldDefinition[]) => void;
     onRemove: (index: number) => void;
@@ -1076,6 +1156,7 @@ function ProjectFieldsEditor({
 }) {
     const [dragIndex, setDragIndex] = useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+    const maxSpan = Math.max(1, Math.min(6, Math.floor(columns) || 1));
 
     const {
         editField,
@@ -1126,14 +1207,14 @@ function ProjectFieldsEditor({
                 <div
                     style={{
                         display: 'grid',
-                        gridTemplateColumns:
-                            'repeat(auto-fill, minmax(420px, 1fr))',
+                        gridTemplateColumns: `repeat(${maxSpan}, minmax(0, 1fr))`,
                         gap: '12px',
                     }}
                 >
                     {fields.map((field, index) => {
                         const isOver =
                             dragOverIndex === index && dragIndex !== index;
+                        const span = Math.min(field.span ?? maxSpan, maxSpan);
                         return (
                             <div
                                 key={`${field.name}-${index}`}
@@ -1144,6 +1225,7 @@ function ProjectFieldsEditor({
                                 onDrop={() => handleDrop(index)}
                                 onDragEnd={handleDragEnd}
                                 style={{
+                                    gridColumn: `span ${span}`,
                                     border: `1px solid ${
                                         isOver ? '#4A9EFF' : 'transparent'
                                     }`,
@@ -1158,6 +1240,7 @@ function ProjectFieldsEditor({
                                     field={field}
                                     index={index}
                                     fields={fields}
+                                    columns={maxSpan}
                                     inherited={isInherited(field.name)}
                                     editField={editField}
                                     commitField={commitField}
