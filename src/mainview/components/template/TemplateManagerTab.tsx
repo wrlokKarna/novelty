@@ -343,11 +343,17 @@ export default function TemplateManagerTab({
     // lets a project field sit between two series fields.
     function commitMerged(
         cat: CompendiumCategory,
-        fields: FieldDefinition[]
+        fields: FieldDefinition[],
+        forceSeriesNames?: Set<string>
     ): Promise<void> {
         return enqueueCommit(cat, async () => {
             const seriesFields = seriesRef.current[cat]?.fields ?? [];
             const inherited = getSeriesInheritedNames(seriesFields);
+            // A field being added as a series field is not in the series list
+            // yet, so name-collision routing would send it to the project. Mark
+            // it once so this first write lands in the series template.
+            if (forceSeriesNames)
+                for (const name of forceSeriesNames) inherited.add(name);
             const seriesByName = new Map(
                 seriesFields.map((f) => [f.name, f] as const)
             );
@@ -633,13 +639,35 @@ export default function TemplateManagerTab({
         const field = buildFieldDefinition(newFieldName.trim(), newFieldType);
 
         if (addTarget === 'series' && !seriesId) return;
+
+        // Ownership is keyed by field name, so a second field with the same
+        // name cannot be represented. The merged list covers both scopes; the
+        // series check only picks the wording.
+        const merged = projectFieldsRef.current[cat] ?? [];
+        const existing = merged.find((f) => f.name === field.name);
+        if (existing) {
+            const inSeries = getSeriesInheritedNames(
+                seriesRef.current[cat]?.fields ?? null
+            ).has(field.name);
+            showToast(
+                inSeries
+                    ? `"${existing.label || existing.name}" is already a series field.`
+                    : `"${existing.label || existing.name}" already exists in this project.`
+            );
+            return;
+        }
+
         setAddingField(true);
         try {
             // Appending is the only time a field's order is chosen rather than
             // inherited, so it goes to the end of the merged list.
-            const next = [...(projectFieldsRef.current[cat] ?? []), field];
+            const next = [...merged, field];
             setProjectFieldsFor(cat, next);
-            await commitMerged(cat, next);
+            await commitMerged(
+                cat,
+                next,
+                addTarget === 'series' ? new Set([field.name]) : undefined
+            );
             resetAddCard();
         } finally {
             setAddingField(false);
