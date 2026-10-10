@@ -8,7 +8,6 @@ import type {
     CompendiumCategory,
     EntityTemplate,
 } from '../types/index';
-import { IconX } from '@tabler/icons-react';
 import { isFieldVisible } from '../templates/fieldVisibility';
 import TemplateTab from './template/TemplateTab';
 
@@ -48,44 +47,8 @@ export default function CompendiumEntryEditor({
         isFieldVisible(f, templateData)
     );
 
-    const portraitFields = fields.filter((f) => f.type === 'portrait');
-    const imagesFields = fields.filter((f) => f.type === 'images');
-    const regularFields = fields.filter(
-        (f) => f.type !== 'portrait' && f.type !== 'images'
-    );
-    const hasSidebar = portraitFields.length > 0 || imagesFields.length > 0;
-
-    const [showPortraitOptions, setShowPortraitOptions] = useState<
-        string | null
-    >(null);
-
     function handleFieldUpdate(fieldName: string, value: unknown) {
         onUpdate('templateData', { ...templateData, [fieldName]: value });
-    }
-
-    function handlePortraitFile(fieldName: string, file: File) {
-        const reader = new FileReader();
-        reader.onload = () => {
-            handleFieldUpdate(fieldName, reader.result as string);
-        };
-        reader.readAsDataURL(file);
-    }
-
-    function handleGalleryFile(fieldName: string, file: File) {
-        const reader = new FileReader();
-        reader.onload = () => {
-            const current = (templateData[fieldName] as string[]) || [];
-            handleFieldUpdate(fieldName, [...current, reader.result as string]);
-        };
-        reader.readAsDataURL(file);
-    }
-
-    function removeGalleryImage(fieldName: string, index: number) {
-        const current = (templateData[fieldName] as string[]) || [];
-        handleFieldUpdate(
-            fieldName,
-            current.filter((_, i) => i !== index)
-        );
     }
 
     const [entryLabel, setEntryLabel] = useState(entry.name);
@@ -122,14 +85,10 @@ export default function CompendiumEntryEditor({
                     )}
                 </div>
             ) : (
-                <div
-                    className={`entry-content-grid${
-                        hasSidebar ? ' has-sidebar' : ''
-                    }`}
-                >
+                <div className="entry-content-grid">
                     <div className="entry-fields-column">
                         <TemplateTab
-                            tmplFields={regularFields}
+                            tmplFields={fields}
                             templateData={templateData}
                             columns={columns}
                             onUpdate={handleFieldUpdate}
@@ -141,206 +100,6 @@ export default function CompendiumEntryEditor({
                             loreEntries={loreEntries}
                         />
                     </div>
-
-                    {hasSidebar && (
-                        <div className="entry-sidebar-column">
-                            {portraitFields.map((field) => {
-                                const portraitValue = templateData?.[
-                                    field.name
-                                ] as string | null | undefined;
-                                return (
-                                    <div
-                                        key={field.name}
-                                        className="sidebar-section"
-                                    >
-                                        <div className="section-label">
-                                            {field.label.toUpperCase()}
-                                        </div>
-                                        <div className="portrait-box">
-                                            {portraitValue ? (
-                                                <img
-                                                    src={portraitValue}
-                                                    alt={field.label}
-                                                    className="portrait-image"
-                                                />
-                                            ) : (
-                                                <span className="portrait-placeholder">
-                                                    No{' '}
-                                                    {field.label.toLowerCase()}{' '}
-                                                    yet
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="portrait-controls">
-                                            <div className="portrait-options-wrapper">
-                                                <button
-                                                    className="icon-btn"
-                                                    title="Options"
-                                                    onClick={() =>
-                                                        setShowPortraitOptions(
-                                                            showPortraitOptions ===
-                                                                field.name
-                                                                ? null
-                                                                : field.name
-                                                        )
-                                                    }
-                                                >
-                                                    ⋮
-                                                </button>
-                                                {showPortraitOptions ===
-                                                    field.name && (
-                                                    <div className="portrait-dropdown">
-                                                        {portraitValue && (
-                                                            <button
-                                                                onClick={() => {
-                                                                    handleFieldUpdate(
-                                                                        field.name,
-                                                                        null
-                                                                    );
-                                                                    setShowPortraitOptions(
-                                                                        null
-                                                                    );
-                                                                }}
-                                                            >
-                                                                Remove
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="portrait-pagination">
-                                                {/* Portrait field */}
-                                            </div>
-                                            <button
-                                                className="icon-btn"
-                                                title={`Add ${field.label}`}
-                                                onClick={() => {
-                                                    const input =
-                                                        document.createElement(
-                                                            'input'
-                                                        );
-                                                    input.type = 'file';
-                                                    input.accept = 'image/*';
-                                                    input.onchange = (
-                                                        e: Event
-                                                    ) => {
-                                                        const file = (
-                                                            e.target as HTMLInputElement
-                                                        ).files?.[0];
-                                                        if (file)
-                                                            handlePortraitFile(
-                                                                field.name,
-                                                                file
-                                                            );
-                                                    };
-                                                    input.click();
-                                                }}
-                                            >
-                                                +
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-
-                            {imagesFields.map((field) => {
-                                const images =
-                                    (templateData?.[field.name] as string[]) ||
-                                    [];
-                                return (
-                                    <div
-                                        key={field.name}
-                                        className="sidebar-section"
-                                    >
-                                        <div className="section-label">
-                                            {field.label.toUpperCase()}
-                                        </div>
-                                        {images.length > 0 ? (
-                                            <div className="asset-list">
-                                                {images.map((img, i) => (
-                                                    <div
-                                                        key={i}
-                                                        className="asset-item"
-                                                        style={{
-                                                            flexDirection:
-                                                                'column',
-                                                            gap: '6px',
-                                                        }}
-                                                    >
-                                                        <img
-                                                            src={img}
-                                                            alt={`${field.label} ${i + 1}`}
-                                                            className="gallery-thumb"
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            className="icon-btn"
-                                                            onClick={() =>
-                                                                removeGalleryImage(
-                                                                    field.name,
-                                                                    i
-                                                                )
-                                                            }
-                                                        >
-                                                            <IconX size={14} />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <div
-                                                className="portrait-box"
-                                                style={{
-                                                    minHeight: '60px',
-                                                    marginBottom: '6px',
-                                                }}
-                                            >
-                                                <span className="portrait-placeholder">
-                                                    No{' '}
-                                                    {field.label.toLowerCase()}{' '}
-                                                    yet
-                                                </span>
-                                            </div>
-                                        )}
-                                        <div
-                                            className="portrait-controls"
-                                            style={{
-                                                justifyContent: 'flex-end',
-                                            }}
-                                        >
-                                            <button
-                                                className="icon-btn"
-                                                title={`Add ${field.label}`}
-                                                onClick={() => {
-                                                    const input =
-                                                        document.createElement(
-                                                            'input'
-                                                        );
-                                                    input.type = 'file';
-                                                    input.accept = 'image/*';
-                                                    input.onchange = (
-                                                        e: Event
-                                                    ) => {
-                                                        const file = (
-                                                            e.target as HTMLInputElement
-                                                        ).files?.[0];
-                                                        if (file)
-                                                            handleGalleryFile(
-                                                                field.name,
-                                                                file
-                                                            );
-                                                    };
-                                                    input.click();
-                                                }}
-                                            >
-                                                +
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
                 </div>
             )}
         </div>
