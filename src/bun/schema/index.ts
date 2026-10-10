@@ -302,6 +302,7 @@ export const seriesTemplates = sqliteTable('series_templates', {
         .references(() => series.id, { onDelete: 'cascade' }),
     baseType: text('base_type').notNull(),
     customFields: text('custom_fields'),
+    layout: text('layout'),
     createdAt: integer('created_at', { mode: 'timestamp' })
         .notNull()
         .$defaultFn(() => new Date()),
@@ -315,7 +316,7 @@ export const entityTemplates = sqliteTable('entity_templates', {
     projectId: text('project_id').references(() => projects.id),
     baseType: text('base_type').notNull(),
     customFields: text('custom_fields'),
-    columns: integer('columns'),
+    layout: text('layout'),
     createdAt: integer('created_at', { mode: 'timestamp' })
         .notNull()
         .$defaultFn(() => new Date()),

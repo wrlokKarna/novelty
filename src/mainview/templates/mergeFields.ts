@@ -1,24 +1,5 @@
-import type { FieldDefinition } from '../types';
-
-// Orders a merged field list. Series and project rows share one order space so
-// they can interleave freely; `order` is assigned on save and renumbered from
-// the list position each time.
-//
-// Fields saved before `order` existed have none, so they fall back to their
-// existing position via `index`. A list where nothing carries an `order` is the
-// common case and is returned untouched, which keeps legacy templates in
-// exactly the order they were stored in.
-export function sortByOrder<T extends { order?: number }>(fields: T[]): T[] {
-    if (fields.every((f) => f.order === undefined)) return fields;
-    return fields
-        .map((f, index) => ({ f, index }))
-        .sort((a, b) => {
-            const ao = a.f.order ?? a.index;
-            const bo = b.f.order ?? b.index;
-            return ao === bo ? a.index - b.index : ao - bo;
-        })
-        .map((x) => x.f);
-}
+import type { FieldDefinition, ResolvedField, TemplateLayout } from '../types';
+import { DEFAULT_TEMPLATE_COLUMNS } from '../types';
 
 // Series fields are keyed by name, so a project override is recognised purely by
 // name collision with the series template for its category. Callers pass the
@@ -31,13 +12,19 @@ export function getSeriesInheritedNames(
     return new Set(seriesFields.map((f) => f.name));
 }
 
+// Merges the definitions only. The series row is the definition of record for an
+// inherited name; a project row for that name only carries this project's on/off
+// choice. Order and width are layout concerns, applied separately by
+// `orderByLayout` / `applySpans`. The returned list is the fallback order for a
+// template that has no saved layout: series fields in their stored order, then
+// project-only fields.
 export function mergeSeriesFields(
     fields: FieldDefinition[],
     seriesFields: FieldDefinition[] | null | undefined
 ): FieldDefinition[] {
     const inherited = getSeriesInheritedNames(seriesFields);
     const nonInherited = fields.filter((f) => !inherited.has(f.name));
-    if (!seriesFields || inherited.size === 0) return sortByOrder(nonInherited);
+    if (!seriesFields || inherited.size === 0) return nonInherited;
 
     const savedOverrides = new Map(
         fields
@@ -46,22 +33,73 @@ export function mergeSeriesFields(
     );
 
     const inheritedFields = seriesFields.map((f) => {
-        // The series row is the definition of record. A project override only
-        // carries this project's on/off choice for it, so the definition and the
-        // ordering are always taken from the series - otherwise a later series
-        // edit would be masked by the stale copy stored in the project template.
         const merged: FieldDefinition = { ...f, disabled: false };
-        if (f.order === undefined) delete merged.order;
         if (savedOverrides.get(f.name)?.disabled) merged.disabled = true;
         return merged;
     });
 
-    return sortByOrder([...inheritedFields, ...nonInherited]);
+    return [...inheritedFields, ...nonInherited];
 }
 
-export function fullMerge(
-    fields: FieldDefinition[],
-    seriesFields: FieldDefinition[] | null | undefined
-): FieldDefinition[] {
-    return mergeSeriesFields(fields, seriesFields);
+export const fullMerge = mergeSeriesFields;
+
+export function emptyLayout(
+    columns: number = DEFAULT_TEMPLATE_COLUMNS
+): TemplateLayout {
+    return { order: [], spans: {}, columns };
+}
+
+// Reorders `defs` to match `order` by name. Names the list does not mention (a
+// field added after the layout was saved, or a template that predates layouts)
+// keep their incoming relative order and are appended, so nothing is dropped.
+export function orderByLayout<T extends { name: string }>(
+    defs: T[],
+    order: string[] | null | undefined
+): T[] {
+    if (!order?.length) return defs;
+    const rank = new Map(order.map((name, i) => [name, i] as const));
+    return defs
+        .map((def, index) => ({ def, index }))
+        .sort((a, b) => {
+            const ar = rank.get(a.def.name);
+            const br = rank.get(b.def.name);
+            if (ar === undefined && br === undefined) return a.index - b.index;
+            if (ar === undefined) return 1;
+            if (br === undefined) return -1;
+            return ar === br ? a.index - b.index : ar - br;
+        })
+        .map((x) => x.def);
+}
+
+// The effective, project-authoritative layout. The project's order and spans
+// win; the series only supplies defaults for names the project has not placed,
+// and only when the project has no order of its own.
+export function effectiveLayout(
+    projectLayout: TemplateLayout | null | undefined,
+    seriesLayout: TemplateLayout | null | undefined
+): TemplateLayout {
+    const order = projectLayout?.order?.length
+        ? projectLayout.order
+        : (seriesLayout?.order ?? []);
+    const spans = {
+        ...(seriesLayout?.spans ?? {}),
+        ...(projectLayout?.spans ?? {}),
+    };
+    const columns =
+        projectLayout?.columns ??
+        seriesLayout?.columns ??
+        DEFAULT_TEMPLATE_COLUMNS;
+    return { order: [...order], spans, columns };
+}
+
+// Attaches the width the layout assigns to each field. A name with no stored
+// span is left `undefined` so the renderer falls back to a full row.
+export function applySpans(
+    defs: FieldDefinition[],
+    layout: TemplateLayout
+): ResolvedField[] {
+    return defs.map((def) => {
+        const span = layout.spans[def.name];
+        return span ? { ...def, span } : { ...def };
+    });
 }

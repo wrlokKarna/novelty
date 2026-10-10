@@ -9,13 +9,23 @@ import { TREE_PRESETS, normalizeTreeFields } from '../../templates/tree';
 import {
     getSeriesInheritedNames,
     fullMerge,
+    emptyLayout,
 } from '../../templates/mergeFields';
+import { autoArrangeLayout } from '../../templates/autoArrange';
 import type {
     CompendiumCategory,
     FieldDefinition,
     SeriesTemplate,
+    TemplateLayout,
+    TemplateSpan,
 } from '../../types/index';
 import { DEFAULT_TEMPLATE_COLUMNS } from '../../types/index';
+import {
+    useLayoutEngine,
+    type LayoutEngineId,
+} from '../../hooks/useLayoutEngine';
+import { FieldLayoutGrid } from './layout/FieldLayoutGrid';
+import { LayoutToolbar } from './layout/LayoutToolbar';
 import TemplateField from './TemplateField';
 import styles from './TemplateManagerTab.module.css';
 
@@ -91,16 +101,27 @@ type AddTarget = 'project' | 'series';
 
 type FieldsByCategory = Partial<Record<CompendiumCategory, FieldDefinition[]>>;
 
-type ColumnsByCategory = Record<CompendiumCategory, number>;
+type LayoutsByCategory = Partial<Record<CompendiumCategory, TemplateLayout>>;
 
-function defaultColumns(): ColumnsByCategory {
+function defaultLayouts(): LayoutsByCategory {
+    const layout = emptyLayout(DEFAULT_TEMPLATE_COLUMNS);
     return {
-        character: DEFAULT_TEMPLATE_COLUMNS,
-        location: DEFAULT_TEMPLATE_COLUMNS,
-        organization: DEFAULT_TEMPLATE_COLUMNS,
-        item: DEFAULT_TEMPLATE_COLUMNS,
-        lore: DEFAULT_TEMPLATE_COLUMNS,
+        character: layout,
+        location: layout,
+        organization: layout,
+        item: layout,
+        lore: layout,
     };
+}
+
+// Layout is a nested object, so `===` can never detect changes; reuse the same
+// key-sorted serialiser as `fieldsEqual`.
+function layoutsEqual(
+    a: TemplateLayout | null | undefined,
+    b: TemplateLayout | null | undefined
+): boolean {
+    if (!a || !b) return a === b;
+    return stableStringify(a) === stableStringify(b);
 }
 
 interface SeriesFields {
@@ -183,10 +204,11 @@ export default function TemplateManagerTab({
     initialCategory,
 }: TemplateManagerTabProps) {
     const rpc = useRPC();
+    const { engine, setEngine } = useLayoutEngine();
     const [series, setSeries] = useState<SeriesByCategory>({});
     const [projectFields, setProjectFields] = useState<FieldsByCategory>({});
-    const [columnsByCategory, setColumnsByCategory] =
-        useState<ColumnsByCategory>(defaultColumns);
+    const [layoutsByCategory, setLayoutsByCategory] =
+        useState<LayoutsByCategory>(defaultLayouts);
     const [activeCat, setActiveCat] = useState<CompendiumCategory>(
         initialCategory ?? 'character'
     );
@@ -203,10 +225,11 @@ export default function TemplateManagerTab({
     // separate from `projectFieldsRef` because the live list is mutated by
     // `onChange` before a commit, which would otherwise defeat change detection.
     const savedProjectRef = useRef<FieldsByCategory>({});
-    // Column count last persisted per category, used to detect layout changes
-    // independently of the field list.
-    const columnsRef = useRef<ColumnsByCategory>(defaultColumns());
-    const savedColumnsRef = useRef<ColumnsByCategory>(defaultColumns());
+    // Layout last persisted per category, used to detect layout changes
+    // independently of the field list. The project owns the effective layout,
+    // so reordering or resizing here always rewrites the project template.
+    const layoutRef = useRef<LayoutsByCategory>(defaultLayouts());
+    const savedLayoutRef = useRef<LayoutsByCategory>(defaultLayouts());
     const commitQueueRef = useRef<
         Partial<Record<CompendiumCategory, Promise<void>>>
     >({});
@@ -224,6 +247,11 @@ export default function TemplateManagerTab({
     const notifyTimerRef = useRef<number | null>(null);
     const savedTimerRef = useRef<number | null>(null);
     const toastTimerRef = useRef<number | null>(null);
+    // Debounced layout writes: resizing the right edge fires many span changes
+    // in quick succession, so persistence is batched until the drag settles.
+    const spanCommitTimerRef = useRef<
+        Partial<Record<CompendiumCategory, number>>
+    >({});
 
     const [showAddCard, setShowAddCard] = useState(false);
     const [addTarget, setAddTarget] = useState<AddTarget>('project');
@@ -252,11 +280,48 @@ export default function TemplateManagerTab({
     // Column count is project layout, so it rides the same project write as the
     // field list; commitMerged detects the change and persists it even when no
     // field was touched.
-    function setColumnsFor(cat: CompendiumCategory, columns: number) {
-        const map = { ...columnsRef.current, [cat]: columns };
-        columnsRef.current = map;
-        setColumnsByCategory(map);
+    // Layout rides the same project write as the field list; commitMerged
+    // detects a change and persists it even when no field was touched.
+    function patchLayoutOnly(
+        cat: CompendiumCategory,
+        patch: Partial<TemplateLayout>
+    ) {
+        const cur = layoutRef.current[cat] ?? emptyLayout();
+        const next = { ...cur, ...patch };
+        const map = { ...layoutRef.current, [cat]: next };
+        layoutRef.current = map;
+        setLayoutsByCategory(map);
+    }
+
+    function patchLayout(
+        cat: CompendiumCategory,
+        patch: Partial<TemplateLayout>
+    ) {
+        patchLayoutOnly(cat, patch);
         commitMerged(cat, projectFieldsRef.current[cat] ?? []);
+    }
+
+    // Resize spans update layout state immediately for live reflow, but the db
+    // write is debounced so a single drag composes one save.
+    function scheduleSpanCommit(cat: CompendiumCategory) {
+        if (spanCommitTimerRef.current[cat] !== undefined) {
+            window.clearTimeout(spanCommitTimerRef.current[cat]);
+        }
+        spanCommitTimerRef.current[cat] = window.setTimeout(() => {
+            spanCommitTimerRef.current[cat] = undefined;
+            commitMerged(cat, projectFieldsRef.current[cat] ?? []);
+        }, 400);
+    }
+
+    function layoutFor(cat: CompendiumCategory): TemplateLayout {
+        return layoutsByCategory[cat] ?? emptyLayout();
+    }
+
+    function autoArrange(cat: CompendiumCategory) {
+        const fields = projectFieldsRef.current[cat] ?? [];
+        const columns =
+            layoutRef.current[cat]?.columns ?? DEFAULT_TEMPLATE_COLUMNS;
+        patchLayout(cat, autoArrangeLayout(fields, columns));
     }
 
     function scheduleNotify() {
@@ -285,6 +350,14 @@ export default function TemplateManagerTab({
             if (notifyTimerRef.current !== null) {
                 window.clearTimeout(notifyTimerRef.current);
                 notifyTimerRef.current = null;
+            }
+            // The flush above diffs against the refs, so it already picks up
+            // any debounced span edit; just disarm the timers first.
+            for (const cat of CATEGORIES) {
+                if (spanCommitTimerRef.current[cat] !== undefined) {
+                    window.clearTimeout(spanCommitTimerRef.current[cat]);
+                    spanCommitTimerRef.current[cat] = undefined;
+                }
             }
             Promise.allSettled(flushed).then(() => notifyRef.current());
         },
@@ -338,9 +411,9 @@ export default function TemplateManagerTab({
 
     // The editor shows one merged list, so a single commit can touch both tables.
     // Each row is routed by name: rows owned by the series template go there,
-    // everything else goes to the project. Both payloads are renumbered from the
-    // merged position so the two tables share one total order, which is what
-    // lets a project field sit between two series fields.
+    // everything else goes to the project. Display order no longer lives in the
+    // field rows - it is the project layout's `order` list, so moving a field
+    // here only rewrites the project layout, never the series template.
     function commitMerged(
         cat: CompendiumCategory,
         fields: FieldDefinition[],
@@ -357,10 +430,9 @@ export default function TemplateManagerTab({
             const seriesByName = new Map(
                 seriesFields.map((f) => [f.name, f] as const)
             );
-            const numbered = fields.map((f, i) => ({ ...f, order: i }));
 
             // --- series payload ---
-            const nextSeries = numbered
+            const nextSeries = fields
                 .filter((f) => inherited.has(f.name))
                 .map((f) => {
                     // A row this project has disabled still belongs to the
@@ -385,28 +457,28 @@ export default function TemplateManagerTab({
                 merged
                     .filter((f) => !inherited.has(f.name) || f.disabled)
                     .filter((f) => f.name.trim() && f.label.trim())
-                    .map((f) =>
-                        // Ordering an inherited field is the series' job, so the
-                        // stored override carries only this project's choice.
-                        inherited.has(f.name) ? withoutKey(f, 'order') : f
-                    );
-            const nextProject = projectPayload(numbered);
+                    .map((f) => f);
+            const nextProject = projectPayload(fields);
 
             // Materialise the order locally so the list keeps rendering exactly
-            // what was just committed, including text still mid-edit.
+            // what was just committed, including text still mid-edit. Display
+            // order now belongs to the layout, so the array itself is unchanged
+            // - this only syncs the live list when an edit landed.
             const mergedNow = projectFieldsRef.current[cat] ?? [];
-            if (!fieldsEqual(mergedNow, numbered))
-                setProjectFieldsFor(cat, numbered);
+            if (!fieldsEqual(mergedNow, fields))
+                setProjectFieldsFor(cat, fields);
 
             const seriesChanged =
                 !!seriesId && !fieldsEqual(seriesFields, nextSeries);
             // Compare against the last *persisted* payload, not the live list:
             // `onChange` has already folded these edits into `projectFieldsRef`,
             // so comparing against it would always look unchanged.
-            const columnsChanged =
-                columnsRef.current[cat] !== savedColumnsRef.current[cat];
+            const layoutChanged = !layoutsEqual(
+                savedLayoutRef.current[cat],
+                layoutRef.current[cat]
+            );
             const projectChanged =
-                columnsChanged ||
+                layoutChanged ||
                 !fieldsEqual(savedProjectRef.current[cat] ?? [], nextProject);
 
             if (seriesChanged) {
@@ -439,20 +511,20 @@ export default function TemplateManagerTab({
             }
 
             if (projectChanged) {
-                const columns = columnsRef.current[cat];
+                const layout = layoutRef.current[cat] ?? emptyLayout();
                 await rpc.request['db:save-template']({
                     projectId,
                     baseType: cat,
                     customFields: nextProject,
-                    columns,
+                    layout,
                 });
                 savedProjectRef.current = {
                     ...savedProjectRef.current,
                     [cat]: nextProject,
                 };
-                savedColumnsRef.current = {
-                    ...savedColumnsRef.current,
-                    [cat]: columns,
+                savedLayoutRef.current = {
+                    ...savedLayoutRef.current,
+                    [cat]: layout,
                 };
             }
         });
@@ -479,7 +551,7 @@ export default function TemplateManagerTab({
 
             const nextProject: FieldsByCategory = {};
             const nextSavedProject: FieldsByCategory = {};
-            const nextColumns = defaultColumns();
+            const nextLayouts = defaultLayouts();
             CATEGORIES.forEach((cat, i) => {
                 const stored = results[i]?.projectTemplate?.customFields || [];
                 nextProject[cat] = fullMerge(
@@ -489,18 +561,25 @@ export default function TemplateManagerTab({
                 // The raw stored payload, not the merged view, is what a later
                 // commit must diff against to know whether anything changed.
                 nextSavedProject[cat] = stored;
-                nextColumns[cat] =
-                    results[i]?.columns ?? DEFAULT_TEMPLATE_COLUMNS;
+                // `results[i].layout` is already the effective
+                // (project-authoritative) layout, which is exactly what the
+                // editor should show and own from here on.
+                nextLayouts[cat] = {
+                    ...emptyLayout(
+                        results[i]?.columns ?? DEFAULT_TEMPLATE_COLUMNS
+                    ),
+                    ...(results[i]?.layout ?? null),
+                };
             });
 
             seriesRef.current = nextSeries;
             projectFieldsRef.current = nextProject;
             savedProjectRef.current = nextSavedProject;
-            columnsRef.current = nextColumns;
-            savedColumnsRef.current = nextColumns;
+            layoutRef.current = nextLayouts;
+            savedLayoutRef.current = nextLayouts;
             setSeries(nextSeries);
             setProjectFields(nextProject);
-            setColumnsByCategory(nextColumns);
+            setLayoutsByCategory(nextLayouts);
             setLoadNonce((n) => n + 1);
         } catch (e) {
             console.error('Failed to load templates:', e);
@@ -700,6 +779,8 @@ export default function TemplateManagerTab({
         const fields = projectFields[cat] ?? [];
         const inherited = getSeriesInheritedNames(series[cat]?.fields ?? null);
         const sharedCount = series[cat]?.fields.length ?? 0;
+        const layout = layoutFor(cat);
+        const columns = layout.columns ?? DEFAULT_TEMPLATE_COLUMNS;
 
         return (
             <div>
@@ -716,47 +797,33 @@ export default function TemplateManagerTab({
                     turning one off here only affects this project. Changes save
                     automatically.
                 </p>
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        margin: '0 0 0.75rem 0',
-                        fontSize: '0.85em',
-                        color: '#ccc',
-                    }}
-                >
-                    <label
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.35rem',
-                        }}
-                    >
-                        Columns
-                        <select
-                            value={
-                                columnsByCategory[cat] ??
-                                DEFAULT_TEMPLATE_COLUMNS
-                            }
-                            onChange={(e) =>
-                                setColumnsFor(cat, Number(e.target.value))
-                            }
-                        >
-                            {[1, 2, 3, 4, 5, 6].map((n) => (
-                                <option key={n} value={n}>
-                                    {n}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
+                <div style={{ margin: '0 0 0.75rem 0' }}>
+                    <LayoutToolbar
+                        columns={columns}
+                        onColumns={(n) => patchLayout(cat, { columns: n })}
+                        onAutoArrange={() => autoArrange(cat)}
+                        engine={engine}
+                        onEngineChange={setEngine}
+                    />
                 </div>
                 <ProjectFieldsEditor
                     key={`merged:${cat}:${loadNonce}`}
                     fields={fields}
-                    columns={columnsByCategory[cat] ?? DEFAULT_TEMPLATE_COLUMNS}
+                    layout={layout}
+                    columns={columns}
+                    engine={engine}
                     onChange={(next) => setProjectFieldsFor(cat, next)}
                     onCommit={(next) => commitMerged(cat, next)}
+                    onOrderChange={(order) => patchLayout(cat, { order })}
+                    onSpanChange={(name, span) => {
+                        patchLayoutOnly(cat, {
+                            spans: {
+                                ...(layoutRef.current[cat]?.spans ?? {}),
+                                [name]: span,
+                            },
+                        });
+                        scheduleSpanCommit(cat);
+                    }}
                     onRemove={(index) => removeField(cat, index)}
                     inheritedNames={inherited}
                 />
@@ -1169,118 +1236,67 @@ function useFieldEditorHandlers({
 
 function ProjectFieldsEditor({
     fields,
+    layout,
     columns,
+    engine,
     onChange,
     onCommit,
+    onOrderChange,
+    onSpanChange,
     onRemove,
     inheritedNames,
 }: {
     fields: FieldDefinition[];
+    layout: TemplateLayout;
     columns: number;
+    engine: LayoutEngineId;
     onChange: (fields: FieldDefinition[]) => void;
     onCommit: (fields: FieldDefinition[]) => void;
+    onOrderChange: (order: string[]) => void;
+    onSpanChange: (name: string, span: TemplateSpan) => void;
     onRemove: (index: number) => void;
     inheritedNames: Set<string>;
 }) {
-    const [dragIndex, setDragIndex] = useState<number | null>(null);
-    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-    const maxSpan = Math.max(1, Math.min(6, Math.floor(columns) || 1));
-
     const {
         editField,
         commitField,
         commitPending,
         commitOnEnter,
         removeField,
-        moveField,
     } = useFieldEditorHandlers({ fields, onChange, onCommit, onRemove });
 
-    function isInherited(fieldName: string): boolean {
-        return inheritedNames.has(fieldName);
-    }
-
-    function handleDragStart(index: number) {
-        setDragIndex(index);
-    }
-
-    function handleDragOver(e: React.DragEvent, index: number) {
-        e.preventDefault();
-        setDragOverIndex(index);
-    }
-
-    function handleDragLeave() {
-        setDragOverIndex(null);
-    }
-
-    function handleDrop(index: number) {
-        if (dragIndex !== null && dragIndex !== index) {
-            moveField(dragIndex, index);
-        }
-        setDragIndex(null);
-        setDragOverIndex(null);
-    }
-
-    function handleDragEnd() {
-        setDragIndex(null);
-        setDragOverIndex(null);
+    if (fields.length === 0) {
+        return (
+            <div style={{ color: '#888', fontSize: '0.85em' }}>
+                No fields defined.
+            </div>
+        );
     }
 
     return (
-        <div>
-            {fields.length === 0 ? (
-                <div style={{ color: '#888', fontSize: '0.85em' }}>
-                    No fields defined.
-                </div>
-            ) : (
-                <div
-                    style={{
-                        display: 'grid',
-                        gridTemplateColumns: `repeat(${maxSpan}, minmax(0, 1fr))`,
-                        gap: '12px',
-                    }}
-                >
-                    {fields.map((field, index) => {
-                        const isOver =
-                            dragOverIndex === index && dragIndex !== index;
-                        const span = Math.min(field.span ?? maxSpan, maxSpan);
-                        return (
-                            <div
-                                key={`${field.name}-${index}`}
-                                draggable={!field.disabled}
-                                onDragStart={() => handleDragStart(index)}
-                                onDragOver={(e) => handleDragOver(e, index)}
-                                onDragLeave={handleDragLeave}
-                                onDrop={() => handleDrop(index)}
-                                onDragEnd={handleDragEnd}
-                                style={{
-                                    gridColumn: `span ${span}`,
-                                    border: `1px solid ${
-                                        isOver ? '#4A9EFF' : 'transparent'
-                                    }`,
-                                    borderStyle: isOver ? 'dashed' : 'solid',
-                                    borderRadius: '6px',
-                                    opacity: dragIndex === index ? 0.4 : 1,
-                                    cursor: field.disabled ? 'default' : 'grab',
-                                }}
-                            >
-                                <TemplateField
-                                    mode="edit"
-                                    field={field}
-                                    index={index}
-                                    fields={fields}
-                                    columns={maxSpan}
-                                    inherited={isInherited(field.name)}
-                                    editField={editField}
-                                    commitField={commitField}
-                                    commitPending={commitPending}
-                                    commitOnEnter={commitOnEnter}
-                                    onRemove={removeField}
-                                />
-                            </div>
-                        );
-                    })}
-                </div>
+        <FieldLayoutGrid
+            fields={fields}
+            layout={layout}
+            columns={columns}
+            interactive
+            engine={engine}
+            onReorder={onOrderChange}
+            onSpanChange={onSpanChange}
+            renderItem={(field, index) => (
+                <TemplateField
+                    mode="edit"
+                    field={field}
+                    index={index}
+                    fields={fields}
+                    columns={columns}
+                    inherited={inheritedNames.has(field.name)}
+                    editField={editField}
+                    commitField={commitField}
+                    commitPending={commitPending}
+                    commitOnEnter={commitOnEnter}
+                    onRemove={removeField}
+                />
             )}
-        </div>
+        />
     );
 }

@@ -478,6 +478,9 @@ export type SeriesTemplate = {
     seriesId: string;
     baseType: CompendiumCategory;
     customFields: FieldDefinition[];
+    // Default layout used when a project has not saved its own. The effective
+    // layout of a resolved project is always project-authoritative.
+    layout: TemplateLayout | null;
     createdAt: Date;
     updatedAt: Date;
 };
@@ -486,6 +489,7 @@ export type SeriesTemplateInput = {
     seriesId: string;
     baseType: CompendiumCategory;
     customFields: FieldDefinition[];
+    layout?: TemplateLayout | null;
 };
 
 export type CompendiumCategory =
@@ -495,8 +499,9 @@ export type CompendiumCategory =
 export const DEFAULT_TEMPLATE_COLUMNS = 4;
 
 export type ResolvedTemplateInfo = {
-    fields: FieldDefinition[];
+    fields: ResolvedField[];
     columns: number;
+    layout: TemplateLayout;
     seriesTemplate: SeriesTemplate | null;
     projectTemplate: EntityTemplate | null;
 };
@@ -548,12 +553,6 @@ export type FieldDefinition = {
     label: string;
     required: boolean;
     disabled?: boolean;
-    // Position within the merged (series + project) field list. Series and
-    // project rows share one order space so they can interleave. Optional:
-    // templates saved before ordering existed fall back to their stored
-    // position, and get renumbered the first time the editor saves.
-    order?: number;
-    span?: 1 | 2 | 3 | 4 | 5 | 6;
     options?: string[];
     rangeMin?: number;
     rangeMax?: number;
@@ -563,14 +562,30 @@ export type FieldDefinition = {
     visibleWhen?: FieldVisibility;
 };
 
+export type TemplateSpan = 1 | 2 | 3 | 4 | 5 | 6;
+
+// Presentation state for a template, stored separately from the field
+// definitions it lays out. `order` is the canonical display order as field
+// names (name is the identity key used everywhere fields are merged), while
+// `spans` maps a field name to how many grid columns it occupies.
+export type TemplateLayout = {
+    order: string[];
+    spans: Record<string, TemplateSpan>;
+    // Grid column count. Null/absent falls back to DEFAULT_TEMPLATE_COLUMNS.
+    columns: number | null;
+};
+
+// A field definition resolved against a layout: identical to what is stored,
+// plus the display width the layout assigns it. `span` is derived, never
+// persisted inside `customFields`.
+export type ResolvedField = FieldDefinition & { span?: TemplateSpan };
+
 export type EntityTemplate = {
     id: string;
     projectId: string | null;
     baseType: CompendiumCategory;
     customFields: FieldDefinition[];
-    // Grid column count for this project's layout. Null/absent falls back to
-    // DEFAULT_TEMPLATE_COLUMNS.
-    columns: number | null;
+    layout: TemplateLayout | null;
     createdAt: Date;
     updatedAt: Date;
 };
@@ -1107,7 +1122,7 @@ export type SelectorSchema = {
                     projectId: string;
                     baseType: CompendiumCategory;
                     customFields?: FieldDefinition[];
-                    columns?: number | null;
+                    layout?: TemplateLayout | null;
                 };
                 response: EntityTemplate;
             };

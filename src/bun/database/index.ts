@@ -292,7 +292,7 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 		project_id TEXT REFERENCES projects(id),
 		base_type TEXT NOT NULL,
 		custom_fields TEXT,
-		columns INTEGER,
+		layout TEXT,
 		created_at INTEGER NOT NULL,
 		updated_at INTEGER NOT NULL
 	);
@@ -312,6 +312,7 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 		series_id TEXT NOT NULL REFERENCES series(id) ON DELETE CASCADE,
 		base_type TEXT NOT NULL,
 		custom_fields TEXT,
+		layout TEXT,
 		created_at INTEGER NOT NULL,
 		updated_at INTEGER NOT NULL
 	);
@@ -565,7 +566,8 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
             name: 'display_order',
             type: 'INTEGER NOT NULL DEFAULT 0',
         },
-        { table: 'entity_templates', name: 'columns', type: 'INTEGER' },
+        { table: 'entity_templates', name: 'layout', type: 'TEXT' },
+        { table: 'series_templates', name: 'layout', type: 'TEXT' },
     ];
 
     for (const col of migrations) {
@@ -577,6 +579,8 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
             // Column already exists - ignore error
         }
     }
+
+    migrateTemplateLayouts();
 
     migrateOutlineScenesToStoryScenes();
 
@@ -723,6 +727,107 @@ function columnExists(table: string, column: string): boolean {
         name: string;
     }[];
     return cols.some((c) => c.name === column);
+}
+
+// Moves the retired per-field `order`/`span` properties and the standalone
+// `columns` column into a single `layout` JSON blob, then strips them from the
+// stored field definitions. Idempotent: a row that already carries a layout is
+// skipped, so an interrupted run resumes cleanly. The `columns` column is
+// dropped afterwards; fresh databases never create it.
+function migrateTemplateLayouts() {
+    try {
+        const backfill = (
+            table: 'entity_templates' | 'series_templates',
+            includeColumns: boolean
+        ) => {
+            if (!columnExists(table, 'custom_fields')) return;
+            if (!columnExists(table, 'layout')) return;
+            const hasColumns = includeColumns && columnExists(table, 'columns');
+            const cols = `id, custom_fields, layout${
+                hasColumns ? ', columns' : ''
+            }`;
+            const rows = sqlite.query(`SELECT ${cols} FROM ${table}`).all() as {
+                id: string;
+                custom_fields: string | null;
+                layout: string | null;
+                columns?: number | null;
+            }[];
+
+            const update = sqlite.prepare(
+                `UPDATE ${table} SET layout = ?, custom_fields = ? WHERE id = ?`
+            );
+
+            for (const row of rows) {
+                if (row.layout) continue;
+                if (!row.custom_fields) continue;
+                let fields: Record<string, unknown>[];
+                try {
+                    const parsed = JSON.parse(row.custom_fields);
+                    if (!Array.isArray(parsed)) continue;
+                    fields = parsed;
+                } catch {
+                    continue;
+                }
+                const hasLegacy = fields.some(
+                    (f) => f && ('order' in f || 'span' in f)
+                );
+                const hasColumnCount = hasColumns && row.columns != null;
+                if (!hasLegacy && !hasColumnCount) continue;
+
+                const indexed = fields.map((f, index) => ({ f, index }));
+                indexed.sort((a, b) => {
+                    const ao =
+                        typeof a.f.order === 'number'
+                            ? (a.f.order as number)
+                            : a.index;
+                    const bo =
+                        typeof b.f.order === 'number'
+                            ? (b.f.order as number)
+                            : b.index;
+                    return ao === bo ? a.index - b.index : ao - bo;
+                });
+
+                const order = indexed
+                    .map((x) => x.f.name)
+                    .filter((n): n is string => typeof n === 'string');
+                const spans: Record<string, number> = {};
+                for (const { f } of indexed) {
+                    if (
+                        typeof f.name === 'string' &&
+                        typeof f.span === 'number'
+                    ) {
+                        spans[f.name] = f.span;
+                    }
+                }
+                const layout = {
+                    order,
+                    spans,
+                    columns: hasColumns ? (row.columns ?? null) : null,
+                };
+                const stripped = indexed.map(({ f }) => {
+                    const copy = { ...f };
+                    delete copy.order;
+                    delete copy.span;
+                    return copy;
+                });
+                update.run(
+                    JSON.stringify(layout),
+                    JSON.stringify(stripped),
+                    row.id
+                );
+            }
+        };
+
+        backfill('entity_templates', true);
+        backfill('series_templates', false);
+
+        if (columnExists('entity_templates', 'columns')) {
+            sqlite.exec(`ALTER TABLE entity_templates DROP COLUMN columns`);
+            console.log('Migrated template layouts; dropped columns column');
+        }
+    } catch (err) {
+        console.warn('Failed to migrate template layouts:', err);
+    }
 }
 
 function migrateGlobalTemplatesAway() {

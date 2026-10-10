@@ -5,6 +5,7 @@ import type {
     CompendiumCategory,
     FieldDefinition,
     SeriesTemplate,
+    TemplateLayout,
 } from '../../mainview/types';
 import { normalizeTreeFields } from '../../mainview/templates/tree';
 
@@ -16,9 +17,22 @@ export type {
     FieldVisibility,
     SeriesTemplate,
     SeriesTemplateInput,
+    TemplateLayout,
     VisibilityCondition,
     VisibilityOperator,
 } from '../../mainview/types';
+
+function parseLayout(raw: unknown): TemplateLayout | null {
+    if (!raw || typeof raw !== 'string') return null;
+    try {
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object'
+            ? (parsed as TemplateLayout)
+            : null;
+    } catch {
+        return null;
+    }
+}
 
 export function parseSeriesTemplateRow(
     row: typeof seriesTemplates.$inferSelect
@@ -30,6 +44,7 @@ export function parseSeriesTemplateRow(
         customFields: normalizeTreeFields(
             row.customFields ? JSON.parse(row.customFields) : []
         ),
+        layout: parseLayout(row.layout),
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     };
@@ -66,6 +81,7 @@ export async function upsertSeriesTemplate(input: {
     seriesId: string;
     baseType: CompendiumCategory;
     customFields: FieldDefinition[];
+    layout?: TemplateLayout | null;
 }): Promise<SeriesTemplate> {
     const now = new Date();
     const existing = await getSeriesTemplateBySeriesAndType(
@@ -74,26 +90,32 @@ export async function upsertSeriesTemplate(input: {
     );
 
     if (existing) {
+        const layout =
+            input.layout !== undefined ? input.layout : existing.layout;
         await db
             .update(seriesTemplates)
             .set({
                 customFields: JSON.stringify(input.customFields || []),
+                layout: layout ? JSON.stringify(layout) : null,
                 updatedAt: now,
             })
             .where(eq(seriesTemplates.id, existing.id));
         return {
             ...existing,
             customFields: input.customFields || [],
+            layout: layout ?? null,
             updatedAt: now,
         };
     }
 
     const id = `stpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const layout = input.layout ?? null;
     await db.insert(seriesTemplates).values({
         id,
         seriesId: input.seriesId,
         baseType: input.baseType,
         customFields: JSON.stringify(input.customFields || []),
+        layout: layout ? JSON.stringify(layout) : null,
         createdAt: now,
         updatedAt: now,
     });
@@ -102,6 +124,7 @@ export async function upsertSeriesTemplate(input: {
         seriesId: input.seriesId,
         baseType: input.baseType,
         customFields: input.customFields || [],
+        layout,
         createdAt: now,
         updatedAt: now,
     };

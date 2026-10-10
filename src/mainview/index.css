@@ -3056,6 +3056,19 @@ select {
     gap: 10px;
 }
 
+/* Layout editing furniture: the reorder grip and resize handle only appear
+   while the pointer is over a field card, so normal use stays clean. */
+.field-layout-item:hover .field-grip,
+.field-layout-item .field-grip:hover {
+    opacity: 1;
+    color: var(--accent, #f0a050);
+}
+
+.field-layout-item:hover .field-resize,
+.field-layout-item .field-resize:hover {
+    border-right-color: var(--accent, rgba(240, 160, 80, 0.6));
+}
+
 .location-box {
     background-color: #1a1a1c;
     border-radius: 6px;

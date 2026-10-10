@@ -6,12 +6,18 @@ import type {
     EntityTemplate,
     FieldDefinition,
     ResolvedTemplateInfo,
+    TemplateLayout,
 } from '../../mainview/types';
 import { DEFAULT_TEMPLATE_COLUMNS } from '../../mainview/types';
 import { normalizeTreeFields } from '../../mainview/templates/tree';
 // Shared so the server's resolved order and the editor's merged order can never
-// disagree - both call sites use this exact sort, including its legacy fallback.
-import { sortByOrder } from '../../mainview/templates/mergeFields';
+// disagree - both call sites use these exact helpers.
+import {
+    applySpans,
+    effectiveLayout,
+    mergeSeriesFields,
+    orderByLayout,
+} from '../../mainview/templates/mergeFields';
 import { getSeriesTemplateForProject } from './seriesTemplates';
 
 export type {
@@ -21,11 +27,24 @@ export type {
     FieldVisibility,
     ResolvedTemplateInfo,
     SeriesTemplate,
+    TemplateLayout,
     VisibilityCondition,
     VisibilityOperator,
 } from '../../mainview/types';
 
 export type NewEntityTemplate = Omit<EntityTemplate, 'createdAt' | 'updatedAt'>;
+
+function parseLayout(raw: unknown): TemplateLayout | null {
+    if (!raw || typeof raw !== 'string') return null;
+    try {
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object'
+            ? (parsed as TemplateLayout)
+            : null;
+    } catch {
+        return null;
+    }
+}
 
 function parseTemplate(row: Record<string, unknown>): EntityTemplate {
     return {
@@ -33,6 +52,7 @@ function parseTemplate(row: Record<string, unknown>): EntityTemplate {
         customFields: row.customFields
             ? normalizeTreeFields(JSON.parse(row.customFields as string))
             : [],
+        layout: parseLayout(row.layout),
     } as EntityTemplate;
 }
 
@@ -72,7 +92,7 @@ export async function createTemplate(
         projectId: template.projectId,
         baseType: template.baseType,
         customFields: JSON.stringify(template.customFields || []),
-        columns: template.columns ?? null,
+        layout: template.layout ? JSON.stringify(template.layout) : null,
         createdAt: now,
         updatedAt: now,
     };
@@ -80,6 +100,7 @@ export async function createTemplate(
     return {
         ...newTemplate,
         customFields: template.customFields || [],
+        layout: template.layout ?? null,
     } as unknown as EntityTemplate;
 }
 
@@ -91,7 +112,8 @@ export async function updateTemplate(
     if (data.baseType !== undefined) updateData.baseType = data.baseType;
     if (data.customFields !== undefined)
         updateData.customFields = JSON.stringify(data.customFields);
-    if (data.columns !== undefined) updateData.columns = data.columns;
+    if (data.layout !== undefined)
+        updateData.layout = data.layout ? JSON.stringify(data.layout) : null;
 
     await db
         .update(entityTemplates)
@@ -114,13 +136,13 @@ export async function upsertTemplate(
     projectId: string,
     baseType: CompendiumCategory,
     customFields?: FieldDefinition[],
-    columns?: number | null
+    layout?: TemplateLayout | null
 ): Promise<EntityTemplate> {
     const existing = await getTemplateByProjectAndType(projectId, baseType);
     if (existing) {
         const data: Partial<NewEntityTemplate> = {};
         if (customFields !== undefined) data.customFields = customFields;
-        if (columns !== undefined) data.columns = columns;
+        if (layout !== undefined) data.layout = layout;
         return (await updateTemplate(existing.id, data))!;
     }
     const id = `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -129,7 +151,7 @@ export async function upsertTemplate(
         projectId,
         baseType,
         customFields: customFields ?? [],
-        columns: columns ?? null,
+        layout: layout ?? null,
     });
 }
 
@@ -142,33 +164,20 @@ export async function resolveTemplate(
     const seriesTemplate =
         (await getSeriesTemplateForProject(projectId, baseType)) ?? null;
 
-    const fieldMap = new Map<string, FieldDefinition>();
+    const merged = mergeSeriesFields(
+        projectTemplate?.customFields ?? [],
+        seriesTemplate?.customFields ?? null
+    );
+    const layout = effectiveLayout(
+        projectTemplate?.layout,
+        seriesTemplate?.layout
+    );
+    const ordered = orderByLayout(normalizeTreeFields(merged), layout.order);
 
-    for (const field of seriesTemplate?.customFields || []) {
-        if (field.disabled) {
-            fieldMap.delete(field.name);
-        } else {
-            fieldMap.set(field.name, { ...field, disabled: false });
-        }
-    }
-
-    for (const field of projectTemplate?.customFields || []) {
-        // A project row that shadows a series field carries only this project's
-        // on/off choice for it - the definition and ordering stay with the
-        // series, so a later series edit is never masked by the copy stored here.
-        if (field.disabled) {
-            fieldMap.delete(field.name);
-        } else if (!fieldMap.has(field.name)) {
-            fieldMap.set(field.name, { ...field, disabled: false });
-        }
-    }
-
-    // The Map gives series-first insertion order, which is the right fallback for
-    // templates saved before `order` existed. Once any row carries an `order`,
-    // sortByOrder takes over so series and project rows can interleave.
     return {
-        fields: normalizeTreeFields(sortByOrder(Array.from(fieldMap.values()))),
-        columns: projectTemplate?.columns ?? DEFAULT_TEMPLATE_COLUMNS,
+        fields: applySpans(ordered, layout),
+        columns: layout.columns ?? DEFAULT_TEMPLATE_COLUMNS,
+        layout,
         seriesTemplate,
         projectTemplate,
     };

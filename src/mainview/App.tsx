@@ -20,6 +20,8 @@ import type {
     LoreEntry,
     EntityTemplate,
     FieldDefinition,
+    ResolvedField,
+    TemplateLayout,
     PlotThread,
     StoryBeat,
     StoryAct,
@@ -223,6 +225,15 @@ function App() {
         organization: DEFAULT_TEMPLATE_COLUMNS,
         item: DEFAULT_TEMPLATE_COLUMNS,
         lore: DEFAULT_TEMPLATE_COLUMNS,
+    });
+    const [templateLayouts, setTemplateLayouts] = useState<
+        Record<CompendiumCategory, TemplateLayout | null>
+    >({
+        character: null,
+        location: null,
+        organization: null,
+        item: null,
+        lore: null,
     });
 
     // Bulk extraction state
@@ -558,6 +569,52 @@ function App() {
         setResolvedTemplateColumns((prev) => ({
             ...prev,
             [category]: resolved?.columns ?? DEFAULT_TEMPLATE_COLUMNS,
+        }));
+        setTemplateLayouts((prev) => ({
+            ...prev,
+            [category]: resolved?.layout ?? null,
+        }));
+    }
+
+    // Strips the computed `span` a resolved field carries before it can be saved
+    // back into the definition list.
+    function stripResolvedSpans(fields: FieldDefinition[]): FieldDefinition[] {
+        return (fields as ResolvedField[]).map((f) => {
+            const out: FieldDefinition = { ...f };
+            delete (out as { span?: unknown }).span;
+            return out;
+        });
+    }
+
+    async function handleTemplateLayoutSave(
+        category: CompendiumCategory,
+        layout: TemplateLayout
+    ) {
+        if (!currentProject) return;
+        const baseDefs = templates[category]?.customFields?.length
+            ? templates[category].customFields
+            : stripResolvedSpans(resolvedTemplateFields[category] ?? []);
+        await rpc.request['db:save-template']({
+            projectId: currentProject.id,
+            baseType: category,
+            customFields: baseDefs,
+            layout,
+        });
+        const newResolved = await rpc.request['db:get-resolved-template']({
+            projectId: currentProject.id,
+            baseType: category,
+        });
+        setResolvedTemplateFields((prev) => ({
+            ...prev,
+            [category]: newResolved?.fields || [],
+        }));
+        setResolvedTemplateColumns((prev) => ({
+            ...prev,
+            [category]: newResolved?.columns ?? DEFAULT_TEMPLATE_COLUMNS,
+        }));
+        setTemplateLayouts((prev) => ({
+            ...prev,
+            [category]: newResolved?.layout ?? layout,
         }));
     }
 
@@ -2295,6 +2352,7 @@ function App() {
                     category={category}
                     template={effectiveTemplate}
                     columns={resolvedTemplateColumns[category]}
+                    layout={templateLayouts[category]}
                     characters={characters}
                     locations={locations}
                     organizations={organizations}
@@ -2307,6 +2365,9 @@ function App() {
                             field,
                             value
                         )
+                    }
+                    onLayoutChange={(layout) =>
+                        handleTemplateLayoutSave(category, layout)
                     }
                     onEditTemplate={() => handleEditTemplate(category)}
                 />

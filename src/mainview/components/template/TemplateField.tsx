@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { IconCheck, IconPencil, IconPhoto, IconX } from '@tabler/icons-react';
-import type { CompendiumCategory, FieldDefinition } from '../../types';
-import { DEFAULT_TEMPLATE_COLUMNS } from '../../types';
+import type {
+    CompendiumCategory,
+    FieldDefinition,
+    ResolvedField,
+} from '../../types';
 import type { TreeEdge } from '../../templates/tree';
 import { TREE_PRESETS, getTreeRelations } from '../../templates/tree';
 import { RichTextEditor } from '../RichTextEditor';
@@ -14,7 +17,7 @@ import styles from './TemplateField.module.css';
 export type EntryRef = { id: string; name: string };
 
 export type ViewProps = {
-    field: FieldDefinition;
+    field: ResolvedField;
     index: number;
     columns?: number;
     value?: unknown;
@@ -28,7 +31,7 @@ export type ViewProps = {
 };
 
 export type EditProps = {
-    field: FieldDefinition;
+    field: ResolvedField;
     index: number;
     fields: FieldDefinition[];
     columns?: number;
@@ -51,19 +54,8 @@ const ALL_CATEGORIES: CompendiumCategory[] = [
     'lore',
 ];
 
-// Fields default to a full row (span = column count) and are clamped so a span
-// saved against a wider layout can never overflow a narrower one.
-function clampSpan(
-    span: number | undefined,
-    columns: number
-): FieldDefinition['span'] {
-    const max = Math.max(
-        1,
-        Math.min(6, Math.floor(columns) || DEFAULT_TEMPLATE_COLUMNS)
-    );
-    return Math.min(span ?? max, max) as FieldDefinition['span'];
-}
-
+// Fields without a stored span default to a full row. A span saved against a
+// wider layout is clamped by the layout grid to the active column count.
 function useClickOutside<T extends HTMLElement>(
     ref: React.RefObject<T | null>,
     handler: () => void
@@ -114,7 +106,7 @@ function ViewShell({
     children,
 }: Pick<ViewProps, 'field' | 'index'> & { children: ReactNode }) {
     const style: React.CSSProperties = {
-        gridColumn: `span ${field.span ?? 4}`,
+        gridColumn: field.span ? `span ${field.span}` : '1 / -1',
     };
     return (
         <div
@@ -703,13 +695,8 @@ function FieldTree({
 }
 
 export function TemplateFieldView(props: ViewProps) {
-    const columns = props.columns ?? DEFAULT_TEMPLATE_COLUMNS;
-    const field = {
-        ...props.field,
-        span: clampSpan(props.field.span, columns),
-    };
-    const viewProps: ViewProps = { ...props, field, columns };
-    switch (field.type) {
+    const viewProps: ViewProps = props;
+    switch (props.field.type) {
         case 'text':
             return <FieldText {...viewProps} />;
         case 'textarea':
@@ -754,21 +741,15 @@ export function TemplateFieldView(props: ViewProps) {
 function FieldEditHeader({
     field,
     index,
-    columns,
     inherited,
     onRemove,
     commitField,
 }: Pick<
     EditProps,
-    'field' | 'index' | 'columns' | 'inherited' | 'onRemove' | 'commitField'
+    'field' | 'index' | 'inherited' | 'onRemove' | 'commitField'
 >) {
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(field.label);
-    const maxSpan = Math.max(
-        1,
-        Math.min(6, Math.floor(columns ?? DEFAULT_TEMPLATE_COLUMNS))
-    );
-    const spanOptions = Array.from({ length: maxSpan }, (_, i) => i + 1);
 
     const startEdit = () => {
         setDraft(field.label);
@@ -851,25 +832,6 @@ function FieldEditHeader({
                     <span className={styles.inheritedBadge}>INHERITED</span>
                 )}
             </div>
-            <label className={styles.spanControl}>
-                Span
-                <select
-                    value={field.span ?? maxSpan}
-                    onChange={(e) =>
-                        commitField(index, {
-                            span: Number(
-                                e.target.value
-                            ) as FieldDefinition['span'],
-                        })
-                    }
-                >
-                    {spanOptions.map((n) => (
-                        <option key={n} value={n}>
-                            {n}
-                        </option>
-                    ))}
-                </select>
-            </label>
             <button
                 type="button"
                 className={styles.deleteBtn}
@@ -935,16 +897,8 @@ function EditBase({
 }
 
 function EditShell(props: EditProps & { children?: ReactNode }) {
-    const {
-        field,
-        index,
-        fields,
-        columns,
-        inherited,
-        commitField,
-        onRemove,
-        children,
-    } = props;
+    const { field, index, fields, inherited, commitField, onRemove, children } =
+        props;
     return (
         <div
             className={`${styles.tmplField} ${styles.tmplFieldEdit} ${styles.field}`}
@@ -952,7 +906,6 @@ function EditShell(props: EditProps & { children?: ReactNode }) {
             <FieldEditHeader
                 field={field}
                 index={index}
-                columns={columns}
                 inherited={inherited}
                 onRemove={onRemove}
                 commitField={commitField}
@@ -1252,13 +1205,8 @@ function FieldTreeEdit(props: EditProps) {
 }
 
 export function TemplateFieldEdit(props: EditProps) {
-    const columns = props.columns ?? DEFAULT_TEMPLATE_COLUMNS;
-    const field = {
-        ...props.field,
-        span: clampSpan(props.field.span, columns),
-    };
-    const editProps: EditProps = { ...props, field, columns };
-    switch (field.type) {
+    const editProps: EditProps = props;
+    switch (props.field.type) {
         case 'text':
             return <FieldTextEdit {...editProps} />;
         case 'textarea':
