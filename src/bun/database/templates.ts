@@ -13,9 +13,10 @@ import { normalizeTreeFields } from '../../mainview/templates/tree';
 // Shared so the server's resolved order and the editor's merged order can never
 // disagree - both call sites use these exact helpers.
 import {
-    applySpans,
+    applyLayout,
     effectiveLayout,
     mergeSeriesFields,
+    normalizeLayout,
     orderByLayout,
 } from '../../mainview/templates/mergeFields';
 import { getSeriesTemplateForProject } from './seriesTemplates';
@@ -37,10 +38,7 @@ export type NewEntityTemplate = Omit<EntityTemplate, 'createdAt' | 'updatedAt'>;
 function parseLayout(raw: unknown): TemplateLayout | null {
     if (!raw || typeof raw !== 'string') return null;
     try {
-        const parsed = JSON.parse(raw);
-        return parsed && typeof parsed === 'object'
-            ? (parsed as TemplateLayout)
-            : null;
+        return normalizeLayout(JSON.parse(raw));
     } catch {
         return null;
     }
@@ -175,7 +173,7 @@ export async function resolveTemplate(
     const ordered = orderByLayout(normalizeTreeFields(merged), layout.order);
 
     return {
-        fields: applySpans(ordered, layout),
+        fields: applyLayout(ordered, layout),
         columns: layout.columns ?? DEFAULT_TEMPLATE_COLUMNS,
         layout,
         seriesTemplate,

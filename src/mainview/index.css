@@ -3069,6 +3069,19 @@ select {
     border-right-color: var(--accent, rgba(240, 160, 80, 0.6));
 }
 
+/* The bottom (height) handle mirrors the width handle. */
+.field-layout-item:hover .field-resize-row,
+.field-layout-item .field-resize-row:hover {
+    border-bottom-color: var(--accent, rgba(240, 160, 80, 0.6));
+}
+
+/* The grid gap owns all spacing between cards, so the card's own bottom margin
+   would double it up. Scope the reset to the layout grid so standalone use of
+   the card keeps its margin. */
+.field-layout-item .field-layout-content > * {
+    margin-bottom: 0;
+}
+
 .location-box {
     background-color: #1a1a1c;
     border-radius: 6px;

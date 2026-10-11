@@ -539,6 +539,12 @@
     object-fit: cover;
 }
 
+/* Inside the layout grid a portrait fills its column; its height follows from
+   the 2/3 aspect ratio, so widening the field widens the portrait too. */
+:global(.field-layout-item) .portraitBox {
+    max-width: 100%;
+}
+
 .assetList {
     display: flex;
     flex-wrap: wrap;

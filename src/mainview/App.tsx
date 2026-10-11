@@ -576,12 +576,13 @@ function App() {
         }));
     }
 
-    // Strips the computed `span` a resolved field carries before it can be saved
-    // back into the definition list.
+    // Strips the computed `span`/`rowSpan` a resolved field carries before it
+    // can be saved back into the definition list.
     function stripResolvedSpans(fields: FieldDefinition[]): FieldDefinition[] {
         return (fields as ResolvedField[]).map((f) => {
             const out: FieldDefinition = { ...f };
             delete (out as { span?: unknown }).span;
+            delete (out as { rowSpan?: unknown }).rowSpan;
             return out;
         });
     }

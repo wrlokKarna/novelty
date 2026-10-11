@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { FieldDefinition } from '../types';
 import { DEFAULT_TEMPLATE_COLUMNS } from '../types';
 import {
-    applySpans,
+    applyLayout,
     effectiveLayout,
     fullMerge,
     getSeriesInheritedNames,
@@ -85,41 +85,67 @@ describe('effectiveLayout', () => {
         expect(layout.columns).toBe(DEFAULT_TEMPLATE_COLUMNS);
         expect(layout.order).toEqual([]);
         expect(layout.spans).toEqual({});
+        expect(layout.rows).toEqual({});
     });
 
-    test('series supplies order and spans when the project has none', () => {
+    test('series supplies order, spans and rows when the project has none', () => {
         const layout = effectiveLayout(null, {
             order: ['a', 'b'],
             spans: { a: 2 },
+            rows: { a: 5 },
             columns: 3,
         });
         expect(layout.order).toEqual(['a', 'b']);
         expect(layout.spans.a).toBe(2);
+        expect(layout.rows.a).toBe(5);
         expect(layout.columns).toBe(3);
     });
 
-    test('project order and spans win over the series', () => {
+    test('project order, spans and rows win over the series', () => {
         const layout = effectiveLayout(
-            { order: ['b', 'a'], spans: { a: 1 }, columns: 5 },
-            { order: ['a', 'b'], spans: { a: 2 }, columns: 3 }
+            { order: ['b', 'a'], spans: { a: 1 }, rows: { a: 3 }, columns: 5 },
+            { order: ['a', 'b'], spans: { a: 2 }, rows: { a: 6 }, columns: 3 }
         );
         expect(layout.order).toEqual(['b', 'a']);
         expect(layout.spans.a).toBe(1);
+        expect(layout.rows.a).toBe(3);
         expect(layout.columns).toBe(5);
+    });
+
+    test('defaults rows when a legacy layout omits them', () => {
+        const layout = effectiveLayout(
+            { order: ['a'], spans: { a: 2 }, columns: 4 } as never,
+            null
+        );
+        expect(layout.rows).toEqual({});
     });
 });
 
-describe('applySpans', () => {
+describe('applyLayout', () => {
     test('attaches a width only for names the layout mentions', () => {
         const defs = [field('a'), field('b')];
-        const resolved = applySpans(defs, {
+        const resolved = applyLayout(defs, {
             order: ['a', 'b'],
             spans: { a: 2 },
+            rows: {},
             columns: 4,
         });
         expect(resolved[0].span).toBe(2);
         expect(resolved[1].span).toBeUndefined();
         expect('span' in resolved[1]).toBe(false);
+    });
+
+    test('attaches a row span only for names the layout mentions', () => {
+        const defs = [field('a'), field('b')];
+        const resolved = applyLayout(defs, {
+            order: ['a', 'b'],
+            spans: {},
+            rows: { b: 7 },
+            columns: 4,
+        });
+        expect(resolved[0].rowSpan).toBeUndefined();
+        expect(resolved[1].rowSpan).toBe(7);
+        expect('rowSpan' in resolved[0]).toBe(false);
     });
 });
 

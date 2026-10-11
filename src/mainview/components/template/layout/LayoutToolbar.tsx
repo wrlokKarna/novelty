@@ -1,17 +1,11 @@
-import type { LayoutEngineId } from '../../../hooks/useLayoutEngine';
-
 export function LayoutToolbar({
     columns,
     onColumns,
     onAutoArrange,
-    engine,
-    onEngineChange,
 }: {
     columns: number;
     onColumns: (columns: number) => void;
     onAutoArrange: () => void;
-    engine: LayoutEngineId;
-    onEngineChange: (engine: LayoutEngineId) => void;
 }) {
     return (
         <div
@@ -50,25 +44,6 @@ export function LayoutToolbar({
             >
                 Auto-arrange
             </button>
-            <label
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.35rem',
-                }}
-            >
-                Engine
-                <select
-                    value={engine}
-                    onChange={(e) =>
-                        onEngineChange(e.target.value as LayoutEngineId)
-                    }
-                    title="Which drag engine powers reordering"
-                >
-                    <option value="framer">Framer Motion</option>
-                    <option value="dnd">dnd-kit</option>
-                </select>
-            </label>
         </div>
     );
 }

@@ -8,6 +8,7 @@ import type {
     TemplateLayout,
 } from '../../mainview/types';
 import { normalizeTreeFields } from '../../mainview/templates/tree';
+import { normalizeLayout } from '../../mainview/templates/mergeFields';
 
 // Canonical definitions live in mainview/types. Re-exported here because this
 // module is the public surface for series template reads/writes.
@@ -25,10 +26,7 @@ export type {
 function parseLayout(raw: unknown): TemplateLayout | null {
     if (!raw || typeof raw !== 'string') return null;
     try {
-        const parsed = JSON.parse(raw);
-        return parsed && typeof parsed === 'object'
-            ? (parsed as TemplateLayout)
-            : null;
+        return normalizeLayout(JSON.parse(raw));
     } catch {
         return null;
     }

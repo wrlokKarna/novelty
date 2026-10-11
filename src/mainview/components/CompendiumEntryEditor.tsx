@@ -16,7 +16,6 @@ import { DEFAULT_TEMPLATE_COLUMNS } from '../types/index';
 import { isFieldVisible } from '../templates/fieldVisibility';
 import { emptyLayout } from '../templates/mergeFields';
 import { autoArrangeLayout } from '../templates/autoArrange';
-import { useLayoutEngine } from '../hooks/useLayoutEngine';
 import { FieldLayoutGrid } from './template/layout/FieldLayoutGrid';
 import { LayoutToolbar } from './template/layout/LayoutToolbar';
 import TemplateTab from './template/TemplateTab';
@@ -65,7 +64,6 @@ export default function CompendiumEntryEditor({
     const [draftLayout, setDraftLayout] = useState<TemplateLayout | null>(
         layout ?? null
     );
-    const { engine, setEngine } = useLayoutEngine();
 
     const onLayoutChangeRef = useRef(onLayoutChange);
     onLayoutChangeRef.current = onLayoutChange;
@@ -114,6 +112,7 @@ export default function CompendiumEntryEditor({
             const next: TemplateLayout = layout ?? {
                 order: allFields.map((f) => f.name),
                 spans: {},
+                rows: {},
                 columns: DEFAULT_TEMPLATE_COLUMNS,
             };
             draftRef.current = next;
@@ -192,8 +191,6 @@ export default function CompendiumEntryEditor({
                                         )
                                     )
                                 }
-                                engine={engine}
-                                onEngineChange={setEngine}
                             />
                         </div>
                         <FieldLayoutGrid
@@ -201,7 +198,6 @@ export default function CompendiumEntryEditor({
                             layout={draft}
                             columns={draftColumns}
                             interactive
-                            engine={engine}
                             onReorder={(order) =>
                                 commitLayout({ ...draft, order })
                             }
@@ -211,6 +207,15 @@ export default function CompendiumEntryEditor({
                                     spans: {
                                         ...(draft.spans ?? {}),
                                         [name]: span,
+                                    },
+                                })
+                            }
+                            onRowChange={(name: string, rows: number) =>
+                                commitLayout({
+                                    ...draft,
+                                    rows: {
+                                        ...(draft.rows ?? {}),
+                                        [name]: rows,
                                     },
                                 })
                             }
@@ -242,6 +247,7 @@ export default function CompendiumEntryEditor({
                             tmplFields={fields}
                             templateData={templateData}
                             columns={columns}
+                            layout={layout}
                             onUpdate={handleFieldUpdate}
                             entry={{ id: entry.id, name: entry.name }}
                             characters={characters}

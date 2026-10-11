@@ -1,11 +1,19 @@
-import type { FieldDefinition } from '../../types';
+import { useMemo } from 'react';
+import type {
+    FieldDefinition,
+    ResolvedField,
+    TemplateLayout,
+    TemplateSpan,
+} from '../../types';
 import { DEFAULT_TEMPLATE_COLUMNS } from '../../types';
+import { FieldLayoutGrid } from './layout/FieldLayoutGrid';
 import TemplateField, { type EntryRef } from './TemplateField';
 
 type Props = {
     tmplFields: FieldDefinition[];
     templateData?: Record<string, unknown> | null;
     columns?: number;
+    layout?: TemplateLayout | null;
     onUpdate?: (fieldName: string, value: unknown) => void;
     entry?: { id: string; name: string };
     characters?: EntryRef[];
@@ -15,10 +23,14 @@ type Props = {
     loreEntries?: EntryRef[];
 };
 
+// Reading view for a template. It shares the exact grid the editors use, so the
+// masonry packing and any grown field heights look identical to the author's
+// arrangement; it simply renders fields non-interactively.
 export default function TemplateTab({
     tmplFields,
     templateData,
     columns = DEFAULT_TEMPLATE_COLUMNS,
+    layout,
     onUpdate,
     entry,
     characters,
@@ -27,17 +39,32 @@ export default function TemplateTab({
     items,
     loreEntries,
 }: Props) {
+    // Fields arriving from a resolved template already carry their span/rowSpan
+    // and order. When no layout is supplied, rebuild one from the field list so
+    // the grid has a total layout to work from.
+    const effectiveLayout = useMemo<TemplateLayout>(() => {
+        if (layout) return layout;
+        const spans: Record<string, TemplateSpan> = {};
+        const rows: Record<string, number> = {};
+        for (const f of tmplFields) {
+            const rf = f as ResolvedField;
+            if (rf.span != null) spans[f.name] = rf.span;
+            if (rf.rowSpan != null) rows[f.name] = rf.rowSpan;
+        }
+        return { order: tmplFields.map((f) => f.name), spans, rows, columns };
+    }, [layout, tmplFields, columns]);
+
     return (
-        <div
-            style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-                gap: '16px',
-            }}
-        >
-            {tmplFields.map((field, index) => (
+        <FieldLayoutGrid
+            fields={tmplFields}
+            layout={effectiveLayout}
+            columns={columns}
+            interactive={false}
+            onReorder={() => {}}
+            onSpanChange={() => {}}
+            onRowChange={() => {}}
+            renderItem={(field, index) => (
                 <TemplateField
-                    key={field.name}
                     mode="view"
                     field={field}
                     index={index}
@@ -51,7 +78,7 @@ export default function TemplateTab({
                     items={items}
                     loreEntries={loreEntries}
                 />
-            ))}
-        </div>
+            )}
+        />
     );
 }

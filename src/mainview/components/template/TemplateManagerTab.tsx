@@ -20,10 +20,6 @@ import type {
     TemplateSpan,
 } from '../../types/index';
 import { DEFAULT_TEMPLATE_COLUMNS } from '../../types/index';
-import {
-    useLayoutEngine,
-    type LayoutEngineId,
-} from '../../hooks/useLayoutEngine';
 import { FieldLayoutGrid } from './layout/FieldLayoutGrid';
 import { LayoutToolbar } from './layout/LayoutToolbar';
 import TemplateField from './TemplateField';
@@ -204,7 +200,6 @@ export default function TemplateManagerTab({
     initialCategory,
 }: TemplateManagerTabProps) {
     const rpc = useRPC();
-    const { engine, setEngine } = useLayoutEngine();
     const [series, setSeries] = useState<SeriesByCategory>({});
     const [projectFields, setProjectFields] = useState<FieldsByCategory>({});
     const [layoutsByCategory, setLayoutsByCategory] =
@@ -301,9 +296,9 @@ export default function TemplateManagerTab({
         commitMerged(cat, projectFieldsRef.current[cat] ?? []);
     }
 
-    // Resize spans update layout state immediately for live reflow, but the db
-    // write is debounced so a single drag composes one save.
-    function scheduleSpanCommit(cat: CompendiumCategory) {
+    // Resize spans/rows update layout state immediately for live reflow, but the
+    // db write is debounced so a single drag composes one save.
+    function scheduleLayoutCommit(cat: CompendiumCategory) {
         if (spanCommitTimerRef.current[cat] !== undefined) {
             window.clearTimeout(spanCommitTimerRef.current[cat]);
         }
@@ -802,8 +797,6 @@ export default function TemplateManagerTab({
                         columns={columns}
                         onColumns={(n) => patchLayout(cat, { columns: n })}
                         onAutoArrange={() => autoArrange(cat)}
-                        engine={engine}
-                        onEngineChange={setEngine}
                     />
                 </div>
                 <ProjectFieldsEditor
@@ -811,7 +804,6 @@ export default function TemplateManagerTab({
                     fields={fields}
                     layout={layout}
                     columns={columns}
-                    engine={engine}
                     onChange={(next) => setProjectFieldsFor(cat, next)}
                     onCommit={(next) => commitMerged(cat, next)}
                     onOrderChange={(order) => patchLayout(cat, { order })}
@@ -822,7 +814,16 @@ export default function TemplateManagerTab({
                                 [name]: span,
                             },
                         });
-                        scheduleSpanCommit(cat);
+                        scheduleLayoutCommit(cat);
+                    }}
+                    onRowChange={(name, rows) => {
+                        patchLayoutOnly(cat, {
+                            rows: {
+                                ...(layoutRef.current[cat]?.rows ?? {}),
+                                [name]: rows,
+                            },
+                        });
+                        scheduleLayoutCommit(cat);
                     }}
                     onRemove={(index) => removeField(cat, index)}
                     inheritedNames={inherited}
@@ -1238,22 +1239,22 @@ function ProjectFieldsEditor({
     fields,
     layout,
     columns,
-    engine,
     onChange,
     onCommit,
     onOrderChange,
     onSpanChange,
+    onRowChange,
     onRemove,
     inheritedNames,
 }: {
     fields: FieldDefinition[];
     layout: TemplateLayout;
     columns: number;
-    engine: LayoutEngineId;
     onChange: (fields: FieldDefinition[]) => void;
     onCommit: (fields: FieldDefinition[]) => void;
     onOrderChange: (order: string[]) => void;
     onSpanChange: (name: string, span: TemplateSpan) => void;
+    onRowChange: (name: string, rows: number) => void;
     onRemove: (index: number) => void;
     inheritedNames: Set<string>;
 }) {
@@ -1279,9 +1280,9 @@ function ProjectFieldsEditor({
             layout={layout}
             columns={columns}
             interactive
-            engine={engine}
             onReorder={onOrderChange}
             onSpanChange={onSpanChange}
+            onRowChange={onRowChange}
             renderItem={(field, index) => (
                 <TemplateField
                     mode="edit"

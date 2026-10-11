@@ -567,18 +567,24 @@ export type TemplateSpan = 1 | 2 | 3 | 4 | 5 | 6;
 // Presentation state for a template, stored separately from the field
 // definitions it lays out. `order` is the canonical display order as field
 // names (name is the identity key used everywhere fields are merged), while
-// `spans` maps a field name to how many grid columns it occupies.
+// `spans` maps a field name to how many grid columns it occupies and `rows`
+// maps a field name to how many base row units tall it should be. A field with
+// no `rows` entry is sized to its own content.
 export type TemplateLayout = {
     order: string[];
     spans: Record<string, TemplateSpan>;
+    rows: Record<string, number>;
     // Grid column count. Null/absent falls back to DEFAULT_TEMPLATE_COLUMNS.
     columns: number | null;
 };
 
 // A field definition resolved against a layout: identical to what is stored,
-// plus the display width the layout assigns it. `span` is derived, never
-// persisted inside `customFields`.
-export type ResolvedField = FieldDefinition & { span?: TemplateSpan };
+// plus the display width/height the layout assigns it. `span` and `rowSpan`
+// are derived, never persisted inside `customFields`.
+export type ResolvedField = FieldDefinition & {
+    span?: TemplateSpan;
+    rowSpan?: number;
+};
 
 export type EntityTemplate = {
     id: string;

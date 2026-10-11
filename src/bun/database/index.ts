@@ -802,6 +802,7 @@ function migrateTemplateLayouts() {
                 const layout = {
                     order,
                     spans,
+                    rows: {},
                     columns: hasColumns ? (row.columns ?? null) : null,
                 };
                 const stripped = indexed.map(({ f }) => {

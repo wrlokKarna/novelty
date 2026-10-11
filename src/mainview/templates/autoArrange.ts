@@ -28,7 +28,7 @@ function clampSpan(width: number, columns: number): TemplateSpan {
 // Picks a sensible initial layout for the current field list: every field keeps
 // its present order and gets a type-appropriate width. "Rows" are implied - the
 // grid auto-wraps, and a field too wide for the remaining room simply starts a
-// new row.
+// new row. Heights are left unset so each field is measured from its content.
 export function autoArrangeLayout(
     fields: FieldDefinition[],
     columns: number
@@ -39,5 +39,5 @@ export function autoArrangeLayout(
         const span = clampSpan(WIDTH_BY_TYPE[f.type] ?? 1, columns);
         spans[f.name] = span;
     }
-    return { order, spans, columns: Math.max(1, columns) };
+    return { order, spans, rows: {}, columns: Math.max(1, columns) };
 }
