@@ -107,6 +107,54 @@
     min-width: 0;
 }
 
+/* The drag icon is the layout grid's drag handle, so it gets a grab cursor and
+   hands pointer events to the drag engine instead of to text selection. */
+.fieldEditCard .dragBtn {
+    cursor: grab;
+    touch-action: none;
+
+    &:active {
+        cursor: grabbing;
+    }
+}
+
+.colControl {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7em;
+    color: #8f9aaa;
+    white-space: nowrap;
+
+    select {
+        background: #252628;
+        color: #ccc;
+        border: 1px solid #343538;
+        border-radius: 4px;
+        padding: 1px 4px;
+        font-size: 0.75rem;
+
+        &:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+    }
+}
+
+.fullWidthToggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7em;
+    color: #8f9aaa;
+    white-space: nowrap;
+    cursor: pointer;
+
+    input {
+        accent-color: var(--accent, #f0a050);
+    }
+}
+
 .inheritedBadge {
     font-size: 0.7em;
     color: #ffa500;

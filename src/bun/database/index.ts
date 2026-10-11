@@ -803,6 +803,8 @@ function migrateTemplateLayouts() {
                     order,
                     spans,
                     rows: {},
+                    cols: {},
+                    fullWidth: {},
                     columns: hasColumns ? (row.columns ?? null) : null,
                 };
                 const stripped = indexed.map(({ f }) => {

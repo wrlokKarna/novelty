@@ -52,9 +52,8 @@ const GRID_STYLES = (columns: number): CSSProperties => ({
     display: 'grid',
     gridTemplateColumns: `repeat(${Math.max(1, columns)}, minmax(0, 1fr))`,
     gridAutoRows: `${TEMPLATE_ROW_UNIT}px`,
-    // Dense flow lets a short field backfill the vertical space left beside a
-    // tall neighbour, which is the whole point of the masonry packing.
-    gridAutoFlow: 'dense',
+    // Plain row flow: empty space is preserved rather than backfilled, so a
+    // field pinned to a later column leaves the columns before it blank.
     alignItems: 'start',
     gap: TEMPLATE_GRID_GAP,
 });
@@ -92,36 +91,6 @@ function useAutoRowSpan(
 /* -------------------------------------------------------------------------- */
 /*  Item furniture                                                            */
 /* -------------------------------------------------------------------------- */
-
-function GripHandle(props: HTMLAttributes<HTMLDivElement>) {
-    return (
-        <div
-            {...props}
-            className="field-grip"
-            style={{
-                position: 'absolute',
-                top: 4,
-                left: 4,
-                width: 20,
-                height: 20,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 4,
-                color: '#888',
-                cursor: 'grab',
-                zIndex: 5,
-                fontSize: 13,
-                letterSpacing: -2,
-                opacity: 0,
-                transition: 'opacity 0.15s',
-            }}
-            title="Drag to reorder"
-        >
-            ⋮⋮
-        </div>
-    );
-}
 
 function SpanResizeHandle({
     name,
@@ -242,8 +211,29 @@ function SortableItem({
     const colSpan = Math.min(field.span ?? columns, columns) as TemplateSpan;
     const canResizeRows = ROW_RESIZABLE_TYPES.has(field.type);
 
+    // A field pinned to a start column keeps room for its full span; the start
+    // is clamped so the field never runs off the right edge. A full-width field
+    // spans everything, so its start column is ignored.
+    const colStart =
+        !field.fullWidth && field.colStart
+            ? Math.min(
+                  Math.max(1, field.colStart),
+                  Math.max(1, columns - colSpan + 1)
+              )
+            : null;
+    const gridColumn = colStart
+        ? `${colStart} / span ${colSpan}`
+        : `span ${colSpan}`;
+
+    const dragHandleProps = interactive
+        ? ({
+              ...attributes,
+              ...(listeners ?? {}),
+          } as unknown as DragHandleProps)
+        : undefined;
+
     const style: CSSProperties = {
-        gridColumn: `span ${colSpan}`,
+        gridColumn,
         gridRow: `span ${rowSpan}`,
         alignSelf: 'start',
         minWidth: 0,
@@ -256,18 +246,12 @@ function SortableItem({
 
     return (
         <div className="field-layout-item" ref={setNodeRef} style={style}>
-            {interactive && (
-                <GripHandle
-                    {...attributes}
-                    {...((listeners ?? {}) as HTMLAttributes<HTMLDivElement>)}
-                />
-            )}
             <div
                 className="field-layout-content"
                 ref={contentRef}
                 style={{ minWidth: 0 }}
             >
-                {renderItem(field, index)}
+                {renderItem(field, index, dragHandleProps)}
             </div>
             {interactive && (
                 <SpanResizeHandle
@@ -360,6 +344,10 @@ function DndGrid({
     );
 }
 
+// Props the grid hands back to `renderItem` so the field card can make its own
+// drag icon the handle, rather than the grid drawing a separate grip.
+export type DragHandleProps = HTMLAttributes<HTMLElement>;
+
 export type LayoutGridProps = {
     fields: FieldDefinition[];
     layout: TemplateLayout;
@@ -368,7 +356,11 @@ export type LayoutGridProps = {
     onReorder: (order: string[]) => void;
     onSpanChange: (name: string, span: TemplateSpan) => void;
     onRowChange: (name: string, rows: number) => void;
-    renderItem: (field: ResolvedField, index: number) => ReactNode;
+    renderItem: (
+        field: ResolvedField,
+        index: number,
+        dragHandleProps?: DragHandleProps
+    ) => ReactNode;
 };
 
 // Renders the effective template as a dense grid of width/height spans. Rows

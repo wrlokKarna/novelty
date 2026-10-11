@@ -12,6 +12,7 @@ import { RichTextEditor } from '../RichTextEditor';
 import TreeFieldEditor from '../TreeFieldEditor';
 import TreeRelationsEditor from '../TreeRelationsEditor';
 import VisibilityEditor from '../VisibilityEditor';
+import type { DragHandleProps } from './layout/FieldLayoutGrid';
 import styles from './TemplateField.module.css';
 
 export type EntryRef = { id: string; name: string };
@@ -41,6 +42,12 @@ export type EditProps = {
     commitPending: () => void;
     commitOnEnter: (e: ReactKeyboardEvent) => void;
     onRemove: (index: number) => void;
+    // Toggle the field between its own width and spanning every column.
+    onToggleFullWidth?: (name: string, fullWidth: boolean) => void;
+    // Pin (or clear, when null) the field's starting column.
+    onColumnChange?: (name: string, col: number | null) => void;
+    // Drag handlers from the layout grid, attached to the card's drag icon.
+    dragHandleProps?: DragHandleProps;
 };
 
 export type TemplateFieldProps =
@@ -742,11 +749,23 @@ function FieldEditHeader({
     field,
     index,
     inherited,
+    columns,
     onRemove,
     commitField,
+    onToggleFullWidth,
+    onColumnChange,
+    dragHandleProps,
 }: Pick<
     EditProps,
-    'field' | 'index' | 'inherited' | 'onRemove' | 'commitField'
+    | 'field'
+    | 'index'
+    | 'inherited'
+    | 'columns'
+    | 'onRemove'
+    | 'commitField'
+    | 'onToggleFullWidth'
+    | 'onColumnChange'
+    | 'dragHandleProps'
 >) {
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(field.label);
@@ -832,6 +851,54 @@ function FieldEditHeader({
                     <span className={styles.inheritedBadge}>INHERITED</span>
                 )}
             </div>
+            {onColumnChange && (
+                <label
+                    className={styles.colControl}
+                    title="Starting column (Auto wraps to the next free column)"
+                >
+                    <select
+                        value={
+                            field.fullWidth
+                                ? 'auto'
+                                : (field.colStart ?? 'auto')
+                        }
+                        disabled={Boolean(field.fullWidth)}
+                        onChange={(e) =>
+                            onColumnChange(
+                                field.name,
+                                e.target.value === 'auto'
+                                    ? null
+                                    : Number(e.target.value)
+                            )
+                        }
+                    >
+                        <option value="auto">Auto</option>
+                        {Array.from(
+                            { length: Math.max(1, columns ?? 1) },
+                            (_, i) => i + 1
+                        ).map((n) => (
+                            <option key={n} value={n}>
+                                Col {n}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+            )}
+            {onToggleFullWidth && (
+                <label
+                    className={styles.fullWidthToggle}
+                    title="Occupy 100% of the width"
+                >
+                    <input
+                        type="checkbox"
+                        checked={Boolean(field.fullWidth)}
+                        onChange={(e) =>
+                            onToggleFullWidth(field.name, e.target.checked)
+                        }
+                    />
+                    100%
+                </label>
+            )}
             <button
                 type="button"
                 className={styles.deleteBtn}
@@ -858,6 +925,7 @@ function FieldEditHeader({
                 type="button"
                 className={styles.dragBtn}
                 title="Drag to reorder"
+                {...(dragHandleProps ?? {})}
             >
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -897,8 +965,19 @@ function EditBase({
 }
 
 function EditShell(props: EditProps & { children?: ReactNode }) {
-    const { field, index, fields, inherited, commitField, onRemove, children } =
-        props;
+    const {
+        field,
+        index,
+        fields,
+        columns,
+        inherited,
+        commitField,
+        onRemove,
+        onToggleFullWidth,
+        onColumnChange,
+        dragHandleProps,
+        children,
+    } = props;
     return (
         <div
             className={`${styles.tmplField} ${styles.tmplFieldEdit} ${styles.field}`}
@@ -907,8 +986,12 @@ function EditShell(props: EditProps & { children?: ReactNode }) {
                 field={field}
                 index={index}
                 inherited={inherited}
+                columns={columns}
                 onRemove={onRemove}
                 commitField={commitField}
+                onToggleFullWidth={onToggleFullWidth}
+                onColumnChange={onColumnChange}
+                dragHandleProps={dragHandleProps}
             />
             <EditBase field={field} index={index} commitField={commitField} />
             {children}

@@ -51,12 +51,19 @@ export const fullMerge = mergeSeriesFields;
 export function emptyLayout(
     columns: number = DEFAULT_TEMPLATE_COLUMNS
 ): TemplateLayout {
-    return { order: [], spans: {}, rows: {}, columns };
+    return {
+        order: [],
+        spans: {},
+        rows: {},
+        cols: {},
+        fullWidth: {},
+        columns,
+    };
 }
 
 // Coerces a value read back from storage into a complete layout. Layouts are
-// stored as JSON, so older rows can be missing `rows` (or any other key);
-// every consumer can then assume the shape is total.
+// stored as JSON, so older rows can be missing `rows`/`cols`/`fullWidth` (or any
+// other key); every consumer can then assume the shape is total.
 export function normalizeLayout(raw: unknown): TemplateLayout | null {
     if (!raw || typeof raw !== 'object') return null;
     const obj = raw as Partial<TemplateLayout>;
@@ -69,6 +76,14 @@ export function normalizeLayout(raw: unknown): TemplateLayout | null {
         rows:
             obj.rows && typeof obj.rows === 'object'
                 ? (obj.rows as Record<string, number>)
+                : {},
+        cols:
+            obj.cols && typeof obj.cols === 'object'
+                ? (obj.cols as Record<string, number>)
+                : {},
+        fullWidth:
+            obj.fullWidth && typeof obj.fullWidth === 'object'
+                ? (obj.fullWidth as Record<string, true>)
                 : {},
         columns: typeof obj.columns === 'number' ? obj.columns : null,
     };
@@ -96,9 +111,10 @@ export function orderByLayout<T extends { name: string }>(
         .map((x) => x.def);
 }
 
-// The effective, project-authoritative layout. The project's order, spans and
-// rows win; the series only supplies defaults for names the project has not
-// placed, and only when the project has no order of its own.
+// The effective, project-authoritative layout. The project's order, spans,
+// rows, columns and full-width flags win; the series only supplies defaults for
+// names the project has not placed, and only when the project has no order of
+// its own.
 export function effectiveLayout(
     projectLayout: TemplateLayout | null | undefined,
     seriesLayout: TemplateLayout | null | undefined
@@ -114,26 +130,71 @@ export function effectiveLayout(
         ...(seriesLayout?.rows ?? {}),
         ...(projectLayout?.rows ?? {}),
     };
+    const cols = {
+        ...(seriesLayout?.cols ?? {}),
+        ...(projectLayout?.cols ?? {}),
+    };
+    const fullWidth = {
+        ...(seriesLayout?.fullWidth ?? {}),
+        ...(projectLayout?.fullWidth ?? {}),
+    };
     const columns =
         projectLayout?.columns ??
         seriesLayout?.columns ??
         DEFAULT_TEMPLATE_COLUMNS;
-    return { order: [...order], spans, rows, columns };
+    return { order: [...order], spans, rows, cols, fullWidth, columns };
 }
 
-// Attaches the width and height the layout assigns to each field. A name with
-// no stored span is left `undefined` so the renderer falls back to a full row;
-// a name with no stored row span is sized to its own content.
+// Default width in grid columns per field type, used when a field has no span
+// of its own. Text-ish inputs and compact controls are single column; tall
+// editors get a double-wide row.
+export const WIDTH_BY_TYPE: Partial<
+    Record<FieldDefinition['type'], TemplateSpan>
+> = {
+    text: 1,
+    number: 1,
+    date: 1,
+    color: 1,
+    toggle: 1,
+    checkbox: 1,
+    select: 1,
+    range: 1,
+    file: 1,
+    portrait: 1,
+    entitylink: 1,
+    textarea: 2,
+    richtext: 2,
+    images: 2,
+    tree: 2,
+};
+
+export function clampSpan(width: number, columns: number): TemplateSpan {
+    const max = Math.max(1, Math.min(6, Math.floor(columns) || 1));
+    return Math.min(Math.max(1, Math.round(width) || 1), max) as TemplateSpan;
+}
+
+// Attaches the presentation the layout assigns to each field: its width (an
+// explicit span, else a full-width flag, else the type default), optional row
+// span, and optional starting column. `span` is always present so the renderer
+// never has to guess a width; `rowSpan`/`colStart`/`fullWidth` are attached
+// only for names the layout actually mentions.
 export function applyLayout(
     defs: FieldDefinition[],
     layout: TemplateLayout
 ): ResolvedField[] {
+    const columns = layout.columns ?? DEFAULT_TEMPLATE_COLUMNS;
     return defs.map((def) => {
-        const span = layout.spans[def.name];
+        const fullWidth = layout.fullWidth?.[def.name] === true;
+        const span = fullWidth
+            ? clampSpan(columns, columns)
+            : (layout.spans?.[def.name] ??
+              clampSpan(WIDTH_BY_TYPE[def.type] ?? 1, columns));
         const rowSpan = layout.rows?.[def.name];
-        if (span && rowSpan) return { ...def, span, rowSpan };
-        if (span) return { ...def, span };
-        if (rowSpan) return { ...def, rowSpan };
-        return { ...def };
+        const colStart = layout.cols?.[def.name];
+        const out: ResolvedField = { ...def, span };
+        if (rowSpan) out.rowSpan = rowSpan;
+        if (colStart) out.colStart = colStart;
+        if (fullWidth) out.fullWidth = true;
+        return out;
     });
 }

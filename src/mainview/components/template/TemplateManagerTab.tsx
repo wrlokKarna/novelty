@@ -10,6 +10,8 @@ import {
     getSeriesInheritedNames,
     fullMerge,
     emptyLayout,
+    WIDTH_BY_TYPE,
+    clampSpan,
 } from '../../templates/mergeFields';
 import { autoArrangeLayout } from '../../templates/autoArrange';
 import type {
@@ -737,6 +739,19 @@ export default function TemplateManagerTab({
             // inherited, so it goes to the end of the merged list.
             const next = [...merged, field];
             setProjectFieldsFor(cat, next);
+            // Give the new field an explicit, type-appropriate width so it slots
+            // in beside its neighbours instead of defaulting to a full row.
+            const columns =
+                layoutRef.current[cat]?.columns ?? DEFAULT_TEMPLATE_COLUMNS;
+            patchLayoutOnly(cat, {
+                spans: {
+                    ...(layoutRef.current[cat]?.spans ?? {}),
+                    [field.name]: clampSpan(
+                        WIDTH_BY_TYPE[field.type] ?? 1,
+                        columns
+                    ),
+                },
+            });
             await commitMerged(
                 cat,
                 next,
@@ -808,11 +823,18 @@ export default function TemplateManagerTab({
                     onCommit={(next) => commitMerged(cat, next)}
                     onOrderChange={(order) => patchLayout(cat, { order })}
                     onSpanChange={(name, span) => {
+                        const cur = layoutRef.current[cat] ?? emptyLayout();
+                        // Dragging the width of a full-width field drops its
+                        // full-width status, otherwise the flag would keep it at
+                        // 100% and the drag would look dead.
+                        const fullWidth = { ...(cur.fullWidth ?? {}) };
+                        delete fullWidth[name];
                         patchLayoutOnly(cat, {
                             spans: {
-                                ...(layoutRef.current[cat]?.spans ?? {}),
+                                ...(cur.spans ?? {}),
                                 [name]: span,
                             },
+                            fullWidth,
                         });
                         scheduleLayoutCommit(cat);
                     }}
@@ -823,6 +845,24 @@ export default function TemplateManagerTab({
                                 [name]: rows,
                             },
                         });
+                        scheduleLayoutCommit(cat);
+                    }}
+                    onFullWidthChange={(name, on) => {
+                        const fullWidth = {
+                            ...(layoutRef.current[cat]?.fullWidth ?? {}),
+                        };
+                        if (on) fullWidth[name] = true;
+                        else delete fullWidth[name];
+                        patchLayoutOnly(cat, { fullWidth });
+                        scheduleLayoutCommit(cat);
+                    }}
+                    onColChange={(name, col) => {
+                        const cols = {
+                            ...(layoutRef.current[cat]?.cols ?? {}),
+                        };
+                        if (col == null) delete cols[name];
+                        else cols[name] = col;
+                        patchLayoutOnly(cat, { cols });
                         scheduleLayoutCommit(cat);
                     }}
                     onRemove={(index) => removeField(cat, index)}
@@ -1244,6 +1284,8 @@ function ProjectFieldsEditor({
     onOrderChange,
     onSpanChange,
     onRowChange,
+    onFullWidthChange,
+    onColChange,
     onRemove,
     inheritedNames,
 }: {
@@ -1255,6 +1297,8 @@ function ProjectFieldsEditor({
     onOrderChange: (order: string[]) => void;
     onSpanChange: (name: string, span: TemplateSpan) => void;
     onRowChange: (name: string, rows: number) => void;
+    onFullWidthChange: (name: string, on: boolean) => void;
+    onColChange: (name: string, col: number | null) => void;
     onRemove: (index: number) => void;
     inheritedNames: Set<string>;
 }) {
@@ -1283,7 +1327,7 @@ function ProjectFieldsEditor({
             onReorder={onOrderChange}
             onSpanChange={onSpanChange}
             onRowChange={onRowChange}
-            renderItem={(field, index) => (
+            renderItem={(field, index, dragHandleProps) => (
                 <TemplateField
                     mode="edit"
                     field={field}
@@ -1296,6 +1340,9 @@ function ProjectFieldsEditor({
                     commitPending={commitPending}
                     commitOnEnter={commitOnEnter}
                     onRemove={removeField}
+                    onToggleFullWidth={onFullWidthChange}
+                    onColumnChange={onColChange}
+                    dragHandleProps={dragHandleProps}
                 />
             )}
         />

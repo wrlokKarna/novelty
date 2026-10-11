@@ -46,12 +46,23 @@ export default function TemplateTab({
         if (layout) return layout;
         const spans: Record<string, TemplateSpan> = {};
         const rows: Record<string, number> = {};
+        const cols: Record<string, number> = {};
+        const fullWidth: Record<string, true> = {};
         for (const f of tmplFields) {
             const rf = f as ResolvedField;
             if (rf.span != null) spans[f.name] = rf.span;
             if (rf.rowSpan != null) rows[f.name] = rf.rowSpan;
+            if (rf.colStart != null) cols[f.name] = rf.colStart;
+            if (rf.fullWidth) fullWidth[f.name] = true;
         }
-        return { order: tmplFields.map((f) => f.name), spans, rows, columns };
+        return {
+            order: tmplFields.map((f) => f.name),
+            spans,
+            rows,
+            cols,
+            fullWidth,
+            columns,
+        };
     }, [layout, tmplFields, columns]);
 
     return (

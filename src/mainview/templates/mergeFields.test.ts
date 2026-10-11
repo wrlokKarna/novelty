@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { FieldDefinition } from '../types';
+import type { FieldDefinition, TemplateLayout } from '../types';
 import { DEFAULT_TEMPLATE_COLUMNS } from '../types';
 import {
     applyLayout,
@@ -14,6 +14,18 @@ function field(
     extra: Partial<FieldDefinition> = {}
 ): FieldDefinition {
     return { name, label: name, required: false, type: 'text', ...extra };
+}
+
+function layout(partial: Partial<TemplateLayout> = {}): TemplateLayout {
+    return {
+        order: [],
+        spans: {},
+        rows: {},
+        cols: {},
+        fullWidth: {},
+        columns: DEFAULT_TEMPLATE_COLUMNS,
+        ...partial,
+    };
 }
 
 describe('orderByLayout', () => {
@@ -81,68 +93,122 @@ describe('fullMerge', () => {
 
 describe('effectiveLayout', () => {
     test('defaults columns when both rows are empty', () => {
-        const layout = effectiveLayout(null, null);
-        expect(layout.columns).toBe(DEFAULT_TEMPLATE_COLUMNS);
-        expect(layout.order).toEqual([]);
-        expect(layout.spans).toEqual({});
-        expect(layout.rows).toEqual({});
+        const result = effectiveLayout(null, null);
+        expect(result.columns).toBe(DEFAULT_TEMPLATE_COLUMNS);
+        expect(result.order).toEqual([]);
+        expect(result.spans).toEqual({});
+        expect(result.rows).toEqual({});
+        expect(result.cols).toEqual({});
+        expect(result.fullWidth).toEqual({});
     });
 
-    test('series supplies order, spans and rows when the project has none', () => {
-        const layout = effectiveLayout(null, {
-            order: ['a', 'b'],
-            spans: { a: 2 },
-            rows: { a: 5 },
-            columns: 3,
-        });
-        expect(layout.order).toEqual(['a', 'b']);
-        expect(layout.spans.a).toBe(2);
-        expect(layout.rows.a).toBe(5);
-        expect(layout.columns).toBe(3);
-    });
-
-    test('project order, spans and rows win over the series', () => {
-        const layout = effectiveLayout(
-            { order: ['b', 'a'], spans: { a: 1 }, rows: { a: 3 }, columns: 5 },
-            { order: ['a', 'b'], spans: { a: 2 }, rows: { a: 6 }, columns: 3 }
+    test('series supplies order, spans, rows, cols and fullWidth when the project has none', () => {
+        const result = effectiveLayout(
+            null,
+            layout({
+                order: ['a', 'b'],
+                spans: { a: 2 },
+                rows: { a: 5 },
+                cols: { b: 4 },
+                fullWidth: { a: true },
+                columns: 3,
+            })
         );
-        expect(layout.order).toEqual(['b', 'a']);
-        expect(layout.spans.a).toBe(1);
-        expect(layout.rows.a).toBe(3);
-        expect(layout.columns).toBe(5);
+        expect(result.order).toEqual(['a', 'b']);
+        expect(result.spans.a).toBe(2);
+        expect(result.rows.a).toBe(5);
+        expect(result.cols.b).toBe(4);
+        expect(result.fullWidth.a).toBe(true);
+        expect(result.columns).toBe(3);
     });
 
-    test('defaults rows when a legacy layout omits them', () => {
-        const layout = effectiveLayout(
+    test('project order, spans, rows, cols and fullWidth win over the series', () => {
+        const result = effectiveLayout(
+            layout({
+                order: ['b', 'a'],
+                spans: { a: 1 },
+                rows: { a: 3 },
+                cols: { b: 2 },
+                fullWidth: {},
+                columns: 5,
+            }),
+            layout({
+                order: ['a', 'b'],
+                spans: { a: 2 },
+                rows: { a: 6 },
+                cols: { b: 4 },
+                fullWidth: { a: true },
+                columns: 3,
+            })
+        );
+        expect(result.order).toEqual(['b', 'a']);
+        expect(result.spans.a).toBe(1);
+        expect(result.rows.a).toBe(3);
+        expect(result.cols.b).toBe(2);
+        expect(result.fullWidth.b).toBeUndefined();
+        expect(result.columns).toBe(5);
+    });
+
+    test('defaults cols and fullWidth when a legacy layout omits them', () => {
+        const result = effectiveLayout(
             { order: ['a'], spans: { a: 2 }, columns: 4 } as never,
             null
         );
-        expect(layout.rows).toEqual({});
+        expect(result.rows).toEqual({});
+        expect(result.cols).toEqual({});
+        expect(result.fullWidth).toEqual({});
     });
 });
 
 describe('applyLayout', () => {
-    test('attaches a width only for names the layout mentions', () => {
+    test('attaches an explicit width and clamps it to the column count', () => {
         const defs = [field('a'), field('b')];
-        const resolved = applyLayout(defs, {
-            order: ['a', 'b'],
-            spans: { a: 2 },
-            rows: {},
-            columns: 4,
-        });
+        const resolved = applyLayout(
+            defs,
+            layout({ spans: { a: 2 }, columns: 4 })
+        );
         expect(resolved[0].span).toBe(2);
-        expect(resolved[1].span).toBeUndefined();
-        expect('span' in resolved[1]).toBe(false);
+        expect(resolved[1].span).toBe(1);
+        expect('span' in resolved[0]).toBe(true);
+    });
+
+    test('a field without a span falls back to its type width', () => {
+        const textField = field('title');
+        const textareaField = field('body', { type: 'textarea' });
+        const resolved = applyLayout(
+            [textField, textareaField],
+            layout({ columns: 4 })
+        );
+        expect(resolved[0].span).toBe(1);
+        expect(resolved[1].span).toBe(2);
+    });
+
+    test('a full-width flag resolves to every column', () => {
+        const resolved = applyLayout(
+            [field('a')],
+            layout({ spans: { a: 2 }, fullWidth: { a: true }, columns: 4 })
+        );
+        expect(resolved[0].span).toBe(4);
+        expect(resolved[0].fullWidth).toBe(true);
+    });
+
+    test('a start column is attached only for names the layout mentions', () => {
+        const defs = [field('a'), field('b')];
+        const resolved = applyLayout(
+            defs,
+            layout({ cols: { b: 4 }, columns: 4 })
+        );
+        expect(resolved[0].colStart).toBeUndefined();
+        expect(resolved[1].colStart).toBe(4);
+        expect('colStart' in resolved[0]).toBe(false);
     });
 
     test('attaches a row span only for names the layout mentions', () => {
         const defs = [field('a'), field('b')];
-        const resolved = applyLayout(defs, {
-            order: ['a', 'b'],
-            spans: {},
-            rows: { b: 7 },
-            columns: 4,
-        });
+        const resolved = applyLayout(
+            defs,
+            layout({ rows: { b: 7 }, columns: 4 })
+        );
         expect(resolved[0].rowSpan).toBeUndefined();
         expect(resolved[1].rowSpan).toBe(7);
         expect('rowSpan' in resolved[0]).toBe(false);

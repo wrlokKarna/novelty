@@ -20,7 +20,6 @@ import type {
     LoreEntry,
     EntityTemplate,
     FieldDefinition,
-    ResolvedField,
     TemplateLayout,
     PlotThread,
     StoryBeat,
@@ -573,49 +572,6 @@ function App() {
         setTemplateLayouts((prev) => ({
             ...prev,
             [category]: resolved?.layout ?? null,
-        }));
-    }
-
-    // Strips the computed `span`/`rowSpan` a resolved field carries before it
-    // can be saved back into the definition list.
-    function stripResolvedSpans(fields: FieldDefinition[]): FieldDefinition[] {
-        return (fields as ResolvedField[]).map((f) => {
-            const out: FieldDefinition = { ...f };
-            delete (out as { span?: unknown }).span;
-            delete (out as { rowSpan?: unknown }).rowSpan;
-            return out;
-        });
-    }
-
-    async function handleTemplateLayoutSave(
-        category: CompendiumCategory,
-        layout: TemplateLayout
-    ) {
-        if (!currentProject) return;
-        const baseDefs = templates[category]?.customFields?.length
-            ? templates[category].customFields
-            : stripResolvedSpans(resolvedTemplateFields[category] ?? []);
-        await rpc.request['db:save-template']({
-            projectId: currentProject.id,
-            baseType: category,
-            customFields: baseDefs,
-            layout,
-        });
-        const newResolved = await rpc.request['db:get-resolved-template']({
-            projectId: currentProject.id,
-            baseType: category,
-        });
-        setResolvedTemplateFields((prev) => ({
-            ...prev,
-            [category]: newResolved?.fields || [],
-        }));
-        setResolvedTemplateColumns((prev) => ({
-            ...prev,
-            [category]: newResolved?.columns ?? DEFAULT_TEMPLATE_COLUMNS,
-        }));
-        setTemplateLayouts((prev) => ({
-            ...prev,
-            [category]: newResolved?.layout ?? layout,
         }));
     }
 
@@ -2366,9 +2322,6 @@ function App() {
                             field,
                             value
                         )
-                    }
-                    onLayoutChange={(layout) =>
-                        handleTemplateLayoutSave(category, layout)
                     }
                     onEditTemplate={() => handleEditTemplate(category)}
                 />

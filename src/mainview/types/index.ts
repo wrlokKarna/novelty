@@ -569,11 +569,15 @@ export type TemplateSpan = 1 | 2 | 3 | 4 | 5 | 6;
 // names (name is the identity key used everywhere fields are merged), while
 // `spans` maps a field name to how many grid columns it occupies and `rows`
 // maps a field name to how many base row units tall it should be. A field with
-// no `rows` entry is sized to its own content.
+// no `rows` entry is sized to its own content. `cols` pins a field's starting
+// column (1-based) so empty columns can be left between fields; `fullWidth`
+// marks a field that always spans every column regardless of the column count.
 export type TemplateLayout = {
     order: string[];
     spans: Record<string, TemplateSpan>;
     rows: Record<string, number>;
+    cols: Record<string, number>;
+    fullWidth: Record<string, true>;
     // Grid column count. Null/absent falls back to DEFAULT_TEMPLATE_COLUMNS.
     columns: number | null;
 };
@@ -584,6 +588,8 @@ export type TemplateLayout = {
 export type ResolvedField = FieldDefinition & {
     span?: TemplateSpan;
     rowSpan?: number;
+    colStart?: number;
+    fullWidth?: boolean;
 };
 
 export type EntityTemplate = {
