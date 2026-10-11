@@ -11,9 +11,17 @@ import {
     fullMerge,
     emptyLayout,
     WIDTH_BY_TYPE,
+    ROW_SPAN_BY_TYPE,
     clampSpan,
+    clampRowSpan,
 } from '../../templates/mergeFields';
-import { autoArrangeLayout } from '../../templates/autoArrange';
+import {
+    autoArrangeLayout,
+    applyDrop,
+    withBandPositions,
+    type DropTarget,
+    type PlacedField,
+} from '../../templates/autoArrange';
 import type {
     CompendiumCategory,
     FieldDefinition,
@@ -21,7 +29,7 @@ import type {
     TemplateLayout,
     TemplateSpan,
 } from '../../types/index';
-import { DEFAULT_TEMPLATE_COLUMNS } from '../../types/index';
+import { DEFAULT_TEMPLATE_COLUMNS, LAYOUT_VERSION } from '../../types/index';
 import { FieldLayoutGrid } from './layout/FieldLayoutGrid';
 import { LayoutToolbar } from './layout/LayoutToolbar';
 import TemplateField from './TemplateField';
@@ -316,9 +324,54 @@ export default function TemplateManagerTab({
 
     function autoArrange(cat: CompendiumCategory) {
         const fields = projectFieldsRef.current[cat] ?? [];
-        const columns =
-            layoutRef.current[cat]?.columns ?? DEFAULT_TEMPLATE_COLUMNS;
-        patchLayout(cat, autoArrangeLayout(fields, columns));
+        const current = layoutRef.current[cat] ?? emptyLayout();
+        const columns = current.columns ?? DEFAULT_TEMPLATE_COLUMNS;
+        const packed = autoArrangeLayout(fields, columns, current);
+        patchLayout(cat, {
+            order: packed.order,
+            spans: packed.spans,
+            rowSpans: packed.rowSpans,
+            cols: packed.cols,
+            rowStarts: packed.rowStarts,
+            fullWidth: packed.fullWidth,
+            version: LAYOUT_VERSION,
+        });
+    }
+
+    // Builds the current rectangle of every field, so a drop can be resolved
+    // against the live grid. Fields the layout has not placed get packed into
+    // the first free cell.
+    function placedFields(cat: CompendiumCategory): PlacedField[] {
+        const layout = layoutRef.current[cat] ?? emptyLayout();
+        const columns = layout.columns ?? DEFAULT_TEMPLATE_COLUMNS;
+        const fields = projectFieldsRef.current[cat] ?? [];
+        const positioned = withBandPositions(
+            fields.map((f) => {
+                const fullWidth = layout.fullWidth?.[f.name] === true;
+                const span = fullWidth
+                    ? columns
+                    : (layout.spans?.[f.name] ??
+                      clampSpan(WIDTH_BY_TYPE[f.type] ?? 1, columns));
+                const rowSpan = clampRowSpan(
+                    layout.rowSpans?.[f.name] ?? ROW_SPAN_BY_TYPE[f.type] ?? 1
+                );
+                return {
+                    name: f.name,
+                    span,
+                    rowSpan,
+                    rowStart: layout.rowStarts?.[f.name],
+                    colStart: layout.cols?.[f.name],
+                };
+            }),
+            columns
+        );
+        return positioned.map((p) => ({
+            name: p.name,
+            row: p.rowStart,
+            col: p.colStart,
+            span: p.span,
+            rowSpan: p.rowSpan,
+        }));
     }
 
     function scheduleNotify() {
@@ -549,6 +602,9 @@ export default function TemplateManagerTab({
             const nextProject: FieldsByCategory = {};
             const nextSavedProject: FieldsByCategory = {};
             const nextLayouts = defaultLayouts();
+            // The layout exactly as loaded (before any version migration), kept
+            // as the diff baseline so a migrated layout is written back once.
+            const nextSavedLayouts: LayoutsByCategory = defaultLayouts();
             CATEGORIES.forEach((cat, i) => {
                 const stored = results[i]?.projectTemplate?.customFields || [];
                 nextProject[cat] = fullMerge(
@@ -561,19 +617,31 @@ export default function TemplateManagerTab({
                 // `results[i].layout` is already the effective
                 // (project-authoritative) layout, which is exactly what the
                 // editor should show and own from here on.
-                nextLayouts[cat] = {
+                const rawLayout: TemplateLayout = {
                     ...emptyLayout(
                         results[i]?.columns ?? DEFAULT_TEMPLATE_COLUMNS
                     ),
                     ...(results[i]?.layout ?? null),
                 };
+                nextSavedLayouts[cat] = rawLayout;
+                // A layout saved under an older model carries stale positions
+                // (row indices that meant pixel rows), so re-pack it once under
+                // the band model and stamp the new version.
+                nextLayouts[cat] =
+                    rawLayout.version === LAYOUT_VERSION
+                        ? rawLayout
+                        : autoArrangeLayout(
+                              nextProject[cat] ?? [],
+                              rawLayout.columns ?? DEFAULT_TEMPLATE_COLUMNS,
+                              rawLayout
+                          );
             });
 
             seriesRef.current = nextSeries;
             projectFieldsRef.current = nextProject;
             savedProjectRef.current = nextSavedProject;
             layoutRef.current = nextLayouts;
-            savedLayoutRef.current = nextLayouts;
+            savedLayoutRef.current = nextSavedLayouts;
             setSeries(nextSeries);
             setProjectFields(nextProject);
             setLayoutsByCategory(nextLayouts);
@@ -739,18 +807,47 @@ export default function TemplateManagerTab({
             // inherited, so it goes to the end of the merged list.
             const next = [...merged, field];
             setProjectFieldsFor(cat, next);
-            // Give the new field an explicit, type-appropriate width so it slots
-            // in beside its neighbours instead of defaulting to a full row.
+            // Give the new field an explicit, type-appropriate width and drop it
+            // straight into a fresh band at the bottom, so it has a real cell
+            // from the moment it appears.
             const columns =
                 layoutRef.current[cat]?.columns ?? DEFAULT_TEMPLATE_COLUMNS;
+            const curLayout = layoutRef.current[cat] ?? emptyLayout();
+            const maxRowEnd = Object.keys(curLayout.rowStarts ?? {}).reduce(
+                (m, name) =>
+                    Math.max(
+                        m,
+                        (curLayout.rowStarts[name] ?? 1) +
+                            (curLayout.rowSpans?.[name] ??
+                                ROW_SPAN_BY_TYPE[
+                                    merged.find((f) => f.name === name)?.type ??
+                                        'text'
+                                ] ??
+                                1) -
+                            1
+                    ),
+                0
+            );
             patchLayoutOnly(cat, {
                 spans: {
-                    ...(layoutRef.current[cat]?.spans ?? {}),
+                    ...(curLayout.spans ?? {}),
                     [field.name]: clampSpan(
                         WIDTH_BY_TYPE[field.type] ?? 1,
                         columns
                     ),
                 },
+                rowSpans: {
+                    ...(curLayout.rowSpans ?? {}),
+                    [field.name]: clampRowSpan(
+                        ROW_SPAN_BY_TYPE[field.type] ?? 1
+                    ),
+                },
+                rowStarts: {
+                    ...(curLayout.rowStarts ?? {}),
+                    [field.name]: maxRowEnd + 1,
+                },
+                cols: { ...(curLayout.cols ?? {}), [field.name]: 1 },
+                version: LAYOUT_VERSION,
             });
             await commitMerged(
                 cat,
@@ -810,7 +907,25 @@ export default function TemplateManagerTab({
                 <div style={{ margin: '0 0 0.75rem 0' }}>
                     <LayoutToolbar
                         columns={columns}
-                        onColumns={(n) => patchLayout(cat, { columns: n })}
+                        onColumns={(n) => {
+                            const current =
+                                layoutRef.current[cat] ?? emptyLayout();
+                            const packed = autoArrangeLayout(
+                                projectFieldsRef.current[cat] ?? [],
+                                n,
+                                current
+                            );
+                            patchLayout(cat, {
+                                columns: n,
+                                order: packed.order,
+                                spans: packed.spans,
+                                rowSpans: packed.rowSpans,
+                                cols: packed.cols,
+                                rowStarts: packed.rowStarts,
+                                fullWidth: packed.fullWidth,
+                                version: LAYOUT_VERSION,
+                            });
+                        }}
                         onAutoArrange={() => autoArrange(cat)}
                     />
                 </div>
@@ -821,7 +936,6 @@ export default function TemplateManagerTab({
                     columns={columns}
                     onChange={(next) => setProjectFieldsFor(cat, next)}
                     onCommit={(next) => commitMerged(cat, next)}
-                    onOrderChange={(order) => patchLayout(cat, { order })}
                     onSpanChange={(name, span) => {
                         const cur = layoutRef.current[cat] ?? emptyLayout();
                         // Dragging the width of a full-width field drops its
@@ -838,11 +952,11 @@ export default function TemplateManagerTab({
                         });
                         scheduleLayoutCommit(cat);
                     }}
-                    onRowChange={(name, rows) => {
+                    onRowSpanChange={(name, rowSpan) => {
                         patchLayoutOnly(cat, {
-                            rows: {
-                                ...(layoutRef.current[cat]?.rows ?? {}),
-                                [name]: rows,
+                            rowSpans: {
+                                ...(layoutRef.current[cat]?.rowSpans ?? {}),
+                                [name]: rowSpan,
                             },
                         });
                         scheduleLayoutCommit(cat);
@@ -863,6 +977,22 @@ export default function TemplateManagerTab({
                         if (col == null) delete cols[name];
                         else cols[name] = col;
                         patchLayoutOnly(cat, { cols });
+                        scheduleLayoutCommit(cat);
+                    }}
+                    onMove={(name, target) => {
+                        const result = applyDrop(
+                            placedFields(cat),
+                            name,
+                            target,
+                            layoutRef.current[cat]?.columns ??
+                                DEFAULT_TEMPLATE_COLUMNS
+                        );
+                        patchLayoutOnly(cat, {
+                            rowStarts: result.rowStarts,
+                            cols: result.cols,
+                            rowSpans: result.rowSpans,
+                            version: LAYOUT_VERSION,
+                        });
                         scheduleLayoutCommit(cat);
                     }}
                     onRemove={(index) => removeField(cat, index)}
@@ -1281,11 +1411,11 @@ function ProjectFieldsEditor({
     columns,
     onChange,
     onCommit,
-    onOrderChange,
     onSpanChange,
-    onRowChange,
+    onRowSpanChange,
     onFullWidthChange,
     onColChange,
+    onMove,
     onRemove,
     inheritedNames,
 }: {
@@ -1294,11 +1424,11 @@ function ProjectFieldsEditor({
     columns: number;
     onChange: (fields: FieldDefinition[]) => void;
     onCommit: (fields: FieldDefinition[]) => void;
-    onOrderChange: (order: string[]) => void;
     onSpanChange: (name: string, span: TemplateSpan) => void;
-    onRowChange: (name: string, rows: number) => void;
+    onRowSpanChange: (name: string, rowSpan: number) => void;
     onFullWidthChange: (name: string, on: boolean) => void;
     onColChange: (name: string, col: number | null) => void;
+    onMove: (name: string, target: DropTarget) => void;
     onRemove: (index: number) => void;
     inheritedNames: Set<string>;
 }) {
@@ -1324,9 +1454,9 @@ function ProjectFieldsEditor({
             layout={layout}
             columns={columns}
             interactive
-            onReorder={onOrderChange}
+            onMove={onMove}
             onSpanChange={onSpanChange}
-            onRowChange={onRowChange}
+            onRowSpanChange={onRowSpanChange}
             renderItem={(field, index, dragHandleProps) => (
                 <TemplateField
                     mode="edit"

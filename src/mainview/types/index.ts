@@ -564,31 +564,45 @@ export type FieldDefinition = {
 
 export type TemplateSpan = 1 | 2 | 3 | 4 | 5 | 6;
 
+// Bumped whenever the meaning of the layout's position keys changes, so the
+// editor knows to re-pack a layout saved under an older model instead of
+// rendering stale positions.
+export const LAYOUT_VERSION = 4;
+
 // Presentation state for a template, stored separately from the field
-// definitions it lays out. `order` is the canonical display order as field
-// names (name is the identity key used everywhere fields are merged), while
-// `spans` maps a field name to how many grid columns it occupies and `rows`
-// maps a field name to how many base row units tall it should be. A field with
-// no `rows` entry is sized to its own content. `cols` pins a field's starting
-// column (1-based) so empty columns can be left between fields; `fullWidth`
-// marks a field that always spans every column regardless of the column count.
+// definitions it lays out. The grid is a real table: `columns` controls how
+// many columns wide it is, and every populated row is a content-height band.
+// A field occupies a `rowSpan × colSpan` rectangle of bands/cells, so a tall
+// field (a portrait) can span several rows. `order` is the canonical display
+// order as field names (name is the identity key used everywhere fields are
+// merged), `spans` maps a field name to how many grid columns it occupies,
+// `rowSpans` maps a field name to how many bands it spans, `cols` pins a
+// field's starting column (1-based) so empty columns can be left between
+// fields, and `rowStarts` maps a field name to the band (row) it starts in.
+// `fullWidth` marks a field that always spans every column regardless of the
+// column count.
 export type TemplateLayout = {
     order: string[];
     spans: Record<string, TemplateSpan>;
-    rows: Record<string, number>;
+    rowSpans: Record<string, number>;
     cols: Record<string, number>;
+    rowStarts: Record<string, number>;
     fullWidth: Record<string, true>;
+    // Layout model version. Absent/older means the position keys predate the
+    // band model, so the editor re-packs the layout before showing it.
+    version?: number;
     // Grid column count. Null/absent falls back to DEFAULT_TEMPLATE_COLUMNS.
     columns: number | null;
 };
 
 // A field definition resolved against a layout: identical to what is stored,
-// plus the display width/height the layout assigns it. `span` and `rowSpan`
-// are derived, never persisted inside `customFields`.
+// plus the display position the layout assigns it. `span`/`rowSpan`/
+// `rowStart`/`colStart` are derived, never persisted inside `customFields`.
 export type ResolvedField = FieldDefinition & {
     span?: TemplateSpan;
     rowSpan?: number;
     colStart?: number;
+    rowStart?: number;
     fullWidth?: boolean;
 };
 

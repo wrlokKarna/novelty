@@ -964,6 +964,85 @@ function EditBase({
     );
 }
 
+// A skeleton stand-in for the field's real widget, rendered on edit cards so
+// their measured height matches what the compendium tab shows for the same
+// field. Without it a portrait/textarea/rich text card measures almost nothing
+// in the editor, so rows collapse and the reader's taller widget overflows onto
+// the fields below.
+function FieldBodyPlaceholder({ type }: { type: FieldDefinition['type'] }) {
+    switch (type) {
+        case 'textarea':
+            return (
+                <div className={styles.placeholderTextArea}>
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className={styles.placeholderTextLine} />
+                    ))}
+                </div>
+            );
+        case 'richtext':
+            return (
+                <div className={styles.placeholderRichText}>
+                    <div className={styles.placeholderToolbar} />
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className={styles.placeholderTextLine} />
+                    ))}
+                </div>
+            );
+        case 'portrait':
+            return <div className={styles.placeholderPortrait} />;
+        case 'images':
+            return (
+                <div className={styles.placeholderImages}>
+                    <div className={styles.placeholderTile} />
+                    <div className={styles.placeholderTile} />
+                </div>
+            );
+        case 'toggle':
+        case 'checkbox':
+            return (
+                <div className={styles.placeholderInput}>
+                    <span className={styles.placeholderToggle} />
+                    <span className={styles.placeholderBarShort} />
+                </div>
+            );
+        case 'range':
+            return (
+                <div className={styles.placeholderInput}>
+                    <span className={styles.placeholderBar} />
+                </div>
+            );
+        case 'color':
+            return (
+                <div className={styles.placeholderInput}>
+                    <span className={styles.placeholderSwatch} />
+                    <span className={styles.placeholderBarShort} />
+                </div>
+            );
+        case 'select':
+        case 'multiselect':
+        case 'entitylink':
+            return (
+                <div className={styles.placeholderInput}>
+                    <span className={styles.placeholderBar} />
+                </div>
+            );
+        case 'tree':
+            return (
+                <div className={styles.placeholderTree}>
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className={styles.placeholderTreeRow} />
+                    ))}
+                </div>
+            );
+        default:
+            return (
+                <div className={styles.placeholderInput}>
+                    <span className={styles.placeholderBar} />
+                </div>
+            );
+    }
+}
+
 function EditShell(props: EditProps & { children?: ReactNode }) {
     const {
         field,
@@ -993,6 +1072,7 @@ function EditShell(props: EditProps & { children?: ReactNode }) {
                 onColumnChange={onColumnChange}
                 dragHandleProps={dragHandleProps}
             />
+            <FieldBodyPlaceholder type={field.type} />
             <EditBase field={field} index={index} commitField={commitField} />
             {children}
             <VisibilityEditor

@@ -802,8 +802,9 @@ function migrateTemplateLayouts() {
                 const layout = {
                     order,
                     spans,
-                    rows: {},
                     cols: {},
+                    rowStarts: {},
+                    rowSpans: {},
                     fullWidth: {},
                     columns: hasColumns ? (row.columns ?? null) : null,
                 };

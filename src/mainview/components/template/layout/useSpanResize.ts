@@ -11,11 +11,6 @@ export function clampSpanFor(columns: number) {
         Math.min(Math.max(1, Math.round(span)), max) as TemplateSpan;
 }
 
-// Row spans are counted in base row units. A field can be grown without limit,
-// but the lower bound is enforced by the caller (a field is never shorter than
-// its own content), so only the upper bound lives here.
-export const MAX_ROW_SPAN = 100;
-
 // Drag-the-right-edge width resize. The handle carries pointer handlers that
 // derive the next width from the pointer delta against the column width
 // measured when the drag started. `onChange(name, span)` fires on every move so
@@ -63,48 +58,43 @@ export function useSpanResize(
     return { onPointerDown, onPointerMove, onPointerUp };
 }
 
-// Drag-the-bottom-edge height resize, in base row units. The delta is divided
-// by the unit pitch (unit + gap) so the value snaps to whole units. `minRows`
-// is the field's measured content height, so the field can only be grown, never
-// shrunk below what it renders.
-export function useRowResize(
+// Drag-the-bottom-edge row-span resize. The handle changes how many bands the
+// field covers, one band per step: the pointer delta is divided by the field's
+// current per-band pitch (its rendered height plus the grid gap over its
+// current span) and rounded, so the field snaps to whole bands. `maxSpan` caps
+// it so a field can never grow past the persisted span range.
+export function useRowSpanResize(
     name: string,
-    rows: number | undefined,
-    unit: number,
+    rowSpan: number | undefined,
+    maxSpan: number,
     gap: number,
-    minRows: number,
-    onChange: (name: string, rows: number) => void
+    onChange: (name: string, rowSpan: number) => void
 ) {
     const session = useRef<{
         startY: number;
-        startRows: number;
         pitch: number;
-        minRows: number;
+        startSpan: number;
     } | null>(null);
-
-    function clamp(next: number, min: number): number {
-        return Math.min(Math.max(Math.round(next), min), MAX_ROW_SPAN);
-    }
 
     function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
         if (e.button !== 0) return;
         e.preventDefault();
         e.stopPropagation();
-        const startRows = Math.max(rows ?? minRows, minRows);
-        session.current = {
-            startY: e.clientY,
-            startRows,
-            pitch: Math.max(1, unit + gap),
-            minRows,
-        };
+        const item = (e.currentTarget as HTMLElement).parentElement;
+        if (!item) return;
+        const rect = item.getBoundingClientRect();
+        const startSpan = Math.max(1, rowSpan ?? 1);
+        const pitch = Math.max(1, (rect.height + gap) / startSpan);
+        session.current = { startY: e.clientY, pitch, startSpan };
         (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
     }
 
     function onPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
         const s = session.current;
         if (!s) return;
-        const next = s.startRows + (e.clientY - s.startY) / s.pitch;
-        onChange(name, clamp(next, s.minRows));
+        const delta = Math.round((e.clientY - s.startY) / s.pitch);
+        const next = Math.min(Math.max(1, s.startSpan + delta), maxSpan);
+        onChange(name, next);
     }
 
     function onPointerUp(e: ReactPointerEvent<HTMLDivElement>) {

@@ -3076,6 +3076,42 @@ select {
     margin-bottom: 0;
 }
 
+/* Where a dragged card will land: a dashed outline pinned to the target cell,
+   sized to the dragged field's own span. */
+.field-drop-preview {
+    align-self: stretch;
+    min-width: 0;
+    border: 2px dashed var(--accent, rgba(240, 160, 80, 0.9));
+    border-radius: 8px;
+    background: rgba(240, 160, 80, 0.08);
+    pointer-events: none;
+    z-index: 3;
+}
+
+/* The insert target between two bands, shown while dragging: a thin 2px line
+   sitting on the hovered boundary. The interaction zone around it is larger
+   (24px, clamped to short bands) but only the line is painted. The chosen
+   column is drawn brighter so it is clear where the card will attach. */
+.field-drop-insert {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: rgba(240, 160, 80, 0.35);
+    border-radius: 1px;
+    pointer-events: none;
+    z-index: 3;
+}
+
+.field-drop-insert-col {
+    position: absolute;
+    top: -1px;
+    height: 4px;
+    background: var(--accent, rgba(240, 160, 80, 0.95));
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(240, 160, 80, 0.6);
+}
+
 .location-box {
     background-color: #1a1a1c;
     border-radius: 6px;

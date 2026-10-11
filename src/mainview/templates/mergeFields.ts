@@ -4,7 +4,7 @@ import type {
     TemplateLayout,
     TemplateSpan,
 } from '../types';
-import { DEFAULT_TEMPLATE_COLUMNS } from '../types';
+import { DEFAULT_TEMPLATE_COLUMNS, LAYOUT_VERSION } from '../types';
 
 // Series fields are keyed by name, so a project override is recognised purely by
 // name collision with the series template for its category. Callers pass the
@@ -54,16 +54,19 @@ export function emptyLayout(
     return {
         order: [],
         spans: {},
-        rows: {},
+        rowSpans: {},
         cols: {},
+        rowStarts: {},
         fullWidth: {},
+        version: LAYOUT_VERSION,
         columns,
     };
 }
 
 // Coerces a value read back from storage into a complete layout. Layouts are
-// stored as JSON, so older rows can be missing `rows`/`cols`/`fullWidth` (or any
-// other key); every consumer can then assume the shape is total.
+// stored as JSON, so older rows can be missing `spans`/`rowSpans`/`cols`/
+// `rowStarts`/`fullWidth` (or any other key); every consumer can then assume
+// the shape is total.
 export function normalizeLayout(raw: unknown): TemplateLayout | null {
     if (!raw || typeof raw !== 'object') return null;
     const obj = raw as Partial<TemplateLayout>;
@@ -73,18 +76,23 @@ export function normalizeLayout(raw: unknown): TemplateLayout | null {
             obj.spans && typeof obj.spans === 'object'
                 ? (obj.spans as Record<string, TemplateSpan>)
                 : {},
-        rows:
-            obj.rows && typeof obj.rows === 'object'
-                ? (obj.rows as Record<string, number>)
+        rowSpans:
+            obj.rowSpans && typeof obj.rowSpans === 'object'
+                ? (obj.rowSpans as Record<string, number>)
                 : {},
         cols:
             obj.cols && typeof obj.cols === 'object'
                 ? (obj.cols as Record<string, number>)
                 : {},
+        rowStarts:
+            obj.rowStarts && typeof obj.rowStarts === 'object'
+                ? (obj.rowStarts as Record<string, number>)
+                : {},
         fullWidth:
             obj.fullWidth && typeof obj.fullWidth === 'object'
                 ? (obj.fullWidth as Record<string, true>)
                 : {},
+        version: typeof obj.version === 'number' ? obj.version : undefined,
         columns: typeof obj.columns === 'number' ? obj.columns : null,
     };
 }
@@ -126,13 +134,17 @@ export function effectiveLayout(
         ...(seriesLayout?.spans ?? {}),
         ...(projectLayout?.spans ?? {}),
     };
-    const rows = {
-        ...(seriesLayout?.rows ?? {}),
-        ...(projectLayout?.rows ?? {}),
-    };
     const cols = {
         ...(seriesLayout?.cols ?? {}),
         ...(projectLayout?.cols ?? {}),
+    };
+    const rowStarts = {
+        ...(seriesLayout?.rowStarts ?? {}),
+        ...(projectLayout?.rowStarts ?? {}),
+    };
+    const rowSpans = {
+        ...(seriesLayout?.rowSpans ?? {}),
+        ...(projectLayout?.rowSpans ?? {}),
     };
     const fullWidth = {
         ...(seriesLayout?.fullWidth ?? {}),
@@ -142,7 +154,16 @@ export function effectiveLayout(
         projectLayout?.columns ??
         seriesLayout?.columns ??
         DEFAULT_TEMPLATE_COLUMNS;
-    return { order: [...order], spans, rows, cols, fullWidth, columns };
+    return {
+        order: [...order],
+        spans,
+        rowSpans,
+        cols,
+        rowStarts,
+        fullWidth,
+        version: projectLayout?.version ?? seriesLayout?.version,
+        columns,
+    };
 }
 
 // Default width in grid columns per field type, used when a field has no span
@@ -168,16 +189,46 @@ export const WIDTH_BY_TYPE: Partial<
     tree: 2,
 };
 
+// Default height in grid bands per field type, used when a field has no row
+// span of its own. Most fields sit in a single band; tall media fields default
+// to spanning two so a portrait/gallery reads at a useful size.
+export const ROW_SPAN_BY_TYPE: Partial<
+    Record<FieldDefinition['type'], number>
+> = {
+    portrait: 2,
+    images: 2,
+};
+
+// Upper bound on how many bands a single field may span. Kept in step with the
+// column-span cap so both handles feel consistent.
+export const MAX_ROW_SPAN = 6;
+
+export function clampRowSpan(span: number): number {
+    return Math.min(Math.max(1, Math.round(span) || 1), MAX_ROW_SPAN);
+}
+
 export function clampSpan(width: number, columns: number): TemplateSpan {
     const max = Math.max(1, Math.min(6, Math.floor(columns) || 1));
     return Math.min(Math.max(1, Math.round(width) || 1), max) as TemplateSpan;
 }
 
+// Clamps a field's 1-based start column so its full span stays inside the grid.
+export function clampColStart(
+    start: number,
+    colSpan: number,
+    columns: number
+): number {
+    const cols = Math.max(1, Math.floor(columns) || 1);
+    const maxStart = Math.max(1, cols - Math.max(1, colSpan) + 1);
+    return Math.min(Math.max(1, Math.round(start) || 1), maxStart);
+}
+
 // Attaches the presentation the layout assigns to each field: its width (an
-// explicit span, else a full-width flag, else the type default), optional row
-// span, and optional starting column. `span` is always present so the renderer
-// never has to guess a width; `rowSpan`/`colStart`/`fullWidth` are attached
-// only for names the layout actually mentions.
+// explicit span, else a full-width flag, else the type default), its height in
+// bands (an explicit row span, else the type default), and optional starting
+// column/row. `span`/`rowSpan` are always present so the renderer never has to
+// guess a size; `colStart`/`rowStart`/`fullWidth` are attached only for names
+// the layout actually mentions.
 export function applyLayout(
     defs: FieldDefinition[],
     layout: TemplateLayout
@@ -189,11 +240,14 @@ export function applyLayout(
             ? clampSpan(columns, columns)
             : (layout.spans?.[def.name] ??
               clampSpan(WIDTH_BY_TYPE[def.type] ?? 1, columns));
-        const rowSpan = layout.rows?.[def.name];
+        const rowSpan = clampRowSpan(
+            layout.rowSpans?.[def.name] ?? ROW_SPAN_BY_TYPE[def.type] ?? 1
+        );
         const colStart = layout.cols?.[def.name];
-        const out: ResolvedField = { ...def, span };
-        if (rowSpan) out.rowSpan = rowSpan;
+        const rowStart = layout.rowStarts?.[def.name];
+        const out: ResolvedField = { ...def, span, rowSpan };
         if (colStart) out.colStart = colStart;
+        if (rowStart) out.rowStart = rowStart;
         if (fullWidth) out.fullWidth = true;
         return out;
     });

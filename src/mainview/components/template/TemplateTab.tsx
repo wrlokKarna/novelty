@@ -39,27 +39,30 @@ export default function TemplateTab({
     items,
     loreEntries,
 }: Props) {
-    // Fields arriving from a resolved template already carry their span/rowSpan
-    // and order. When no layout is supplied, rebuild one from the field list so
-    // the grid has a total layout to work from.
+    // Fields arriving from a resolved template already carry their span/row and
+    // order. When no layout is supplied, rebuild one from the field list so the
+    // grid has a total layout to work from.
     const effectiveLayout = useMemo<TemplateLayout>(() => {
         if (layout) return layout;
         const spans: Record<string, TemplateSpan> = {};
-        const rows: Record<string, number> = {};
         const cols: Record<string, number> = {};
+        const rowStarts: Record<string, number> = {};
+        const rowSpans: Record<string, number> = {};
         const fullWidth: Record<string, true> = {};
         for (const f of tmplFields) {
             const rf = f as ResolvedField;
             if (rf.span != null) spans[f.name] = rf.span;
-            if (rf.rowSpan != null) rows[f.name] = rf.rowSpan;
             if (rf.colStart != null) cols[f.name] = rf.colStart;
+            if (rf.rowStart != null) rowStarts[f.name] = rf.rowStart;
+            if (rf.rowSpan != null) rowSpans[f.name] = rf.rowSpan;
             if (rf.fullWidth) fullWidth[f.name] = true;
         }
         return {
             order: tmplFields.map((f) => f.name),
             spans,
-            rows,
+            rowSpans,
             cols,
+            rowStarts,
             fullWidth,
             columns,
         };
@@ -71,9 +74,9 @@ export default function TemplateTab({
             layout={effectiveLayout}
             columns={columns}
             interactive={false}
-            onReorder={() => {}}
+            onMove={() => {}}
             onSpanChange={() => {}}
-            onRowChange={() => {}}
+            onRowSpanChange={() => {}}
             renderItem={(field, index) => (
                 <TemplateField
                     mode="view"
