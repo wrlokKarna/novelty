@@ -650,3 +650,13 @@
     padding: 40px;
     color: #aaa;
 }
+
+@media (max-width: 1500px) {
+    .body {
+        padding: 8px;
+    }
+
+    .tabPanel {
+        padding-left: 8px;
+    }
+}
