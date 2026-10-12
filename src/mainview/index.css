@@ -70,6 +70,11 @@
     --text-accent: #f0a050;
     --accent: #f0a050;
 
+    /* Minimum height of one layout band. Every band is at least this tall, so
+       single-band fields share a common baseline while taller content (a
+       portrait, a textarea, a tree) still grows instead of being clipped. */
+    --band-unit: 96px;
+
     --font-mono: 'Geist Mono', ui-monospace, monospace;
     --font-sans:
         'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,

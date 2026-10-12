@@ -46,9 +46,15 @@ const GRID_STYLES = (columns: number, rows: number): CSSProperties => {
     return {
         display: 'grid',
         gridTemplateColumns: `repeat(${Math.max(1, columns)}, minmax(0, 1fr))`,
-        // Bands are content-sized. Explicit tracks (rather than grid-auto-rows)
-        // keep the resolved pixel sizes readable for the drop geometry.
-        gridTemplateRows: rows > 0 ? `repeat(${rows}, auto)` : undefined,
+        // Bands are at least one uniform unit tall, so single-band fields share
+        // a common baseline across rows. Content taller than a band (a portrait,
+        // a textarea, a tree) still grows the band instead of being clipped.
+        // Explicit tracks (rather than grid-auto-rows) keep the resolved pixel
+        // sizes readable for the drop geometry.
+        gridTemplateRows:
+            rows > 0
+                ? `repeat(${rows}, minmax(var(--band-unit, 96px), auto))`
+                : undefined,
         gap: TEMPLATE_GRID_GAP,
         position: 'relative',
     };
@@ -180,7 +186,9 @@ function GridItem({
     const style: CSSProperties = {
         gridColumn,
         gridRow: `${row} / span ${rowSpan}`,
-        alignSelf: interactive ? 'stretch' : 'start',
+        // Cards fill their whole rectangle in both views, so every card snaps to
+        // the uniform band lattice instead of leaving accidental whitespace.
+        alignSelf: 'stretch',
         minWidth: 0,
         transform: transform ? CSS.Translate.toString(transform) : undefined,
         position: 'relative',
@@ -190,7 +198,10 @@ function GridItem({
 
     return (
         <div className="field-layout-item" ref={setNodeRef} style={style}>
-            <div className="field-layout-content" style={{ minWidth: 0 }}>
+            <div
+                className="field-layout-content"
+                style={{ minWidth: 0, height: '100%' }}
+            >
                 {renderItem(field, index, dragHandleProps)}
             </div>
             {interactive && (

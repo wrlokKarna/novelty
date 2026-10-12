@@ -1,5 +1,7 @@
 .tmplField {
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
     width: 100%;
     padding: 14px;
     margin-bottom: 12px;
@@ -14,7 +16,9 @@
 }
 
 .field {
-    height: fit-content;
+    /* Fill the band rectangle the grid assigns, so cards align to the uniform
+       band lattice. Content inside stays top-aligned. */
+    height: 100%;
     min-width: 0;
 }
 
@@ -162,7 +166,7 @@
     align-items: center;
     gap: 8px;
     width: 100%;
-    height: 38px;
+    height: 44px;
     padding: 0 12px;
     margin-bottom: 8px;
     background: #252628;
@@ -409,6 +413,13 @@
     box-shadow: 0 0 0 1px var(--accent-subtle, #197a72);
 }
 
+/* Compact controls share one body height so a single-band card measures the
+   same regardless of field type, keeping rows on the uniform band lattice. */
+.textInput,
+.select {
+    min-height: 44px;
+}
+
 .textInput::placeholder,
 .textarea::placeholder {
     color: #68717d;
@@ -431,15 +442,18 @@
 
 .textarea {
     display: block;
+    flex: 1;
     min-width: 100px;
     min-height: 85px;
     max-width: 100%;
-    resize: vertical;
     line-height: 1.5;
+    overflow: auto;
+    /* Height is changed with the band handle, so the field stays on the
+       uniform lattice instead of drifting with a corner drag. */
+    resize: none;
 }
 
 .select {
-    min-height: 46px;
     cursor: pointer;
 }
 
@@ -779,7 +793,7 @@
 .selectcont {
     box-sizing: border-box;
     width: 100%;
-    min-height: 48px;
+    min-height: 44px;
     display: flex;
     flex-wrap: wrap;
     align-items: center;

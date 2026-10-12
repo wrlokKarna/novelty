@@ -190,13 +190,17 @@ export const WIDTH_BY_TYPE: Partial<
 };
 
 // Default height in grid bands per field type, used when a field has no row
-// span of its own. Most fields sit in a single band; tall media fields default
-// to spanning two so a portrait/gallery reads at a useful size.
+// span of its own. Most fields sit in a single band; fields whose widgets
+// exceed one band of the uniform unit (portrait, gallery, long text, rich
+// text, tree) default to spanning two so the grid stays on whole bands.
 export const ROW_SPAN_BY_TYPE: Partial<
     Record<FieldDefinition['type'], number>
 > = {
+    textarea: 2,
+    richtext: 2,
     portrait: 2,
     images: 2,
+    tree: 2,
 };
 
 // Upper bound on how many bands a single field may span. Kept in step with the
