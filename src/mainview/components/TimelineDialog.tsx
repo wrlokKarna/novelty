@@ -327,129 +327,160 @@ export default function TimelineDialog({
     const eventTypeColor = (type: string) =>
         EVENT_COLORS[type] || EVENT_COLORS.milestone;
 
+    const [overhaulToggle, SetOverhaulToggle] = useState(true);
+
     return (
         <>
             <Dialog open={open} onClose={onClose} title="Timeline" large={true}>
-                <div
-                    style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        height: '100%',
-                    }}
-                >
-                    <div className={styles.timelineToolbar}>
-                        <h3>
-                            {loading ? 'Loading...' : `${events.length} events`}
-                        </h3>
-                        <button
-                            className={styles.primaryBtn}
-                            onClick={handleAddEvent}
+                <>
+                    {/*Dev Flag */}
+                    <button onClick={() => SetOverhaulToggle(!overhaulToggle)}>
+                        Switch Layout
+                    </button>
+                    {!overhaulToggle && (
+                        <div
+                            style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                height: '100%',
+                            }}
                         >
-                            + Add Event
-                        </button>
-                        <button onClick={handleAutoGenerate}>
-                            Auto-Detect
-                        </button>
-                        {selectedEvent && (
-                            <>
+                            <div className={styles.timelineToolbar}>
+                                <h3>
+                                    {loading
+                                        ? 'Loading...'
+                                        : `${events.length} events`}
+                                </h3>
                                 <button
-                                    onClick={() =>
-                                        handleEditEvent(selectedEvent)
-                                    }
+                                    className={styles.primaryBtn}
+                                    onClick={handleAddEvent}
                                 >
-                                    Edit
+                                    + Add Event
                                 </button>
-                                <button
-                                    className={styles.dangerBtn}
-                                    onClick={handleDeleteEvent}
-                                >
-                                    Delete
+                                <button onClick={handleAutoGenerate}>
+                                    Auto-Detect
                                 </button>
-                            </>
-                        )}
-                    </div>
-                    <div
-                        ref={containerRef}
-                        className={styles.timelineContainer}
-                    />
-
-                    {selectedEvent && (
-                        <div className="eventDetail">
-                            <h3>{selectedEvent.title}</h3>
+                                {selectedEvent && (
+                                    <>
+                                        <button
+                                            onClick={() =>
+                                                handleEditEvent(selectedEvent)
+                                            }
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            className={styles.dangerBtn}
+                                            onClick={handleDeleteEvent}
+                                        >
+                                            Delete
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                             <div
-                                style={{
-                                    display: 'flex',
-                                    gap: '16px',
-                                    flexWrap: 'wrap',
-                                }}
-                            >
-                                <div>
-                                    <span className={styles.label}>Type</span>
-                                    <p>
-                                        {EVENT_LABELS[
-                                            selectedEvent.eventType
-                                        ] || selectedEvent.eventType}
-                                    </p>
-                                </div>
-                                {selectedEvent.inStoryDate && (
-                                    <div>
-                                        <span className={styles.label}>
-                                            Date
-                                        </span>
-                                        <p>{selectedEvent.inStoryDate}</p>
-                                    </div>
-                                )}
-                                {selectedEvent.description && (
-                                    <div>
-                                        <span className={styles.label}>
-                                            Description
-                                        </span>
-                                        <p>{selectedEvent.description}</p>
-                                    </div>
-                                )}
-                                {selectedEvent.entityId && (
-                                    <div>
-                                        <span className={styles.label}>
-                                            Entity
-                                        </span>
-                                        <p>
-                                            <button
-                                                onClick={handleOpenEntity}
-                                                style={{
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    color: '#4a9eff',
-                                                    cursor: 'pointer',
-                                                    padding: 0,
-                                                    fontSize: '13px',
-                                                }}
+                                ref={containerRef}
+                                className={styles.timelineContainer}
+                            />
+
+                            {selectedEvent && (
+                                <div className="eventDetail">
+                                    <h3>{selectedEvent.title}</h3>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            gap: '16px',
+                                            flexWrap: 'wrap',
+                                        }}
+                                    >
+                                        <div>
+                                            <span className={styles.label}>
+                                                Type
+                                            </span>
+                                            <p>
+                                                {EVENT_LABELS[
+                                                    selectedEvent.eventType
+                                                ] || selectedEvent.eventType}
+                                            </p>
+                                        </div>
+                                        {selectedEvent.inStoryDate && (
+                                            <div>
+                                                <span className={styles.label}>
+                                                    Date
+                                                </span>
+                                                <p>
+                                                    {selectedEvent.inStoryDate}
+                                                </p>
+                                            </div>
+                                        )}
+                                        {selectedEvent.description && (
+                                            <div>
+                                                <span className={styles.label}>
+                                                    Description
+                                                </span>
+                                                <p>
+                                                    {selectedEvent.description}
+                                                </p>
+                                            </div>
+                                        )}
+                                        {selectedEvent.entityId && (
+                                            <div>
+                                                <span className={styles.label}>
+                                                    Entity
+                                                </span>
+                                                <p>
+                                                    <button
+                                                        onClick={
+                                                            handleOpenEntity
+                                                        }
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: '#4a9eff',
+                                                            cursor: 'pointer',
+                                                            padding: 0,
+                                                            fontSize: '13px',
+                                                        }}
+                                                    >
+                                                        Open in editor
+                                                    </button>
+                                                </p>
+                                            </div>
+                                        )}
+                                        {selectedEvent.autoGenerated && (
+                                            <div
+                                                className={styles.autoGenNotice}
                                             >
-                                                Open in editor
-                                            </button>
-                                        </p>
+                                                Auto-generated
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                                {selectedEvent.autoGenerated && (
-                                    <div className={styles.autoGenNotice}>
-                                        Auto-generated
-                                    </div>
+                                </div>
+                            )}
+
+                            <div className={styles.timelineLegend}>
+                                {Object.entries(EVENT_LABELS).map(
+                                    ([type, label]) => (
+                                        <div
+                                            key={type}
+                                            className={styles.legendItem}
+                                        >
+                                            <span
+                                                className={styles.legendDot}
+                                                style={{
+                                                    background:
+                                                        eventTypeColor(type),
+                                                }}
+                                            />
+                                            <span>{label}</span>
+                                        </div>
+                                    )
                                 )}
                             </div>
                         </div>
                     )}
-
-                    <div className={styles.timelineLegend}>
-                        {Object.entries(EVENT_LABELS).map(([type, label]) => (
-                            <div key={type} className={styles.legendItem}>
-                                <span
-                                    className={styles.legendDot}
-                                    style={{ background: eventTypeColor(type) }}
-                                />
-                                <span>{label}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                    {overhaulToggle && <NewTimeline />}
+                </>
             </Dialog>
 
             <TimelineEventEditor
@@ -463,6 +494,199 @@ export default function TimelineDialog({
                 entityOptions={entityOptions}
                 chapterOptions={chapterOptions}
             />
+        </>
+    );
+}
+
+function NewTimeline() {
+    const [timelineEvents, setTimeLineEvents] = useState<number[]>([]);
+    const [selectedEvent, setSelectedEvent] = useState<string>('');
+
+    const maxCol = 7;
+    const maxRow = 3;
+    return (
+        <>
+            <div
+                style={{
+                    width: '100%',
+                    minHeight: 'max-content',
+                    backgroundColor: '#181818',
+                }}
+            >
+                <button
+                    onClick={() =>
+                        setTimeLineEvents([
+                            ...timelineEvents,
+                            timelineEvents.length + 1,
+                        ])
+                    }
+                >
+                    Add Event
+                </button>
+                <div
+                    className={`${styles.timelineGrid} ${selectedEvent ? styles.insertActive : ''}`}
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${maxCol}, 120px)`,
+                        gridTemplateRows: `repeat(${maxRow}, 120px)`,
+                        overflow: 'auto',
+                    }}
+                >
+                    {' '}
+                    {Array.from({ length: maxCol }, (_, i) => (
+                        <>
+                            <div
+                                style={{
+                                    gridColumn: `${i + 1}`,
+                                    gridRow: `1/ span 5`,
+                                    borderRight: '1px solid #4a61726c',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                }}
+                            >
+                                {i === maxCol - 1 && (
+                                    <div
+                                        className={`${styles.insertLine} ${styles.insertCol}`}
+                                    ></div>
+                                )}
+                                {/*i*/}
+                                <div
+                                    className={`${styles.insertLine} ${styles.insertCol}`}
+                                ></div>
+                            </div>
+                        </>
+                    ))}
+                    {Array.from({ length: maxRow }, (_, i) => (
+                        <div
+                            style={{
+                                gridColumn: `1/ span ${maxCol}`,
+                                gridRow: `${i + 1}`,
+                                borderBottom: '1px solid #724a4a6c',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'space-between',
+                            }}
+                        >
+                            {i === maxRow - 1 && (
+                                <div
+                                    className={`${styles.insertLine} ${styles.insertRow}`}
+                                ></div>
+                            )}
+                            {/*i*/}
+                            <div
+                                className={`${styles.insertLine} ${styles.insertRow}`}
+                            ></div>
+                            {/*i*/}
+                        </div>
+                    ))}
+                    <div
+                        className="e1"
+                        style={{
+                            gridColumn: '1',
+                            gridRow: '2',
+                            backgroundColor: '#1F1F1F',
+                            border: '1px solid #727272',
+                            borderRadius: '12px',
+                            margin: '12px',
+                            padding: '12px',
+                        }}
+                    >
+                        Event 1
+                    </div>
+                    <div
+                        className="e2"
+                        style={{
+                            gridColumn: '2',
+                            gridRow: '2',
+                            backgroundColor: '#1F1F1F',
+                            border: '1px solid #727272',
+                            borderRadius: '12px',
+                            margin: '12px',
+                            padding: '12px',
+                        }}
+                    >
+                        Event 2
+                    </div>
+                    <div
+                        className="e3"
+                        style={{
+                            gridColumn: '3',
+                            gridRow: '1',
+                            backgroundColor: '#1F1F1F',
+                            border: '1px solid #727272',
+                            borderRadius: '12px',
+                            margin: '12px',
+                            padding: '12px',
+                        }}
+                    >
+                        Event 3
+                    </div>
+                    <div
+                        className="e4"
+                        style={{
+                            gridColumn: '3',
+                            gridRow: '3',
+                            backgroundColor: '#1F1F1F',
+                            border: '1px solid #727272',
+                            borderRadius: '12px',
+                            margin: '12px',
+                            padding: '12px',
+                        }}
+                    >
+                        Event 4
+                    </div>
+                    <div
+                        className="e5"
+                        style={{
+                            gridColumn: '4',
+                            gridRow: '2',
+                            backgroundColor: '#1F1F1F',
+                            border: '1px solid #727272',
+                            borderRadius: '12px',
+                            margin: '12px',
+                            padding: '12px',
+                        }}
+                    >
+                        Event 5
+                    </div>
+                    <div
+                        className="e5"
+                        style={{
+                            gridColumn: '7',
+                            gridRow: '2',
+                            backgroundColor: '#1F1F1F',
+                            border: '1px solid #727272',
+                            borderRadius: '12px',
+                            margin: '12px',
+                            padding: '12px',
+                        }}
+                    >
+                        Event 5
+                    </div>
+                </div>
+
+                <div className="unassisngedEvents">
+                    {timelineEvents.map((e) => (
+                        <button
+                            style={{
+                                width: '120px',
+                                backgroundColor: '#1F1F1F',
+                                border: '1px solid #727272',
+                                borderRadius: '12px',
+                                margin: '12px',
+                                padding: '12px',
+                            }}
+                            onClick={() =>
+                                setSelectedEvent(
+                                    selectedEvent === String(e) ? '' : String(e)
+                                )
+                            }
+                        >
+                            {selectedEvent === String(e) ? 'cancel' : e}
+                        </button>
+                    ))}
+                </div>
+            </div>
         </>
     );
 }
