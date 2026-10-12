@@ -653,7 +653,7 @@
 
 @media (max-width: 1500px) {
     .body {
-        padding: 8px;
+        padding: 16px 8px 8px 8px;
     }
 
     .tabPanel {
