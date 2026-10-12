@@ -128,3 +128,33 @@
     color: #666;
     font-style: italic;
 }
+
+.timelineGrid {
+    &.insertActive {
+        .insertLine {
+            display: block;
+        }
+    }
+}
+
+.insertLine {
+    display: none;
+    background-color: #4ec9b066;
+    background-color: var(--accent-subtle);
+    background-color: var(--accent-subtle, rgba(240, 160, 80, 0.08));
+    border-radius: 8px;
+    cursor: pointer;
+    &:hover {
+        background-color: var(--accent);
+    }
+}
+
+.insertCol {
+    width: 4px;
+    height: 100%;
+}
+
+.insertRow {
+    width: 100%;
+    height: 4px;
+}
