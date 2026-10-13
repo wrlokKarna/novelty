@@ -1,3 +1,5 @@
+import { MAX_COLUMNS } from '../../../types';
+
 export function LayoutToolbar({
     columns,
     onColumns,
@@ -30,11 +32,13 @@ export function LayoutToolbar({
                     value={columns}
                     onChange={(e) => onColumns(Number(e.target.value))}
                 >
-                    {[1, 2, 3, 4, 5, 6].map((n) => (
-                        <option key={n} value={n}>
-                            {n}
-                        </option>
-                    ))}
+                    {Array.from({ length: MAX_COLUMNS }, (_, i) => i + 1).map(
+                        (n) => (
+                            <option key={n} value={n}>
+                                {n}
+                            </option>
+                        )
+                    )}
                 </select>
             </label>
             <button

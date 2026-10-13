@@ -3117,6 +3117,29 @@ select {
     box-shadow: 0 0 6px rgba(240, 160, 80, 0.6);
 }
 
+/* The insert target between two columns, shown while dragging: a thin 2px
+   vertical line on the hovered boundary. The chosen band is drawn brighter so
+   it is clear where the card will attach when the new column is created. */
+.field-drop-insert-v {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: rgba(240, 160, 80, 0.35);
+    border-radius: 1px;
+    pointer-events: none;
+    z-index: 3;
+}
+
+.field-drop-insert-v-col {
+    position: absolute;
+    width: 4px;
+    left: -1px;
+    background: var(--accent, rgba(240, 160, 80, 0.95));
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(240, 160, 80, 0.6);
+}
+
 .location-box {
     background-color: #1a1a1c;
     border-radius: 6px;

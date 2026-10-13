@@ -1,21 +1,12 @@
 .addField {
-    position: absolute;
-    top: calc(100% + 0.4rem);
-    right: 0;
-    z-index: 5;
-    width: 380px;
-    max-width: calc(100vw - 64px);
-    max-height: 70vh;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
     background: #1a1b1c;
-    background-color: #1a1b1c;
-    padding: 12px;
+    padding: 16px;
     border: 1px solid #393a3b;
-    border-radius: 6px;
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+    border-radius: 8px;
+    margin-bottom: 4px;
 }
 
 .addCardTarget {
@@ -25,12 +16,13 @@
 
 .addCardTarget button {
     flex: 1;
-    padding: 0.35rem 0.6rem;
-    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
     border: 1px solid var(--border, #333);
     background: transparent;
     color: #ccc;
     cursor: pointer;
+    font-size: 0.9rem;
 }
 
 .addCardTarget button.addCardTargetOn {
@@ -51,6 +43,118 @@
 .addCardFooter > span {
     color: #888;
     font-size: 0.8em;
+}
+
+.addCardSubmit {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border: 1px solid #343538;
+    color: var(--accent);
+    background: var(--accent-subtle, rgba(240, 160, 80, 0.12));
+
+    &:hover {
+        color: var(--accent);
+        background: var(--accent-subtle, rgba(240, 160, 80, 0.12));
+        border-color: var(--accent, #197a72);
+    }
+}
+
+/* Match the compendium field editor's label + input styling (see
+   TemplateField.module.css) so the add card reads as part of the editor. */
+.addFieldLabel {
+    display: block;
+    margin: 0 0 12px 0;
+    color: #8f9aaa;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.2;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+
+.addFieldInput {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 11px 13px;
+    background: #252628;
+    color: #eeeeee;
+    border: 1px solid #343538;
+    border-radius: 6px;
+    outline: none;
+    font-family: inherit;
+    font-size: 16px;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        background-color 0.15s ease;
+}
+
+.addFieldInput:focus {
+    background: #28292b;
+    border-color: var(--accent-subtle, #197a72);
+    box-shadow: 0 0 0 1px var(--accent-subtle, #197a72);
+}
+
+.addFieldInput::placeholder {
+    color: #68717d;
+    opacity: 1;
+}
+
+/* The type groups flow horizontally and reflow into fewer columns once the card
+   is too narrow for each group's minimum width. */
+.fieldTypeGroups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+    gap: 2rem 3rem;
+    margin: 18px 0px;
+}
+
+.fieldTypeGroup {
+    min-width: 0;
+}
+
+.fieldTypeGroupLabel {
+    font-size: 1rem;
+    color: #8f9aaa;
+    margin-bottom: 0.8rem;
+    letter-spacing: 0.4px;
+}
+
+.fieldTypePills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.fieldTypePill {
+    padding: 0.45rem 0.85rem;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    border: 1px solid var(--border, #333);
+    background: transparent;
+    color: #bbb;
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        color 0.15s ease,
+        background-color 0.15s ease;
+}
+
+.fieldTypePill:hover {
+    border-color: var(--accent, #197a72);
+    color: #eee;
+    background-color: transparent;
+}
+
+.fieldTypePillSelected {
+    border-color: var(--accent);
+    background: var(--accent-subtle, rgba(240, 160, 80, 0.12));
+    color: var(--accent);
 }
 
 .header {
@@ -81,12 +185,17 @@
 }
 
 .addFieldBtn {
-    font-size: 0.9em;
+    font-size: 1em;
+    font-weight: bold;
     opacity: 0.75;
     background-color: var(--accent-subtle);
+    padding: 0.5rem 1rem;
+    border: 1px solid #343538;
+    border-radius: 6px;
 
     &:hover {
         background-color: var(--accent-subtle);
+        border-color: var(--accent, #197a72);
         color: var(--text-accent);
         opacity: 1;
     }

@@ -18,6 +18,7 @@ import {
 import {
     autoArrangeLayout,
     applyDrop,
+    compactLayout,
     withBandPositions,
     type DropTarget,
     type PlacedField,
@@ -264,8 +265,7 @@ export default function TemplateManagerTab({
     const [newFieldType, setNewFieldType] =
         useState<FieldDefinition['type']>('text');
     const [addingField, setAddingField] = useState(false);
-    const addCardRef = useRef<HTMLDivElement | null>(null);
-    const addButtonGroupRef = useRef<HTMLDivElement | null>(null);
+    const newFieldNameRef = useRef<HTMLInputElement | null>(null);
 
     function setProjectFieldsFor(
         cat: CompendiumCategory,
@@ -304,6 +304,17 @@ export default function TemplateManagerTab({
     ) {
         patchLayoutOnly(cat, patch);
         commitMerged(cat, projectFieldsRef.current[cat] ?? []);
+    }
+
+    // Re-densifies a category's layout for the given field list, dropping bands
+    // and trailing columns that no longer hold a field. Used whenever the field
+    // set changes so deleting the last field in a band cannot leave a gap.
+    function compactLayoutFor(
+        cat: CompendiumCategory,
+        fields: FieldDefinition[]
+    ) {
+        const cur = layoutRef.current[cat] ?? emptyLayout();
+        patchLayoutOnly(cat, compactLayout(fields, cur));
     }
 
     // Resize spans/rows update layout state immediately for live reflow, but the
@@ -626,15 +637,19 @@ export default function TemplateManagerTab({
                 nextSavedLayouts[cat] = rawLayout;
                 // A layout saved under an older model carries stale positions
                 // (row indices that meant pixel rows), so re-pack it once under
-                // the band model and stamp the new version.
-                nextLayouts[cat] =
+                // the band model. Either way the result is compacted, so a layout
+                // left with an empty band or trailing column is cleaned up on
+                // load (and written back through the normal commit path).
+                nextLayouts[cat] = compactLayout(
+                    nextProject[cat] ?? [],
                     rawLayout.version === LAYOUT_VERSION
                         ? rawLayout
                         : autoArrangeLayout(
                               nextProject[cat] ?? [],
                               rawLayout.columns ?? DEFAULT_TEMPLATE_COLUMNS,
                               rawLayout
-                          );
+                          )
+                );
             });
 
             seriesRef.current = nextSeries;
@@ -700,6 +715,9 @@ export default function TemplateManagerTab({
 
         const next = merged.filter((_, i) => i !== index);
         setProjectFieldsFor(cat, next);
+        // Collapse any band or trailing column the deletion emptied before the
+        // write, so the grid never keeps a blank track for a removed field.
+        compactLayoutFor(cat, next);
         // The series list is deliberately left alone here: commitMerged derives
         // the series payload from the merged list, so clearing it up front would
         // make the deletion look already-applied and skip the write. The undo
@@ -754,6 +772,7 @@ export default function TemplateManagerTab({
         // As in removeField: leave the series list intact so commitMerged can see
         // that the shared fields are gone and actually issue the delete.
         setProjectFieldsFor(cat, next);
+        compactLayoutFor(cat, next);
         await commitMerged(cat, next);
     }
 
@@ -764,6 +783,7 @@ export default function TemplateManagerTab({
         setAddTarget('project');
         setNewFieldName('');
         setNewFieldType('text');
+        requestAnimationFrame(() => newFieldNameRef.current?.focus());
     }
 
     function canSubmitField() {
@@ -772,9 +792,12 @@ export default function TemplateManagerTab({
         return true;
     }
 
+    // The card stays open after a field is added so several can be entered in a
+    // row; only the name clears and focus returns there. Closing is a manual
+    // action via the header toggle.
     function resetAddCard() {
         setNewFieldName('');
-        setShowAddCard(false);
+        requestAnimationFrame(() => newFieldNameRef.current?.focus());
     }
 
     async function handleAddFieldSubmit() {
@@ -809,10 +832,10 @@ export default function TemplateManagerTab({
             setProjectFieldsFor(cat, next);
             // Give the new field an explicit, type-appropriate width and drop it
             // straight into a fresh band at the bottom, so it has a real cell
-            // from the moment it appears.
-            const columns =
-                layoutRef.current[cat]?.columns ?? DEFAULT_TEMPLATE_COLUMNS;
+            // from the moment it appears. Compaction then removes any blank band
+            // or trailing column the add would otherwise leave behind.
             const curLayout = layoutRef.current[cat] ?? emptyLayout();
+            const columns = curLayout.columns ?? DEFAULT_TEMPLATE_COLUMNS;
             const maxRowEnd = Object.keys(curLayout.rowStarts ?? {}).reduce(
                 (m, name) =>
                     Math.max(
@@ -828,7 +851,8 @@ export default function TemplateManagerTab({
                     ),
                 0
             );
-            patchLayoutOnly(cat, {
+            const withNewField: TemplateLayout = {
+                ...curLayout,
                 spans: {
                     ...(curLayout.spans ?? {}),
                     [field.name]: clampSpan(
@@ -848,7 +872,8 @@ export default function TemplateManagerTab({
                 },
                 cols: { ...(curLayout.cols ?? {}), [field.name]: 1 },
                 version: LAYOUT_VERSION,
-            });
+            };
+            patchLayoutOnly(cat, compactLayout(next, withNewField));
             await commitMerged(
                 cat,
                 next,
@@ -961,24 +986,6 @@ export default function TemplateManagerTab({
                         });
                         scheduleLayoutCommit(cat);
                     }}
-                    onFullWidthChange={(name, on) => {
-                        const fullWidth = {
-                            ...(layoutRef.current[cat]?.fullWidth ?? {}),
-                        };
-                        if (on) fullWidth[name] = true;
-                        else delete fullWidth[name];
-                        patchLayoutOnly(cat, { fullWidth });
-                        scheduleLayoutCommit(cat);
-                    }}
-                    onColChange={(name, col) => {
-                        const cols = {
-                            ...(layoutRef.current[cat]?.cols ?? {}),
-                        };
-                        if (col == null) delete cols[name];
-                        else cols[name] = col;
-                        patchLayoutOnly(cat, { cols });
-                        scheduleLayoutCommit(cat);
-                    }}
                     onMove={(name, target) => {
                         const result = applyDrop(
                             placedFields(cat),
@@ -987,12 +994,23 @@ export default function TemplateManagerTab({
                             layoutRef.current[cat]?.columns ??
                                 DEFAULT_TEMPLATE_COLUMNS
                         );
-                        patchLayoutOnly(cat, {
+                        // Compact after the drop so a move that empties a band or
+                        // the rightmost column does not leave a blank track.
+                        const dropped: TemplateLayout = {
+                            ...(layoutRef.current[cat] ?? emptyLayout()),
                             rowStarts: result.rowStarts,
                             cols: result.cols,
                             rowSpans: result.rowSpans,
+                            columns: result.columns,
                             version: LAYOUT_VERSION,
-                        });
+                        };
+                        patchLayoutOnly(
+                            cat,
+                            compactLayout(
+                                projectFieldsRef.current[cat] ?? [],
+                                dropped
+                            )
+                        );
                         scheduleLayoutCommit(cat);
                     }}
                     onRemove={(index) => removeField(cat, index)}
@@ -1013,29 +1031,6 @@ export default function TemplateManagerTab({
             </div>
         );
     }
-    useEffect(() => {
-        if (!showAddCard) return;
-        const onPointerDown = (e: PointerEvent) => {
-            const t = e.target as Node;
-            if (
-                addCardRef.current?.contains(t) ||
-                addButtonGroupRef.current?.contains(t)
-            ) {
-                return;
-            }
-            setShowAddCard(false);
-        };
-        const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setShowAddCard(false);
-        };
-        document.addEventListener('pointerdown', onPointerDown);
-        document.addEventListener('keydown', onKeyDown);
-        return () => {
-            document.removeEventListener('pointerdown', onPointerDown);
-            document.removeEventListener('keydown', onKeyDown);
-        };
-    }, [showAddCard]);
-
     useEffect(() => {
         setShowAddCard(false);
     }, [activeCat]);
@@ -1101,10 +1096,7 @@ export default function TemplateManagerTab({
                                 );
                             })}
                         </div>
-                        <div
-                            className={styles.headerActions}
-                            ref={addButtonGroupRef}
-                        >
+                        <div className={styles.headerActions}>
                             {saveStatusLabel && (
                                 <span
                                     style={{
@@ -1125,94 +1117,94 @@ export default function TemplateManagerTab({
                                 {showAddCard ? 'cancel' : 'add'}
                             </button>
                         </div>
-                        {showAddCard && (
-                            <div className={styles.addField} ref={addCardRef}>
-                                {seriesId && (
-                                    <div className={styles.addCardTarget}>
-                                        <button
-                                            type="button"
-                                            className={
-                                                addTarget === 'project'
-                                                    ? styles.addCardTargetOn
-                                                    : undefined
-                                            }
-                                            onClick={() =>
-                                                setAddTarget('project')
-                                            }
-                                        >
-                                            Project field
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className={
-                                                addTarget === 'series'
-                                                    ? styles.addCardTargetOn
-                                                    : undefined
-                                            }
-                                            onClick={() =>
-                                                setAddTarget('series')
-                                            }
-                                            title="Shared across every project in this series"
-                                        >
-                                            Series field
-                                        </button>
-                                    </div>
-                                )}
-                                <div>
-                                    <label>Field name</label>
-                                    <input
-                                        type="text"
-                                        placeholder="Field name"
-                                        value={newFieldName}
-                                        onChange={(e) =>
-                                            setNewFieldName(e.target.value)
-                                        }
-                                        onKeyDown={(e) => {
-                                            if (
-                                                e.key === 'Enter' &&
-                                                canSubmitField()
-                                            ) {
-                                                handleAddFieldSubmit();
-                                            }
-                                        }}
-                                    />
-                                </div>
-                                <div>
-                                    <label>Type</label>
-                                    <FieldTypePills
-                                        value={newFieldType}
-                                        onChange={setNewFieldType}
-                                    />
-                                </div>
-                                {!seriesId && (
-                                    <span
-                                        style={{
-                                            color: '#888',
-                                            fontSize: '0.8em',
-                                        }}
-                                    >
-                                        This project is not assigned to a
-                                        series, so only project fields can be
-                                        added.
-                                    </span>
-                                )}
-                                <div className={styles.addCardFooter}>
-                                    <span>Saved automatically.</span>
+                    </div>
+
+                    {showAddCard && (
+                        <div className={styles.addField}>
+                            {seriesId && (
+                                <div className={styles.addCardTarget}>
                                     <button
                                         type="button"
-                                        onClick={handleAddFieldSubmit}
-                                        disabled={!canSubmitField()}
+                                        className={
+                                            addTarget === 'project'
+                                                ? styles.addCardTargetOn
+                                                : undefined
+                                        }
+                                        onClick={() => setAddTarget('project')}
                                     >
-                                        {addingField
-                                            ? 'Saving…'
-                                            : addTarget === 'series'
-                                              ? 'Add series field'
-                                              : 'Add field'}
+                                        Project field
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={
+                                            addTarget === 'series'
+                                                ? styles.addCardTargetOn
+                                                : undefined
+                                        }
+                                        onClick={() => setAddTarget('series')}
+                                        title="Shared across every project in this series"
+                                    >
+                                        Series field
                                     </button>
                                 </div>
+                            )}
+                            <div>
+                                <label className={styles.addFieldLabel}>
+                                    Field name
+                                </label>
+                                <input
+                                    ref={newFieldNameRef}
+                                    className={styles.addFieldInput}
+                                    type="text"
+                                    placeholder="Field name"
+                                    value={newFieldName}
+                                    onChange={(e) =>
+                                        setNewFieldName(e.target.value)
+                                    }
+                                    onKeyDown={(e) => {
+                                        if (
+                                            e.key === 'Enter' &&
+                                            canSubmitField()
+                                        ) {
+                                            handleAddFieldSubmit();
+                                        }
+                                    }}
+                                />
                             </div>
-                        )}
-                    </div>
+                            <div>
+                                <FieldTypePills
+                                    value={newFieldType}
+                                    onChange={setNewFieldType}
+                                />
+                            </div>
+                            {!seriesId && (
+                                <span
+                                    style={{
+                                        color: '#888',
+                                        fontSize: '0.8em',
+                                    }}
+                                >
+                                    This project is not assigned to a series, so
+                                    only project fields can be added.
+                                </span>
+                            )}
+                            <div className={styles.addCardFooter}>
+                                <span>Saved automatically.</span>
+                                <button
+                                    type="button"
+                                    className={styles.addCardSubmit}
+                                    onClick={handleAddFieldSubmit}
+                                    disabled={!canSubmitField()}
+                                >
+                                    {addingField
+                                        ? 'Saving…'
+                                        : addTarget === 'series'
+                                          ? 'Add series field'
+                                          : 'Add field'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     <div className={styles.fieldsContent}>
                         {renderFields(activeCat)}
@@ -1279,27 +1271,13 @@ function FieldTypePills({
     onChange: (type: FieldDefinition['type']) => void;
 }) {
     return (
-        <div
-            style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}
-        >
+        <div className={styles.fieldTypeGroups}>
             {FIELD_TYPE_GROUPS.map((group) => (
-                <div key={group.label}>
-                    <div
-                        style={{
-                            fontSize: '0.7em',
-                            color: '#888',
-                            marginBottom: '0.2rem',
-                        }}
-                    >
+                <div key={group.label} className={styles.fieldTypeGroup}>
+                    <div className={styles.fieldTypeGroupLabel}>
                         {group.label}
                     </div>
-                    <div
-                        style={{
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            gap: '0.25rem',
-                        }}
-                    >
+                    <div className={styles.fieldTypePills}>
                         {group.types.map(({ type, label }) => {
                             const selected = value === type;
                             return (
@@ -1307,19 +1285,11 @@ function FieldTypePills({
                                     key={type}
                                     type="button"
                                     onClick={() => onChange(type)}
-                                    style={{
-                                        padding: '0.25rem 0.6rem',
-                                        borderRadius: '12px',
-                                        fontSize: '0.8em',
-                                        border: `1px solid ${selected ? 'var(--accent)' : 'var(--border, #333)'}`,
-                                        background: selected
-                                            ? 'var(--accent-subtle, rgba(240,160,80,0.12))'
-                                            : 'transparent',
-                                        color: selected
-                                            ? 'var(--accent)'
-                                            : '#bbb',
-                                        cursor: 'pointer',
-                                    }}
+                                    className={`${styles.fieldTypePill} ${
+                                        selected
+                                            ? styles.fieldTypePillSelected
+                                            : ''
+                                    }`}
                                 >
                                     {label}
                                 </button>
@@ -1413,8 +1383,6 @@ function ProjectFieldsEditor({
     onCommit,
     onSpanChange,
     onRowSpanChange,
-    onFullWidthChange,
-    onColChange,
     onMove,
     onRemove,
     inheritedNames,
@@ -1426,8 +1394,6 @@ function ProjectFieldsEditor({
     onCommit: (fields: FieldDefinition[]) => void;
     onSpanChange: (name: string, span: TemplateSpan) => void;
     onRowSpanChange: (name: string, rowSpan: number) => void;
-    onFullWidthChange: (name: string, on: boolean) => void;
-    onColChange: (name: string, col: number | null) => void;
     onMove: (name: string, target: DropTarget) => void;
     onRemove: (index: number) => void;
     inheritedNames: Set<string>;
@@ -1463,15 +1429,12 @@ function ProjectFieldsEditor({
                     field={field}
                     index={index}
                     fields={fields}
-                    columns={columns}
                     inherited={inheritedNames.has(field.name)}
                     editField={editField}
                     commitField={commitField}
                     commitPending={commitPending}
                     commitOnEnter={commitOnEnter}
                     onRemove={removeField}
-                    onToggleFullWidth={onFullWidthChange}
-                    onColumnChange={onColChange}
                     dragHandleProps={dragHandleProps}
                 />
             )}

@@ -20,7 +20,6 @@ export type EntryRef = { id: string; name: string };
 export type ViewProps = {
     field: ResolvedField;
     index: number;
-    columns?: number;
     value?: unknown;
     onChange?: (value: unknown) => void;
     entry?: { id: string; name: string };
@@ -35,17 +34,12 @@ export type EditProps = {
     field: ResolvedField;
     index: number;
     fields: FieldDefinition[];
-    columns?: number;
     inherited?: boolean;
     editField: (index: number, updates: Partial<FieldDefinition>) => void;
     commitField: (index: number, updates: Partial<FieldDefinition>) => void;
     commitPending: () => void;
     commitOnEnter: (e: ReactKeyboardEvent) => void;
     onRemove: (index: number) => void;
-    // Toggle the field between its own width and spanning every column.
-    onToggleFullWidth?: (name: string, fullWidth: boolean) => void;
-    // Pin (or clear, when null) the field's starting column.
-    onColumnChange?: (name: string, col: number | null) => void;
     // Drag handlers from the layout grid, attached to the card's drag icon.
     dragHandleProps?: DragHandleProps;
 };
@@ -749,22 +743,16 @@ function FieldEditHeader({
     field,
     index,
     inherited,
-    columns,
     onRemove,
     commitField,
-    onToggleFullWidth,
-    onColumnChange,
     dragHandleProps,
 }: Pick<
     EditProps,
     | 'field'
     | 'index'
     | 'inherited'
-    | 'columns'
     | 'onRemove'
     | 'commitField'
-    | 'onToggleFullWidth'
-    | 'onColumnChange'
     | 'dragHandleProps'
 >) {
     const [editing, setEditing] = useState(false);
@@ -851,54 +839,6 @@ function FieldEditHeader({
                     <span className={styles.inheritedBadge}>INHERITED</span>
                 )}
             </div>
-            {onColumnChange && (
-                <label
-                    className={styles.colControl}
-                    title="Starting column (Auto wraps to the next free column)"
-                >
-                    <select
-                        value={
-                            field.fullWidth
-                                ? 'auto'
-                                : (field.colStart ?? 'auto')
-                        }
-                        disabled={Boolean(field.fullWidth)}
-                        onChange={(e) =>
-                            onColumnChange(
-                                field.name,
-                                e.target.value === 'auto'
-                                    ? null
-                                    : Number(e.target.value)
-                            )
-                        }
-                    >
-                        <option value="auto">Auto</option>
-                        {Array.from(
-                            { length: Math.max(1, columns ?? 1) },
-                            (_, i) => i + 1
-                        ).map((n) => (
-                            <option key={n} value={n}>
-                                Col {n}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-            )}
-            {onToggleFullWidth && (
-                <label
-                    className={styles.fullWidthToggle}
-                    title="Occupy 100% of the width"
-                >
-                    <input
-                        type="checkbox"
-                        checked={Boolean(field.fullWidth)}
-                        onChange={(e) =>
-                            onToggleFullWidth(field.name, e.target.checked)
-                        }
-                    />
-                    100%
-                </label>
-            )}
             <button
                 type="button"
                 className={styles.deleteBtn}
@@ -982,8 +922,7 @@ function FieldBodyPlaceholder({ type }: { type: FieldDefinition['type'] }) {
         case 'richtext':
             return (
                 <div className={styles.placeholderRichText}>
-                    <div className={styles.placeholderToolbar} />
-                    {Array.from({ length: 6 }).map((_, i) => (
+                    {Array.from({ length: 4 }).map((_, i) => (
                         <div key={i} className={styles.placeholderTextLine} />
                     ))}
                 </div>
@@ -1048,12 +987,9 @@ function EditShell(props: EditProps & { children?: ReactNode }) {
         field,
         index,
         fields,
-        columns,
         inherited,
         commitField,
         onRemove,
-        onToggleFullWidth,
-        onColumnChange,
         dragHandleProps,
         children,
     } = props;
@@ -1065,11 +1001,8 @@ function EditShell(props: EditProps & { children?: ReactNode }) {
                 field={field}
                 index={index}
                 inherited={inherited}
-                columns={columns}
                 onRemove={onRemove}
                 commitField={commitField}
-                onToggleFullWidth={onToggleFullWidth}
-                onColumnChange={onColumnChange}
                 dragHandleProps={dragHandleProps}
             />
             <FieldBodyPlaceholder type={field.type} />

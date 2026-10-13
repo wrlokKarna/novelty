@@ -17,6 +17,7 @@ import type {
     TemplateLayout,
     TemplateSpan,
 } from '../../../types';
+import { MAX_COLUMNS } from '../../../types';
 import {
     MAX_ROW_SPAN,
     ROW_SPAN_BY_TYPE,
@@ -245,6 +246,17 @@ type PreviewTarget =
           y: number;
           x: number;
           w: number;
+      }
+    | {
+          kind: 'insertCol';
+          boundary: number;
+          col: number;
+          row: number;
+          colSpan: number;
+          rowSpan: number;
+          x: number;
+          y: number;
+          h: number;
       };
 
 /* -------------------------------------------------------------------------- */
@@ -292,9 +304,12 @@ function DndGrid({
 
     // Resolves the dragged card's rectangle to a drop target. A pointer within
     // the thin insert zone around a band boundary targets a new band in the
-    // column under the pointer; otherwise it targets the band it is over. Band
-    // pixel sizes are read from the grid's resolved tracks so the math matches
-    // what is on screen.
+    // column under the pointer; within the thin zone around a column boundary
+    // it targets a new column in the band under the pointer (when the grid can
+    // still grow); otherwise it targets the band and column it is over. When
+    // both a row and a column insert fit at once the nearer line wins. Band
+    // and column pixel sizes are read from the grid's resolved tracks so the
+    // math matches what is on screen.
     function targetFor(
         rect: { left: number; top: number; height: number },
         field: ResolvedField
@@ -335,6 +350,13 @@ function DndGrid({
             if (b > rowCount) return bottomOf(rowCount) + TEMPLATE_GRID_GAP / 2;
             return bottomOf(b - 1) + TEMPLATE_GRID_GAP / 2;
         };
+        const colLeftX = (c: number) => (c - 1) * colStep;
+        const colRightX = (c: number) => colLeftX(c) + colWidth;
+        const boundaryX = (b: number) => {
+            if (b <= 1) return -TEMPLATE_GRID_GAP / 2;
+            if (b > columns) return colRightX(columns) + TEMPLATE_GRID_GAP / 2;
+            return colRightX(b - 1) + TEMPLATE_GRID_GAP / 2;
+        };
 
         if (rowCount === 0) {
             return {
@@ -349,7 +371,7 @@ function DndGrid({
             };
         }
 
-        // Pick the nearest boundary whose clamped zone contains the pointer.
+        // Nearest band boundary whose clamped zone contains the pointer.
         let insertAt: number | null = null;
         let insertDist = Infinity;
         for (let b = 1; b <= rowCount + 1; b++) {
@@ -367,8 +389,56 @@ function DndGrid({
             }
         }
 
+        // Nearest column boundary whose clamped zone contains the pointer, as a
+        // candidate new column - but only while the grid can still grow.
+        let insertColAt: number | null = null;
+        let insertColDist = Infinity;
+        if (columns < MAX_COLUMNS) {
+            for (let b = 1; b <= columns + 1; b++) {
+                const x = boundaryX(b);
+                const left = b > 1 ? colWidth / 2 : INSERT_HALF;
+                const right = b <= columns ? colWidth / 2 : INSERT_HALF;
+                const halfLeft = Math.min(INSERT_HALF, left);
+                const halfRight = Math.min(INSERT_HALF, right);
+                if (relX >= x - halfLeft && relX <= x + halfRight) {
+                    const d = Math.abs(relX - x);
+                    if (d < insertColDist) {
+                        insertColDist = d;
+                        insertColAt = b;
+                    }
+                }
+            }
+        }
+
+        // The band the pointer sits over, used by both the cell and the vertical
+        // insert targets.
+        let row = rowCount;
+        for (let r = 1; r <= rowCount; r++) {
+            if (relY <= bottomOf(r) + TEMPLATE_GRID_GAP / 2) {
+                row = r;
+                break;
+            }
+        }
+
         const columnX = (col - 1) * colStep;
         const columnW = colSpan * colWidth + (colSpan - 1) * TEMPLATE_GRID_GAP;
+
+        if (
+            insertColAt != null &&
+            (insertAt == null || insertColDist < insertDist)
+        ) {
+            return {
+                kind: 'insertCol',
+                boundary: insertColAt,
+                col: insertColAt,
+                row,
+                colSpan,
+                rowSpan,
+                x: boundaryX(insertColAt),
+                y: topOf(row),
+                h: bottomOf(Math.min(row + rowSpan - 1, rowCount)) - topOf(row),
+            };
+        }
 
         if (insertAt != null) {
             return {
@@ -383,13 +453,6 @@ function DndGrid({
             };
         }
 
-        let row = rowCount;
-        for (let r = 1; r <= rowCount; r++) {
-            if (relY <= bottomOf(r) + TEMPLATE_GRID_GAP / 2) {
-                row = r;
-                break;
-            }
-        }
         return { kind: 'cell', row, col, colSpan, rowSpan };
     }
 
@@ -415,16 +478,24 @@ function DndGrid({
         setActiveId(null);
         setDropTarget(null);
         if (target) {
-            onMove(
-                name,
-                target.kind === 'insert'
-                    ? {
-                          kind: 'insert',
-                          boundary: target.boundary,
-                          col: target.col,
-                      }
-                    : { kind: 'cell', row: target.row, col: target.col }
-            );
+            if (target.kind === 'insert')
+                onMove(name, {
+                    kind: 'insert',
+                    boundary: target.boundary,
+                    col: target.col,
+                });
+            else if (target.kind === 'insertCol')
+                onMove(name, {
+                    kind: 'insertCol',
+                    boundary: target.boundary,
+                    row: target.row,
+                });
+            else
+                onMove(name, {
+                    kind: 'cell',
+                    row: target.row,
+                    col: target.col,
+                });
         }
     }
 
@@ -476,6 +547,20 @@ function DropPreview({ target }: { target: PreviewTarget }) {
                     gridRow: `${target.row} / span ${target.rowSpan}`,
                 }}
             />
+        );
+    }
+    if (target.kind === 'insertCol') {
+        return (
+            <div
+                className="field-drop-insert-v"
+                style={{ left: target.x - 1 }}
+                aria-hidden
+            >
+                <div
+                    className="field-drop-insert-v-col"
+                    style={{ top: target.y, height: target.h }}
+                />
+            </div>
         );
     }
     return (

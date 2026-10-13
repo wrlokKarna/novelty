@@ -562,7 +562,12 @@ export type FieldDefinition = {
     visibleWhen?: FieldVisibility;
 };
 
-export type TemplateSpan = 1 | 2 | 3 | 4 | 5 | 6;
+// A field may span up to MAX_COLUMNS columns, keeping step with the column
+// count a layout can reach (spans can never exceed the grid width).
+export type TemplateSpan = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+
+// Upper bound a template's column count (and any width span) can reach.
+export const MAX_COLUMNS = 12;
 
 // Bumped whenever the meaning of the layout's position keys changes, so the
 // editor knows to re-pack a layout saved under an older model instead of
@@ -1217,6 +1222,6 @@ export type SelectorSchema = {
             'maximize-window': void;
             'window-state-changed': boolean;
         };
-        requests: {};
+        requests: Record<string, never>;
     };
 };

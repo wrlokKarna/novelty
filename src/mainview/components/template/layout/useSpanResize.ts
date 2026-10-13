@@ -1,12 +1,13 @@
 import { useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { TemplateSpan } from '../../../types';
+import { MAX_COLUMNS } from '../../../types';
 
 // A span is only meaningful up to the active column count; anything wider would
-// overflow the grid. Clamps to 1..columns (bounded by the 1..6 range of the
-// persisted type).
+// overflow the grid. Clamps to 1..columns (bounded by the 1..MAX_COLUMNS range
+// of the persisted type).
 export function clampSpanFor(columns: number) {
-    const max = Math.max(1, Math.min(6, Math.floor(columns) || 1));
+    const max = Math.max(1, Math.min(MAX_COLUMNS, Math.floor(columns) || 1));
     return (span: number): TemplateSpan =>
         Math.min(Math.max(1, Math.round(span)), max) as TemplateSpan;
 }

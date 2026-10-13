@@ -464,6 +464,57 @@ describe('applyDrop', () => {
         expect(result.rowStarts).toEqual({ a: 1, c: 1, b: 2 });
         expect(result.cols.c).toBe(2);
     });
+
+    test('inserting a column shifts reaching fields right and grows the grid', () => {
+        const result = applyDrop(
+            [
+                { name: 'a', row: 1, col: 1, span: 2, rowSpan: 1 },
+                { name: 'b', row: 2, col: 1, span: 1, rowSpan: 1 },
+            ],
+            'b',
+            { kind: 'insertCol', boundary: 2, row: 2 },
+            2
+        );
+        // a spans up to the old col 2, so it moves to cols 2-3; b lands in the
+        // new col 2 on its own band; the grid now has three columns.
+        expect(result.columns).toBe(3);
+        expect(result.cols.a).toBe(2);
+        expect(result.rowStarts.b).toBe(2);
+        expect(result.cols.b).toBe(2);
+    });
+
+    test('inserting at the left edge pushes everything right', () => {
+        const result = applyDrop(
+            [
+                { name: 'a', row: 1, col: 1, span: 2, rowSpan: 1 },
+                { name: 'b', row: 2, col: 1, span: 1, rowSpan: 1 },
+            ],
+            'a',
+            { kind: 'insertCol', boundary: 1, row: 1 },
+            2
+        );
+        expect(result.columns).toBe(3);
+        expect(result.cols.a).toBe(1);
+        expect(result.cols.b).toBe(2);
+    });
+
+    test('a column drop keeps the width when the grid is at the cap', () => {
+        const spanning = Array.from({ length: 2 }, (_, i) => ({
+            name: `f${i + 1}`,
+            row: i + 1,
+            col: 1,
+            span: 12,
+            rowSpan: 1,
+        }));
+        const result = applyDrop(
+            spanning,
+            'f2',
+            { kind: 'insertCol', boundary: 2, row: 1 },
+            12
+        );
+        expect(result.columns).toBe(12);
+        expect(result.cols.f2).toBe(1);
+    });
 });
 
 describe('withBandPositions', () => {

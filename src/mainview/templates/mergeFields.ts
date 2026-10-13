@@ -4,7 +4,11 @@ import type {
     TemplateLayout,
     TemplateSpan,
 } from '../types';
-import { DEFAULT_TEMPLATE_COLUMNS, LAYOUT_VERSION } from '../types';
+import {
+    DEFAULT_TEMPLATE_COLUMNS,
+    LAYOUT_VERSION,
+    MAX_COLUMNS,
+} from '../types';
 
 // Series fields are keyed by name, so a project override is recognised purely by
 // name collision with the series template for its category. Callers pass the
@@ -212,7 +216,7 @@ export function clampRowSpan(span: number): number {
 }
 
 export function clampSpan(width: number, columns: number): TemplateSpan {
-    const max = Math.max(1, Math.min(6, Math.floor(columns) || 1));
+    const max = Math.max(1, Math.min(MAX_COLUMNS, Math.floor(columns) || 1));
     return Math.min(Math.max(1, Math.round(width) || 1), max) as TemplateSpan;
 }
 

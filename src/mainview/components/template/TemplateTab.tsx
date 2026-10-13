@@ -82,7 +82,6 @@ export default function TemplateTab({
                     mode="view"
                     field={field}
                     index={index}
-                    columns={columns}
                     value={templateData?.[field.name]}
                     onChange={(value) => onUpdate?.(field.name, value)}
                     entry={entry}

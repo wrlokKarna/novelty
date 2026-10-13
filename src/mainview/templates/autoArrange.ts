@@ -1,5 +1,9 @@
 import type { FieldDefinition, TemplateLayout, TemplateSpan } from '../types';
-import { LAYOUT_VERSION } from '../types';
+import {
+    DEFAULT_TEMPLATE_COLUMNS,
+    LAYOUT_VERSION,
+    MAX_COLUMNS,
+} from '../types';
 import {
     ROW_SPAN_BY_TYPE,
     WIDTH_BY_TYPE,
@@ -19,12 +23,16 @@ export interface PlacedField {
 }
 
 // Where a dragged field was dropped: either onto a specific cell in an existing
-// band, or onto the thin separator above/below a band (`boundary` is the 1-based
+// band, onto the thin separator above/below a band (`boundary` is the 1-based
 // row the new band is inserted at, so 1 = above the first band; `col` is the
-// 1-based column the field is attached to inside that new band).
+// 1-based column the field is attached to inside that new band), or onto the
+// thin separator between columns (`boundary` is the 1-based column a new column
+// is inserted before, so 1 = left of the first column; `row` is the 1-based
+// band the field lands in).
 export type DropTarget =
     | { kind: 'cell'; row: number; col: number }
-    | { kind: 'insert'; boundary: number; col: number };
+    | { kind: 'insert'; boundary: number; col: number }
+    | { kind: 'insertCol'; boundary: number; row: number };
 
 const cellKey = (row: number, col: number) => `${row},${col}`;
 
@@ -216,6 +224,104 @@ export function withBandPositions<
     });
 }
 
+// Rebuilds a layout so the grid stays dense: every field is given a rectangle
+// (stored positions are honoured; anything unplaced is packed), then bands no
+// field occupies are dropped and columns no field reaches are trimmed from the
+// right. Interior column gaps are intentional and preserved.
+export function compactLayout(
+    fields: FieldDefinition[],
+    layout: TemplateLayout
+): TemplateLayout {
+    const columns = layout.columns ?? DEFAULT_TEMPLATE_COLUMNS;
+    const positioned = withBandPositions(
+        fields.map((f) => {
+            const fullWidth = layout.fullWidth?.[f.name] === true;
+            const span = fullWidth
+                ? columns
+                : clampSpan(
+                      layout.spans?.[f.name] ?? WIDTH_BY_TYPE[f.type] ?? 1,
+                      columns
+                  );
+            const rowSpan = clampRowSpan(
+                layout.rowSpans?.[f.name] ?? ROW_SPAN_BY_TYPE[f.type] ?? 1
+            );
+            return {
+                name: f.name,
+                span,
+                rowSpan,
+                rowStart: layout.rowStarts?.[f.name],
+                colStart: layout.cols?.[f.name],
+            };
+        }),
+        columns
+    );
+
+    const compacted = compactPlaced(
+        positioned.map((p) => ({
+            name: p.name,
+            row: p.rowStart,
+            col: p.colStart,
+            span: p.span,
+            rowSpan: p.rowSpan,
+        })),
+        columns
+    );
+
+    return {
+        ...layout,
+        rowStarts: compacted.rowStarts,
+        cols: compacted.cols,
+        rowSpans: compacted.rowSpans,
+        columns: compacted.columns,
+        version: LAYOUT_VERSION,
+    };
+}
+
+// Compacts a placed field set into a dense layout: bands that no field occupies
+// are dropped so row indices stay contiguous, and columns no field reaches are
+// trimmed from the right. Interior column gaps are kept, and a field that spans
+// the full width pins every column. An empty set keeps the given column count so
+// a template can be sized before it has any fields.
+export function compactPlaced(
+    placed: PlacedField[],
+    columns: number
+): {
+    rowStarts: Record<string, number>;
+    cols: Record<string, number>;
+    rowSpans: Record<string, number>;
+    columns: number;
+} {
+    const cols = Math.max(1, Math.round(columns) || 1);
+    const usedBands = new Set<number>();
+    let rightmost = 0;
+    for (const p of placed) {
+        const rowSpan = Math.max(1, Math.round(p.rowSpan) || 1);
+        for (let r = p.row; r < p.row + rowSpan; r++) usedBands.add(r);
+        const span = Math.min(Math.max(1, Math.round(p.span) || 1), cols);
+        rightmost = Math.max(rightmost, p.col + span - 1);
+    }
+
+    const sorted = [...usedBands].sort((a, b) => a - b);
+    const remap = new Map<number, number>();
+    sorted.forEach((r, i) => remap.set(r, i + 1));
+
+    const rowStarts: Record<string, number> = {};
+    const startCols: Record<string, number> = {};
+    const rowSpans: Record<string, number> = {};
+    for (const p of placed) {
+        rowStarts[p.name] = remap.get(p.row)!;
+        startCols[p.name] = p.col;
+        rowSpans[p.name] = Math.max(1, Math.round(p.rowSpan) || 1);
+    }
+
+    return {
+        rowStarts,
+        cols: startCols,
+        rowSpans,
+        columns: rightmost > 0 ? Math.min(cols, rightmost) : cols,
+    };
+}
+
 // The free start column in `row` closest to `desired` whose full `rowSpan`
 // rectangle fits, or null when the band has no room.
 function nearestFreeCol(
@@ -286,10 +392,14 @@ function nearestFreeRow(
     return null;
 }
 
-function toMaps(placed: PlacedField[]): {
+function toMaps(
+    placed: PlacedField[],
+    columns: number
+): {
     rowStarts: Record<string, number>;
     cols: Record<string, number>;
     rowSpans: Record<string, number>;
+    columns: number;
 } {
     const rowStarts: Record<string, number> = {};
     const cols: Record<string, number> = {};
@@ -299,15 +409,18 @@ function toMaps(placed: PlacedField[]): {
         cols[p.name] = p.col;
         rowSpans[p.name] = p.rowSpan;
     }
-    return { rowStarts, cols, rowSpans };
+    return { rowStarts, cols, rowSpans, columns };
 }
 
 // Applies a drop to the band grid and returns the resulting positions. Dropping
 // onto a cell places the field there (sliding to the nearest free column/band if
 // taken, inserting a band if none fits); dropping on a separator inserts a new
 // band at the boundary with the field in the chosen column, shifting the bands
-// below it down. Empty bands left behind by a move are compacted so row indices
-// stay contiguous.
+// below it down. Dropping on a vertical separator inserts a new column at the
+// boundary, shifting fields whose right edge reaches the line one column right,
+// then places the field in the new column. Empty bands left behind by a move are
+// compacted so row indices stay contiguous. `columns` reflects the post-drop
+// column count (only column insertion changes it).
 export function applyDrop(
     placed: PlacedField[],
     name: string,
@@ -317,10 +430,11 @@ export function applyDrop(
     rowStarts: Record<string, number>;
     cols: Record<string, number>;
     rowSpans: Record<string, number>;
+    columns: number;
 } {
     const cols = Math.max(1, columns);
     const moving = placed.find((p) => p.name === name);
-    if (!moving) return toMaps(placed);
+    if (!moving) return toMaps(placed, cols);
 
     const span = Math.min(Math.max(1, Math.round(moving.span) || 1), cols);
     const rowSpan = Math.max(1, Math.round(moving.rowSpan) || 1);
@@ -331,6 +445,45 @@ export function applyDrop(
         (m, o) => Math.max(m, o.row + o.rowSpan - 1),
         0
     );
+
+    if (target.kind === 'insertCol') {
+        if (cols >= MAX_COLUMNS) return toMaps(placed, cols);
+        const boundary = Math.min(
+            Math.max(1, Math.round(target.boundary) || 1),
+            cols + 1
+        );
+        const desiredRow = Math.max(1, Math.round(target.row) || 1);
+        // Shift every field whose right edge touches (or crosses) the boundary
+        // line one column right, so the new column sits at `boundary`.
+        for (const o of others) if (o.col + o.span - 1 >= boundary) o.col += 1;
+        const nextCols = cols + 1;
+        const occ2 = occupy(others, nextCols);
+        if (fitsAt(occ2, desiredRow, boundary, span, rowSpan, nextCols)) {
+            moved.row = desiredRow;
+            moved.col = boundary;
+        } else {
+            const spot = nearestFreeRow(
+                occ2,
+                desiredRow,
+                boundary,
+                span,
+                rowSpan,
+                maxRowEnd,
+                nextCols
+            );
+            if (spot) {
+                moved.row = spot.row;
+                moved.col = spot.col;
+            } else {
+                for (const o of others)
+                    if (o.row + o.rowSpan - 1 >= desiredRow) o.row += 1;
+                moved.row = desiredRow;
+                moved.col = boundary;
+            }
+        }
+        const allCols = [...others, moved];
+        return compactRows(allCols, nextCols);
+    }
 
     if (target.kind === 'insert') {
         const boundary = Math.min(
@@ -379,9 +532,22 @@ export function applyDrop(
         }
     }
 
-    const all = [...others, moved];
+    return compactRows([...others, moved], cols);
+}
 
-    // Compact: keep only the bands a field actually covers, renumbered 1..N.
+// Compacts the band indices of a placed set back to contiguous 1..N rows and
+// returns the layout maps, keeping `columns` as given. Column trimming is left
+// to `compactPlaced`/`compactLayout` so an explicit column insert can still grow
+// the grid before anything is trimmed away.
+function compactRows(
+    all: PlacedField[],
+    columns: number
+): {
+    rowStarts: Record<string, number>;
+    cols: Record<string, number>;
+    rowSpans: Record<string, number>;
+    columns: number;
+} {
     const usedBands = new Set<number>();
     for (const p of all)
         for (let r = p.row; r < p.row + p.rowSpan; r++) usedBands.add(r);
@@ -397,5 +563,5 @@ export function applyDrop(
         startCols[p.name] = p.col;
         rowSpans[p.name] = p.rowSpan;
     }
-    return { rowStarts, cols: startCols, rowSpans };
+    return { rowStarts, cols: startCols, rowSpans, columns };
 }
