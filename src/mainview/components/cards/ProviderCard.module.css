@@ -1,0 +1,273 @@
+.providerCard {
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+
+    &.addCard {
+        background-color: #49484880;
+        border: 1px solid #393a3b;
+    }
+
+    &.defaultCard {
+        background: #1a1b1c;
+        background-color: #1a1b1cc4;
+        border: 1px solid #393a3b;
+
+        &.disabled {
+            .providerCardHeader {
+                margin: 0px;
+            }
+            .providerCardBody {
+                display: none;
+            }
+        }
+    }
+
+    input,
+    button {
+        border-radius: var(--radius-sm);
+        font-family: var(--font-sans);
+        font-weight: 500;
+        transition: 150ms ease;
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+        border: 1px solid var(--border);
+
+        font-size: 0.9rem;
+    }
+    input {
+        width: 100%;
+        flex: 1;
+
+        &:hover {
+            border: 1px solid var(--accent);
+        }
+    }
+    button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+
+        &:hover {
+            color: var(--accent);
+            background-color: #0f1117;
+        }
+
+        svg {
+            width: 16px;
+            height: 16px;
+        }
+    }
+
+    .iconBtn {
+        padding: 4px 6px;
+        text-align: center;
+        color: var(--text-primary);
+
+        &:hover {
+            background: #494a4b;
+        }
+
+        &.delete,
+        &.reset {
+            /*display: flex;*/
+            /*align-items: center;*/
+            /*justify-content: center;*/
+            /*gap: 8px;*/
+            /*padding: 10px 20px;*/
+            /*background: #ff4a4a;*/
+            /*border: none;*/
+            /*border-radius: 6px;*/
+            /*color: #fff;*/
+            /*font-size: 14px;*/
+            /*font-weight: 600;*/
+            /*cursor: pointer;*/
+            /*transition: background 0.2s;*/
+            /*align-self: flex-start;*/
+
+            &:hover {
+                background: #e03a3a;
+                background: #ff4a4a;
+                background: #ff4a4a46;
+                border-color: #ef4444;
+                color: #ef4444;
+                color: red;
+            }
+
+            svg {
+                color: #ef4444;
+            }
+        }
+
+        &.save {
+            color: greenyellow;
+            &:hover {
+                color: greenyellow;
+            }
+        }
+
+        svg {
+            width: 22px;
+            height: 22px;
+        }
+    }
+}
+
+.providerCard input::-ms-reveal {
+    display: none;
+}
+.providerCard input::-webkit-credentials-auto-fill-button {
+    visibility: hidden;
+    position: absolute;
+    right: 0;
+}
+
+.providerCardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+
+    .providerToggleInput {
+        width: 20px;
+        height: 20px;
+        margin-right: 0px;
+        margin-left: 0px;
+    }
+
+    .providerLabel {
+        margin-right: auto;
+        #cardLabel {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+
+            &:hover {
+                button {
+                    display: block;
+                }
+            }
+            input {
+                width: max-content;
+            }
+            button {
+                display: none;
+                border: none !important;
+                padding: 0px;
+                text-align: center;
+
+                &.editing {
+                    display: block;
+                }
+
+                svg {
+                    width: 18px;
+                    height: 18px;
+                }
+            }
+        }
+    }
+}
+
+.urlSection {
+    margin-bottom: 18px;
+
+    .inputFields {
+        display: flex;
+        gap: 8px;
+        margin: 12px auto 4px auto;
+
+        label {
+            text-transform: capitalize;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        input {
+            margin-top: 4px;
+        }
+    }
+
+    .previewUrl {
+        font-size: 14px;
+        color: #888;
+        padding: 4px 0;
+        font-family: monospace;
+
+        span {
+            color: var(--text-primary);
+        }
+    }
+}
+
+.apiSection {
+    margin-bottom: 12px;
+    a {
+        color: var(--text-accent);
+    }
+    form {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+    }
+}
+
+.modelsSection {
+    color: #fff;
+    min-width: 120px;
+
+    &:focus {
+        outline: none;
+        border-color: #4a9eff;
+    }
+    .settingsRow {
+        button {
+            padding: 6px 12px;
+        }
+    }
+}
+
+.settingsRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 6px;
+
+    label {
+        color: var(--text-accent);
+        font-size: 16px;
+        font-weight: bold;
+
+        span {
+            color: var(--text-secondary);
+            font-weight: normal;
+        }
+    }
+}
+
+.viewTyes {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+    margin-right: 12px;
+    button {
+        border: 1px solid #393a3b;
+        &.active {
+            color: var(--text-accent);
+            border: 1px solid var(--accent);
+        }
+    }
+}
+
+.connectionBtn {
+    &.active,
+    &.active:hover {
+        color: greenyellow;
+    }
+
+    &.inactive,
+    &.inactive:hover {
+        color: red;
+    }
+}

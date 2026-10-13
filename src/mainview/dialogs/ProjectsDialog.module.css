@@ -1,0 +1,182 @@
+.toolbar {
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+    border-bottom: 1px solid #393a3b;
+
+    button {
+        padding: 8px 16px;
+        background: #4a9eff;
+        border: none;
+        border-radius: 6px;
+        color: #fff;
+        cursor: pointer;
+
+        &:hover {
+            background: #3a8eef;
+        }
+    }
+}
+
+.content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 100px;
+}
+
+.formGroup {
+    margin-bottom: 16px;
+
+    label {
+        display: block;
+        margin-bottom: 8px;
+        color: #aaa;
+        font-size: 14px;
+    }
+
+    input,
+    select {
+        width: 100%;
+        padding: 10px 12px;
+        background: #1a1b1c;
+        border: 1px solid #393a3b;
+        border-radius: 6px;
+        color: #fff;
+        box-sizing: border-box;
+
+        &:focus {
+            outline: none;
+            border-color: #4a9eff;
+        }
+    }
+}
+
+.tagSelector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.tagBtn {
+    padding: 6px 10px;
+    background: #1a1b1c;
+    border: 1px solid #393a3b;
+    border-radius: 4px;
+    color: #aaa;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+
+    &:hover {
+        border-color: #4a9eff;
+        color: #fff;
+    }
+
+    &.selected {
+        background: #4a9eff;
+        border-color: #4a9eff;
+        color: #fff;
+    }
+}
+
+.customTagInput {
+    display: flex;
+    gap: 8px;
+
+    input {
+        flex: 1;
+        margin-bottom: 0;
+    }
+
+    button {
+        padding: 8px 12px;
+        background: #393a3b;
+        border: none;
+        border-radius: 4px;
+        color: #fff;
+        font-size: 13px;
+        cursor: pointer;
+
+        &:hover {
+            background: #494a4b;
+        }
+    }
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 8px;
+
+    button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+
+        &:first-child {
+            background: transparent;
+            color: #aaa;
+
+            &:hover {
+                color: #fff;
+            }
+        }
+
+        &:last-child {
+            background: #4a9eff;
+            color: #fff;
+
+            &:hover {
+                background: #3a8eef;
+            }
+
+            &:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+        }
+    }
+
+    .dangerBtn {
+        background: #ff4a4a;
+
+        &:hover {
+            background: #e03a3a;
+        }
+    }
+}
+
+#projectsDialog {
+    width: 70%;
+    max-width: 70%;
+    height: 80%;
+    max-height: 80%;
+}
+
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.subDialog {
+    background: #1a1b1c;
+    border: 1px solid #393a3b;
+    border-radius: 8px;
+    padding: 1.5rem;
+    min-width: 400px;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+}

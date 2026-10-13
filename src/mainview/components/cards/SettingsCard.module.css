@@ -1,0 +1,11 @@
+.SettingsCard {
+    display: flex;
+    flex-direction: column;
+    border: var(--card-border);
+    border-radius: var(--card-border-radius);
+    background-color: var(--card-background-color);
+    box-shadow: var(--card-box-shadow);
+    box-sizing: border-box;
+    padding: 1.5rem;
+    margin-bottom: 14px;
+}

@@ -1,0 +1,106 @@
+.content {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.aspectHint {
+    text-align: center;
+    font-size: 12px;
+    color: #888;
+    margin: 0 0 12px;
+}
+
+.uploadSection {
+    margin-bottom: 16px;
+
+    .fileInput {
+        display: none;
+    }
+
+    button {
+        width: 100%;
+        padding: 10px 16px;
+        background: #4a9eff;
+        border: none;
+        border-radius: 6px;
+        color: #fff;
+        font-size: 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+
+        &:hover {
+            background: #3a8eef;
+        }
+    }
+}
+
+.loading,
+.empty {
+    text-align: center;
+    padding: 32px;
+    color: #888;
+}
+
+.assetGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.assetItem {
+    position: relative;
+    aspect-ratio: 2/3;
+    background: #1a1b1c;
+    border: 1px solid #393a3b;
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.15s;
+
+    &:hover {
+        border-color: #4a9eff;
+    }
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .assetName {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        padding: 8px;
+        font-size: 12px;
+        color: #888;
+        word-break: break-word;
+        text-align: center;
+    }
+}
+
+.assetItemActive {
+    border-color: #4a9eff;
+    box-shadow: 0 0 0 2px #4a9eff;
+}
+
+.activeBadge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    background: #4a9eff;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+}

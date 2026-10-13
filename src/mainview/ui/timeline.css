@@ -1,0 +1,130 @@
+.timelineDialog {
+    width: 95vw;
+    height: 90vh;
+    max-width: 1400px;
+}
+
+.timelineDialog :global(.dialogWrapper) {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.timelineDialog :global(.body) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+}
+
+.timelineToolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-bottom: 1px solid #333;
+    background: #1e1e1e;
+    flex-shrink: 0;
+}
+
+.timelineToolbar h3 {
+    margin: 0;
+    font-size: 14px;
+    color: #ccc;
+    flex: 1;
+}
+
+.timelineToolbar button {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #ccc;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.timelineToolbar button:hover {
+    background: #333;
+    color: #fff;
+}
+
+.timelineToolbar button.primaryBtn {
+    background: #4a7c59;
+    border-color: #5a9c69;
+    color: #fff;
+}
+
+.timelineToolbar button.primaryBtn:hover {
+    background: #5a9c69;
+}
+
+.timelineToolbar button.dangerBtn {
+    background: #7c4a4a;
+    border-color: #9c5a5a;
+    color: #fff;
+}
+
+.timelineToolbar button.dangerBtn:hover {
+    background: #9c5a5a;
+}
+
+.timelineContainer {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+.timelineLegend {
+    display: flex;
+    gap: 12px;
+    padding: 6px 16px;
+    border-top: 1px solid #333;
+    background: #1e1e1e;
+    flex-shrink: 0;
+    font-size: 11px;
+    color: #888;
+}
+
+.legendItem {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.legendDot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.eventDetail {
+    padding: 16px;
+}
+
+.eventDetail h3 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    color: #fff;
+}
+
+.eventDetail p {
+    margin: 4px 0;
+    font-size: 13px;
+    color: #aaa;
+}
+
+.eventDetail .label {
+    color: #666;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.autoGenNotice {
+    font-size: 11px;
+    color: #666;
+    font-style: italic;
+}

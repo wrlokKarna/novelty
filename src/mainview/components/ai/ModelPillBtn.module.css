@@ -1,0 +1,76 @@
+.modelPill {
+    position: relative;
+    display: flex;
+    justify-items: center;
+    align-items: center;
+    border-radius: 26px;
+    border: 1px solid #393a3b;
+    transition: 150ms ease;
+
+    &:hover {
+        border: 1px solid var(--accent);
+    }
+
+    &.active {
+        border: 1px solid var(--accent);
+        button {
+            color: var(--text-accent) !important;
+        }
+        svg {
+            color: greenyellow;
+        }
+    }
+
+    &.editing {
+        button {
+            color: var(--text-secondary);
+        }
+    }
+
+    input {
+        margin: 0px;
+        padding-left: 36px;
+        background: transparent;
+        border: none;
+        outline: none;
+        appearance: none;
+
+        &:hover {
+            border: none;
+        }
+    }
+    button {
+        display: block;
+        margin: 0px;
+        padding: 6px 18px;
+        border-radius: 26px;
+        border: 1px solid #393a3b;
+        color: var(--text-secondary);
+
+        &:hover {
+            border: 1px solid var(--accent);
+        }
+
+        &.iconBtn {
+            padding: 0px;
+            top: 4px;
+            left: 8px;
+            font: 24px;
+            background-color: transparent;
+            border: none;
+
+            &.save {
+                position: absolute;
+                color: greenyellow;
+                &:hover {
+                    color: greenyellow;
+                }
+            }
+
+            svg {
+                width: 22px;
+                height: 22px;
+            }
+        }
+    }
+}

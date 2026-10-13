@@ -1,0 +1,146 @@
+name: Build Canary Executable
+
+on:
+    push:
+        branches:
+            - canary
+
+permissions:
+    contents: write
+
+jobs:
+    build:
+        name: Build on ${{ matrix.os }}
+        runs-on: ${{ matrix.os }}
+
+        strategy:
+            matrix:
+                include:
+                    - os: macos-latest
+                      os-name: macOS
+                      ext: ''
+                    - os: windows-latest
+                      os-name: Windows
+                      ext: '.exe'
+                    - os: ubuntu-latest
+                      os-name: Linux
+                      ext: ''
+
+        steps:
+            - name: Checkout Repository
+              uses: actions/checkout@v4
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v1
+              with:
+                  bun-version: latest
+
+            - name: Install Hutch CLI (Unix)
+              if: matrix.os != 'windows-latest'
+              shell: bash
+              run: |
+                  curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh
+                  echo "$HOME/.hutch/bin" >> $GITHUB_PATH
+
+            - name: Install Hutch CLI (Windows)
+              if: matrix.os == 'windows-latest'
+              shell: pwsh
+              run: |
+                  & ([scriptblock]::Create((irm https://hutch.blackboard.sh/hutch/install.ps1)))
+                  echo "$env:USERPROFILE\.hutch\bin" >> $env:GITHUB_PATH
+
+            - name: Install Dependencies
+              run: bun install
+
+            - name: Generate Canary Build Metadata
+              id: metadata
+              shell: bash
+              run: |
+                  BUILD_NUM="${{ github.run_number }}"
+                  CANARY_VERSION="build.${BUILD_NUM}"
+                  LABEL="novelty-${{ matrix.os-name }}-Canary-${CANARY_VERSION}"
+                  echo "canary_version=${CANARY_VERSION}" >> $GITHUB_OUTPUT
+                  echo "artifact_label=${LABEL}" >> $GITHUB_OUTPUT
+                  echo "CANARY_VERSION=${CANARY_VERSION}" >> $GITHUB_ENV
+                  echo "ARTIFACT_LABEL=${LABEL}" >> $GITHUB_ENV
+                  echo "Generated Canary Label: $LABEL"
+
+            - name: Prepare Hutch Devkit
+              run: hutch electrobun prepare --env=canary
+
+            - name: Build Executable
+              env:
+                  VITE_CANARY_BUILD_LABEL: ${{ steps.metadata.outputs.artifact_label }}
+              run: bun run build:canary
+
+            - name: Prepare Canary Release Artifacts
+              shell: bash
+              env:
+                  ARTIFACT_LABEL: ${{ steps.metadata.outputs.artifact_label }}
+              run: |
+                  mkdir -p release-output
+
+                  # Use bun -e directly to execute the inline script
+                  bun -e '
+                    import { readdirSync, statSync, existsSync } from "fs";
+                    import { join, resolve } from "path";
+                    import { execSync } from "child_process";
+
+                    const buildDir = resolve("build");
+                    console.log("Looking inside build directory:", buildDir);
+
+                    if (!existsSync(buildDir)) {
+                      console.error("Error: build/ directory does not exist!");
+                      process.exit(1);
+                    }
+
+                    const files = readdirSync(buildDir);
+                    console.log("Contents of build/:", files);
+
+                    const targetDir = files.find(f => {
+                      const full = join(buildDir, f);
+                      return statSync(full).isDirectory() && (f.startsWith("canary-") || f.includes("-"));
+                    });
+
+                    if (!targetDir) {
+                      console.error("Error: Could not find any valid output directory inside build/");
+                      process.exit(1);
+                    }
+
+                    const sourcePath = join(buildDir, targetDir);
+                    const label = process.env.ARTIFACT_LABEL;
+                    const outZip = resolve("release-output", `${label}.zip`);
+
+                    console.log(`Zipping directory: ${sourcePath}`);
+                    console.log(`Output zip path: ${outZip}`);
+
+                    if (process.platform === "win32") {
+                      const psSource = sourcePath.replace(/\//g, "\\");
+                      const psOut = outZip.replace(/\//g, "\\");
+                      execSync(`powershell -Command "Compress-Archive -Path \\"${psSource}\\" -DestinationPath \\"${psOut}\\" -Force"`, { stdio: "inherit" });
+                    } else {
+                      execSync(`cd "${sourcePath}" && zip -r "${outZip}" .`, { stdio: "inherit" });
+                    }
+                  '
+
+                  echo "Checking release-output contents:"
+                  ls -la release-output/
+
+            - name: Upload Canary Artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ steps.metadata.outputs.artifact_label }}
+                  path: release-output/
+                  if-no-files-found: warn
+
+            - name: Publish to GitHub Releases
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: canary-build-${{ github.run_number }}
+                  name: 'Novelty Canary Build #${{ github.run_number }}'
+                  body: 'Automated canary build from commit `${{ github.sha }}` for build run #${{ github.run_number }}.'
+                  prerelease: true
+                  files: release-output/*
+                  fail_on_unmatched_files: false
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

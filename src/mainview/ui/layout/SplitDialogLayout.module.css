@@ -1,0 +1,4 @@
+.dialogContent {
+    display: flex;
+    overflow-y: auto;
+}

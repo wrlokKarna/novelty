@@ -1,0 +1,166 @@
+.subDialog {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: 450px;
+    max-width: 90vw;
+    background: #222324;
+    border: 1px solid #393a3b;
+    border-radius: 12px;
+    padding: 0;
+    color: #fff;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #393a3b;
+
+    h3 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+    }
+}
+
+.closeBtn {
+    background: transparent;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+        background: #393a3b;
+        color: #fff;
+    }
+}
+
+.body {
+    padding: 20px;
+}
+
+.formGroup {
+    margin-bottom: 16px;
+
+    label {
+        display: block;
+        margin-bottom: 8px;
+        color: #aaa;
+        font-size: 14px;
+    }
+
+    input,
+    select {
+        width: 100%;
+        padding: 10px 12px;
+        background: #1a1b1c;
+        border: 1px solid #393a3b;
+        border-radius: 6px;
+        color: #fff;
+        box-sizing: border-box;
+
+        &:focus {
+            outline: none;
+            border-color: #4a9eff;
+        }
+    }
+}
+
+.tagSelector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.tagBtn {
+    padding: 6px 10px;
+    background: #1a1b1c;
+    border: 1px solid #393a3b;
+    border-radius: 4px;
+    color: #aaa;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+
+    &:hover {
+        border-color: #4a9eff;
+        color: #fff;
+    }
+
+    &.selected {
+        background: #4a9eff;
+        border-color: #4a9eff;
+        color: #fff;
+    }
+}
+
+.customTagInput {
+    display: flex;
+    gap: 8px;
+
+    input {
+        flex: 1;
+        margin-bottom: 0;
+    }
+
+    button {
+        padding: 8px 12px;
+        background: #393a3b;
+        border: none;
+        border-radius: 4px;
+        color: #fff;
+        font-size: 13px;
+        cursor: pointer;
+
+        &:hover {
+            background: #494a4b;
+        }
+    }
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 8px;
+
+    button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+
+        &:first-child {
+            background: transparent;
+            color: #aaa;
+
+            &:hover {
+                color: #fff;
+            }
+        }
+
+        &:last-child {
+            background: #4a9eff;
+            color: #fff;
+
+            &:hover {
+                background: #3a8eef;
+            }
+
+            &:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+        }
+    }
+}

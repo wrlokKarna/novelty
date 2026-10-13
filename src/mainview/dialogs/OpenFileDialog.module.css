@@ -1,0 +1,96 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    /*min-width: 400px;*/
+    /*max-width: 500px;*/
+}
+
+.searchBar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background-color: #1e1e1e;
+    border: 1px solid #3c3c3c;
+    border-radius: 6px;
+}
+
+.searchBar svg {
+    color: #8e8e93;
+    flex-shrink: 0;
+}
+
+.searchBar input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-size: 13px;
+}
+
+.searchBar input::placeholder {
+    color: #6e6e73;
+}
+
+.fileList {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.fileItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.1s ease;
+}
+
+.fileItem svg {
+    color: #8e8e93;
+    flex-shrink: 0;
+}
+
+.fileItem:hover {
+    background-color: #2a2d2e;
+}
+
+.fileItem.selected {
+    background-color: #094771;
+}
+
+.fileInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.fileName {
+    color: #ccc;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.filePath {
+    color: #6e6e73;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.emptyState {
+    padding: 24px;
+    text-align: center;
+    color: #6e6e73;
+    font-size: 13px;
+}
