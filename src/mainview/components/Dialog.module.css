@@ -58,6 +58,13 @@
     }
 }
 
+.headerLeft {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
 .closeBtn {
     background: transparent;
     border: none;
@@ -73,6 +80,66 @@
         background: #393a3b;
         color: #fff;
     }
+}
+
+.sidebarToggleBtn {
+    background: transparent;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+        background: #393a3b;
+        color: #fff;
+    }
+}
+
+.toggleIconBox {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+}
+
+.iconLayer {
+    grid-area: 1 / 1;
+    transition:
+        opacity 0.08s ease,
+        color 0.08s ease;
+}
+
+.appIcon {
+    display: block;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    opacity: 1;
+}
+
+.actionIcon {
+    opacity: 0;
+}
+
+.expandIcon {
+    opacity: 1;
+}
+
+.sidebarToggleBtn:hover .appIcon {
+    opacity: 0;
+}
+
+.sidebarToggleBtn:hover .actionIcon {
+    opacity: 1;
+}
+
+.sidebarToggleBtn:hover .expandIcon {
+    color: var(--accent);
 }
 
 .body {

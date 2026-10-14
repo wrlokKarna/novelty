@@ -648,6 +648,7 @@ export default function ProjectManager({
             onClose={onClose}
             title="Project Manager"
             large
+            hasSidebar
             className={localStyles.projectManagerDialog}
         >
             <SplitDialogLayout>

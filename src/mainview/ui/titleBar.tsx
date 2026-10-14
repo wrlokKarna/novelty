@@ -1,6 +1,7 @@
 import styles from '../App.module.css';
 import { useState, useEffect, useRef } from 'react';
 import { useRPC } from '../contexts/RPCContext';
+import AppIcon from '../components/AppIcon';
 import {
     IconChevronDown,
     IconFolder,
@@ -118,29 +119,7 @@ export function TitleBar({
                         title="Novelty"
                         aria-label="Novelty"
                     >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 48 48"
-                            width={20}
-                            height={20}
-                        >
-                            <rect
-                                width="48"
-                                height="48"
-                                rx="12"
-                                fill="#292931"
-                            />
-                            <g
-                                stroke="#d4a853"
-                                strokeWidth="3"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                fill="none"
-                            >
-                                <path d="M24 35h12" />
-                                <path d="M30 11a4.242 4.242 0 0 1 6 6L14 34l-6 2 2-6L30 11z" />
-                            </g>
-                        </svg>
+                        <AppIcon />
                     </button>
                     <div className={styles.menuBar} ref={menuBarRef}>
                         {Object.entries(MENUS).map(([label, items]) => (

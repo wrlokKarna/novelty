@@ -2187,7 +2187,6 @@ select {
     background: #313233;
 }
 
-/* Accordion preview for old messages */
 .chat-message.accordion-preview {
     max-height: 1.6em;
     overflow: hidden;
@@ -2224,7 +2223,6 @@ select {
     margin-left: 8px;
 }
 
-/* View mode selector in chat header */
 .view-mode-select {
     padding: 4px 6px;
     background: transparent;
@@ -2241,7 +2239,6 @@ select {
     color: #fff;
 }
 
-/* Message footer for assistant responses */
 .chat-message-footer {
     display: flex;
     align-items: center;
@@ -2323,9 +2320,6 @@ select {
     color: #30d158;
 }
 
-/* @-Mention Popup — removed, now uses floating-suggestions */
-
-/* Context Chips */
 .context-chips {
     display: flex;
     flex-wrap: wrap;
@@ -2394,7 +2388,6 @@ select {
     opacity: 1;
 }
 
-/* System Prompt Toggle */
 .system-prompt-toggle {
     position: relative;
 }
@@ -2493,7 +2486,6 @@ select {
     background: #3a8eef;
 }
 
-/* Floating scroll navigation buttons */
 .scroll-nav-buttons {
     position: sticky;
     bottom: 16px;
@@ -2530,7 +2522,6 @@ select {
     transform: scale(1.05);
 }
 
-/* Compendium View */
 .compendium-view {
     display: flex;
     height: 100%;
@@ -2991,7 +2982,6 @@ select {
     cursor: not-allowed;
 }
 
-/* Compendium Entry Editor */
 .compendium-entry-editor {
     /*max-width: 1200px;*/
     margin: 0 auto;
@@ -3061,28 +3051,20 @@ select {
     gap: 10px;
 }
 
-/* Layout editing furniture: the width (right edge) and height (bottom edge)
-   handles only appear while the pointer is over a field card. */
 .field-layout-item:hover .field-resize,
 .field-layout-item .field-resize:hover {
     border-right-color: var(--accent, rgba(240, 160, 80, 0.6));
 }
 
-/* The bottom (height) handle mirrors the width handle. */
 .field-layout-item:hover .field-resize-row,
 .field-layout-item .field-resize-row:hover {
     border-bottom-color: var(--accent, rgba(240, 160, 80, 0.6));
 }
 
-/* The grid gap owns all spacing between cards, so the card's own bottom margin
-   would double it up. Scope the reset to the layout grid so standalone use of
-   the card keeps its margin. */
 .field-layout-item .field-layout-content > * {
     margin-bottom: 0;
 }
 
-/* Where a dragged card will land: a dashed outline pinned to the target cell,
-   sized to the dragged field's own span. */
 .field-drop-preview {
     align-self: stretch;
     min-width: 0;
@@ -3093,10 +3075,6 @@ select {
     z-index: 3;
 }
 
-/* The insert target between two bands, shown while dragging: a thin 2px line
-   sitting on the hovered boundary. The interaction zone around it is larger
-   (24px, clamped to short bands) but only the line is painted. The chosen
-   column is drawn brighter so it is clear where the card will attach. */
 .field-drop-insert {
     position: absolute;
     left: 0;
@@ -3117,9 +3095,6 @@ select {
     box-shadow: 0 0 6px rgba(240, 160, 80, 0.6);
 }
 
-/* The insert target between two columns, shown while dragging: a thin 2px
-   vertical line on the hovered boundary. The chosen band is drawn brighter so
-   it is clear where the card will attach when the new column is created. */
 .field-drop-insert-v {
     position: absolute;
     top: 0;
@@ -3138,6 +3113,95 @@ select {
     background: var(--accent, rgba(240, 160, 80, 0.95));
     border-radius: 2px;
     box-shadow: 0 0 6px rgba(240, 160, 80, 0.6);
+}
+
+.field-grid-guide-cell {
+    pointer-events: none;
+    box-sizing: border-box;
+    border: 1px dashed rgba(255, 255, 255, 0.07);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.015);
+}
+
+.field-grid-guide-label {
+    position: relative;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.field-grid-guide-col,
+.field-grid-guide-row {
+    position: absolute;
+    font-size: 9px;
+    line-height: 1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: rgba(255, 255, 255, 0.38);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.field-grid-guide-col {
+    top: 3px;
+    left: 6px;
+}
+
+.field-grid-guide-row {
+    right: 6px;
+    bottom: 3px;
+}
+
+.field-layout-item.field-linked {
+    outline: 2px solid var(--accent, rgba(240, 160, 80, 0.9));
+    outline-offset: 2px;
+    border-radius: 8px;
+}
+
+.field-layout-matrix-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-items: flex-start;
+}
+
+.field-layout-matrix-caption {
+    font-size: 0.7em;
+    color: #888;
+    letter-spacing: 0.03em;
+}
+
+.field-layout-matrix {
+    display: grid;
+    gap: 2px;
+}
+
+.field-layout-matrix-cell {
+    width: 14px;
+    height: 14px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    background: transparent;
+    cursor: default;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.field-layout-matrix-cell.is-filled {
+    background: rgba(255, 255, 255, 0.12);
+    cursor: pointer;
+}
+
+.field-layout-matrix-cell.is-filled:hover {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.field-layout-matrix-cell.is-active {
+    background: var(--accent, rgba(240, 160, 80, 0.9));
+    border-color: var(--accent, rgba(240, 160, 80, 0.9));
+}
+
+.field-layout-matrix-cell:disabled {
+    cursor: default;
 }
 
 .location-box {
@@ -3224,7 +3288,6 @@ select {
     resize: vertical;
 }
 
-/* ======= Multi-select chip combobox ======= */
 .multiselect-combobox {
     display: flex;
     flex-wrap: wrap;

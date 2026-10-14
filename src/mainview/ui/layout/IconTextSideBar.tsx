@@ -1,5 +1,6 @@
 import React from 'react';
 import styles from './IconTextSideBar.module.css';
+import { useDialogSidebar } from '../../components/DialogSidebarContext';
 
 type Props<T extends string> = {
     activeTab: T;
@@ -18,8 +19,17 @@ export default function IconTextSideBar<T extends string>({
     tabsArray,
     iconsArray = [],
 }: Props<T>) {
+    const sidebar = useDialogSidebar();
+    const mode = sidebar?.mode ?? 'expanded';
+
+    if (mode === 'hidden') {
+        return null;
+    }
+
     return (
-        <div className={styles.sideBar}>
+        <div
+            className={`${styles.sideBar} ${mode === 'collapsed' ? styles.collapsed : ''}`}
+        >
             {tabsArray.map((t, index) => {
                 const TabIcon = iconsArray[index];
 

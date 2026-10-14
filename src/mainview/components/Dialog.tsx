@@ -1,5 +1,11 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+    IconLayoutSidebarLeftCollapse,
+    IconLayoutSidebarLeftExpand,
+} from '@tabler/icons-react';
 import styles from './Dialog.module.css';
+import { DialogSidebarContext, type SidebarMode } from './DialogSidebarContext';
+import AppIcon from './AppIcon';
 
 interface DialogProps {
     open: boolean;
@@ -9,6 +15,7 @@ interface DialogProps {
     children: ReactNode;
     id?: string;
     className?: string;
+    hasSidebar?: boolean;
 }
 
 export default function Dialog({
@@ -19,8 +26,32 @@ export default function Dialog({
     children,
     id,
     className,
+    hasSidebar,
 }: DialogProps) {
     const dialogRef = useRef<HTMLDialogElement>(null);
+    const [sidebarMode, setSidebarMode] = useState<SidebarMode>('expanded');
+
+    const cycleSidebar = () =>
+        setSidebarMode((prev) =>
+            prev === 'expanded'
+                ? 'collapsed'
+                : prev === 'collapsed'
+                  ? 'hidden'
+                  : 'expanded'
+        );
+
+    useEffect(() => {
+        if (open) {
+            setSidebarMode('expanded');
+        }
+    }, [open]);
+
+    const sidebarLabel =
+        sidebarMode === 'expanded'
+            ? 'Collapse sidebar'
+            : sidebarMode === 'collapsed'
+              ? 'Hide sidebar'
+              : 'Expand sidebar';
 
     useEffect(() => {
         if (open) {
@@ -58,7 +89,43 @@ export default function Dialog({
                     className={styles.header}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <h2>{title}</h2>
+                    <div className={styles.headerLeft}>
+                        {hasSidebar && (
+                            <button
+                                className={styles.sidebarToggleBtn}
+                                onClick={cycleSidebar}
+                                aria-label={sidebarLabel}
+                                aria-expanded={sidebarMode === 'expanded'}
+                                title={sidebarLabel}
+                            >
+                                <span
+                                    className={styles.toggleIconBox}
+                                    aria-hidden
+                                >
+                                    {sidebarMode === 'hidden' ? (
+                                        <IconLayoutSidebarLeftExpand
+                                            className={`${styles.iconLayer} ${styles.expandIcon}`}
+                                            size={24}
+                                            stroke={2}
+                                        />
+                                    ) : (
+                                        <>
+                                            <AppIcon
+                                                className={`${styles.iconLayer} ${styles.appIcon}`}
+                                                aria-hidden
+                                            />
+                                            <IconLayoutSidebarLeftCollapse
+                                                className={`${styles.iconLayer} ${styles.actionIcon}`}
+                                                size={24}
+                                                stroke={2}
+                                            />
+                                        </>
+                                    )}
+                                </span>
+                            </button>
+                        )}
+                        <h2>{title}</h2>
+                    </div>
                     <button className={styles.closeBtn} onClick={onClose}>
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -81,7 +148,11 @@ export default function Dialog({
                     className={`${styles.body} ${className ?? ''}`}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    {children}
+                    <DialogSidebarContext.Provider
+                        value={{ mode: sidebarMode, cycle: cycleSidebar }}
+                    >
+                        {children}
+                    </DialogSidebarContext.Provider>
                 </div>
             </div>
         </dialog>

@@ -1,13 +1,16 @@
+import type { ReactNode } from 'react';
 import { MAX_COLUMNS } from '../../../types';
 
 export function LayoutToolbar({
     columns,
     onColumns,
     onAutoArrange,
+    matrix,
 }: {
     columns: number;
     onColumns: (columns: number) => void;
     onAutoArrange: () => void;
+    matrix?: ReactNode;
 }) {
     return (
         <div
@@ -48,6 +51,7 @@ export function LayoutToolbar({
             >
                 Auto-arrange
             </button>
+            {matrix}
         </div>
     );
 }

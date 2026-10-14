@@ -32,6 +32,7 @@ import type {
 } from '../../types/index';
 import { DEFAULT_TEMPLATE_COLUMNS, LAYOUT_VERSION } from '../../types/index';
 import { FieldLayoutGrid } from './layout/FieldLayoutGrid';
+import { LayoutMatrix } from './layout/LayoutMatrix';
 import { LayoutToolbar } from './layout/LayoutToolbar';
 import TemplateField from './TemplateField';
 import styles from './TemplateManagerTab.module.css';
@@ -224,23 +225,19 @@ export default function TemplateManagerTab({
     const [saveFailed, setSaveFailed] = useState(false);
     const [toast, setToast] = useState<ToastState | null>(null);
     const [loadNonce, setLoadNonce] = useState(0);
+    const [activeField, setActiveField] = useState<string | null>(null);
 
     const seriesRef = useRef<SeriesByCategory>({});
     const projectFieldsRef = useRef<FieldsByCategory>({});
-    // The project payload last written to (or read from) the database, kept
-    // separate from `projectFieldsRef` because the live list is mutated by
-    // `onChange` before a commit, which would otherwise defeat change detection.
+
     const savedProjectRef = useRef<FieldsByCategory>({});
-    // Layout last persisted per category, used to detect layout changes
-    // independently of the field list. The project owns the effective layout,
-    // so reordering or resizing here always rewrites the project template.
+
     const layoutRef = useRef<LayoutsByCategory>(defaultLayouts());
     const savedLayoutRef = useRef<LayoutsByCategory>(defaultLayouts());
     const commitQueueRef = useRef<
         Partial<Record<CompendiumCategory, Promise<void>>>
     >({});
-    // Pointed at the latest `commitMerged` each render so the unmount flush can
-    // persist pending edits without capturing a stale closure.
+
     const commitMergedRef = useRef<
         | ((
               cat: CompendiumCategory,
@@ -253,8 +250,7 @@ export default function TemplateManagerTab({
     const notifyTimerRef = useRef<number | null>(null);
     const savedTimerRef = useRef<number | null>(null);
     const toastTimerRef = useRef<number | null>(null);
-    // Debounced layout writes: resizing the right edge fires many span changes
-    // in quick succession, so persistence is batched until the drag settles.
+
     const spanCommitTimerRef = useRef<
         Partial<Record<CompendiumCategory, number>>
     >({});
@@ -282,11 +278,6 @@ export default function TemplateManagerTab({
         setSeries(map);
     }
 
-    // Column count is project layout, so it rides the same project write as the
-    // field list; commitMerged detects the change and persists it even when no
-    // field was touched.
-    // Layout rides the same project write as the field list; commitMerged
-    // detects a change and persists it even when no field was touched.
     function patchLayoutOnly(
         cat: CompendiumCategory,
         patch: Partial<TemplateLayout>
@@ -306,9 +297,6 @@ export default function TemplateManagerTab({
         commitMerged(cat, projectFieldsRef.current[cat] ?? []);
     }
 
-    // Re-densifies a category's layout for the given field list, dropping bands
-    // and trailing columns that no longer hold a field. Used whenever the field
-    // set changes so deleting the last field in a band cannot leave a gap.
     function compactLayoutFor(
         cat: CompendiumCategory,
         fields: FieldDefinition[]
@@ -317,8 +305,6 @@ export default function TemplateManagerTab({
         patchLayoutOnly(cat, compactLayout(fields, cur));
     }
 
-    // Resize spans/rows update layout state immediately for live reflow, but the
-    // db write is debounced so a single drag composes one save.
     function scheduleLayoutCommit(cat: CompendiumCategory) {
         if (spanCommitTimerRef.current[cat] !== undefined) {
             window.clearTimeout(spanCommitTimerRef.current[cat]);
@@ -349,9 +335,6 @@ export default function TemplateManagerTab({
         });
     }
 
-    // Builds the current rectangle of every field, so a drop can be resolved
-    // against the live grid. Fields the layout has not placed get packed into
-    // the first free cell.
     function placedFields(cat: CompendiumCategory): PlacedField[] {
         const layout = layoutRef.current[cat] ?? emptyLayout();
         const columns = layout.columns ?? DEFAULT_TEMPLATE_COLUMNS;
@@ -384,6 +367,27 @@ export default function TemplateManagerTab({
             rowSpan: p.rowSpan,
         }));
     }
+    function layoutCells(cat: CompendiumCategory): {
+        cells: Map<string, string>;
+        rowCount: number;
+    } {
+        const cells = new Map<string, string>();
+        let rowCount = 0;
+        for (const p of placedFields(cat)) {
+            const span = Math.max(1, Math.round(p.span));
+            const rowSpan = Math.max(1, Math.round(p.rowSpan));
+            for (let r = p.row; r < p.row + rowSpan; r++)
+                for (let c = p.col; c < p.col + span; c++)
+                    cells.set(`${r},${c}`, p.name);
+            rowCount = Math.max(rowCount, p.row + rowSpan - 1);
+        }
+        return { cells, rowCount };
+    }
+
+    function scrollToField(name: string) {
+        const el = document.querySelector(`[data-field="${CSS.escape(name)}"]`);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 
     function scheduleNotify() {
         if (notifyTimerRef.current !== null)
@@ -396,10 +400,6 @@ export default function TemplateManagerTab({
 
     useEffect(
         () => () => {
-            // Persist edits still sitting in the live list. Text inputs only
-            // commit on blur, which never fires when the dialog/tab unmounts, so
-            // flush anything that changed. The commit gate makes this a no-op
-            // for categories with nothing new to write.
             const flushed = CATEGORIES.map((cat) =>
                 commitMergedRef.current
                     ? commitMergedRef.current(
@@ -412,8 +412,7 @@ export default function TemplateManagerTab({
                 window.clearTimeout(notifyTimerRef.current);
                 notifyTimerRef.current = null;
             }
-            // The flush above diffs against the refs, so it already picks up
-            // any debounced span edit; just disarm the timers first.
+
             for (const cat of CATEGORIES) {
                 if (spanCommitTimerRef.current[cat] !== undefined) {
                     window.clearTimeout(spanCommitTimerRef.current[cat]);
@@ -470,11 +469,6 @@ export default function TemplateManagerTab({
         return run;
     }
 
-    // The editor shows one merged list, so a single commit can touch both tables.
-    // Each row is routed by name: rows owned by the series template go there,
-    // everything else goes to the project. Display order no longer lives in the
-    // field rows - it is the project layout's `order` list, so moving a field
-    // here only rewrites the project layout, never the series template.
     function commitMerged(
         cat: CompendiumCategory,
         fields: FieldDefinition[],
@@ -483,35 +477,23 @@ export default function TemplateManagerTab({
         return enqueueCommit(cat, async () => {
             const seriesFields = seriesRef.current[cat]?.fields ?? [];
             const inherited = getSeriesInheritedNames(seriesFields);
-            // A field being added as a series field is not in the series list
-            // yet, so name-collision routing would send it to the project. Mark
-            // it once so this first write lands in the series template.
+
             if (forceSeriesNames)
                 for (const name of forceSeriesNames) inherited.add(name);
             const seriesByName = new Map(
                 seriesFields.map((f) => [f.name, f] as const)
             );
 
-            // --- series payload ---
             const nextSeries = fields
                 .filter((f) => inherited.has(f.name))
                 .map((f) => {
-                    // A row this project has disabled still belongs to the
-                    // series, so take its definition from the series row. Using
-                    // the merged view here would drop the field for everyone.
                     const base = f.disabled
                         ? (seriesByName.get(f.name) ?? f)
                         : f;
-                    // `disabled` is the project's to set, never the series'.
                     return withoutKey(base, 'disabled');
                 })
-                // Guarded on `name` alone. `name` is read-only in the editor, so
-                // it cannot go blank; `label` can, and dropping a row for having
-                // an empty label would quietly delete that field for every other
-                // project in the series.
                 .filter((f) => f.name.trim());
 
-            // --- project payload ---
             const projectPayload = (
                 merged: FieldDefinition[]
             ): FieldDefinition[] =>
@@ -520,20 +502,12 @@ export default function TemplateManagerTab({
                     .filter((f) => f.name.trim() && f.label.trim())
                     .map((f) => f);
             const nextProject = projectPayload(fields);
-
-            // Materialise the order locally so the list keeps rendering exactly
-            // what was just committed, including text still mid-edit. Display
-            // order now belongs to the layout, so the array itself is unchanged
-            // - this only syncs the live list when an edit landed.
             const mergedNow = projectFieldsRef.current[cat] ?? [];
             if (!fieldsEqual(mergedNow, fields))
                 setProjectFieldsFor(cat, fields);
 
             const seriesChanged =
                 !!seriesId && !fieldsEqual(seriesFields, nextSeries);
-            // Compare against the last *persisted* payload, not the live list:
-            // `onChange` has already folded these edits into `projectFieldsRef`,
-            // so comparing against it would always look unchanged.
             const layoutChanged = !layoutsEqual(
                 savedLayoutRef.current[cat],
                 layoutRef.current[cat]
@@ -544,8 +518,6 @@ export default function TemplateManagerTab({
 
             if (seriesChanged) {
                 if (nextSeries.length === 0) {
-                    // Removing the last shared field deletes the row rather than
-                    // upserting an empty one.
                     await rpc.request['db:delete-series-template']({
                         seriesId,
                         baseType: cat,
@@ -613,8 +585,6 @@ export default function TemplateManagerTab({
             const nextProject: FieldsByCategory = {};
             const nextSavedProject: FieldsByCategory = {};
             const nextLayouts = defaultLayouts();
-            // The layout exactly as loaded (before any version migration), kept
-            // as the diff baseline so a migrated layout is written back once.
             const nextSavedLayouts: LayoutsByCategory = defaultLayouts();
             CATEGORIES.forEach((cat, i) => {
                 const stored = results[i]?.projectTemplate?.customFields || [];
@@ -622,12 +592,7 @@ export default function TemplateManagerTab({
                     stored,
                     nextSeries[cat]?.fields ?? null
                 );
-                // The raw stored payload, not the merged view, is what a later
-                // commit must diff against to know whether anything changed.
                 nextSavedProject[cat] = stored;
-                // `results[i].layout` is already the effective
-                // (project-authoritative) layout, which is exactly what the
-                // editor should show and own from here on.
                 const rawLayout: TemplateLayout = {
                     ...emptyLayout(
                         results[i]?.columns ?? DEFAULT_TEMPLATE_COLUMNS
@@ -635,11 +600,6 @@ export default function TemplateManagerTab({
                     ...(results[i]?.layout ?? null),
                 };
                 nextSavedLayouts[cat] = rawLayout;
-                // A layout saved under an older model carries stale positions
-                // (row indices that meant pixel rows), so re-pack it once under
-                // the band model. Either way the result is compacted, so a layout
-                // left with an empty band or trailing column is cleaned up on
-                // load (and written back through the normal commit path).
                 nextLayouts[cat] = compactLayout(
                     nextProject[cat] ?? [],
                     rawLayout.version === LAYOUT_VERSION
@@ -688,9 +648,6 @@ export default function TemplateManagerTab({
         fn?.();
     }
 
-    // Trash is routed by ownership. An inherited row is shared with every project in
-    // the series, so deleting one is confirmed and worded accordingly; a project
-    // row is this project's business alone. Both are undoable from the toast.
     function removeField(cat: CompendiumCategory, index: number) {
         const merged = projectFieldsRef.current[cat] ?? [];
         const removed = merged[index];
@@ -710,19 +667,11 @@ export default function TemplateManagerTab({
         )
             return;
 
-        // `disabled` belongs to this project, not the series.
         const definition = withoutKey(removed, 'disabled');
 
         const next = merged.filter((_, i) => i !== index);
         setProjectFieldsFor(cat, next);
-        // Collapse any band or trailing column the deletion emptied before the
-        // write, so the grid never keeps a blank track for a removed field.
         compactLayoutFor(cat, next);
-        // The series list is deliberately left alone here: commitMerged derives
-        // the series payload from the merged list, so clearing it up front would
-        // make the deletion look already-applied and skip the write. The undo
-        // below puts the definition back before re-committing, which is what
-        // restores ownership.
         commitMerged(cat, next);
 
         showToast(
@@ -769,8 +718,6 @@ export default function TemplateManagerTab({
         const next = (projectFieldsRef.current[cat] ?? []).filter(
             (f) => !inherited.has(f.name)
         );
-        // As in removeField: leave the series list intact so commitMerged can see
-        // that the shared fields are gone and actually issue the delete.
         setProjectFieldsFor(cat, next);
         compactLayoutFor(cat, next);
         await commitMerged(cat, next);
@@ -792,9 +739,6 @@ export default function TemplateManagerTab({
         return true;
     }
 
-    // The card stays open after a field is added so several can be entered in a
-    // row; only the name clears and focus returns there. Closing is a manual
-    // action via the header toggle.
     function resetAddCard() {
         setNewFieldName('');
         requestAnimationFrame(() => newFieldNameRef.current?.focus());
@@ -807,9 +751,6 @@ export default function TemplateManagerTab({
 
         if (addTarget === 'series' && !seriesId) return;
 
-        // Ownership is keyed by field name, so a second field with the same
-        // name cannot be represented. The merged list covers both scopes; the
-        // series check only picks the wording.
         const merged = projectFieldsRef.current[cat] ?? [];
         const existing = merged.find((f) => f.name === field.name);
         if (existing) {
@@ -826,14 +767,8 @@ export default function TemplateManagerTab({
 
         setAddingField(true);
         try {
-            // Appending is the only time a field's order is chosen rather than
-            // inherited, so it goes to the end of the merged list.
             const next = [...merged, field];
             setProjectFieldsFor(cat, next);
-            // Give the new field an explicit, type-appropriate width and drop it
-            // straight into a fresh band at the bottom, so it has a real cell
-            // from the moment it appears. Compaction then removes any blank band
-            // or trailing column the add would otherwise leave behind.
             const curLayout = layoutRef.current[cat] ?? emptyLayout();
             const columns = curLayout.columns ?? DEFAULT_TEMPLATE_COLUMNS;
             const maxRowEnd = Object.keys(curLayout.rowStarts ?? {}).reduce(
@@ -913,6 +848,7 @@ export default function TemplateManagerTab({
         const sharedCount = series[cat]?.fields.length ?? 0;
         const layout = layoutFor(cat);
         const columns = layout.columns ?? DEFAULT_TEMPLATE_COLUMNS;
+        const { cells, rowCount } = layoutCells(cat);
 
         return (
             <div>
@@ -952,6 +888,19 @@ export default function TemplateManagerTab({
                             });
                         }}
                         onAutoArrange={() => autoArrange(cat)}
+                        matrix={
+                            <LayoutMatrix
+                                columns={columns}
+                                rowCount={rowCount}
+                                cells={cells}
+                                activeField={activeField}
+                                onHoverField={setActiveField}
+                                onPickField={(name) => {
+                                    setActiveField(name);
+                                    scrollToField(name);
+                                }}
+                            />
+                        }
                     />
                 </div>
                 <ProjectFieldsEditor
@@ -959,13 +908,12 @@ export default function TemplateManagerTab({
                     fields={fields}
                     layout={layout}
                     columns={columns}
+                    activeField={activeField}
+                    onHoverField={setActiveField}
                     onChange={(next) => setProjectFieldsFor(cat, next)}
                     onCommit={(next) => commitMerged(cat, next)}
                     onSpanChange={(name, span) => {
                         const cur = layoutRef.current[cat] ?? emptyLayout();
-                        // Dragging the width of a full-width field drops its
-                        // full-width status, otherwise the flag would keep it at
-                        // 100% and the drag would look dead.
                         const fullWidth = { ...(cur.fullWidth ?? {}) };
                         delete fullWidth[name];
                         patchLayoutOnly(cat, {
@@ -994,8 +942,6 @@ export default function TemplateManagerTab({
                             layoutRef.current[cat]?.columns ??
                                 DEFAULT_TEMPLATE_COLUMNS
                         );
-                        // Compact after the drop so a move that empties a band or
-                        // the rightmost column does not leave a blank track.
                         const dropped: TemplateLayout = {
                             ...(layoutRef.current[cat] ?? emptyLayout()),
                             rowStarts: result.rowStarts,
@@ -1033,6 +979,7 @@ export default function TemplateManagerTab({
     }
     useEffect(() => {
         setShowAddCard(false);
+        setActiveField(null);
     }, [activeCat]);
 
     return (
@@ -1379,6 +1326,8 @@ function ProjectFieldsEditor({
     fields,
     layout,
     columns,
+    activeField,
+    onHoverField,
     onChange,
     onCommit,
     onSpanChange,
@@ -1390,6 +1339,8 @@ function ProjectFieldsEditor({
     fields: FieldDefinition[];
     layout: TemplateLayout;
     columns: number;
+    activeField: string | null;
+    onHoverField: (name: string | null) => void;
     onChange: (fields: FieldDefinition[]) => void;
     onCommit: (fields: FieldDefinition[]) => void;
     onSpanChange: (name: string, span: TemplateSpan) => void;
@@ -1420,6 +1371,8 @@ function ProjectFieldsEditor({
             layout={layout}
             columns={columns}
             interactive
+            activeField={activeField}
+            onHoverField={onHoverField}
             onMove={onMove}
             onSpanChange={onSpanChange}
             onRowSpanChange={onRowSpanChange}

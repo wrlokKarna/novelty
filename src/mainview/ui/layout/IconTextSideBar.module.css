@@ -8,10 +8,32 @@
     flex-direction: column;
     gap: 12px;
     transition:
-        max-width 0.2s ease,
-        width 0.2s ease;
+        max-width 0.04s ease-out,
+        width 0.04s ease-out;
+    will-change: width, max-width;
+
+    &.collapsed {
+        width: 48px;
+        max-width: 48px;
+        gap: 8px;
+        align-items: center;
+        margin-right: auto;
+    }
+
+    &.collapsed button {
+        padding: 8px;
+        min-width: 40px;
+        max-width: max-content;
+        justify-content: center;
+        gap: 0;
+    }
+
+    &.collapsed button > span:not(:first-child) {
+        display: none;
+    }
 
     button {
+        width: 100%;
         padding: 8px 16px;
         background: #1a1b1c;
         border: 1px solid #393a3b;

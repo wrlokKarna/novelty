@@ -1653,6 +1653,7 @@ export default function SettingsDialog({
             onClose={onClose}
             title="Settings"
             large
+            hasSidebar
             id={styles.settingsDialog}
         >
             <SplitDialogLayout>

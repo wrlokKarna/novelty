@@ -30,16 +30,8 @@ import type { DropTarget } from '../../../templates/autoArrange';
 import { withBandPositions } from '../../../templates/autoArrange';
 import { useRowSpanResize, useSpanResize } from './useSpanResize';
 
-/* -------------------------------------------------------------------------- */
-/*  Grid metrics                                                              */
-/* -------------------------------------------------------------------------- */
-
 export const TEMPLATE_GRID_GAP = 12;
 
-// The vertical window around a band boundary that counts as "insert a row here".
-// The zone is centred on the line and split across both neighbours; when a band
-// is shorter than the zone, the reach on that side is clamped to half the band
-// so adjacent zones can never overlap.
 export const TEMPLATE_INSERT_ZONE = 24;
 const INSERT_HALF = TEMPLATE_INSERT_ZONE / 2;
 
@@ -47,11 +39,6 @@ const GRID_STYLES = (columns: number, rows: number): CSSProperties => {
     return {
         display: 'grid',
         gridTemplateColumns: `repeat(${Math.max(1, columns)}, minmax(0, 1fr))`,
-        // Bands are at least one uniform unit tall, so single-band fields share
-        // a common baseline across rows. Content taller than a band (a portrait,
-        // a textarea, a tree) still grows the band instead of being clipped.
-        // Explicit tracks (rather than grid-auto-rows) keep the resolved pixel
-        // sizes readable for the drop geometry.
         gridTemplateRows:
             rows > 0
                 ? `repeat(${rows}, minmax(var(--band-unit, 96px), auto))`
@@ -60,10 +47,6 @@ const GRID_STYLES = (columns: number, rows: number): CSSProperties => {
         position: 'relative',
     };
 };
-
-/* -------------------------------------------------------------------------- */
-/*  Item furniture                                                            */
-/* -------------------------------------------------------------------------- */
 
 function SpanResizeHandle({
     name,
@@ -142,15 +125,13 @@ function RowSpanHandle({
     );
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Draggable item                                                            */
-/* -------------------------------------------------------------------------- */
-
 function GridItem({
     field,
     index,
     columns,
     interactive,
+    activeField,
+    onHoverField,
     onSpanChange,
     onRowSpanChange,
     renderItem,
@@ -159,6 +140,8 @@ function GridItem({
     index: number;
     columns: number;
     interactive: boolean;
+    activeField: string | null;
+    onHoverField?: (name: string | null) => void;
     onSpanChange: (name: string, span: TemplateSpan) => void;
     onRowSpanChange: (name: string, rowSpan: number) => void;
     renderItem: LayoutGridProps['renderItem'];
@@ -175,7 +158,7 @@ function GridItem({
             : null;
     const gridColumn = colStart
         ? `${colStart} / span ${colSpan}`
-        : `span ${colSpan}`;
+        : `1 / span ${colSpan}`;
 
     const dragHandleProps = interactive
         ? ({
@@ -187,8 +170,6 @@ function GridItem({
     const style: CSSProperties = {
         gridColumn,
         gridRow: `${row} / span ${rowSpan}`,
-        // Cards fill their whole rectangle in both views, so every card snaps to
-        // the uniform band lattice instead of leaving accidental whitespace.
         alignSelf: 'stretch',
         minWidth: 0,
         transform: transform ? CSS.Translate.toString(transform) : undefined,
@@ -198,7 +179,25 @@ function GridItem({
     };
 
     return (
-        <div className="field-layout-item" ref={setNodeRef} style={style}>
+        <div
+            className={
+                'field-layout-item' +
+                (activeField === field.name ? ' field-linked' : '')
+            }
+            ref={setNodeRef}
+            style={style}
+            data-field={field.name}
+            onMouseEnter={
+                interactive && onHoverField
+                    ? () => onHoverField(field.name)
+                    : undefined
+            }
+            onMouseLeave={
+                interactive && onHoverField
+                    ? () => onHoverField(null)
+                    : undefined
+            }
+        >
             <div
                 className="field-layout-content"
                 style={{ minWidth: 0, height: '100%' }}
@@ -225,9 +224,44 @@ function GridItem({
     );
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Positioning                                                               */
-/* -------------------------------------------------------------------------- */
+function GridGuide({ columns, rows }: { columns: number; rows: number }) {
+    if (rows <= 0) return null;
+    const cells = [];
+    for (let r = 1; r <= rows; r++) {
+        for (let c = 1; c <= columns; c++) {
+            cells.push(
+                <div
+                    key={`${r},${c}`}
+                    className="field-grid-guide-cell"
+                    style={{ gridColumn: `${c}`, gridRow: `${r}` }}
+                    aria-hidden
+                />
+            );
+        }
+    }
+    return <>{cells}</>;
+}
+
+function GridGuideLabels({ columns, rows }: { columns: number; rows: number }) {
+    if (rows <= 0) return null;
+    const cells = [];
+    for (let r = 1; r <= rows; r++) {
+        for (let c = 1; c <= columns; c++) {
+            cells.push(
+                <div
+                    key={`${r},${c}`}
+                    className="field-grid-guide-label"
+                    style={{ gridColumn: `${c}`, gridRow: `${r}` }}
+                    aria-hidden
+                >
+                    <span className="field-grid-guide-col">{c}</span>
+                    <span className="field-grid-guide-row">{r}</span>
+                </div>
+            );
+        }
+    }
+    return <>{cells}</>;
+}
 
 type PreviewTarget =
     | {
@@ -259,14 +293,12 @@ type PreviewTarget =
           h: number;
       };
 
-/* -------------------------------------------------------------------------- */
-/*  Grid                                                                      */
-/* -------------------------------------------------------------------------- */
-
 function DndGrid({
     items,
     columns,
     interactive,
+    activeField,
+    onHoverField,
     onMove,
     onSpanChange,
     onRowSpanChange,
@@ -276,6 +308,8 @@ function DndGrid({
     items: ResolvedField[];
     columns: number;
     interactive: boolean;
+    activeField: string | null;
+    onHoverField?: (name: string | null) => void;
     onMove: (name: string, target: DropTarget) => void;
     onSpanChange: (name: string, span: TemplateSpan) => void;
     onRowSpanChange: (name: string, rowSpan: number) => void;
@@ -302,14 +336,6 @@ function DndGrid({
         })
     );
 
-    // Resolves the dragged card's rectangle to a drop target. A pointer within
-    // the thin insert zone around a band boundary targets a new band in the
-    // column under the pointer; within the thin zone around a column boundary
-    // it targets a new column in the band under the pointer (when the grid can
-    // still grow); otherwise it targets the band and column it is over. When
-    // both a row and a column insert fit at once the nearer line wins. Band
-    // and column pixel sizes are read from the grid's resolved tracks so the
-    // math matches what is on screen.
     function targetFor(
         rect: { left: number; top: number; height: number },
         field: ResolvedField
@@ -371,7 +397,6 @@ function DndGrid({
             };
         }
 
-        // Nearest band boundary whose clamped zone contains the pointer.
         let insertAt: number | null = null;
         let insertDist = Infinity;
         for (let b = 1; b <= rowCount + 1; b++) {
@@ -389,8 +414,6 @@ function DndGrid({
             }
         }
 
-        // Nearest column boundary whose clamped zone contains the pointer, as a
-        // candidate new column - but only while the grid can still grow.
         let insertColAt: number | null = null;
         let insertColDist = Infinity;
         if (columns < MAX_COLUMNS) {
@@ -410,8 +433,6 @@ function DndGrid({
             }
         }
 
-        // The band the pointer sits over, used by both the cell and the vertical
-        // insert targets.
         let row = rowCount;
         for (let r = 1; r <= rowCount; r++) {
             if (relY <= bottomOf(r) + TEMPLATE_GRID_GAP / 2) {
@@ -517,6 +538,7 @@ function DndGrid({
                 className="field-layout-grid"
                 style={GRID_STYLES(columns, rowCount)}
             >
+                {interactive && <GridGuide columns={columns} rows={rowCount} />}
                 {positioned.map((field) => (
                     <GridItem
                         key={field.name}
@@ -524,6 +546,8 @@ function DndGrid({
                         index={canonicalIndex(field.name)}
                         columns={columns}
                         interactive={interactive}
+                        activeField={activeField}
+                        onHoverField={onHoverField}
                         onSpanChange={onSpanChange}
                         onRowSpanChange={onRowSpanChange}
                         renderItem={renderItem}
@@ -531,6 +555,9 @@ function DndGrid({
                 ))}
                 {interactive && activeId && dropTarget && (
                     <DropPreview target={dropTarget} />
+                )}
+                {interactive && (
+                    <GridGuideLabels columns={columns} rows={rowCount} />
                 )}
             </div>
         </DndContext>
@@ -577,8 +604,6 @@ function DropPreview({ target }: { target: PreviewTarget }) {
     );
 }
 
-// Props the grid hands back to `renderItem` so the field card can make its own
-// drag icon the handle, rather than the grid drawing a separate grip.
 export type DragHandleProps = HTMLAttributes<HTMLElement>;
 
 export type LayoutGridProps = {
@@ -586,6 +611,8 @@ export type LayoutGridProps = {
     layout: TemplateLayout;
     columns: number;
     interactive: boolean;
+    activeField?: string | null;
+    onHoverField?: (name: string | null) => void;
     onMove: (name: string, target: DropTarget) => void;
     onSpanChange: (name: string, span: TemplateSpan) => void;
     onRowSpanChange: (name: string, rowSpan: number) => void;
@@ -596,15 +623,13 @@ export type LayoutGridProps = {
     ) => ReactNode;
 };
 
-// Renders the effective template as a table of content-height bands. A field
-// can span several bands and/or columns; the grid reserves the rectangle and
-// later fields fill the free cells beside it. Thin insert lines between bands
-// are shown only while dragging, as column-aware targets for a new band.
 export function FieldLayoutGrid({
     fields,
     layout,
     columns,
     interactive,
+    activeField = null,
+    onHoverField,
     onMove,
     onSpanChange,
     onRowSpanChange,
@@ -624,6 +649,8 @@ export function FieldLayoutGrid({
             items={items}
             columns={Math.max(1, columns)}
             interactive={interactive}
+            activeField={activeField}
+            onHoverField={onHoverField}
             onMove={onMove}
             onSpanChange={onSpanChange}
             onRowSpanChange={onRowSpanChange}
