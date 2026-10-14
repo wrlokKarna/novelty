@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
+import useDebounce from '../../hooks/debounced';
 import { IconCheck, IconPencil, IconPhoto, IconX } from '@tabler/icons-react';
 import type {
     CompendiumCategory,
@@ -161,6 +162,24 @@ function OptionDropdown({
 /* -------------------------------------------------------------------------- */
 
 function FieldText({ field, index, value, onChange }: ViewProps) {
+    const [local, setLocal] = useState((value as string) ?? '');
+    const debounced = useDebounce(local, 300);
+    const lastEmitted = useRef(value);
+
+    useEffect(() => {
+        if (debounced !== lastEmitted.current) {
+            lastEmitted.current = debounced;
+            onChange?.(debounced);
+        }
+    }, [debounced, onChange]);
+
+    useEffect(() => {
+        if (value !== local && value !== debounced) {
+            setLocal((value as string) ?? '');
+            lastEmitted.current = value;
+        }
+    }, [value]);
+
     return (
         <ViewShell field={field} index={index}>
             <input
@@ -168,14 +187,37 @@ function FieldText({ field, index, value, onChange }: ViewProps) {
                 type="text"
                 className={styles.textInput}
                 placeholder={field.label}
-                value={(value as string) ?? ''}
-                onChange={(e) => onChange?.(e.target.value)}
+                value={local}
+                onChange={(e) => setLocal(e.target.value)}
             />
         </ViewShell>
     );
 }
 
 function FieldNumber({ field, index, value, onChange }: ViewProps) {
+    const [local, setLocal] = useState(
+        value === undefined || value === null ? '' : String(value)
+    );
+    const debounced = useDebounce(local, 300);
+    const lastEmitted = useRef(value);
+
+    useEffect(() => {
+        const num = debounced === '' ? undefined : Number(debounced);
+        if (num !== lastEmitted.current) {
+            lastEmitted.current = num;
+            onChange?.(num);
+        }
+    }, [debounced, onChange]);
+
+    useEffect(() => {
+        const currentStr =
+            value === undefined || value === null ? '' : String(value);
+        if (currentStr !== local && currentStr !== debounced) {
+            setLocal(currentStr);
+            lastEmitted.current = value;
+        }
+    }, [value]);
+
     return (
         <ViewShell field={field} index={index}>
             <input
@@ -183,42 +225,69 @@ function FieldNumber({ field, index, value, onChange }: ViewProps) {
                 type="number"
                 className={styles.textInput}
                 placeholder={field.label}
-                value={
-                    value === undefined || value === null ? '' : String(value)
-                }
-                onChange={(e) =>
-                    onChange?.(
-                        e.target.value === ''
-                            ? undefined
-                            : Number(e.target.value)
-                    )
-                }
+                value={local}
+                onChange={(e) => setLocal(e.target.value)}
             />
         </ViewShell>
     );
 }
 
 function FieldTextArea({ field, index, value, onChange }: ViewProps) {
+    const [local, setLocal] = useState((value as string) ?? '');
+    const debounced = useDebounce(local, 300);
+    const lastEmitted = useRef(value);
+
+    useEffect(() => {
+        if (debounced !== lastEmitted.current) {
+            lastEmitted.current = debounced;
+            onChange?.(debounced);
+        }
+    }, [debounced, onChange]);
+
+    useEffect(() => {
+        if (value !== local && value !== debounced) {
+            setLocal((value as string) ?? '');
+            lastEmitted.current = value;
+        }
+    }, [value]);
+
     return (
         <ViewShell field={field} index={index}>
             <textarea
                 id={field.label + index}
                 className={styles.textarea}
                 placeholder="Describe this entity... (use / to reference)"
-                value={(value as string) ?? ''}
-                onChange={(e) => onChange?.(e.target.value)}
+                value={local}
+                onChange={(e) => setLocal(e.target.value)}
             />
         </ViewShell>
     );
 }
 
 function FieldRichText({ field, index, value, onChange }: ViewProps) {
+    const timerRef = useRef<ReturnType<typeof setTimeout>>();
+    const debouncedOnChange = useCallback(
+        (content: string) => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            timerRef.current = setTimeout(() => {
+                onChange?.(content);
+            }, 400);
+        },
+        [onChange]
+    );
+
+    useEffect(() => {
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+        };
+    }, []);
+
     return (
         <ViewShell field={field} index={index}>
             <RichTextEditor
                 tabId={`richtext-${field.name}`}
                 initialContent={(value as string) ?? null}
-                onChange={(content) => onChange?.(content)}
+                onChange={debouncedOnChange}
             />
         </ViewShell>
     );
@@ -260,6 +329,26 @@ function FieldRange({ field, index, value, onChange }: ViewProps) {
     const max = field.rangeMax ?? 100;
     const step = field.rangeStep ?? 1;
     const current = (value as number) ?? min;
+
+    const [local, setLocal] = useState(current);
+    const debounced = useDebounce(local, 200);
+    const lastEmitted = useRef(value);
+
+    useEffect(() => {
+        if (debounced !== lastEmitted.current) {
+            lastEmitted.current = debounced;
+            onChange?.(debounced);
+        }
+    }, [debounced, onChange]);
+
+    useEffect(() => {
+        if (value !== local && value !== debounced) {
+            const next = (value as number) ?? min;
+            setLocal(next);
+            lastEmitted.current = value;
+        }
+    }, [value, min]);
+
     return (
         <ViewShell field={field} index={index}>
             <div className={styles.rangeWrap}>
@@ -269,10 +358,10 @@ function FieldRange({ field, index, value, onChange }: ViewProps) {
                     min={min}
                     max={max}
                     step={step}
-                    value={current}
-                    onChange={(e) => onChange?.(Number(e.target.value))}
+                    value={local}
+                    onChange={(e) => setLocal(Number(e.target.value))}
                 />
-                <span className={styles.rangeValue}>{current}</span>
+                <span className={styles.rangeValue}>{local}</span>
             </div>
         </ViewShell>
     );
@@ -1346,3 +1435,4 @@ export default function TemplateField(props: TemplateFieldProps) {
     }
     return <TemplateFieldView {...props} />;
 }
+
