@@ -697,7 +697,9 @@ export default function ProjectsDialog({
                                                 </label>
                                             </div>
 
-                                            <div className={styles.projects}>
+                                            <div
+                                                className={`${styles.projects} ${cardSize == 'small' ? styles.smallCard : styles.largeCard}`}
+                                            >
                                                 {work.items.map((proj) => (
                                                     <div
                                                         className={
