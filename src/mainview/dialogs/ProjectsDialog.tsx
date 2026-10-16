@@ -15,7 +15,7 @@ import type {
 import styles from './ProjectsDialog.module.css';
 import { IconBook, IconPlus } from '@tabler/icons-react';
 
-import { PROJECTS_MOCK } from './../constants/mock';
+import { PROJECTS_MOCK, groupedArray } from './../constants/mock';
 
 const seriesArchOptions: { value: SeriesArchitecture; label: string }[] = [
     { value: 'duology', label: 'Duology' },
@@ -676,41 +676,6 @@ export default function ProjectsDialog({
                                 </div>
                                 <div className="text">New Book</div>
                             </div>
-                            {PROJECTS_MOCK.map((p) => (
-                                <>
-                                    {p.series ? (
-                                        <div className={styles.series}>
-                                            <div className={styles.seriesmname}>
-                                                <label htmlFor="">
-                                                    series name
-                                                </label>
-                                            </div>
-                                            <div className={styles.projects}>
-                                                <div className={styles.project}>
-                                                    <div
-                                                        className={
-                                                            styles.projectCover
-                                                        }
-                                                    ></div>
-                                                </div>
-                                                <div className={styles.project}>
-                                                    <div
-                                                        className={
-                                                            styles.projectCover
-                                                        }
-                                                    ></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className={styles.project}>
-                                            <div
-                                                className={styles.projectCover}
-                                            ></div>
-                                        </div>
-                                    )}
-                                </>
-                            ))}
                             <div className={styles.project}>
                                 {1 == 1 ? (
                                     <div className={styles.svgIcon}>
@@ -720,6 +685,49 @@ export default function ProjectsDialog({
                                     <div className={styles.projectCover}></div>
                                 )}
                             </div>
+                            {groupedArray(PROJECTS_MOCK).map((work) => (
+                                <>
+                                    {console.log('work', work)}
+                                    {work.series !== 'Unassigned' ? (
+                                        <div className={styles.series}>
+                                            <>{console.log('series', work)}</>
+                                            <div className={styles.seriesmname}>
+                                                <label htmlFor="">
+                                                    series name {work.series}
+                                                </label>
+                                            </div>
+
+                                            <div className={styles.projects}>
+                                                {work.items.map((proj) => (
+                                                    <div
+                                                        className={
+                                                            styles.project
+                                                        }
+                                                    >
+                                                        <div
+                                                            className={
+                                                                styles.projectCover
+                                                            }
+                                                        ></div>
+                                                        <label htmlFor="">
+                                                            {proj.name}
+                                                        </label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className={styles.project}>
+                                            <div
+                                                className={styles.projectCover}
+                                            ></div>
+                                            <label htmlFor="">
+                                                {JSON.stringify(work.items)}
+                                            </label>
+                                        </div>
+                                    )}
+                                </>
+                            ))}
                         </div>
                     </>
                 )
