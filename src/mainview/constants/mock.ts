@@ -1,4 +1,7 @@
+import { a } from 'framer-motion/client';
 import type { Project } from './../types/index';
+import { series } from '../../bun/schema';
+import { max } from 'drizzle-orm';
 
 function getRandomTimestamp(start, end) {
     const startTime = start.getTime();
@@ -201,8 +204,8 @@ if (currentGroup.length > 0) {
 // console.log('result', result);
 
 export function groupAndSort(data: Project[]) {
-    const seriesMap = new Map<string, Omit<Project, 'series'>[]>();
-    const standaloneItems: Omit<Project, 'series'>[] = [];
+    const seriesMap = new Map<string, Project[]>();
+    const standaloneItems: Project[] = [];
 
     data.forEach((p) => {
         const item = { ...p };
@@ -216,28 +219,76 @@ export function groupAndSort(data: Project[]) {
         }
     });
 
-    const combined: (Omit<Project, 'series'> | Omit<Project, 'series'>[])[] =
-        [];
-
-    standaloneItems.forEach((item) => combined.push(item));
-
     seriesMap.forEach((group) => {
-        group.sort((a, b) => Number(b.updatedAt) - Number(a.updatedAt));
-        combined.push(group);
+        group.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     });
+
+    const combined = [...standaloneItems, ...(seriesMap.values())]
 
     combined.sort((a, b) => {
-        const getMaxDate = (itemOrGroup: typeof a) => {
-            if (Array.isArray(itemOrGroup)) {
-                return Math.max(...itemOrGroup.map((i) => Number(i.updatedAt)));
+        const maxDate = (projectOrSeries: typeof a) => {
+            if (Array.isArray(projectOrSeries)) {
+                return Math.max(...projectOrSeries.map(p => new Date(p.updatedAt).getTime()))
             }
-            return itemOrGroup.updatedAt;
-        };
-
-        return getMaxDate(Number(b)) - getMaxDate(Number(a));
-    });
-
-    console.log('com', combined);
+            return new Date(projectOrSeries.updatedAt).getTime()
+        }
+        return maxDate(b) - maxDate(a);
+    })
 
     return combined;
 }
+
+/*
+
+export type GroupedProject = 
+  | { type: 'standalone'; project: Project }
+  | { type: 'series'; seriesId: string; projects: Project[]; latestUpdatedAt: number };
+
+export function groupAndSortBest(data: Project[]): (Project | Project[])[] {
+    const seriesMap = new Map<string, Project[]>();
+    const standaloneItems: Project[] = [];
+
+    // 1. Group items efficiently without unnecessary cloning
+    for (const p of data) {
+        if (p.seriesId) {
+            let group = seriesMap.get(p.seriesId);
+            if (!group) {
+                group = [];
+                seriesMap.set(p.seriesId, group);
+            }
+            group.push(p);
+        } else {
+            standaloneItems.push(p);
+        }
+    }
+
+    // 2. Sort each series and cache/compute their latest timestamp
+    // We can store tuples or compute max timestamps to avoid re-parsing dates repeatedly
+    const seriesEntries: { projects: Project[]; latestTime: number }[] = [];
+    
+    seriesMap.forEach((projects) => {
+        projects.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        const latestTime = new Date(projects[0].updatedAt).getTime(); // Since it's sorted descending, index 0 is latest
+        seriesEntries.push({ projects, latestTime });
+    });
+
+    // 3. Prepare standalone items with their timestamps
+    const standaloneEntries = standaloneItems.map(project => ({
+        item: project as Project | Project[],
+        latestTime: new Date(project.updatedAt).getTime()
+    }));
+
+    // 4. Combine series entries and standalone entries
+    const combinedEntries = [
+        ...standaloneEntries.map(e => ({ item: e.item, latestTime: e.latestTime })),
+        ...seriesEntries.map(e => ({ item: e.projects, latestTime: e.latestTime }))
+    ];
+
+    // 5. Sort the combined list once using pre-computed timestamps
+    combinedEntries.sort((a, b) => b.latestTime - a.latestTime);
+
+    // 6. Extract the final sorted array
+    return combinedEntries.map(e => e.item);
+}
+
+*/
