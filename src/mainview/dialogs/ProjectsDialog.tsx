@@ -15,7 +15,7 @@ import type {
 import styles from './ProjectsDialog.module.css';
 import { IconBook, IconPlus } from '@tabler/icons-react';
 
-import { PROJECTS_MOCK, groupedArray } from './../constants/mock';
+import { groupAndSort } from './../constants/mock';
 
 const seriesArchOptions: { value: SeriesArchitecture; label: string }[] = [
     { value: 'duology', label: 'Duology' },
@@ -23,31 +23,186 @@ const seriesArchOptions: { value: SeriesArchitecture; label: string }[] = [
     { value: 'ongoing', label: 'Ongoing' },
 ];
 
+type SeriesProjectCardCommonProps = {
+    onSelect: (id: string) => void;
+    onRename: (id: string) => void;
+    onChangeCover: (id: string) => void;
+    onDelete: (id: string) => void;
+    newCard?: boolean;
+};
+
 function ProjectCard({
     project,
     onSelect,
     onRename,
     onChangeCover,
     onDelete,
-}: {
-    project: Project;
-    onSelect?: (id: string) => void;
-    onRename?: (id: string) => void;
-    onChangeCover?: (id: string) => void;
-    onDelete?: (id: string) => void;
-}) {
-    return (
-        <div
-            className={styles.projectCard}
-            onClick={() => onSelect?.(project.id)}
-            role="button"
-            tabIndex={0}
-        >
-            {/* Card Cover */}
-            <div className={styles.cardCover}>
-                {project.coverImageId ? (
+    newCard = false,
+}: { project: Project } & SeriesProjectCardCommonProps) {
+    const rpc = useRPC();
+    const [coverImageSrc, setCoverImageSrc] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (project.coverImageId) {
+            rpc.request['db:get-asset'](project.coverImageId).then((asset) => {
+                if (asset?.path) setCoverImageSrc(asset.path);
+            });
+        } else {
+            setCoverImageSrc(null);
+        }
+    }, [project.coverImageId]);
+    if (!newCard) {
+        return (
+            <div
+                className={styles.projectCard}
+                onClick={() => onSelect?.(project.id)}
+                role="button"
+                tabIndex={0}
+            >
+                {/* Card Cover */}
+                <div className={styles.cardCover}>
+                    {coverImageSrc ? (
+                        <img
+                            src={coverImageSrc}
+                            alt={project.name}
+                            className={styles.coverImg}
+                        />
+                    ) : (
+                        <div className={styles.coverBookIcon}>
+                            <svg
+                                width="28"
+                                height="28"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
+                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                                <path d="M12 6v10" />
+                            </svg>
+                        </div>
+                    )}
+
+                    {/* Top-Right Quick Action Icons */}
+                    <div
+                        className={styles.cardQuickActions}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {onChangeCover && (
+                            <button
+                                type="button"
+                                title="Change Cover"
+                                className={styles.iconBtn}
+                                onClick={() => onChangeCover(project.id)}
+                            >
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2.2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <path d="M4 15l4-4a3 3 0 0 1 4.24 0l4 4" />
+                                    <path d="M14 14l1-1a3 3 0 0 1 4.24 0l1 1" />
+                                    <path d="M4 20h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z" />
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                </svg>
+                            </button>
+                        )}
+
+                        {onRename && (
+                            <button
+                                type="button"
+                                title="Rename"
+                                className={styles.iconBtn}
+                                onClick={() => onRename(project.id)}
+                            >
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2.2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <rect
+                                        x="3"
+                                        y="3"
+                                        width="18"
+                                        height="18"
+                                        rx="4"
+                                    />
+                                    <path d="M16 7l1 1-7.5 7.5-2.5.5.5-2.5L15 6z" />
+                                </svg>
+                            </button>
+                        )}
+
+                        {onDelete && (
+                            <button
+                                type="button"
+                                title="Delete"
+                                className={`${styles.iconBtn} ${styles.deleteIconBtn}`}
+                                onClick={() => onDelete(project.id)}
+                            >
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2.2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <path d="M3 6h18" />
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                    <line x1="10" y1="11" x2="10" y2="17" />
+                                    <line x1="14" y1="11" x2="14" y2="17" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Bottom Meta & Typography */}
+                <div className={styles.cardDetails}>
+                    <h3 className={styles.cardTitle}>{project.name}</h3>
+
+                    <div className={styles.metaRow}>
+                        <span className={styles.badgePill}>
+                            {project.projectScope
+                                ? project.projectScope.replace('_', ' ')
+                                : 'STANDARD'}
+                        </span>
+                        <span className={styles.badgeMeta}>
+                            {project.contentRating || 'general'}
+                        </span>
+                    </div>
+                    {/*
+                <div className={styles.phaseText}>
+                    Phase 1 of 15 · {project.projectStatus || 'planning'}
+                </div>
+                 */}
+
+                    <div className={styles.wordsCount}>0 words</div>
+                </div>
+            </div>
+        );
+    } else {
+        return (
+            <div className={styles.project}>
+                {coverImageSrc ? (
                     <img
-                        src={`/assets/${project.coverImageId}`}
+                        src={coverImageSrc}
                         alt={project.name}
                         className={styles.coverImg}
                     />
@@ -69,115 +224,38 @@ function ProjectCard({
                         </svg>
                     </div>
                 )}
+            </div>
+        );
+    }
+}
 
-                {/* Top-Right Quick Action Icons */}
-                <div
-                    className={styles.cardQuickActions}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {onChangeCover && (
-                        <button
-                            type="button"
-                            title="Change Cover"
-                            className={styles.iconBtn}
-                            onClick={() => onChangeCover(project.id)}
-                        >
-                            <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2.2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <path d="M4 15l4-4a3 3 0 0 1 4.24 0l4 4" />
-                                <path d="M14 14l1-1a3 3 0 0 1 4.24 0l1 1" />
-                                <path d="M4 20h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z" />
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                            </svg>
-                        </button>
-                    )}
-
-                    {onRename && (
-                        <button
-                            type="button"
-                            title="Rename"
-                            className={styles.iconBtn}
-                            onClick={() => onRename(project.id)}
-                        >
-                            <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2.2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <rect
-                                    x="3"
-                                    y="3"
-                                    width="18"
-                                    height="18"
-                                    rx="4"
-                                />
-                                <path d="M16 7l1 1-7.5 7.5-2.5.5.5-2.5L15 6z" />
-                            </svg>
-                        </button>
-                    )}
-
-                    {onDelete && (
-                        <button
-                            type="button"
-                            title="Delete"
-                            className={`${styles.iconBtn} ${styles.deleteIconBtn}`}
-                            onClick={() => onDelete(project.id)}
-                        >
-                            <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2.2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <path d="M3 6h18" />
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                <line x1="10" y1="11" x2="10" y2="17" />
-                                <line x1="14" y1="11" x2="14" y2="17" />
-                            </svg>
-                        </button>
-                    )}
-                </div>
+function SeriesCard({
+    seriesData,
+    onSelect,
+    onRename,
+    onChangeCover,
+    onDelete,
+    newCard = false,
+}: { seriesData: Omit<Project, 'series'>[] } & SeriesProjectCardCommonProps) {
+    return (
+        <div className={styles.series}>
+            <>{console.log('series', seriesData)}</>
+            <div className={styles.seriesmname}>
+                <label htmlFor="">series id {seriesData[0].seriesId}</label>
             </div>
 
-            {/* Bottom Meta & Typography */}
-            <div className={styles.cardDetails}>
-                <h3 className={styles.cardTitle}>{project.name}</h3>
-
-                <div className={styles.metaRow}>
-                    <span className={styles.badgePill}>
-                        {project.projectScope
-                            ? project.projectScope.replace('_', ' ')
-                            : 'STANDARD'}
-                    </span>
-                    <span className={styles.badgeMeta}>
-                        {project.contentRating || 'general'}
-                    </span>
-                </div>
-                {/*
-                <div className={styles.phaseText}>
-                    Phase 1 of 15 · {project.projectStatus || 'planning'}
-                </div>
-                 */}
-
-                <div className={styles.wordsCount}>0 words</div>
+            <div className={`${styles.projects}`}>
+                {seriesData.map((proj) => (
+                    <ProjectCard
+                        key={proj.id}
+                        project={proj}
+                        onSelect={onSelect}
+                        onRename={onRename}
+                        onChangeCover={onChangeCover}
+                        onDelete={onDelete}
+                        newCard={newCard}
+                    />
+                ))}
             </div>
         </div>
     );
@@ -640,6 +718,13 @@ export default function ProjectsDialog({
                             New Series
                         </button>
                     )}
+                    <button
+                        onClick={() =>
+                            setCardSize(cardSize == 'small' ? 'large' : 'small')
+                        }
+                    >
+                        view {cardSize}
+                    </button>
                 </div>
             </div>
 
@@ -666,7 +751,9 @@ export default function ProjectsDialog({
                             ))}
                         </div>
 
-                        <div className={styles.worksCont}>
+                        <div
+                            className={`${styles.worksCont}  ${cardSize == 'small' ? styles.smallCard : styles.largeCard}`}
+                        >
                             <div
                                 className={`${styles.project} ${styles.addProject}`}
                                 onClick={() => alert('new project')}
@@ -676,57 +763,42 @@ export default function ProjectsDialog({
                                 </div>
                                 <div className="text">New Book</div>
                             </div>
-                            <div className={styles.project}>
-                                {1 == 1 ? (
-                                    <div className={styles.svgIcon}>
-                                        <IconBook />
-                                    </div>
-                                ) : (
-                                    <div className={styles.projectCover}></div>
-                                )}
-                            </div>
-                            {groupedArray(PROJECTS_MOCK).map((work) => (
-                                <>
-                                    {console.log('work', work)}
-                                    {work.series !== 'Unassigned' ? (
-                                        <div className={styles.series}>
-                                            <>{console.log('series', work)}</>
-                                            <div className={styles.seriesmname}>
-                                                <label htmlFor="">
-                                                    series name {work.series}
-                                                </label>
-                                            </div>
 
-                                            <div
-                                                className={`${styles.projects} ${cardSize == 'small' ? styles.smallCard : styles.largeCard}`}
-                                            >
-                                                {work.items.map((proj) => (
-                                                    <div
-                                                        className={
-                                                            styles.project
-                                                        }
-                                                    >
-                                                        <div
-                                                            className={
-                                                                styles.projectCover
-                                                            }
-                                                        ></div>
-                                                        <label htmlFor="">
-                                                            {proj.name}
-                                                        </label>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
+                            {groupAndSort(projects).map((work) => (
+                                <>
+                                    {Array.isArray(work) ? (
+                                        <>
+                                            <SeriesCard
+                                                seriesData={work}
+                                                newCard={true}
+                                                onSelect={
+                                                    onSelectProject
+                                                        ? handleSelectProject
+                                                        : undefined
+                                                }
+                                                onRename={handleRenameRequest}
+                                                onChangeCover={
+                                                    handleChangeCoverRequest
+                                                }
+                                                onDelete={handleDeleteRequest}
+                                            />
+                                        </>
                                     ) : (
-                                        <div className={styles.project}>
-                                            <div
-                                                className={styles.projectCover}
-                                            ></div>
-                                            <label htmlFor="">
-                                                {JSON.stringify(work.items)}
-                                            </label>
-                                        </div>
+                                        <ProjectCard
+                                            key={work.id}
+                                            project={work}
+                                            onSelect={
+                                                onSelectProject
+                                                    ? handleSelectProject
+                                                    : undefined
+                                            }
+                                            onRename={handleRenameRequest}
+                                            onChangeCover={
+                                                handleChangeCoverRequest
+                                            }
+                                            onDelete={handleDeleteRequest}
+                                            newCard={true}
+                                        />
                                     )}
                                 </>
                             ))}
