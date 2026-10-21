@@ -1,0 +1,189 @@
+/* Book Card Container */
+.projectCard {
+    width: var(--card-width, 180px);
+    background: #141416;
+    border: 1px solid #222226;
+    border-radius: 14px;
+    padding: 10px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-sizing: border-box;
+    transition:
+        transform 0.18s ease,
+        border-color 0.18s ease,
+        box-shadow 0.18s ease;
+    user-select: none;
+}
+
+.projectCard:hover {
+    border-color: #3a3a44;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.55);
+
+    .projectLabelRow {
+        button {
+            display: block;
+        }
+    }
+}
+
+.cardCoverWrapper {
+    position: relative;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    overflow: hidden;
+
+    &:hover {
+        border-color: var(--accent);
+
+        .coverBookIcon {
+            display: none;
+        }
+        .cardCoverOverlay {
+            opacity: 1;
+        }
+    }
+
+    .cardCoverOverlay {
+        position: absolute;
+        inset: 0;
+        background-color: rgba(0, 0, 0, 0.6);
+        background-color: var(--accent-subtle);
+        color: #eae5d9;
+        font-size: 12px;
+        font-weight: 500;
+        border-radius: 9px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        opacity: 0;
+        cursor: pointer;
+
+        &.coverOverlayDark {
+            background-color: rgba(0, 0, 0, 0.6);
+            color: #ffffff;
+        }
+    }
+}
+
+/* Card Cover Surface */
+.cardCover {
+    width: 100%;
+    height: var(--card-cover-height, 220px);
+    background: #1c1c1f;
+    border-radius: 9px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #28282e;
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-position: center;
+        object-fit: cover;
+    }
+}
+
+.coverImg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.coverBookIcon {
+    color: #484852;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Card Top-Right Action Badges */
+.iconBtn {
+    background: transparent;
+    border: none;
+    color: #b5b0c2;
+    padding: 4px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.iconBtn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+}
+
+/* Typography & Metadata */
+.cardDetails {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.projectLabelRow {
+    height: 46px;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+
+    button {
+        display: none;
+    }
+
+    svg {
+        width: 16px;
+        height: 16px;
+    }
+}
+
+.cardTitle {
+    font-family: 'Georgia', 'Playfair Display', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: #eae5d9;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 28px;
+    width: fit-content;
+    max-width: calc(100% - 30px);
+}
+
+.metaRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.badgePill {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #cca463;
+    background: #2b2317;
+    border: 1px solid #4a3a22;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.badgeMeta {
+    font-size: 11px;
+    color: #7a756b;
+    text-transform: capitalize;
+}
+
+.wordsCount {
+    font-size: 11px;
+    color: #5c5850;
+}

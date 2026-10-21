@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
 import Dialog from '../components/Dialog';
 import SubDialog from '../components/SubDialog';
 import AssetPicker from '../components/AssetPicker';
-import ProjectCard from '../components/cards/projectCard';
+import WorkshopProjectCard from '../components/cards/WorkshopProjectCard';
 import WorkshopSeriesCard from '../components/cards/WorkshopSeriesCard';
 import { useRPC } from '../contexts/RPCContext';
 import type {
@@ -57,9 +57,6 @@ export default function WorkshopDialog({
     const [showRenameModal, setShowRenameModal] = useState(false);
     const [renameTargetId, setRenameTargetId] = useState<string | null>(null);
     const [renameValue, setRenameValue] = useState('');
-
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
     const [showAssetPicker, setShowAssetPicker] = useState(false);
     const [assetPickerTargetId, setAssetPickerTargetId] = useState<
@@ -324,25 +321,6 @@ export default function WorkshopDialog({
         }
     }
 
-    function handleDeleteRequest(projectId: string) {
-        setDeleteTargetId(projectId);
-        setShowDeleteConfirm(true);
-    }
-
-    async function handleDeleteConfirm() {
-        if (!deleteTargetId) return;
-        try {
-            await rpc.request['db:delete-project'](deleteTargetId);
-            setShowDeleteConfirm(false);
-            setDeleteTargetId(null);
-            loadProjects();
-            onProjectUpdated?.();
-        } catch (e) {
-            console.error('Failed to delete project:', e);
-            showToast('Failed to delete project');
-        }
-    }
-
     function handleChangeCoverRequest(projectId: string) {
         setAssetPickerTargetId(projectId);
         setShowAssetPicker(true);
@@ -594,7 +572,6 @@ export default function WorkshopDialog({
                                     }
                                     onRename={handleRenameRequest}
                                     onChangeCover={handleChangeCoverRequest}
-                                    onDelete={handleDeleteRequest}
                                     onEditSeries={handleSeriesEditOpen}
                                     onDeleteSeries={(seriesId) => {
                                         setSeriesDeleteId(seriesId);
@@ -602,7 +579,7 @@ export default function WorkshopDialog({
                                     }}
                                 />
                             ) : (
-                                <ProjectCard
+                                <WorkshopProjectCard
                                     key={work.id}
                                     project={work}
                                     onSelect={
@@ -612,7 +589,6 @@ export default function WorkshopDialog({
                                     }
                                     onRename={handleRenameRequest}
                                     onChangeCover={handleChangeCoverRequest}
-                                    onDelete={handleDeleteRequest}
                                 />
                             )}
                         </Fragment>
@@ -799,36 +775,6 @@ export default function WorkshopDialog({
                             disabled={!renameValue.trim()}
                         >
                             Rename
-                        </button>
-                    </div>
-                </SubDialog>
-            )}
-
-            {showDeleteConfirm && deleteTargetId && (
-                <SubDialog
-                    open={showDeleteConfirm}
-                    onClose={() => setShowDeleteConfirm(false)}
-                    title="Delete Project"
-                >
-                    <p style={{ color: '#ccc', margin: '0 0 16px 0' }}>
-                        Are you sure you want to delete '
-                        {projects.find((p) => p.id === deleteTargetId)?.name}
-                        '?
-                    </p>
-                    <div className={styles.actions}>
-                        <button
-                            type="button"
-                            className={styles.modalBtn}
-                            onClick={() => setShowDeleteConfirm(false)}
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="button"
-                            className={styles.dangerBtn}
-                            onClick={handleDeleteConfirm}
-                        >
-                            Delete
                         </button>
                     </div>
                 </SubDialog>

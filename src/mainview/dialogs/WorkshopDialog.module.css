@@ -13,7 +13,7 @@
     align-items: center !important;
     justify-content: space-between !important;
     padding: 12px 20px !important;
-    border: 1px solid #28282e !important; /* Full border matching cardCover outline */
+    border: 1px solid #28282e !important; /* Full border matching the card outline */
     background: #111114 !important;
     border-radius: 16px !important; /* Curves both top and down edges */
     margin: 12px 16px 0 16px !important; /* Slight inset so the curves show completely */
@@ -27,7 +27,7 @@
     gap: 10px !important;
 }
 
-/* Button matching cardCover background and border colors */
+/* Button matching the card background and border colors */
 .floatingPillBtn {
     background: #1c1c1f !important;
     border: 1px solid #28282e !important;
@@ -61,140 +61,6 @@
     box-shadow:
         0 4px 14px rgba(0, 0, 0, 0.45),
         inset 0 1px 1px rgba(255, 255, 255, 0.1) !important;
-}
-
-/* Card Cover Surface */
-.cardCover {
-    width: 100%;
-    height: 220px;
-    background: #1c1c1f;
-    border-radius: 9px;
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid #28282e;
-
-    img {
-        width: 100%;
-        height: 100%;
-        object-position: center;
-        object-fit: cover;
-    }
-}
-
-.coverImg {
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: cover !important;
-}
-
-.coverBookIcon {
-    color: #484852 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-}
-
-/* Card Top-Right Action Badges */
-.cardQuickActions {
-    position: absolute !important;
-    top: 8px !important;
-    right: 8px !important;
-    display: flex !important;
-    gap: 4px !important;
-    background: rgba(18, 18, 22, 0.88) !important;
-    padding: 3px 5px !important;
-    border-radius: 6px !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    backdrop-filter: blur(8px) !important;
-    opacity: 0 !important;
-    transition: opacity 0.15s ease !important;
-}
-
-.iconBtn {
-    background: transparent !important;
-    border: none !important;
-    color: #b5b0c2 !important;
-    padding: 4px !important;
-    border-radius: 4px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    cursor: pointer !important;
-    transition: all 0.15s ease !important;
-}
-
-.iconBtn:hover {
-    background: rgba(255, 255, 255, 0.15) !important;
-    color: #ffffff !important;
-}
-
-.deleteIconBtn:hover {
-    background: rgba(220, 53, 69, 0.25) !important;
-    color: #ff6b6b !important;
-}
-
-/* Typography & Metadata */
-.cardDetails {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 5px !important;
-}
-
-.cardTitle {
-    font-family: 'Georgia', 'Playfair Display', serif !important;
-    font-size: 22px;
-    font-weight: 600 !important;
-    color: #eae5d9 !important;
-    margin: 0 !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
-}
-
-.metaRow {
-    display: flex !important;
-    align-items: center !important;
-    gap: 8px !important;
-    margin-top: 2px !important;
-}
-
-.badgePill {
-    font-size: 12px;
-    font-weight: 700 !important;
-    letter-spacing: 0.5px !important;
-    text-transform: uppercase !important;
-    color: #cca463 !important;
-    background: #2b2317 !important;
-    border: 1px solid #4a3a22 !important;
-    padding: 2px 6px !important;
-    border-radius: 4px !important;
-}
-
-.badgeMeta {
-    font-size: 14px !important;
-    color: #7a756b !important;
-    text-transform: capitalize !important;
-}
-
-.phaseText {
-    font-size: 11px !important;
-    color: #8b877f !important;
-    margin-top: 2px !important;
-}
-
-.wordsCount {
-    font-size: 14px;
-    color: #5c5850 !important;
-}
-
-/* Series Listing */
-.seriesArchBadge {
-    margin-left: 8px !important;
-    color: #888888 !important;
-    font-size: 12px !important;
 }
 
 .emptyState {
@@ -306,112 +172,18 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 12px;
-}
-
-.series,
-.project {
-    border-radius: 12px;
-}
-
-.series {
-    width: max-content;
-    background-color: var(--accent-subtle);
-    padding: 12px;
-    background-color: #141416;
-
-    .seriesmname {
-        margin-bottom: 12px;
-        text-transform: uppercase;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-    }
-}
-
-.seriesTitle {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.seriesActions {
-    display: flex;
-    gap: 4px;
-}
-.projects {
-    display: flex;
-    gap: 12px;
-    .project {
-        margin: 0px;
-    }
-}
-
-.projectCard {
-    width: 180px;
-    background: #141416;
-    border: 1px solid #222226;
-    border-radius: 14px;
-    padding: 8px;
-    cursor: pointer;
+    gap: 20px;
+    padding: 24px;
+    max-height: 70vh;
+    overflow-y: auto;
     box-sizing: border-box;
-    transition:
-        transform 0.18s ease,
-        border-color 0.18s ease,
-        box-shadow 0.18s ease;
-    user-select: none;
-
-    &:hover {
-        border-color: #3a3a44;
-        transform: translateY(-2px);
-        box-shadow: 0 12px 26px rgba(0, 0, 0, 0.55);
-
-        .cardQuickActions {
-            opacity: 1;
-        }
-    }
-}
-
-.project {
-    width: 230px;
-    aspect-ratio: 2/3;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin: 12px;
-    background-color: #1c1c1f;
-
-    .projectCover,
-    .cardCover {
-        width: 100%;
-        height: 100%;
-        aspect-ratio: 2/3;
-        border-radius: 9px;
-        background-color: #141416;
-        margin-bottom: auto;
-    }
+    --card-width: 220px;
+    --card-cover-height: 269px;
 }
 
 .smallCard {
-    .project {
-        width: 180px;
-
-        .cardDetails {
-            .cardTitle {
-                font-size: 16px;
-            }
-            .badgePill {
-                font-size: 9px;
-            }
-            .badgeMeta {
-                font-size: 11px;
-            }
-            .wordsCount {
-                font-size: 11px;
-            }
-        }
-    }
+    --card-width: 180px;
+    --card-cover-height: 220px;
 }
 
 .searchBar {

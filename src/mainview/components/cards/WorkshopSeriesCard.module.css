@@ -1,0 +1,86 @@
+.series {
+    border-radius: 12px;
+    width: max-content;
+    background-color: var(--accent-subtle);
+    padding: 12px;
+    background-color: #141416;
+
+    .seriesLabelRow {
+        height: 46px;
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+
+        button {
+            display: none;
+        }
+
+        svg {
+            width: 16px;
+            height: 16px;
+        }
+    }
+
+    &:hover .seriesLabelRow button {
+        display: block;
+    }
+}
+
+.seriesTitle {
+    font-family: 'Georgia', 'Playfair Display', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: #eae5d9;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 28px;
+    width: fit-content;
+    max-width: calc(100% - 30px);
+}
+
+.iconBtn {
+    background: transparent;
+    border: none;
+    color: #b5b0c2;
+    padding: 4px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.iconBtn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+}
+
+.deleteIconBtn:hover {
+    background: rgba(220, 53, 69, 0.25);
+    color: #ff6b6b;
+}
+
+.projects {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.emptyProjects {
+    width: var(--card-width, 180px);
+    height: calc(var(--card-cover-height, 220px) + 115px);
+    box-sizing: border-box;
+    border: 2px dashed #2a2a30;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.015);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6e6a63;
+    font-size: 12px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+}
