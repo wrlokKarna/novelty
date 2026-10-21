@@ -35,7 +35,7 @@ import type { ExtractionSource } from './services/textExtractor';
 
 import { TitleBar } from './ui/titleBar';
 import {
-    ProjectsDialog,
+    WorkshopDialog,
     ProjectManager,
     SettingsDialog,
     UIDialog,
@@ -3117,7 +3117,7 @@ function App() {
             />
 
             {showProjectSelection && (
-                <ProjectsDialog
+                <WorkshopDialog
                     open={true}
                     onClose={() => {}}
                     onSelectProject={handleSelectProject}
@@ -3125,7 +3125,7 @@ function App() {
                 />
             )}
             {activeDialog === 'projects' && (
-                <ProjectsDialog
+                <WorkshopDialog
                     open={true}
                     onClose={() => setActiveDialog(null)}
                     onSelectProject={handleSelectProject}

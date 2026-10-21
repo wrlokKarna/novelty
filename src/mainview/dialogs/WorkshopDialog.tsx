@@ -1,6 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
 import Dialog from '../components/Dialog';
 import SubDialog from '../components/SubDialog';
+import AssetPicker from '../components/AssetPicker';
+import ProjectCard from '../components/cards/projectCard';
+import WorkshopSeriesCard from '../components/cards/WorkshopSeriesCard';
 import { useRPC } from '../contexts/RPCContext';
 import type {
     Project,
@@ -12,9 +15,8 @@ import type {
     NewSeries,
     SeriesArchitecture,
 } from '../types/index';
-import styles from './ProjectsDialog.module.css';
-import { IconBook, IconPlus } from '@tabler/icons-react';
-
+import styles from './WorkshopDialog.module.css';
+import { IconGridDots, IconLayoutGrid, IconSearch } from '@tabler/icons-react';
 import { groupAndSort } from './../constants/mock';
 
 const seriesArchOptions: { value: SeriesArchitecture; label: string }[] = [
@@ -23,245 +25,12 @@ const seriesArchOptions: { value: SeriesArchitecture; label: string }[] = [
     { value: 'ongoing', label: 'Ongoing' },
 ];
 
-type SeriesProjectCardCommonProps = {
-    onSelect: (id: string) => void;
-    onRename: (id: string) => void;
-    onChangeCover: (id: string) => void;
-    onDelete: (id: string) => void;
-    newCard?: boolean;
-};
-
-function ProjectCard({
-    project,
-    onSelect,
-    onRename,
-    onChangeCover,
-    onDelete,
-    newCard = false,
-}: { project: Project } & SeriesProjectCardCommonProps) {
-    const rpc = useRPC();
-    const [coverImageSrc, setCoverImageSrc] = useState<string | null>(null);
-
-    useEffect(() => {
-        if (project.coverImageId) {
-            rpc.request['db:get-asset'](project.coverImageId).then((asset) => {
-                if (asset?.path) setCoverImageSrc(asset.path);
-            });
-        } else {
-            setCoverImageSrc(null);
-        }
-    }, [project.coverImageId]);
-    if (!newCard) {
-        return (
-            <div
-                className={styles.projectCard}
-                onClick={() => onSelect?.(project.id)}
-                role="button"
-                tabIndex={0}
-            >
-                {/* Card Cover */}
-                <div className={styles.cardCover}>
-                    {coverImageSrc ? (
-                        <img
-                            src={coverImageSrc}
-                            alt={project.name}
-                            className={styles.coverImg}
-                        />
-                    ) : (
-                        <div className={styles.coverBookIcon}>
-                            <svg
-                                width="28"
-                                height="28"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.6"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-                                <path d="M12 6v10" />
-                            </svg>
-                        </div>
-                    )}
-
-                    {/* Top-Right Quick Action Icons */}
-                    <div
-                        className={styles.cardQuickActions}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {onChangeCover && (
-                            <button
-                                type="button"
-                                title="Change Cover"
-                                className={styles.iconBtn}
-                                onClick={() => onChangeCover(project.id)}
-                            >
-                                <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2.2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <path d="M4 15l4-4a3 3 0 0 1 4.24 0l4 4" />
-                                    <path d="M14 14l1-1a3 3 0 0 1 4.24 0l1 1" />
-                                    <path d="M4 20h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z" />
-                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                </svg>
-                            </button>
-                        )}
-
-                        {onRename && (
-                            <button
-                                type="button"
-                                title="Rename"
-                                className={styles.iconBtn}
-                                onClick={() => onRename(project.id)}
-                            >
-                                <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2.2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <rect
-                                        x="3"
-                                        y="3"
-                                        width="18"
-                                        height="18"
-                                        rx="4"
-                                    />
-                                    <path d="M16 7l1 1-7.5 7.5-2.5.5.5-2.5L15 6z" />
-                                </svg>
-                            </button>
-                        )}
-
-                        {onDelete && (
-                            <button
-                                type="button"
-                                title="Delete"
-                                className={`${styles.iconBtn} ${styles.deleteIconBtn}`}
-                                onClick={() => onDelete(project.id)}
-                            >
-                                <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2.2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <path d="M3 6h18" />
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                    <line x1="10" y1="11" x2="10" y2="17" />
-                                    <line x1="14" y1="11" x2="14" y2="17" />
-                                </svg>
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                {/* Bottom Meta & Typography */}
-                <div className={styles.cardDetails}>
-                    <h3 className={styles.cardTitle}>{project.name}</h3>
-
-                    <div className={styles.metaRow}>
-                        <span className={styles.badgePill}>
-                            {project.projectScope
-                                ? project.projectScope.replace('_', ' ')
-                                : 'STANDARD'}
-                        </span>
-                        <span className={styles.badgeMeta}>
-                            {project.contentRating || 'general'}
-                        </span>
-                    </div>
-                    {/*
-                <div className={styles.phaseText}>
-                    Phase 1 of 15 · {project.projectStatus || 'planning'}
-                </div>
-                 */}
-
-                    <div className={styles.wordsCount}>0 words</div>
-                </div>
-            </div>
-        );
-    } else {
-        return (
-            <div className={styles.project}>
-                {coverImageSrc ? (
-                    <img
-                        src={coverImageSrc}
-                        alt={project.name}
-                        className={styles.coverImg}
-                    />
-                ) : (
-                    <div className={styles.coverBookIcon}>
-                        <svg
-                            width="28"
-                            height="28"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        >
-                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-                            <path d="M12 6v10" />
-                        </svg>
-                    </div>
-                )}
-            </div>
-        );
-    }
+interface ToastState {
+    message: string;
+    undo?: () => void;
 }
 
-function SeriesCard({
-    seriesData,
-    onSelect,
-    onRename,
-    onChangeCover,
-    onDelete,
-    newCard = false,
-}: { seriesData: Omit<Project, 'series'>[] } & SeriesProjectCardCommonProps) {
-    return (
-        <div className={styles.series}>
-            <>{console.log('series', seriesData)}</>
-            <div className={styles.seriesmname}>
-                <label htmlFor="">series id {seriesData[0].seriesId}</label>
-            </div>
-
-            <div className={`${styles.projects}`}>
-                {seriesData.map((proj) => (
-                    <ProjectCard
-                        key={proj.id}
-                        project={proj}
-                        onSelect={onSelect}
-                        onRename={onRename}
-                        onChangeCover={onChangeCover}
-                        onDelete={onDelete}
-                        newCard={newCard}
-                    />
-                ))}
-            </div>
-        </div>
-    );
-}
-
-export default function ProjectsDialog({
+export default function WorkshopDialog({
     open,
     onClose,
     onSelectProject,
@@ -300,9 +69,7 @@ export default function ProjectsDialog({
     const rpc = useRPC();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-    const [showSeries, setShowSeries] = useState(false);
     const [seriesList, setSeriesList] = useState<Series[]>([]);
-    const [seriesLoading, setSeriesLoading] = useState(false);
 
     const [showSeriesCreate, setShowSeriesCreate] = useState(false);
     const [seriesCreateName, setSeriesCreateName] = useState('');
@@ -320,13 +87,11 @@ export default function ProjectsDialog({
     const [showSeriesDelete, setShowSeriesDelete] = useState(false);
     const [seriesDeleteId, setSeriesDeleteId] = useState<string | null>(null);
 
-    const [showSeriesProjects, setShowSeriesProjects] = useState(false);
-    const [seriesProjects, setSeriesProjects] = useState<
-        Array<{ id: string; name: string }>
-    >([]);
-    const [seriesProjectsName, setSeriesProjectsName] = useState('');
-
     const [cardSize, setCardSize] = useState<'small' | 'large'>('small');
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const [toast, setToast] = useState<ToastState | null>(null);
+    const toastTimerRef = useRef<number | null>(null);
 
     const projectScopes: { value: ProjectScope; label: string }[] = [
         { value: 'fast_paced', label: 'Fast-Paced / Pulp' },
@@ -334,13 +99,31 @@ export default function ProjectsDialog({
         { value: 'epic', label: 'Epic / Sprawling' },
     ];
 
+    function showToast(message: string, undo?: () => void) {
+        if (toastTimerRef.current !== null) {
+            window.clearTimeout(toastTimerRef.current);
+        }
+        setToast({ message, undo });
+        toastTimerRef.current = window.setTimeout(() => setToast(null), 6000);
+    }
+
     useEffect(() => {
         if (open) {
+            setLoading(true);
+            setSearchQuery('');
             loadProjects();
             loadGenresAndTags();
-            if (showSeries) loadSeries();
+            loadSeries();
         }
-    }, [open, showSeries]);
+    }, [open]);
+
+    useEffect(() => {
+        return () => {
+            if (toastTimerRef.current !== null) {
+                window.clearTimeout(toastTimerRef.current);
+            }
+        };
+    }, []);
 
     async function loadProjects() {
         try {
@@ -348,6 +131,7 @@ export default function ProjectsDialog({
             setProjects(Array.isArray(result) ? result : []);
         } catch (e) {
             console.error('Failed to load projects:', e);
+            showToast('Failed to load projects');
             setProjects([]);
         } finally {
             setLoading(false);
@@ -364,6 +148,7 @@ export default function ProjectsDialog({
             setAvailableTags(Array.isArray(tags) ? tags : []);
         } catch (e) {
             console.error('Failed to load genres/tags:', e);
+            showToast('Failed to load genres/tags');
         }
     }
 
@@ -379,6 +164,7 @@ export default function ProjectsDialog({
             setCustomGenre('');
         } catch (e) {
             console.error('Failed to create genre:', e);
+            showToast('Failed to create genre');
         }
     }
 
@@ -394,6 +180,7 @@ export default function ProjectsDialog({
             setCustomTag('');
         } catch (e) {
             console.error('Failed to create tag:', e);
+            showToast('Failed to create tag');
         }
     }
 
@@ -426,7 +213,26 @@ export default function ProjectsDialog({
                 tags: [],
                 themes: [],
             };
-            await rpc.request['db:create-project'](newProject);
+            const created = await rpc.request['db:create-project'](newProject);
+            const genreNames = availableGenres
+                .filter((g) => selectedGenres.includes(g.id))
+                .map((g) => g.name);
+            const tagNames = availableTags
+                .filter((t) => selectedTags.includes(t.id))
+                .map((t) => t.name);
+            if (genreNames.length || tagNames.length) {
+                try {
+                    await rpc.request['db:update-project']({
+                        id: created.id,
+                        data: { genres: genreNames, tags: tagNames },
+                    });
+                } catch (e) {
+                    console.error('Failed to save genres/tags:', e);
+                    showToast(
+                        'Project created, but genres/tags failed to save'
+                    );
+                }
+            }
             setNewProjectName('');
             setSelectedProjectScope('standard');
             setSelectedGenres([]);
@@ -436,6 +242,7 @@ export default function ProjectsDialog({
             onProjectUpdated?.();
         } catch (e) {
             console.error('Failed to create project:', e);
+            showToast('Failed to create project');
         }
     }
 
@@ -447,45 +254,37 @@ export default function ProjectsDialog({
         const file = e.target.files?.[0];
         if (!file) return;
         try {
-            const fileContent = await file.text();
-            const rpcAny = rpc.request as any;
-            if (typeof rpcAny['db:import-project'] === 'function') {
-                await rpcAny['db:import-project']({
-                    fileName: file.name,
-                    data: fileContent,
-                });
-            } else {
-                await rpc.request['db:create-project']({
-                    id: crypto.randomUUID(),
-                    name: file.name.replace(/\.[^/.]+$/, ''),
-                    path: null,
-                    metadata: null,
-                    description: null,
-                    systemPrompt: null,
-                    coverImageId: null,
-                    coverImagesArray: [],
-                    contentRating: 'general',
-                    projectScope: 'standard',
-                    seriesArch: null,
-                    seriesId: null,
-                    pov: null,
-                    pacing: null,
-                    workType: null,
-                    projectStructure: null,
-                    targetAge: null,
-                    projectStatus: 'planning',
-                    tonalType: null,
-                    primaryGenre: null,
-                    primaryTheme: null,
-                    genres: [],
-                    tags: [],
-                    themes: [],
-                });
-            }
+            await rpc.request['db:create-project']({
+                id: crypto.randomUUID(),
+                name: file.name.replace(/\.[^/.]+$/, ''),
+                path: null,
+                metadata: null,
+                description: null,
+                systemPrompt: null,
+                coverImageId: null,
+                coverImagesArray: [],
+                contentRating: 'general',
+                projectScope: 'standard',
+                seriesArch: null,
+                seriesId: null,
+                pov: null,
+                pacing: null,
+                workType: null,
+                projectStructure: null,
+                targetAge: null,
+                projectStatus: 'planning',
+                tonalType: null,
+                primaryGenre: null,
+                primaryTheme: null,
+                genres: [],
+                tags: [],
+                themes: [],
+            });
             loadProjects();
             onProjectUpdated?.();
         } catch (err) {
             console.error('Failed to import project:', err);
+            showToast('Failed to import project');
         } finally {
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
@@ -521,6 +320,7 @@ export default function ProjectsDialog({
             onProjectUpdated?.();
         } catch (e) {
             console.error('Failed to rename project:', e);
+            showToast('Failed to rename project');
         }
     }
 
@@ -539,6 +339,7 @@ export default function ProjectsDialog({
             onProjectUpdated?.();
         } catch (e) {
             console.error('Failed to delete project:', e);
+            showToast('Failed to delete project');
         }
     }
 
@@ -560,40 +361,46 @@ export default function ProjectsDialog({
             onProjectUpdated?.();
         } catch (e) {
             console.error('Failed to update cover:', e);
+            showToast('Failed to update cover');
         }
     }
 
     async function loadSeries() {
-        setSeriesLoading(true);
         try {
             const result = await rpc.request['db:list-series']();
             setSeriesList(Array.isArray(result) ? result : []);
         } catch (e) {
             console.error('Failed to load series:', e);
-        } finally {
-            setSeriesLoading(false);
+            showToast('Failed to load series');
         }
     }
 
     async function handleSeriesCreate() {
         if (!seriesCreateName.trim()) return;
-        const data: NewSeries = {
-            id: crypto.randomUUID(),
-            name: seriesCreateName.trim(),
-            description: seriesCreateDesc.trim() || null,
-            seriesArch: seriesCreateArch,
-            coverImageId: null,
-        };
-        await rpc.request['db:create-series'](data);
-        setSeriesCreateName('');
-        setSeriesCreateDesc('');
-        setSeriesCreateArch('ongoing');
-        setShowSeriesCreate(false);
-        loadSeries();
-        onProjectUpdated?.();
+        try {
+            const data: NewSeries = {
+                id: crypto.randomUUID(),
+                name: seriesCreateName.trim(),
+                description: seriesCreateDesc.trim() || null,
+                seriesArch: seriesCreateArch,
+                coverImageId: null,
+            };
+            await rpc.request['db:create-series'](data);
+            setSeriesCreateName('');
+            setSeriesCreateDesc('');
+            setSeriesCreateArch('ongoing');
+            setShowSeriesCreate(false);
+            loadSeries();
+            onProjectUpdated?.();
+        } catch (e) {
+            console.error('Failed to create series:', e);
+            showToast('Failed to create series');
+        }
     }
 
-    function handleSeriesEditOpen(s: Series) {
+    function handleSeriesEditOpen(seriesId: string) {
+        const s = seriesList.find((item) => item.id === seriesId);
+        if (!s) return;
         setSeriesEditId(s.id);
         setSeriesEditName(s.name);
         setSeriesEditDesc(s.description || '');
@@ -603,38 +410,37 @@ export default function ProjectsDialog({
 
     async function handleSeriesEditSave() {
         if (!seriesEditId || !seriesEditName.trim()) return;
-        await rpc.request['db:update-series']({
-            id: seriesEditId,
-            data: {
-                name: seriesEditName.trim(),
-                description: seriesEditDesc.trim() || null,
-                seriesArch: seriesEditArch,
-            },
-        });
-        setShowSeriesEdit(false);
-        setSeriesEditId(null);
-        loadSeries();
-        onProjectUpdated?.();
+        try {
+            await rpc.request['db:update-series']({
+                id: seriesEditId,
+                data: {
+                    name: seriesEditName.trim(),
+                    description: seriesEditDesc.trim() || null,
+                    seriesArch: seriesEditArch,
+                },
+            });
+            setShowSeriesEdit(false);
+            setSeriesEditId(null);
+            loadSeries();
+            onProjectUpdated?.();
+        } catch (e) {
+            console.error('Failed to edit series:', e);
+            showToast('Failed to edit series');
+        }
     }
 
     async function handleSeriesDeleteConfirm() {
         if (!seriesDeleteId) return;
-        await rpc.request['db:delete-series'](seriesDeleteId);
-        setShowSeriesDelete(false);
-        setSeriesDeleteId(null);
-        loadSeries();
-        onProjectUpdated?.();
-    }
-
-    async function handleSeriesViewProjects(s: Series) {
-        setSeriesProjectsName(s.name);
         try {
-            const result = await rpc.request['db:get-series-projects'](s.id);
-            setSeriesProjects(Array.isArray(result) ? result : []);
-        } catch {
-            setSeriesProjects([]);
+            await rpc.request['db:delete-series'](seriesDeleteId);
+            setShowSeriesDelete(false);
+            setSeriesDeleteId(null);
+            loadSeries();
+            onProjectUpdated?.();
+        } catch (e) {
+            console.error('Failed to delete series:', e);
+            showToast('Failed to delete series');
         }
-        setShowSeriesProjects(true);
     }
 
     function toggleGenre(genreId: string) {
@@ -657,35 +463,51 @@ export default function ProjectsDialog({
         ? projects.find((p) => p.id === renameTargetId)
         : null;
 
+    const q = searchQuery.trim().toLowerCase();
+    const filteredProjects = useMemo(
+        () =>
+            q
+                ? projects.filter((p) => p.name.toLowerCase().includes(q))
+                : projects,
+        [projects, q]
+    );
+    const groupedWorks = useMemo(
+        () => groupAndSort(filteredProjects),
+        [filteredProjects]
+    );
+
+    const emptySeries = useMemo(() => {
+        const seriesIdsWithProjects = new Set(
+            projects.map((p) => p.seriesId).filter(Boolean)
+        );
+        return seriesList.filter(
+            (s) =>
+                !seriesIdsWithProjects.has(s.id) &&
+                (!q ||
+                    s.name.toLowerCase().includes(q) ||
+                    (s.description?.toLowerCase().includes(q) ?? false))
+        );
+    }, [seriesList, projects, q]);
+
     return (
         <Dialog
             open={open}
             onClose={onClose}
-            title="Projects"
-            id={styles.projectsDialog}
+            title="Workshop"
+            id={styles.workshopDialog}
         >
             {/* TOOLBAR */}
             <div className={styles.toolbar}>
-                {/* Left Side: Projects, Manage Series */}
                 <div className={styles.buttonGroup}>
-                    <button
-                        type="button"
-                        className={`${styles.floatingPillBtn} ${!showSeries ? styles.floatingPillActive : ''}`}
-                        onClick={() => setShowSeries(false)}
-                    >
-                        Projects
-                    </button>
-                    <button
-                        type="button"
-                        className={`${styles.floatingPillBtn} ${showSeries ? styles.floatingPillActive : ''}`}
-                        onClick={() => setShowSeries(true)}
-                    >
-                        Manage Series
-                    </button>
-                </div>
-
-                {/* Right Side: Import, New Project */}
-                <div className={styles.buttonGroup}>
+                    <div className={styles.searchBar}>
+                        <IconSearch size={14} />
+                        <input
+                            type="text"
+                            placeholder="Search projects..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
                     <button
                         type="button"
                         className={styles.floatingPillBtn}
@@ -700,45 +522,89 @@ export default function ProjectsDialog({
                         style={{ display: 'none' }}
                         accept=".json,.zip,.txt"
                     />
-
-                    {!showSeries ? (
-                        <button
-                            type="button"
-                            className={styles.floatingPillBtn}
-                            onClick={() => setShowCreateModal(true)}
-                        >
-                            New Project
-                        </button>
-                    ) : (
-                        <button
-                            type="button"
-                            className={styles.floatingPillBtn}
-                            onClick={() => setShowSeriesCreate(true)}
-                        >
-                            New Series
-                        </button>
-                    )}
                     <button
-                        onClick={() =>
-                            setCardSize(cardSize == 'small' ? 'large' : 'small')
-                        }
+                        type="button"
+                        className={styles.floatingPillBtn}
+                        onClick={() => setShowCreateModal(true)}
                     >
-                        view {cardSize}
+                        New Project
                     </button>
+                    <button
+                        type="button"
+                        className={styles.floatingPillBtn}
+                        onClick={() => setShowSeriesCreate(true)}
+                    >
+                        New Series
+                    </button>
+                    <div className={styles.viewToggle}>
+                        <button
+                            type="button"
+                            className={`${styles.floatingPillBtn} ${cardSize === 'small' ? styles.floatingPillActive : ''}`}
+                            onClick={() => setCardSize('small')}
+                            title="Compact view"
+                        >
+                            <IconGridDots size={14} />
+                        </button>
+                        <button
+                            type="button"
+                            className={`${styles.floatingPillBtn} ${cardSize === 'large' ? styles.floatingPillActive : ''}`}
+                            onClick={() => setCardSize('large')}
+                            title="Large view"
+                        >
+                            <IconLayoutGrid size={14} />
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {/* MAIN CONTENT AREA */}
-            {!showSeries ? (
-                loading ? (
-                    <div className={styles.emptyState}>Loading...</div>
-                ) : (
-                    <>
-                        <div className={styles.booksGrid}>
-                            {projects.map((project) => (
+            {loading ? (
+                <div className={styles.emptyState}>Loading...</div>
+            ) : projects.length === 0 && seriesList.length === 0 ? (
+                <div className={styles.emptyState}>
+                    No projects yet. Create one or import.
+                </div>
+            ) : groupedWorks.length === 0 && emptySeries.length === 0 ? (
+                <div className={styles.emptyState}>
+                    No projects matching '{searchQuery}'
+                </div>
+            ) : (
+                <div
+                    className={`${styles.worksCont} ${
+                        cardSize === 'small' ? styles.smallCard : ''
+                    }`}
+                >
+                    {groupedWorks.map((work) => (
+                        <Fragment
+                            key={
+                                Array.isArray(work)
+                                    ? work[0]?.seriesId || 'series'
+                                    : work.id
+                            }
+                        >
+                            {Array.isArray(work) ? (
+                                <WorkshopSeriesCard
+                                    seriesId={work[0]?.seriesId ?? ''}
+                                    seriesData={work}
+                                    seriesArr={seriesList}
+                                    onSelect={
+                                        onSelectProject
+                                            ? handleSelectProject
+                                            : undefined
+                                    }
+                                    onRename={handleRenameRequest}
+                                    onChangeCover={handleChangeCoverRequest}
+                                    onDelete={handleDeleteRequest}
+                                    onEditSeries={handleSeriesEditOpen}
+                                    onDeleteSeries={(seriesId) => {
+                                        setSeriesDeleteId(seriesId);
+                                        setShowSeriesDelete(true);
+                                    }}
+                                />
+                            ) : (
                                 <ProjectCard
-                                    key={project.id}
-                                    project={project}
+                                    key={work.id}
+                                    project={work}
                                     onSelect={
                                         onSelectProject
                                             ? handleSelectProject
@@ -748,130 +614,22 @@ export default function ProjectsDialog({
                                     onChangeCover={handleChangeCoverRequest}
                                     onDelete={handleDeleteRequest}
                                 />
-                            ))}
-                        </div>
-
-                        <div
-                            className={`${styles.worksCont}  ${cardSize == 'small' ? styles.smallCard : styles.largeCard}`}
-                        >
-                            <div
-                                className={`${styles.project} ${styles.addProject}`}
-                                onClick={() => alert('new project')}
-                            >
-                                <div className={styles.svgIcon}>
-                                    <IconPlus />
-                                </div>
-                                <div className="text">New Book</div>
-                            </div>
-
-                            {groupAndSort(projects).map((work) => (
-                                <>
-                                    {Array.isArray(work) ? (
-                                        <>
-                                            <SeriesCard
-                                                seriesData={work}
-                                                newCard={true}
-                                                onSelect={
-                                                    onSelectProject
-                                                        ? handleSelectProject
-                                                        : undefined
-                                                }
-                                                onRename={handleRenameRequest}
-                                                onChangeCover={
-                                                    handleChangeCoverRequest
-                                                }
-                                                onDelete={handleDeleteRequest}
-                                            />
-                                        </>
-                                    ) : (
-                                        <ProjectCard
-                                            key={work.id}
-                                            project={work}
-                                            onSelect={
-                                                onSelectProject
-                                                    ? handleSelectProject
-                                                    : undefined
-                                            }
-                                            onRename={handleRenameRequest}
-                                            onChangeCover={
-                                                handleChangeCoverRequest
-                                            }
-                                            onDelete={handleDeleteRequest}
-                                            newCard={true}
-                                        />
-                                    )}
-                                </>
-                            ))}
-                        </div>
-                    </>
-                )
-            ) : (
-                <div className={styles.seriesContainer}>
-                    {seriesLoading ? (
-                        <div className={styles.emptyState}>Loading...</div>
-                    ) : seriesList.length === 0 ? (
-                        <div className={styles.emptyState}>
-                            No series yet. Create one to group your projects.
-                        </div>
-                    ) : (
-                        seriesList.map((s) => (
-                            <div key={s.id} className={styles.seriesRow}>
-                                <div>
-                                    <strong style={{ color: '#fff' }}>
-                                        {s.name}
-                                    </strong>
-                                    {s.seriesArch && (
-                                        <span
-                                            className={styles.seriesArchBadge}
-                                        >
-                                            ({s.seriesArch})
-                                        </span>
-                                    )}
-                                    {s.projectCount !== undefined && (
-                                        <span
-                                            className={styles.seriesArchBadge}
-                                        >
-                                            — {s.projectCount} project
-                                            {s.projectCount !== 1 ? 's' : ''}
-                                        </span>
-                                    )}
-                                    {s.description && (
-                                        <div className={styles.seriesDesc}>
-                                            {s.description}
-                                        </div>
-                                    )}
-                                </div>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <button
-                                        type="button"
-                                        className={styles.floatingPillBtn}
-                                        onClick={() =>
-                                            handleSeriesViewProjects(s)
-                                        }
-                                    >
-                                        Projects
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={styles.floatingPillBtn}
-                                        onClick={() => handleSeriesEditOpen(s)}
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={styles.deleteSeriesBtn}
-                                        onClick={() => {
-                                            setSeriesDeleteId(s.id);
-                                            setShowSeriesDelete(true);
-                                        }}
-                                    >
-                                        Delete
-                                    </button>
-                                </div>
-                            </div>
-                        ))
-                    )}
+                            )}
+                        </Fragment>
+                    ))}
+                    {emptySeries.map((s) => (
+                        <WorkshopSeriesCard
+                            key={s.id}
+                            seriesId={s.id}
+                            seriesData={[]}
+                            seriesArr={seriesList}
+                            onEditSeries={handleSeriesEditOpen}
+                            onDeleteSeries={(seriesId) => {
+                                setSeriesDeleteId(seriesId);
+                                setShowSeriesDelete(true);
+                            }}
+                        />
+                    ))}
                 </div>
             )}
 
@@ -895,7 +653,6 @@ export default function ProjectsDialog({
                             autoFocus
                         />
                     </div>
-
                     <div className={styles.formGroup}>
                         <label>Project Scope</label>
                         <select
@@ -913,7 +670,6 @@ export default function ProjectsDialog({
                             ))}
                         </select>
                     </div>
-
                     <div className={styles.formGroup}>
                         <label>Genres</label>
                         <div className={styles.tagSelector}>
@@ -921,7 +677,11 @@ export default function ProjectsDialog({
                                 <button
                                     key={genre.id}
                                     type="button"
-                                    className={`${styles.tagBtn} ${selectedGenres.includes(genre.id) ? styles.selectedTag : ''}`}
+                                    className={`${styles.tagBtn} ${
+                                        selectedGenres.includes(genre.id)
+                                            ? styles.selectedTag
+                                            : ''
+                                    }`}
                                     onClick={() => toggleGenre(genre.id)}
                                 >
                                     {genre.name}
@@ -948,7 +708,6 @@ export default function ProjectsDialog({
                             </button>
                         </div>
                     </div>
-
                     <div className={styles.formGroup}>
                         <label>Tags</label>
                         <div className={styles.tagSelector}>
@@ -956,7 +715,11 @@ export default function ProjectsDialog({
                                 <button
                                     key={tag.id}
                                     type="button"
-                                    className={`${styles.tagBtn} ${selectedTags.includes(tag.id) ? styles.selectedTag : ''}`}
+                                    className={`${styles.tagBtn} ${
+                                        selectedTags.includes(tag.id)
+                                            ? styles.selectedTag
+                                            : ''
+                                    }`}
                                     onClick={() => toggleTag(tag.id)}
                                 >
                                     {tag.name}
@@ -983,7 +746,6 @@ export default function ProjectsDialog({
                             </button>
                         </div>
                     </div>
-
                     <div className={styles.actions}>
                         <button
                             type="button"
@@ -1049,8 +811,9 @@ export default function ProjectsDialog({
                     title="Delete Project"
                 >
                     <p style={{ color: '#ccc', margin: '0 0 16px 0' }}>
-                        Are you sure you want to delete "
-                        {projects.find((p) => p.id === deleteTargetId)?.name}"?
+                        Are you sure you want to delete '
+                        {projects.find((p) => p.id === deleteTargetId)?.name}
+                        '?
                     </p>
                     <div className={styles.actions}>
                         <button
@@ -1225,31 +988,33 @@ export default function ProjectsDialog({
                 </SubDialog>
             )}
 
-            {showSeriesProjects && (
-                <SubDialog
-                    open={showSeriesProjects}
-                    onClose={() => setShowSeriesProjects(false)}
-                    title={`Projects in "${seriesProjectsName}"`}
-                >
-                    {seriesProjects.length === 0 ? (
-                        <p style={{ color: '#888' }}>
-                            No projects in this series yet.
-                        </p>
-                    ) : (
-                        <ul style={{ color: '#eee', paddingLeft: '20px' }}>
-                            {seriesProjects.map((p) => (
-                                <li key={p.id} style={{ marginBottom: '6px' }}>
-                                    {p.name}
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </SubDialog>
-            )}
+            <AssetPicker
+                open={showAssetPicker}
+                onClose={() => {
+                    setShowAssetPicker(false);
+                    setAssetPickerTargetId(null);
+                }}
+                onSelect={handleCoverSelected}
+                projectId={assetPickerTargetId ?? ''}
+                selectedAssetId={
+                    projects.find((p) => p.id === assetPickerTargetId)
+                        ?.coverImageId ?? null
+                }
+            />
 
-            <div style={{ display: 'none' }}>
-                <span id={assetPickerTargetId || ''} />
-            </div>
+            {toast && (
+                <div className={styles.toast} role="status">
+                    <span>{toast.message}</span>
+                    {toast.undo && (
+                        <button
+                            className={styles.toastAction}
+                            onClick={toast.undo}
+                        >
+                            Undo
+                        </button>
+                    )}
+                </div>
+            )}
         </Dialog>
     );
 }

@@ -1,9 +1,6 @@
-import { a } from 'framer-motion/client';
 import type { Project } from './../types/index';
-import { series } from '../../bun/schema';
-import { max } from 'drizzle-orm';
 
-function getRandomTimestamp(start, end) {
+function getRandomTimestamp(start: Date, end: Date) {
     const startTime = start.getTime();
     const endTime = end.getTime();
     return Math.floor(startTime + Math.random() * (endTime - startTime));
@@ -13,7 +10,6 @@ export type PROJECTS_MOCK_TYPE = {
     series?: string;
     date: number;
 };
-// {1: "",2:""}
 
 export const PROJECTS_MOCK: PROJECTS_MOCK_TYPE[] = [
     {
@@ -62,30 +58,15 @@ PROJECTS_MOCK.map((p: PROJECTS_MOCK_TYPE) => {
     groupedObj[newKey].push(newObj);
 });
 
-//console.log(
-//    sortedItems(PROJECTS_MOCK).map((work: PROJECTS_MOCK_TYPE) => {
-//        console.log(work);
-//        return work;
-//    })
-//);
-
-//console.log([...groupedObj['1'], 1, 2]);
-//console.log('x', x);
 export const groupedBySeries = (data: PROJECTS_MOCK_TYPE[]) =>
     data.reduce<Record<string, PROJECTS_MOCK_TYPE[]>>((acc, item) => {
-        //console.log(acc);
         const seriesKey = item.series ?? 'Unassigned';
-
         if (!acc[seriesKey]) {
             acc[seriesKey] = [];
         }
-
         acc[seriesKey].push(item);
         return acc;
     }, {});
-
-//console.log('mine', groupedObj);
-//console.log('acc', groupedBySeries(PROJECTS_MOCK));
 
 export const groupedArray = (data: PROJECTS_MOCK_TYPE[]) =>
     Object.entries(groupedBySeries(data)).map(([series, items]) => ({
@@ -119,12 +100,13 @@ export const sortAndGroup = (data: PROJECTS_MOCK_TYPE[]) => {
 // [p1,p2, [s1p3, s1p5], p4, [s2p6, s2p7], p8]
 //groupedBySeries(PROJECTS_MOCK);
 
+/*
 export const customGroupedArray = (data: PROJECTS_MOCK_TYPE[]) => {
     // 1. Group the items by series using your existing function
     const grouped = groupedBySeries(data);
 
     // 2. Map the groups into the desired flat/nested structure
-    return Object.entries(grouped).map(([series, items]) => {
+    return Object.entries(grouped).map(([_, items]) => {
         // Sort the items inside the series by date
         const sortedSeriesItems = [...items].sort((a, b) => a.date - b.date);
 
@@ -137,8 +119,7 @@ export const customGroupedArray = (data: PROJECTS_MOCK_TYPE[]) => {
         // return sortedSeriesItems.length === 1 ? sortedSeriesItems[0] : sortedSeriesItems;
     });
 };
-
-export const mixedGroupedArray = (data: PROJECTS_MOCK[]) => {
+export const mixedGroupedArray = (data: PROJECTS_MOCK_TYPE[]) => {
     const sortedData = sortedItems(data);
     console.log(sortedData);
     const grouped = groupedBySeries(sortedData);
@@ -153,8 +134,7 @@ export const mixedGroupedArray = (data: PROJECTS_MOCK[]) => {
         return [sortedItems];
     });
 };
-
-//console.log('mix', mixedGroupedArray(PROJECTS_MOCK));
+*/
 
 type ProjectItem = {
     name: string;
@@ -166,7 +146,6 @@ type GroupedResult = (
     Omit<ProjectItem, 'series'> | Omit<ProjectItem, 'series'>[]
 )[];
 
-// 1. Sort a copy of the projects array by date timestamp (ascending)
 const sortedProjects = [...PROJECTS_MOCK].sort((a, b) => {
     return new Date(b.date).getTime() - new Date(a.date).getTime();
 });
@@ -201,7 +180,6 @@ sortedProjects.forEach((p) => {
 if (currentGroup.length > 0) {
     result.push(currentGroup);
 }
-// console.log('result', result);
 
 export function groupAndSort(data: Project[]) {
     const seriesMap = new Map<string, Project[]>();
@@ -220,26 +198,33 @@ export function groupAndSort(data: Project[]) {
     });
 
     seriesMap.forEach((group) => {
-        group.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+        group.sort(
+            (a, b) =>
+                new Date(b.updatedAt).getTime() -
+                new Date(a.updatedAt).getTime()
+        );
     });
 
-    const combined = [...standaloneItems, ...(seriesMap.values())]
+    const combined = [...standaloneItems, ...seriesMap.values()];
 
     combined.sort((a, b) => {
         const maxDate = (projectOrSeries: typeof a) => {
             if (Array.isArray(projectOrSeries)) {
-                return Math.max(...projectOrSeries.map(p => new Date(p.updatedAt).getTime()))
+                return Math.max(
+                    ...projectOrSeries.map((p) =>
+                        new Date(p.updatedAt).getTime()
+                    )
+                );
             }
-            return new Date(projectOrSeries.updatedAt).getTime()
-        }
+            return new Date(projectOrSeries.updatedAt).getTime();
+        };
         return maxDate(b) - maxDate(a);
-    })
+    });
 
     return combined;
 }
 
 /*
-
 export type GroupedProject = 
   | { type: 'standalone'; project: Project }
   | { type: 'series'; seriesId: string; projects: Project[]; latestUpdatedAt: number };
@@ -290,5 +275,52 @@ export function groupAndSortBest(data: Project[]): (Project | Project[])[] {
     // 6. Extract the final sorted array
     return combinedEntries.map(e => e.item);
 }
+*/
 
+/*
+export function groupAndSort(data: Project[]) {
+    const seriesMap = new Map<string, Omit<Project, 'series'>[]>();
+    const standaloneItems: Omit<Project, 'series'>[] = [];
+
+    data.forEach((p) => {
+        const item = { ...p };
+        if (p.seriesId) {
+            if (!seriesMap.has(p.seriesId)) {
+                seriesMap.set(p.seriesId, []);
+            }
+            seriesMap.get(p.seriesId)!.push(item);
+        } else {
+            standaloneItems.push(item);
+        }
+    });
+
+    const combined: (Omit<Project, 'series'> | Omit<Project, 'series'>[])[] =
+        [];
+
+    standaloneItems.forEach((item) => combined.push(item));
+
+    seriesMap.forEach((group) => {
+        group.sort(
+            (a, b) =>
+                new Date(b.updatedAt).getTime() -
+                new Date(a.updatedAt).getTime()
+        );
+        combined.push(group);
+    });
+
+    combined.sort((a, b) => {
+        const getMaxDate = (itemOrGroup: typeof a): number => {
+            if (Array.isArray(itemOrGroup)) {
+                return Math.max(
+                    ...itemOrGroup.map((i) => new Date(i.updatedAt).getTime())
+                );
+            }
+            return new Date(itemOrGroup.updatedAt).getTime();
+        };
+
+        return getMaxDate(b) - getMaxDate(a);
+    });
+
+    return combined;
+}
 */

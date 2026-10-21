@@ -1,13 +1,10 @@
-#projectsDialog {
-    width: 900px;
-    max-width: 95vw;
-    border-radius: 16px !important;
-    overflow: hidden !important;
-
+#workshopDialog {
     width: 70%;
     max-width: 70%;
     height: 80%;
     max-height: 80%;
+    border-radius: 16px !important;
+    overflow: hidden !important;
 }
 
 /* Toolbar container with full pill rounding on both top and bottom edges */
@@ -66,42 +63,6 @@
         inset 0 1px 1px rgba(255, 255, 255, 0.1) !important;
 }
 
-/* Books Grid */
-.booksGrid {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 20px !important;
-    padding: 24px !important;
-    max-height: 70vh !important;
-    overflow-y: auto !important;
-    box-sizing: border-box !important;
-}
-
-/* Book Card Container */
-.projectCard {
-    width: 180px !important;
-    background: #141416 !important;
-    border: 1px solid #222226 !important;
-    border-radius: 14px !important;
-    padding: 10px !important;
-    cursor: pointer !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 10px !important;
-    box-sizing: border-box !important;
-    transition:
-        transform 0.18s ease,
-        border-color 0.18s ease,
-        box-shadow 0.18s ease !important;
-    user-select: none !important;
-}
-
-.projectCard:hover {
-    border-color: #3a3a44 !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.55) !important;
-}
-
 /* Card Cover Surface */
 .cardCover {
     width: 100%;
@@ -152,10 +113,6 @@
     transition: opacity 0.15s ease !important;
 }
 
-.projectCard:hover .cardQuickActions {
-    opacity: 1 !important;
-}
-
 .iconBtn {
     background: transparent !important;
     border: none !important;
@@ -188,7 +145,7 @@
 
 .cardTitle {
     font-family: 'Georgia', 'Playfair Display', serif !important;
-    font-size: 15px !important;
+    font-size: 22px;
     font-weight: 600 !important;
     color: #eae5d9 !important;
     margin: 0 !important;
@@ -205,7 +162,7 @@
 }
 
 .badgePill {
-    font-size: 9px !important;
+    font-size: 12px;
     font-weight: 700 !important;
     letter-spacing: 0.5px !important;
     text-transform: uppercase !important;
@@ -217,7 +174,7 @@
 }
 
 .badgeMeta {
-    font-size: 11px !important;
+    font-size: 14px !important;
     color: #7a756b !important;
     text-transform: capitalize !important;
 }
@@ -229,50 +186,15 @@
 }
 
 .wordsCount {
-    font-size: 11px !important;
+    font-size: 14px;
     color: #5c5850 !important;
 }
 
 /* Series Listing */
-.seriesContainer {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 8px !important;
-    padding: 16px !important;
-    max-height: 70vh !important;
-    overflow-y: auto !important;
-}
-
-.seriesRow {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    padding: 12px 16px !important;
-    background: #141418 !important;
-    border: 1px solid #24242c !important;
-    border-radius: 8px !important;
-}
-
 .seriesArchBadge {
     margin-left: 8px !important;
     color: #888888 !important;
     font-size: 12px !important;
-}
-
-.seriesDesc {
-    font-size: 12px !important;
-    color: #666666 !important;
-    margin-top: 4px !important;
-}
-
-.deleteSeriesBtn {
-    background: #1c1822 !important;
-    border: 1px solid #4d1e1a !important;
-    color: #e74c3c !important;
-    font-size: 13px !important;
-    padding: 7px 16px !important;
-    border-radius: 9999px !important;
-    cursor: pointer !important;
 }
 
 .emptyState {
@@ -387,34 +309,6 @@
     gap: 12px;
 }
 
-.addProject {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-
-    border: 2px dotted #f0a0506b;
-    svg {
-        width: 42px;
-        height: 42px;
-        stroke: #9ca3af;
-    }
-
-    &:hover {
-        font-size: large;
-        border-color: var(--accent);
-        svg {
-            width: 48px;
-            height: 48px;
-            stroke: #eae5d9;
-        }
-    }
-    .icon {
-        vertical-align: middle;
-        margin: auto;
-    }
-}
 .series,
 .project {
     border-radius: 12px;
@@ -429,7 +323,22 @@
     .seriesmname {
         margin-bottom: 12px;
         text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
     }
+}
+
+.seriesTitle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.seriesActions {
+    display: flex;
+    gap: 4px;
 }
 .projects {
     display: flex;
@@ -439,34 +348,135 @@
     }
 }
 
+.projectCard {
+    width: 180px;
+    background: #141416;
+    border: 1px solid #222226;
+    border-radius: 14px;
+    padding: 8px;
+    cursor: pointer;
+    box-sizing: border-box;
+    transition:
+        transform 0.18s ease,
+        border-color 0.18s ease,
+        box-shadow 0.18s ease;
+    user-select: none;
+
+    &:hover {
+        border-color: #3a3a44;
+        transform: translateY(-2px);
+        box-shadow: 0 12px 26px rgba(0, 0, 0, 0.55);
+
+        .cardQuickActions {
+            opacity: 1;
+        }
+    }
+}
+
 .project {
     width: 230px;
     aspect-ratio: 2/3;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
+    gap: 6px;
     margin: 12px;
-    background-color: rgb(108, 85, 85);
     background-color: #1c1c1f;
 
-    .svgIcon svg {
-        width: 42px;
-        height: 42px;
-        stroke: #eae5d9;
-        stroke: #484852;
+    .projectCover,
+    .cardCover {
+        width: 100%;
+        height: 100%;
+        aspect-ratio: 2/3;
+        border-radius: 9px;
+        background-color: #141416;
+        margin-bottom: auto;
     }
-}
-.projectCover {
-    width: 100%;
-    aspect-ratio: 2/3;
-    border-radius: 9px;
-    background-color: #28282e;
-    background-color: #252627;
 }
 
 .smallCard {
     .project {
         width: 180px;
+
+        .cardDetails {
+            .cardTitle {
+                font-size: 16px;
+            }
+            .badgePill {
+                font-size: 9px;
+            }
+            .badgeMeta {
+                font-size: 11px;
+            }
+            .wordsCount {
+                font-size: 11px;
+            }
+        }
+    }
+}
+
+.searchBar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background-color: #1e1e1e;
+    border: 1px solid #3c3c3c;
+    border-radius: 6px;
+    margin-left: 10px;
+}
+
+.searchBar svg {
+    color: #8e8e93;
+    flex-shrink: 0;
+}
+
+.searchBar input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-size: 13px;
+}
+
+.searchBar input::placeholder {
+    color: #6e6e73;
+}
+
+.viewToggle {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+}
+
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.9rem;
+    background: #1a1b1c;
+    border: 1px solid #393a3b;
+    border-radius: 6px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+    color: #ccc;
+    font-size: 0.9em;
+}
+
+.toastAction {
+    background: transparent;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    color: var(--accent);
+    cursor: pointer;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.95em;
+
+    &:hover {
+        background: var(--accent-subtle, rgba(240, 160, 80, 0.12));
     }
 }

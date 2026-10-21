@@ -44,7 +44,7 @@ import {
 
 import SplitDialogLayout from '../ui/layout/SplitDialogLayout';
 
-import styles from './ProjectsDialog.module.css';
+import styles from './WorkshopDialog.module.css';
 import localStyles from './ProjectManagerDialog.module.css';
 import dialogStyles from './../components/Dialog.module.css';
 import {
