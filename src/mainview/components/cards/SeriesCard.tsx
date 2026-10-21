@@ -1,10 +1,10 @@
 import type { Project, Series } from '../../types/index';
-import WorkshopProjectCard from './WorkshopProjectCard';
-import styles from './WorkshopSeriesCard.module.css';
-import type { CardActionHandlers } from './WorkshopProjectCard';
+import ProjectCard from './ProjectCard';
+import styles from './SeriesCard.module.css';
+import type { CardActionHandlers } from './ProjectCard';
 import { IconPencilFilled, IconTrashFilled } from '@tabler/icons-react';
 
-export default function WorkshopSeriesCard({
+export default function SeriesCard({
     seriesId,
     seriesData,
     seriesArr,
@@ -58,7 +58,7 @@ export default function WorkshopSeriesCard({
             ) : (
                 <div className={styles.projects}>
                     {seriesData.map((proj) => (
-                        <WorkshopProjectCard
+                        <ProjectCard
                             key={proj.id}
                             project={proj}
                             onSelect={onSelect}

@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
 import Dialog from '../components/Dialog';
 import SubDialog from '../components/SubDialog';
 import AssetPicker from '../components/AssetPicker';
-import WorkshopProjectCard from '../components/cards/WorkshopProjectCard';
-import WorkshopSeriesCard from '../components/cards/WorkshopSeriesCard';
+import SeriesCard from '../components/cards/SeriesCard';
+import ProjectCard from '../components/cards/ProjectCard';
 import { useRPC } from '../contexts/RPCContext';
 import type {
     Project,
@@ -561,7 +561,7 @@ export default function WorkshopDialog({
                             }
                         >
                             {Array.isArray(work) ? (
-                                <WorkshopSeriesCard
+                                <SeriesCard
                                     seriesId={work[0]?.seriesId ?? ''}
                                     seriesData={work}
                                     seriesArr={seriesList}
@@ -579,7 +579,7 @@ export default function WorkshopDialog({
                                     }}
                                 />
                             ) : (
-                                <WorkshopProjectCard
+                                <ProjectCard
                                     key={work.id}
                                     project={work}
                                     onSelect={
@@ -594,7 +594,7 @@ export default function WorkshopDialog({
                         </Fragment>
                     ))}
                     {emptySeries.map((s) => (
-                        <WorkshopSeriesCard
+                        <SeriesCard
                             key={s.id}
                             seriesId={s.id}
                             seriesData={[]}

@@ -1,7 +1,7 @@
 import type { Project } from '../../types/index';
 import { useState, useEffect } from 'react';
 import { useRPC } from '../../contexts/RPCContext';
-import styles from './WorkshopProjectCard.module.css';
+import styles from './ProjectCard.module.css';
 import { IconPencilFilled } from '@tabler/icons-react';
 
 export type CardActionHandlers = {
@@ -10,7 +10,7 @@ export type CardActionHandlers = {
     onChangeCover?: (projectId: string) => void;
 };
 
-export default function WorkshopProjectCard({
+export default function ProjectCard({
     project,
     onSelect,
     onRename,
@@ -85,7 +85,9 @@ export default function WorkshopProjectCard({
             {/* Bottom Meta & Typography */}
             <div className={styles.cardDetails}>
                 <div className={styles.projectLabelRow}>
-                    <h3 className={styles.cardTitle}>{project.name}</h3>
+                    <h3 className={styles.cardTitle} title={project.name}>
+                        {project.name}
+                    </h3>
                     {onRename && (
                         <button
                             type="button"

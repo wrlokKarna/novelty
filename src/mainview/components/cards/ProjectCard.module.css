@@ -129,7 +129,6 @@
 }
 
 .projectLabelRow {
-    height: 46px;
     display: flex;
     align-items: baseline;
     gap: 6px;
