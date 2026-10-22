@@ -2,17 +2,17 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Timeline } from 'vis-timeline';
 import { DataSet } from 'vis-data';
 import 'vis-timeline/styles/vis-timeline-graph2d.css';
-import { useRPC } from '../contexts/RPCContext';
+import { useRPC } from '../../contexts/RPCContext';
 import type {
     TimelineEvent,
     Character,
     Organization,
     Chapter,
     CompendiumCategory,
-} from '../types/index';
-import TimelineEventEditor from './TimelineEventEditor';
-import Dialog from './Dialog';
-import '../ui/timeline.css';
+} from '../../types/index';
+import TimelineEventEditor from '../../components/TimelineEventEditor';
+import Dialog from '../Dialog';
+import './../../ui/timeline.css';
 
 const EVENT_COLORS: Record<string, string> = {
     chapter: '#4a9eff',

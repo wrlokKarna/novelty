@@ -4,8 +4,11 @@ import {
     IconLayoutSidebarLeftExpand,
 } from '@tabler/icons-react';
 import styles from './Dialog.module.css';
-import { DialogSidebarContext, type SidebarMode } from './DialogSidebarContext';
-import AppIcon from './AppIcon';
+import {
+    DialogSidebarContext,
+    type SidebarMode,
+} from '../components/DialogSidebarContext';
+import AppIcon from '../components/AppIcon';
 
 interface DialogProps {
     open: boolean;

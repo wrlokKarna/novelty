@@ -1,4 +1,4 @@
-import { CompendiumCategory, MentionTarget } from '../../types';
+import { CompendiumCategory, MentionTarget } from '../../../types';
 
 export const COMMAND_MAP: Record<string, CompendiumCategory> = {
     createcharacter: 'character',

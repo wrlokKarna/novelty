@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import Dialog from '../components/Dialog';
+import Dialog from './Dialog';
 import TemplateFieldMappingDialog from './TemplateFieldMappingDialog';
 import type { CompendiumCategory, FieldDefinition } from '../types/index';
 import type { ParsedEntry } from '../services/entryParser';

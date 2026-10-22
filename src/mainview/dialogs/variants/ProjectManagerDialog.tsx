@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import Dialog from '../components/Dialog';
-import SubDialog from '../components/SubDialog';
-import AssetPicker from '../components/AssetPicker';
-import { useRPC } from '../contexts/RPCContext';
+import Dialog from '../Dialog';
+import dialogStyles from '../Dialog.module.css';
+import SubDialog from '../SubDialog';
+import AssetPicker from './AssetPicker';
+import { useRPC } from '../../contexts/RPCContext';
 import type {
     Project,
     ProjectScope,
@@ -22,9 +23,9 @@ import type {
     Inspiration,
     NewInspiration,
     CompendiumCategory,
-} from '../types/index';
-import { PREDEFINED_ASPECTS } from '../types/index';
-import { PROJECT_SCOPE_TARGETS } from '../types/index';
+} from '../../types/index';
+import { PREDEFINED_ASPECTS } from '../../types/index';
+import { PROJECT_SCOPE_TARGETS } from '../../types/index';
 import {
     IconCheck,
     IconPhoto,
@@ -34,19 +35,18 @@ import {
     IconStarFilled,
     IconX,
 } from '@tabler/icons-react';
-import TemplateManagerTab from '../components/template/TemplateManagerTab';
-import IconTextSideBar from '../ui/layout/IconTextSideBar';
+import TemplateManagerTab from '../../components/template/TemplateManagerTab';
+import IconTextSideBar from '../../ui/layout/IconTextSideBar';
 import {
     PROJECT_DIALOG_TABS,
     PROJECT_DIALOG_TABS_ICONS,
     ProjectDialogActiveTab,
-} from '../constants/layout_tabs';
+} from '../../constants/layout_tabs';
 
-import SplitDialogLayout from '../ui/layout/SplitDialogLayout';
+import SplitDialogLayout from '../../ui/layout/SplitDialogLayout';
 
 import styles from './WorkshopDialog.module.css';
 import localStyles from './ProjectManagerDialog.module.css';
-import dialogStyles from './../components/Dialog.module.css';
 import {
     contentRatingOptions,
     pacingOptions,
@@ -58,7 +58,7 @@ import {
     sourceTypeOptions,
     targetAgeOptions,
     workTypeOptions,
-} from '../constants/project_consts';
+} from '../../constants/project_consts';
 
 interface ProjectManagerProps {
     open: boolean;

@@ -28,7 +28,7 @@ import {
     ANALYSIS_COMMANDS,
     typeLabels,
     SLASH_COMMANDS,
-} from './../constants/ai/chatpanel_consts';
+} from '../features/ai/constants/chatpanel_consts';
 import type {
     ChatMessage,
     UserChatMessage,
@@ -71,7 +71,7 @@ import { useSessions } from '../hooks/useSessions';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import MessageBubble from './MessageBubble';
 import SessionListView from './SessionListView';
-import SettingsDialog from '../dialogs/SettingsDialog';
+import SettingsDialog from '../dialogs/variants/SettingsDialog';
 import FloatingSuggestions from './FloatingSuggestions';
 import type { SuggestionGroup } from './FloatingSuggestions';
 import ContextChips from './ContextChips';

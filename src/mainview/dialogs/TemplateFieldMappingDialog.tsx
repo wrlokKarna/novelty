@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import Dialog from '../components/Dialog';
+import Dialog from './Dialog';
 import type { CompendiumCategory, FieldDefinition } from '../types/index';
 
 export interface AIFieldInfo {

@@ -1,22 +1,22 @@
 import { useState, useEffect } from 'react';
-import Dialog from '../components/Dialog';
-import { useSettings } from '../contexts/SettingsContext';
-import { getRPC } from '../contexts/RPCContext';
+import Dialog from '../Dialog';
+import localStyles from '../Dialog.module.css';
+import { useSettings } from '../../contexts/SettingsContext';
+import { getRPC } from '../../contexts/RPCContext';
 import {
     SETTINGS_DIALOG_TABS,
     SETTINGS_DIALOG_TABS_ICONS,
     type SettingsDialogActiveTab,
-} from '../constants/layout_tabs';
+} from '../../constants/layout_tabs';
 import { IconFolder } from '@tabler/icons-react';
-import IconTextSideBar from '../ui/layout/IconTextSideBar';
-import SettingsCard from '../components/cards/SettingsCard';
+import IconTextSideBar from '../../ui/layout/IconTextSideBar';
+import SettingsCard from '../../components/cards/SettingsCard';
 
 import styles from './SettingsDialog.module.css';
-import localStyles from '../components/Dialog.module.css';
-import SplitDialogLayout from '../ui/layout/SplitDialogLayout';
+import SplitDialogLayout from '../../ui/layout/SplitDialogLayout';
 
-import ProviderCard from '../components/cards/ProviderCard';
-import ProvidersList from '../components/lists/ProvidersList';
+import ProviderCard from '../../components/cards/ProviderCard';
+import ProvidersList from '../../components/lists/ProvidersList';
 
 interface SettingsRoute {
     tab: SettingsDialogActiveTab;

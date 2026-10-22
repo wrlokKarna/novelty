@@ -53,7 +53,7 @@ import PreviewPane from './components/PreviewPane';
 import FileTabs from './components/FileTabs';
 import ChatPanel from './components/ChatPanel';
 import CompendiumEntryEditor from './components/CompendiumEntryEditor';
-import TimelineDialog from './components/TimelineDialog';
+import TimelineDialog from './dialogs/variants/TimelineDialog';
 import PlotArchitectureView from './components/PlotArchitectureView';
 import ChapterOutlineEditor from './components/ChapterOutlineEditor';
 import PlotHolePanel from './components/PlotHolePanel';

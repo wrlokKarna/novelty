@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
-import Dialog from '../components/Dialog';
-import SubDialog from '../components/SubDialog';
-import AssetPicker from '../components/AssetPicker';
-import SeriesCard from '../components/cards/SeriesCard';
-import ProjectCard from '../components/cards/ProjectCard';
-import { useRPC } from '../contexts/RPCContext';
+import Dialog from '../Dialog';
+import SubDialog from '../SubDialog';
+import AssetPicker from './AssetPicker';
+import SeriesCard from '../../components/cards/SeriesCard';
+import ProjectCard from '../../components/cards/ProjectCard';
+import { useRPC } from '../../contexts/RPCContext';
 import type {
     Project,
     NewProject,
@@ -14,10 +14,10 @@ import type {
     Series,
     NewSeries,
     SeriesArchitecture,
-} from '../types/index';
+} from '../../types/index';
 import styles from './WorkshopDialog.module.css';
 import { IconGridDots, IconLayoutGrid, IconSearch } from '@tabler/icons-react';
-import { groupAndSort } from './../features/workshop/workshop_utils';
+import { groupAndSort } from '../../features/workshop/workshop_utils';
 
 const seriesArchOptions: { value: SeriesArchitecture; label: string }[] = [
     { value: 'duology', label: 'Duology' },
