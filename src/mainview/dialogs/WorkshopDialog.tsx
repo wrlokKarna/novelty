@@ -17,7 +17,7 @@ import type {
 } from '../types/index';
 import styles from './WorkshopDialog.module.css';
 import { IconGridDots, IconLayoutGrid, IconSearch } from '@tabler/icons-react';
-import { groupAndSort } from './../constants/mock';
+import { groupAndSort } from './../features/workshop/workshop_utils';
 
 const seriesArchOptions: { value: SeriesArchitecture; label: string }[] = [
     { value: 'duology', label: 'Duology' },
