@@ -16,7 +16,7 @@ import type {
     SeriesArchitecture,
 } from '../../types/index';
 import styles from './WorkshopDialog.module.css';
-import { IconGridDots, IconLayoutGrid, IconSearch } from '@tabler/icons-react';
+import { IconGridDots, IconLayoutGrid } from '@tabler/icons-react';
 import { groupAndSort } from '../../features/workshop/workshop_utils';
 
 const seriesArchOptions: { value: SeriesArchitecture; label: string }[] = [
@@ -473,19 +473,15 @@ export default function WorkshopDialog({
             onClose={onClose}
             title="Workshop"
             id={styles.workshopDialog}
+            search={{
+                value: searchQuery,
+                onChange: setSearchQuery,
+                placeholder: 'Search projects...',
+            }}
         >
             {/* TOOLBAR */}
             <div className={styles.toolbar}>
                 <div className={styles.buttonGroup}>
-                    <div className={styles.searchBar}>
-                        <IconSearch size={14} />
-                        <input
-                            type="text"
-                            placeholder="Search projects..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
                     <button
                         type="button"
                         className={styles.floatingPillBtn}

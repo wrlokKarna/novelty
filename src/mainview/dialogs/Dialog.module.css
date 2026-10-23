@@ -19,6 +19,11 @@
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
     display: flex;
     flex-direction: column;
+    transition:
+        width 150ms ease,
+        height 150ms ease,
+        max-width 150ms ease,
+        max-height 150ms ease;
 }
 
 .dialog::backdrop {
@@ -43,7 +48,15 @@
     max-height: 800px;
 }
 
+.dialog.expanded {
+    width: 96vw !important;
+    height: 96vh !important;
+    max-width: 96vw !important;
+    max-height: 96vh !important;
+}
+
 .header {
+    position: relative;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -55,6 +68,9 @@
         text-transform: uppercase;
         font-size: 18px;
         color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 }
 
@@ -63,9 +79,83 @@
     align-items: center;
     gap: 10px;
     min-width: 0;
+    z-index: 1;
 }
 
-.closeBtn {
+.headerRight {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    z-index: 1;
+}
+
+.headerSearchWrapper {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: max-content;
+    min-width: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    --dialog-search-scale: 1.6;
+}
+
+.headerSearch {
+    display: flex;
+    align-items: center;
+    /*gap: 8px;*/
+    height: 32px;
+    padding: 0 12px;
+    background: #1a1b1c;
+    border: 1px solid #3c3c3c;
+    border-radius: 16px;
+    box-sizing: border-box;
+    width: 200px;
+    transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.headerSearchWrapper:focus-within .headerSearch,
+.headerSearch:focus-within {
+    width: calc(200px * var(--dialog-search-scale));
+}
+
+.headerSearch svg {
+    color: #8e8e93;
+    flex-shrink: 0;
+}
+
+.headerSearch input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-size: 13px;
+    height: 100%;
+}
+
+.headerSearch input::placeholder {
+    color: #6e6e73;
+}
+
+@keyframes dialogSearchGrow {
+    from {
+        width: 200px;
+    }
+
+    to {
+        width: calc(200px * var(--dialog-search-scale));
+    }
+}
+
+.closeBtn,
+.expandBtn {
     background: transparent;
     border: none;
     color: #aaa;

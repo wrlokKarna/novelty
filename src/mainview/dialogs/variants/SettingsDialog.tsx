@@ -1591,6 +1591,7 @@ export default function SettingsDialog({
     const [activeTab, setActiveTab] = useState<SettingsDialogActiveTab>(
         defaultRoute?.tab ?? 'general'
     );
+    const [settingsSearch, setSettingsSearch] = useState('');
 
     useEffect(() => {
         if (!open || !defaultRoute) return;
@@ -1626,27 +1627,6 @@ export default function SettingsDialog({
         );
     }
 
-    function renderTabHeader() {
-        const activeTabDetails = SETTINGS_DIALOG_TABS.find(
-            (tab) => tab.label === activeTab
-        );
-        return (
-            <>
-                <h3
-                    style={{
-                        textTransform: 'capitalize',
-                        marginLeft: '16px',
-                        display: 'none',
-                    }}
-                >
-                    {activeTabDetails?.label}
-                </h3>
-                <p style={{ display: 'none' }}>
-                    {activeTabDetails?.description}
-                </p>
-            </>
-        );
-    }
     return (
         <Dialog
             open={open}
@@ -1655,6 +1635,11 @@ export default function SettingsDialog({
             large
             hasSidebar
             id={styles.settingsDialog}
+            search={{
+                value: settingsSearch,
+                onChange: setSettingsSearch,
+                placeholder: 'Find in Settings',
+            }}
         >
             <SplitDialogLayout>
                 <>
@@ -1673,22 +1658,6 @@ export default function SettingsDialog({
                     />
 
                     <div className={localStyles.tabPanel}>
-                        <div
-                            className={styles.tabPanelHeader}
-                            style={{ marginBottom: '12px' }}
-                        >
-                            <input
-                                type="search"
-                                name=""
-                                placeholder="Find in Settings"
-                                id=""
-                                style={{
-                                    width: '100%',
-                                    marginBottom: '14px',
-                                }}
-                            />
-                            {renderTabHeader()}
-                        </div>
 
                         {activeTab === 'general' && <GeneralTab />}
                         {activeTab === 'appearance' && <AppearanceTab />}

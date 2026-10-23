@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { IconFile, IconSearch } from '@tabler/icons-react';
+import { IconFile } from '@tabler/icons-react';
 import Dialog from './Dialog';
 import styles from './OpenFileDialog.module.css';
 
@@ -69,25 +69,23 @@ export default function OpenFileDialog({
         } else if (e.key === 'Enter' && filteredFiles.length > 0) {
             e.preventDefault();
             handleSelect(filteredFiles[selectedIndex]);
-        } else if (e.key === 'Escape') {
-            e.preventDefault();
-            onClose();
         }
     }
 
     return (
-        <Dialog open={open} onClose={onClose} title="Open File">
-            <div className={styles.container} onKeyDown={handleKeyDown}>
-                <div className={styles.searchBar}>
-                    <IconSearch size={16} stroke={2} />
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        placeholder="Search recent files..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
+        <Dialog
+            open={open}
+            onClose={onClose}
+            title="Open File"
+            onKeyDown={handleKeyDown}
+            search={{
+                value: searchQuery,
+                onChange: setSearchQuery,
+                placeholder: 'Search recent files...',
+                inputRef,
+            }}
+        >
+            <div className={styles.container}>
                 <div className={styles.fileList}>
                     {filteredFiles.length === 0 ? (
                         <div className={styles.emptyState}>

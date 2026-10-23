@@ -186,35 +186,6 @@
     --card-cover-height: 220px;
 }
 
-.searchBar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    background-color: #1e1e1e;
-    border: 1px solid #3c3c3c;
-    border-radius: 6px;
-    margin-left: 10px;
-}
-
-.searchBar svg {
-    color: #8e8e93;
-    flex-shrink: 0;
-}
-
-.searchBar input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    outline: none;
-    color: #fff;
-    font-size: 13px;
-}
-
-.searchBar input::placeholder {
-    color: #6e6e73;
-}
-
 .viewToggle {
     display: flex;
     gap: 2px;

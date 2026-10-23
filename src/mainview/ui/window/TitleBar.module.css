@@ -491,8 +491,8 @@
 }
 
 .titleBarCenterWrapper {
-    --qa-search-scale: 1.4;
-    --qa-panel-scale: 1.6;
+    --qa-search-scale: 1.6;
+    --qa-panel-scale: 2.2;
 
     position: relative;
     display: flex;
