@@ -202,7 +202,7 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    flex-wrap: wrap;
+    /*flex-wrap: wrap;*/
     padding: 8px 16px;
     background-color: #1a1a1a;
     border: 1px solid #333333;
@@ -230,4 +230,20 @@
     cursor: pointer;
     width: 14px;
     height: 14px;
+}
+
+.subCategoryContainer {
+    width: 0px;
+    overflow: hidden;
+    padding: 0px;
+    transition: width 135s ease;
+    opacity: 0;
+}
+.filterActive {
+    .subCategoryContainer {
+        display: flex;
+        width: max-content;
+        padding: 8px 16px;
+        opacity: 1;
+    }
 }

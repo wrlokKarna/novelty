@@ -14,6 +14,11 @@ import type {
     Organization,
 } from '../../../shared/types/project/compendium';
 import styles from './TimelineDialog.module.css';
+import {
+    IconArrowLeft,
+    IconChevronLeft,
+    IconChevronRight,
+} from '@tabler/icons-react';
 import type { TimelineEvent } from '../../../shared/types/project/timeline';
 
 const EVENT_COLORS: Record<string, string> = {
@@ -500,32 +505,61 @@ export default function TimelineDialog({
     );
 }
 
+type timelineFilterBtn = {
+    cat: 'manuscript' | 'compendium';
+    subCat?: {
+        key: string;
+        checked: boolean;
+    }[];
+    checked?: boolean;
+};
+
 function NewTimeline() {
     const [timelineEvents, setTimeLineEvents] = useState<number[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<string>('');
 
-    const [timelineFilters, setTimelineFilters] = useState<
-        Record<string, boolean>
-    >({
-        manuscript: false,
-        compendium: false,
-    });
+    const [timelineFilters, setTimelineFilters] = useState<timelineFilterBtn[]>(
+        [
+            {
+                cat: 'manuscript',
+                checked: false,
+                subCat: [
+                    { key: 'acts', checked: false },
+                    {
+                        key: 'plot threads',
+                        checked: true,
+                    },
+                ],
+            },
+            {
+                cat: 'compendium',
+                subCat: [
+                    {
+                        key: 'characters',
+                        checked: false,
+                    },
+                    {
+                        key: 'location',
+                        checked: false,
+                    },
+                    {
+                        key: 'organizations',
+                        checked: false,
+                    },
+                    {
+                        key: 'items',
+                        checked: false,
+                    },
+                    {
+                        key: 'lore',
+                        checked: false,
+                    },
+                ],
+            },
+        ]
+    );
 
-    // --- State for Compendium Sub-categories ---
-    const [compendiumSubOptions, setCompendiumSubOptions] = useState({
-        characters: false,
-        location: false,
-        organizations: false,
-        items: false,
-        lore: false,
-    });
-
-    const handleSubOptionToggle = (key: keyof typeof compendiumSubOptions) => {
-        setCompendiumSubOptions((prev) => ({
-            ...prev,
-            [key]: !prev[key],
-        }));
-    };
+    const [filterHovered, setFilterHovered] = useState('');
 
     const maxCol = 7;
     const maxRow = 3;
@@ -534,235 +568,291 @@ function NewTimeline() {
             <div
                 style={{
                     width: '100%',
+                    height: '100%',
                     minHeight: 'max-content',
                     backgroundColor: '#181818',
                     display: 'flex',
                     flexDirection: 'column',
                 }}
             >
-                <button
-                    onClick={() =>
-                        setTimeLineEvents([
-                            ...timelineEvents,
-                            timelineEvents.length + 1,
-                        ])
-                    }
-                    style={{ alignSelf: 'flex-start', margin: '8px 12px' }}
-                >
-                    Add Event
-                </button>
-                <div
-                    className={`${styles.timelineGrid} ${selectedEvent ? styles.insertActive : ''}`}
-                    style={{
-                        display: 'grid',
-                        gridTemplateColumns: `repeat(${maxCol}, 120px)`,
-                        gridTemplateRows: `repeat(${maxRow}, 120px)`,
-                        overflow: 'auto',
-                    }}
-                >
-                    {Array.from({ length: maxCol }, (_, i) => (
-                        <div
-                            key={`col-${i}`}
-                            style={{
-                                gridColumn: `${i + 1}`,
-                                gridRow: `1/ span 5`,
-                                borderRight: '1px solid #4a61726c',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                            }}
-                        >
-                            {i === maxCol - 1 && (
+                <div className="" style={{ flex: '1' }}>
+                    <button
+                        onClick={() =>
+                            setTimeLineEvents([
+                                ...timelineEvents,
+                                timelineEvents.length + 1,
+                            ])
+                        }
+                        style={{ alignSelf: 'flex-start', margin: '8px 12px' }}
+                    >
+                        Add Event
+                    </button>
+                    <div
+                        className={`${styles.timelineGrid} ${selectedEvent ? styles.insertActive : ''}`}
+                        style={{
+                            display: 'grid',
+                            gridTemplateColumns: `repeat(${maxCol}, 120px)`,
+                            gridTemplateRows: `repeat(${maxRow}, 120px)`,
+                            overflow: 'auto',
+                        }}
+                    >
+                        {Array.from({ length: maxCol }, (_, i) => (
+                            <div
+                                key={`col-${i}`}
+                                style={{
+                                    gridColumn: `${i + 1}`,
+                                    gridRow: `1/ span 5`,
+                                    borderRight: '1px solid #4a61726c',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                }}
+                            >
+                                {i === maxCol - 1 && (
+                                    <div
+                                        className={`${styles.insertLine} ${styles.insertCol}`}
+                                    ></div>
+                                )}
                                 <div
                                     className={`${styles.insertLine} ${styles.insertCol}`}
                                 ></div>
-                            )}
+                            </div>
+                        ))}
+                        {Array.from({ length: maxRow }, (_, i) => (
                             <div
-                                className={`${styles.insertLine} ${styles.insertCol}`}
-                            ></div>
-                        </div>
-                    ))}
-                    {Array.from({ length: maxRow }, (_, i) => (
-                        <div
-                            key={`row-${i}`}
-                            style={{
-                                gridColumn: `1/ span ${maxCol}`,
-                                gridRow: `${i + 1}`,
-                                borderBottom: '1px solid #724a4a6c',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                justifyContent: 'space-between',
-                            }}
-                        >
-                            {i === maxRow - 1 && (
+                                key={`row-${i}`}
+                                style={{
+                                    gridColumn: `1/ span ${maxCol}`,
+                                    gridRow: `${i + 1}`,
+                                    borderBottom: '1px solid #724a4a6c',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'space-between',
+                                }}
+                            >
+                                {i === maxRow - 1 && (
+                                    <div
+                                        className={`${styles.insertLine} ${styles.insertRow}`}
+                                    ></div>
+                                )}
                                 <div
                                     className={`${styles.insertLine} ${styles.insertRow}`}
                                 ></div>
-                            )}
-                            <div
-                                className={`${styles.insertLine} ${styles.insertRow}`}
-                            ></div>
-                        </div>
-                    ))}
-                    <div
-                        className="e1"
-                        style={{
-                            gridColumn: '1',
-                            gridRow: '2',
-                            backgroundColor: '#1F1F1F',
-                            border: '1px solid #727272',
-                            borderRadius: '12px',
-                            margin: '12px',
-                            padding: '12px',
-                        }}
-                    >
-                        Event 1
-                    </div>
-                    <div
-                        className="e2"
-                        style={{
-                            gridColumn: '2',
-                            gridRow: '2',
-                            backgroundColor: '#1F1F1F',
-                            border: '1px solid #727272',
-                            borderRadius: '12px',
-                            margin: '12px',
-                            padding: '12px',
-                        }}
-                    >
-                        Event 2
-                    </div>
-                    <div
-                        className="e3"
-                        style={{
-                            gridColumn: '3',
-                            gridRow: '1',
-                            backgroundColor: '#1F1F1F',
-                            border: '1px solid #727272',
-                            borderRadius: '12px',
-                            margin: '12px',
-                            padding: '12px',
-                        }}
-                    >
-                        Event 3
-                    </div>
-                    <div
-                        className="e4"
-                        style={{
-                            gridColumn: '3',
-                            gridRow: '3',
-                            backgroundColor: '#1F1F1F',
-                            border: '1px solid #727272',
-                            borderRadius: '12px',
-                            margin: '12px',
-                            padding: '12px',
-                        }}
-                    >
-                        Event 4
-                    </div>
-                    <div
-                        className="e5"
-                        style={{
-                            gridColumn: '4',
-                            gridRow: '2',
-                            backgroundColor: '#1F1F1F',
-                            border: '1px solid #727272',
-                            borderRadius: '12px',
-                            margin: '12px',
-                            padding: '12px',
-                        }}
-                    >
-                        Event 5
-                    </div>
-                    <div
-                        className="e5"
-                        style={{
-                            gridColumn: '7',
-                            gridRow: '2',
-                            backgroundColor: '#1F1F1F',
-                            border: '1px solid #727272',
-                            borderRadius: '12px',
-                            margin: '12px',
-                            padding: '12px',
-                        }}
-                    >
-                        Event 5
-                    </div>
-                </div>
-
-                <div className="unassisngedEvents">
-                    {timelineEvents.map((e) => (
-                        <button
-                            key={e}
+                            </div>
+                        ))}
+                        <div
+                            className="e1"
                             style={{
-                                width: '120px',
+                                gridColumn: '1',
+                                gridRow: '2',
                                 backgroundColor: '#1F1F1F',
                                 border: '1px solid #727272',
                                 borderRadius: '12px',
                                 margin: '12px',
                                 padding: '12px',
                             }}
-                            onClick={() =>
-                                setSelectedEvent(
-                                    selectedEvent === String(e) ? '' : String(e)
-                                )
-                            }
                         >
-                            {selectedEvent === String(e) ? 'cancel' : e}
-                        </button>
-                    ))}
+                            Event 1
+                        </div>
+                        <div
+                            className="e2"
+                            style={{
+                                gridColumn: '2',
+                                gridRow: '2',
+                                backgroundColor: '#1F1F1F',
+                                border: '1px solid #727272',
+                                borderRadius: '12px',
+                                margin: '12px',
+                                padding: '12px',
+                            }}
+                        >
+                            Event 2
+                        </div>
+                        <div
+                            className="e3"
+                            style={{
+                                gridColumn: '3',
+                                gridRow: '1',
+                                backgroundColor: '#1F1F1F',
+                                border: '1px solid #727272',
+                                borderRadius: '12px',
+                                margin: '12px',
+                                padding: '12px',
+                            }}
+                        >
+                            Event 3
+                        </div>
+                        <div
+                            className="e4"
+                            style={{
+                                gridColumn: '3',
+                                gridRow: '3',
+                                backgroundColor: '#1F1F1F',
+                                border: '1px solid #727272',
+                                borderRadius: '12px',
+                                margin: '12px',
+                                padding: '12px',
+                            }}
+                        >
+                            Event 4
+                        </div>
+                        <div
+                            className="e5"
+                            style={{
+                                gridColumn: '4',
+                                gridRow: '2',
+                                backgroundColor: '#1F1F1F',
+                                border: '1px solid #727272',
+                                borderRadius: '12px',
+                                margin: '12px',
+                                padding: '12px',
+                            }}
+                        >
+                            Event 5
+                        </div>
+                        <div
+                            className="e5"
+                            style={{
+                                gridColumn: '7',
+                                gridRow: '2',
+                                backgroundColor: '#1F1F1F',
+                                border: '1px solid #727272',
+                                borderRadius: '12px',
+                                margin: '12px',
+                                padding: '12px',
+                            }}
+                        >
+                            Event 5
+                        </div>
+                    </div>
+
+                    <div className="unassisngedEvents">
+                        {timelineEvents.map((e) => (
+                            <button
+                                key={e}
+                                style={{
+                                    width: '120px',
+                                    backgroundColor: '#1F1F1F',
+                                    border: '1px solid #727272',
+                                    borderRadius: '12px',
+                                    margin: '12px',
+                                    padding: '12px',
+                                }}
+                                onClick={() =>
+                                    setSelectedEvent(
+                                        selectedEvent === String(e)
+                                            ? ''
+                                            : String(e)
+                                    )
+                                }
+                            >
+                                {selectedEvent === String(e) ? 'cancel' : e}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* CIRCLED AREA: Manuscript, Compendium, and Sub-Categories */}
                 <div className={styles.bottomFilterBar}>
-                    <div className={styles.primaryFilterGroup}>
-                        {Object.keys(timelineFilters).map((fil) => (
-                            <label className={styles.filterCheckboxItem}>
-                                <input
-                                    type="checkbox"
-                                    checked={timelineFilters[fil]}
-                                    onChange={(e) =>
-                                        setTimelineFilters((prev) => ({
-                                            ...prev,
-                                            [fil]: e.target.checked,
-                                        }))
-                                    }
-                                />
-                                {fil}
-                            </label>
+                    <div
+                        className={styles.primaryFilterGroup}
+                        style={{ overflowX: 'auto' }}
+                    >
+                        {timelineFilters.map((filt) => (
+                            <div
+                                className={`${filterHovered === filt.cat ? styles.filterActive : ''}`}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                }}
+                                onMouseEnter={() => setFilterHovered(filt.cat)}
+                                onMouseLeave={() => setFilterHovered('')}
+                            >
+                                <div>
+                                    <label
+                                        className={styles.filterCheckboxItem}
+                                    >
+                                        {!filt.subCat && (
+                                            <input
+                                                type="checkbox"
+                                                checked={filt.checked ?? false}
+                                                onChange={() =>
+                                                    setTimelineFilters((prev) =>
+                                                        prev.map((item) =>
+                                                            item.cat ===
+                                                            filt.cat
+                                                                ? {
+                                                                      ...item,
+                                                                      checked:
+                                                                          !item.checked,
+                                                                  }
+                                                                : item
+                                                        )
+                                                    )
+                                                }
+                                            />
+                                        )}
+                                        {filt.cat}
+
+                                        {filt.subCat &&
+                                            (filterHovered === filt.cat ? (
+                                                <IconChevronLeft size={18} />
+                                            ) : (
+                                                <IconChevronRight size={18} />
+                                            ))}
+                                    </label>
+                                </div>
+                                {filt.subCat && (
+                                    <div
+                                        className={styles.subCategoryContainer}
+                                    >
+                                        {filt.subCat.map((sub) => (
+                                            <label
+                                                key={sub.key}
+                                                className={
+                                                    styles.subCheckboxItem
+                                                }
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={sub.checked}
+                                                    onChange={() =>
+                                                        setTimelineFilters(
+                                                            (prev) =>
+                                                                prev.map(
+                                                                    (item) =>
+                                                                        item.cat ===
+                                                                        filt.cat
+                                                                            ? {
+                                                                                  ...item,
+                                                                                  subCat: item.subCat?.map(
+                                                                                      (
+                                                                                          sc
+                                                                                      ) =>
+                                                                                          sc.key ===
+                                                                                          sub.key
+                                                                                              ? {
+                                                                                                    ...sc,
+                                                                                                    checked:
+                                                                                                        !sc.checked,
+                                                                                                }
+                                                                                              : sc
+                                                                                  ),
+                                                                              }
+                                                                            : item
+                                                                )
+                                                        )
+                                                    }
+                                                />
+                                                {sub.key}
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         ))}
                     </div>
 
                     {/* Appears when Compendium checkbox is clicked */}
-                    {timelineFilters['compendium'] && (
-                        <div className={styles.subCategoryContainer}>
-                            {(
-                                [
-                                    { key: 'characters', label: 'Characters' },
-                                    { key: 'location', label: 'Location' },
-                                    {
-                                        key: 'organizations',
-                                        label: 'Organizations',
-                                    },
-                                    { key: 'items', label: 'Items' },
-                                    { key: 'lore', label: 'Lore' },
-                                ] as const
-                            ).map((sub) => (
-                                <label
-                                    key={sub.key}
-                                    className={styles.subCheckboxItem}
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={compendiumSubOptions[sub.key]}
-                                        onChange={() =>
-                                            handleSubOptionToggle(sub.key)
-                                        }
-                                    />
-                                    {sub.label}
-                                </label>
-                            ))}
-                        </div>
-                    )}
                 </div>
             </div>
         </>
