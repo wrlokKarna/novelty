@@ -504,9 +504,12 @@ function NewTimeline() {
     const [timelineEvents, setTimeLineEvents] = useState<number[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<string>('');
 
-    // --- State for Manuscript & Compendium checkboxes ---
-    const [isManuscript, setIsManuscript] = useState<boolean>(false);
-    const [isCompendium, setIsCompendium] = useState<boolean>(false);
+    const [timelineFilters, setTimelineFilters] = useState<
+        Record<string, boolean>
+    >({
+        manuscript: false,
+        compendium: false,
+    });
 
     // --- State for Compendium Sub-categories ---
     const [compendiumSubOptions, setCompendiumSubOptions] = useState({
@@ -712,31 +715,25 @@ function NewTimeline() {
                 {/* CIRCLED AREA: Manuscript, Compendium, and Sub-Categories */}
                 <div className={styles.bottomFilterBar}>
                     <div className={styles.primaryFilterGroup}>
-                        <label className={styles.filterCheckboxItem}>
-                            <input
-                                type="checkbox"
-                                checked={isManuscript}
-                                onChange={(e) =>
-                                    setIsManuscript(e.target.checked)
-                                }
-                            />
-                            Manuscript
-                        </label>
-
-                        <label className={styles.filterCheckboxItem}>
-                            <input
-                                type="checkbox"
-                                checked={isCompendium}
-                                onChange={(e) =>
-                                    setIsCompendium(e.target.checked)
-                                }
-                            />
-                            Compendium
-                        </label>
+                        {Object.keys(timelineFilters).map((fil) => (
+                            <label className={styles.filterCheckboxItem}>
+                                <input
+                                    type="checkbox"
+                                    checked={timelineFilters[fil]}
+                                    onChange={(e) =>
+                                        setTimelineFilters((prev) => ({
+                                            ...prev,
+                                            [fil]: e.target.checked,
+                                        }))
+                                    }
+                                />
+                                {fil}
+                            </label>
+                        ))}
                     </div>
 
                     {/* Appears when Compendium checkbox is clicked */}
-                    {isCompendium && (
+                    {timelineFilters['compendium'] && (
                         <div className={styles.subCategoryContainer}>
                             {(
                                 [

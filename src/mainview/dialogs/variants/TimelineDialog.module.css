@@ -184,6 +184,7 @@
     color: #b5b5b5;
     cursor: pointer;
     user-select: none;
+    text-transform: capitalize;
 }
 
 .filterCheckboxItem:hover {
