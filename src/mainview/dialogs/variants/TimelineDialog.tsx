@@ -502,6 +502,26 @@ function NewTimeline() {
     const [timelineEvents, setTimeLineEvents] = useState<number[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<string>('');
 
+    // --- State for Manuscript & Compendium checkboxes ---
+    const [isManuscript, setIsManuscript] = useState<boolean>(false);
+    const [isCompendium, setIsCompendium] = useState<boolean>(false);
+
+    // --- State for Compendium Sub-categories ---
+    const [compendiumSubOptions, setCompendiumSubOptions] = useState({
+        characters: false,
+        location: false,
+        organizations: false,
+        items: false,
+        lore: false,
+    });
+
+    const handleSubOptionToggle = (key: keyof typeof compendiumSubOptions) => {
+        setCompendiumSubOptions((prev) => ({
+            ...prev,
+            [key]: !prev[key],
+        }));
+    };
+
     const maxCol = 7;
     const maxRow = 3;
     return (
@@ -511,6 +531,8 @@ function NewTimeline() {
                     width: '100%',
                     minHeight: 'max-content',
                     backgroundColor: '#181818',
+                    display: 'flex',
+                    flexDirection: 'column',
                 }}
             >
                 <button
@@ -520,6 +542,7 @@ function NewTimeline() {
                             timelineEvents.length + 1,
                         ])
                     }
+                    style={{ alignSelf: 'flex-start', margin: '8px 12px' }}
                 >
                     Add Event
                 </button>
@@ -532,32 +555,30 @@ function NewTimeline() {
                         overflow: 'auto',
                     }}
                 >
-                    {' '}
                     {Array.from({ length: maxCol }, (_, i) => (
-                        <>
-                            <div
-                                style={{
-                                    gridColumn: `${i + 1}`,
-                                    gridRow: `1/ span 5`,
-                                    borderRight: '1px solid #4a61726c',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                }}
-                            >
-                                {i === maxCol - 1 && (
-                                    <div
-                                        className={`${styles.insertLine} ${styles.insertCol}`}
-                                    ></div>
-                                )}
-                                {/*i*/}
+                        <div
+                            key={`col-${i}`}
+                            style={{
+                                gridColumn: `${i + 1}`,
+                                gridRow: `1/ span 5`,
+                                borderRight: '1px solid #4a61726c',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                            }}
+                        >
+                            {i === maxCol - 1 && (
                                 <div
                                     className={`${styles.insertLine} ${styles.insertCol}`}
                                 ></div>
-                            </div>
-                        </>
+                            )}
+                            <div
+                                className={`${styles.insertLine} ${styles.insertCol}`}
+                            ></div>
+                        </div>
                     ))}
                     {Array.from({ length: maxRow }, (_, i) => (
                         <div
+                            key={`row-${i}`}
                             style={{
                                 gridColumn: `1/ span ${maxCol}`,
                                 gridRow: `${i + 1}`,
@@ -572,11 +593,9 @@ function NewTimeline() {
                                     className={`${styles.insertLine} ${styles.insertRow}`}
                                 ></div>
                             )}
-                            {/*i*/}
                             <div
                                 className={`${styles.insertLine} ${styles.insertRow}`}
                             ></div>
-                            {/*i*/}
                         </div>
                     ))}
                     <div
@@ -668,6 +687,7 @@ function NewTimeline() {
                 <div className="unassisngedEvents">
                     {timelineEvents.map((e) => (
                         <button
+                            key={e}
                             style={{
                                 width: '120px',
                                 backgroundColor: '#1F1F1F',
@@ -685,6 +705,65 @@ function NewTimeline() {
                             {selectedEvent === String(e) ? 'cancel' : e}
                         </button>
                     ))}
+                </div>
+
+                {/* CIRCLED AREA: Manuscript, Compendium, and Sub-Categories */}
+                <div className={styles.bottomFilterBar}>
+                    <div className={styles.primaryFilterGroup}>
+                        <label className={styles.filterCheckboxItem}>
+                            <input
+                                type="checkbox"
+                                checked={isManuscript}
+                                onChange={(e) =>
+                                    setIsManuscript(e.target.checked)
+                                }
+                            />
+                            Manuscript
+                        </label>
+
+                        <label className={styles.filterCheckboxItem}>
+                            <input
+                                type="checkbox"
+                                checked={isCompendium}
+                                onChange={(e) =>
+                                    setIsCompendium(e.target.checked)
+                                }
+                            />
+                            Compendium
+                        </label>
+                    </div>
+
+                    {/* Appears when Compendium checkbox is clicked */}
+                    {isCompendium && (
+                        <div className={styles.subCategoryContainer}>
+                            {(
+                                [
+                                    { key: 'characters', label: 'Characters' },
+                                    { key: 'location', label: 'Location' },
+                                    {
+                                        key: 'organizations',
+                                        label: 'Organizations',
+                                    },
+                                    { key: 'items', label: 'Items' },
+                                    { key: 'lore', label: 'Lore' },
+                                ] as const
+                            ).map((sub) => (
+                                <label
+                                    key={sub.key}
+                                    className={styles.subCheckboxItem}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={compendiumSubOptions[sub.key]}
+                                        onChange={() =>
+                                            handleSubOptionToggle(sub.key)
+                                        }
+                                    />
+                                    {sub.label}
+                                </label>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         </>
