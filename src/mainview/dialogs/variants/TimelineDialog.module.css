@@ -139,14 +139,13 @@
 
 .insertLine {
     display: none;
-    background-color: #4ec9b066;
-    background-color: var(--accent-subtle);
     background-color: var(--accent-subtle, rgba(240, 160, 80, 0.08));
     border-radius: 8px;
     cursor: pointer;
-    &:hover {
-        background-color: var(--accent);
-    }
+}
+
+.insertLine:hover {
+    background-color: var(--accent, #f0883e);
 }
 
 .insertCol {
@@ -157,4 +156,77 @@
 .insertRow {
     width: 100%;
     height: 4px;
+}
+
+/* --- Added Bottom Checkbox Bar Styles (Circled Area) --- */
+.bottomFilterBar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 20px;
+    background-color: #121212;
+    border-top: 1px solid #282828;
+    margin-top: auto;
+}
+
+.primaryFilterGroup {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.filterCheckboxItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #b5b5b5;
+    cursor: pointer;
+    user-select: none;
+}
+
+.filterCheckboxItem:hover {
+    color: #ffffff;
+}
+
+.filterCheckboxItem input[type='checkbox'] {
+    accent-color: #f0883e;
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
+.subCategoryContainer {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 8px 16px;
+    background-color: #1a1a1a;
+    border: 1px solid #333333;
+    border-radius: 6px;
+    width: fit-content;
+    margin-left: 10px;
+}
+
+.subCheckboxItem {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #8c8c8c;
+    cursor: pointer;
+    user-select: none;
+}
+
+.subCheckboxItem:hover {
+    color: #e0e0e0;
+}
+
+.subCheckboxItem input[type='checkbox'] {
+    accent-color: #f0883e;
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
 }
