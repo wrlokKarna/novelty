@@ -1,6 +1,5 @@
 import {
     BrowserWindow,
-    BrowserView,
     Updater,
     defineElectrobunRPC,
     Utils,
@@ -57,9 +56,14 @@ import { mcpClient, mcpServer } from './temp/mcp/Server.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
 
-const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-await mcpServer.connect(serverTransport);
-await mcpClient.connect(clientTransport);
+try {
+    const [clientTransport, serverTransport] =
+        InMemoryTransport.createLinkedPair();
+    await mcpServer.connect(serverTransport);
+    await mcpClient.connect(clientTransport);
+} catch (err) {
+    console.error('Failed to initialize MCP transport:', err);
+}
 
 const DEV_SERVER_PORT = 5173;
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`;
@@ -982,19 +986,48 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 });
             },
             'ai:get-tools': async () => {
-                const mcpToolsResult = await mcpClient.listTools();
-                console.log('mcp tools', mcpToolsResult);
+                try {
+                    const mcpToolsResult = await mcpClient.listTools();
+                    console.log('mcp tools', mcpToolsResult);
 
-                const llmTools = mcpToolsResult.tools.map((tool) => ({
-                    type: 'function',
-                    function: {
-                        name: tool.name,
-                        description: tool.description,
-                        parameters: tool.inputSchema,
-                    },
-                }));
+                    const llmTools = mcpToolsResult.tools.map((tool) => ({
+                        type: 'function',
+                        function: {
+                            name: tool.name,
+                            description: tool.description,
+                            parameters: tool.inputSchema,
+                        },
+                    }));
 
-                return llmTools;
+                    return llmTools;
+                } catch (error) {
+                    console.error('Error fetching MCP tools in ai:get-tools:', error);
+                    return [];
+                }
+            },
+            'ai:execute-tool': async (params: {
+                name: string;
+                arguments?: Record<string, unknown>;
+            }) => {
+                try {
+                    console.log('Executing MCP tool:', params.name, params.arguments);
+                    const result = await mcpClient.callTool({
+                        name: params.name,
+                        arguments: params.arguments || {},
+                    });
+                    return result as any;
+                } catch (error) {
+                    console.error(`Error executing tool ${params?.name}:`, error);
+                    return {
+                        content: [
+                            {
+                                type: 'text',
+                                text: `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`,
+                            },
+                        ],
+                        isError: true,
+                    };
+                }
             },
             'ai:process-prompt': async (params: ProcessAiPromptParams) => {
                 console.log('entry');

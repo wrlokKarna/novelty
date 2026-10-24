@@ -2,9 +2,21 @@ import { getRPC } from '../../contexts/RPCContext';
 import type { Provider } from '../../types/index';
 import { Model } from '../../utils/ai/providerHelpers';
 
+export interface ToolCall {
+    id?: string;
+    type?: string;
+    function: {
+        name: string;
+        arguments: string;
+    };
+}
+
 export interface ApiMessage {
     role: string;
-    content: string;
+    content: string | null;
+    tool_calls?: ToolCall[];
+    tool_call_id?: string;
+    name?: string;
 }
 
 export interface UserChatMessage {
@@ -38,25 +50,27 @@ export function toApiMessages(messages: ChatMessage[]): ApiMessage[] {
     }));
 }
 
+export interface LLMTool {
+    type: string;
+    function: {
+        name: string;
+        description: string | undefined;
+        parameters: {
+            [x: string]: unknown;
+            type: 'object';
+            properties?: Record<string, object> | undefined;
+            required?: string[] | undefined;
+        };
+    };
+}
+
 export interface ChatCompletionRequest {
     model: string;
     messages: ApiMessage[];
     temperature?: number;
     max_tokens?: number;
     stream?: boolean;
-    tools?: {
-        type: string;
-        function: {
-            name: string;
-            description: string | undefined;
-            parameters: {
-                [x: string]: unknown;
-                type: 'object';
-                properties?: Record<string, object> | undefined;
-                required?: string[] | undefined;
-            };
-        };
-    }[];
+    tools?: LLMTool[];
 }
 
 export interface ChatCompletionResponse {
@@ -68,9 +82,10 @@ export interface ChatCompletionResponse {
         index: number;
         message: {
             role: string;
-            content: string;
+            content: string | null;
             reasoning_content?: string;
             reasoning?: string;
+            tool_calls?: ToolCall[];
         };
         finish_reason: string;
     }[];
@@ -195,11 +210,13 @@ export async function chatCompletion(
         apiMessages.unshift({ role: 'system', content: systemPrompt });
     }
 
+    const tools = await getCachedTools();
+
     const request: ChatCompletionRequest = {
         model: modelLabel,
         messages: apiMessages,
         temperature,
-        tools: (await getCachedTools()) ?? [],
+        ...(tools && tools.length > 0 ? { tools } : {}),
         max_tokens: maxTokens,
         stream: !!onChunk,
     };
@@ -242,6 +259,10 @@ export async function chatCompletion(
         let fullContent = '';
         let fullReasoning = '';
         let usage: ChatCompletionResult['usage'] = null;
+        const streamedToolCalls: Record<
+            number,
+            { id?: string; type: string; function: { name: string; arguments: string } }
+        > = {};
 
         const chunkTimeout = chunkTimeoutMs;
 
@@ -287,23 +308,62 @@ export async function chatCompletion(
                                 total_tokens: parsed.usage.total_tokens ?? 0,
                             };
                         }
-                        const content =
-                            parsed.choices?.[0]?.delta?.content || '';
+                        const delta = parsed.choices?.[0]?.delta;
+                        const content = delta?.content || '';
                         const reasoning =
-                            parsed.choices?.[0]?.delta?.reasoning_content ||
-                            parsed.choices?.[0]?.delta?.reasoning ||
+                            delta?.reasoning_content ||
+                            delta?.reasoning ||
                             '';
-                        fullContent += content;
+                        if (content) {
+                            fullContent += content;
+                            onChunk?.(content);
+                        }
                         if (reasoning) {
                             fullReasoning += reasoning;
                             onReasoningChunk?.(reasoning);
                         }
-                        onChunk?.(content);
+
+                        if (Array.isArray(delta?.tool_calls)) {
+                            for (const tc of delta.tool_calls) {
+                                const idx = tc.index ?? 0;
+                                if (!streamedToolCalls[idx]) {
+                                    streamedToolCalls[idx] = {
+                                        id: tc.id || `call_${idx}_${Date.now()}`,
+                                        type: tc.type || 'function',
+                                        function: {
+                                            name: tc.function?.name || '',
+                                            arguments: '',
+                                        },
+                                    };
+                                }
+                                if (tc.id) {
+                                    streamedToolCalls[idx].id = tc.id;
+                                }
+                                if (tc.function?.name) {
+                                    streamedToolCalls[idx].function.name += tc.function.name;
+                                }
+                                if (tc.function?.arguments) {
+                                    streamedToolCalls[idx].function.arguments += tc.function.arguments;
+                                }
+                            }
+                        }
                     } catch {
                         // Skip invalid JSON
                     }
                 }
             }
+        }
+
+        const toolCallsList = Object.values(streamedToolCalls);
+        if (toolCallsList.length > 0) {
+            return await handleToolCallsAndFollowUp(
+                url,
+                options,
+                apiMessages,
+                toolCallsList,
+                fullContent,
+                controller.signal
+            );
         }
 
         return {
@@ -317,13 +377,195 @@ export async function chatCompletion(
     const choice = result.choices[0];
     const message = choice?.message;
 
+    if (message?.tool_calls && message.tool_calls.length > 0) {
+        return await handleToolCallsAndFollowUp(
+            url,
+            options,
+            apiMessages,
+            message.tool_calls,
+            message.content,
+            controller.signal
+        );
+    }
+
     return {
-        content: result.choices[0]?.message?.content || '',
+        content: message?.content || '',
         reasoning_content:
-            result.choices[0]?.message?.reasoning_content ||
-            result.choices[0]?.message?.reasoning ||
+            message?.reasoning_content ||
+            message?.reasoning ||
             undefined,
         usage: result.usage ?? null,
+    };
+}
+
+async function handleToolCallsAndFollowUp(
+    url: string,
+    options: AICompletionOptions,
+    apiMessages: ApiMessage[],
+    toolCalls: ToolCall[],
+    assistantContent: string | null | undefined,
+    signal?: AbortSignal
+): Promise<ChatCompletionResult> {
+    const { onChunk, onReasoningChunk } = options;
+    const rpc = getRPC();
+
+    // 1. Add assistant message with tool calls to conversation history
+    apiMessages.push({
+        role: 'assistant',
+        content: assistantContent || null,
+        tool_calls: toolCalls,
+    });
+
+    // 2. Execute each tool call via RPC
+    for (const toolCall of toolCalls) {
+        const toolName = toolCall.function.name;
+        let toolArgs: Record<string, unknown> = {};
+
+        if (typeof toolCall.function.arguments === 'string') {
+            try {
+                toolArgs = JSON.parse(toolCall.function.arguments);
+            } catch {
+                toolArgs = {};
+            }
+        } else if (
+            typeof toolCall.function.arguments === 'object' &&
+            toolCall.function.arguments !== null
+        ) {
+            toolArgs = toolCall.function.arguments as Record<string, unknown>;
+        }
+
+        console.log(`[ai.ts] Executing tool '${toolName}' with arguments:`, toolArgs);
+
+        let resultText = '';
+        try {
+            const execResult = await rpc.request['ai:execute-tool']({
+                name: toolName,
+                arguments: toolArgs,
+            });
+
+            if (execResult?.content && Array.isArray(execResult.content)) {
+                resultText = execResult.content
+                    .map((item: { text?: string; [k: string]: unknown }) => item.text || JSON.stringify(item))
+                    .join('\n');
+            } else {
+                resultText = JSON.stringify(execResult);
+            }
+        } catch (error) {
+            console.error(`[ai.ts] Error executing tool '${toolName}':`, error);
+            resultText = `Error executing tool '${toolName}': ${error instanceof Error ? error.message : String(error)}`;
+        }
+
+        console.log(`[ai.ts] Tool '${toolName}' result:`, resultText);
+
+        // 3. Add tool execution result to conversation history
+        apiMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            name: toolName,
+            content: resultText,
+        });
+    }
+
+    // 4. Send follow-up request to LLM with updated apiMessages
+    const modelLabel =
+        options.enabledModel.provider.models.find(
+            (m) => m.id === options.enabledModel.activeModelId
+        )?.label || 'local-model';
+
+    const followUpRequest: ChatCompletionRequest = {
+        model: modelLabel,
+        messages: apiMessages,
+        temperature: options.temperature ?? 0.7,
+        max_tokens: options.maxTokens ?? 2048,
+        stream: !!onChunk,
+    };
+
+    const followUpResponse = await withTimeout(
+        fetch(`${url}/chat/completions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(followUpRequest),
+            signal,
+        }),
+        options.connectTimeoutMs ?? 30_000,
+        signal,
+        'Tool follow-up completion'
+    );
+
+    if (!followUpResponse.ok) {
+        const error = await followUpResponse.text();
+        throw new Error(`AI follow-up request failed: ${followUpResponse.status} ${error}`);
+    }
+
+    if (onChunk && followUpResponse.body) {
+        const reader = followUpResponse.body.getReader();
+        const decoder = new TextDecoder();
+        let followUpContent = '';
+        let followUpReasoning = '';
+        let usage: ChatCompletionResult['usage'] = null;
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            const lines = chunk
+                .split('\n')
+                .filter((line) => line.trim() !== '');
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    const data = line.slice(6);
+                    if (data === '[DONE]') continue;
+
+                    try {
+                        const parsed = JSON.parse(data);
+                        if (parsed.usage) {
+                            usage = {
+                                prompt_tokens: parsed.usage.prompt_tokens ?? 0,
+                                completion_tokens:
+                                    parsed.usage.completion_tokens ?? 0,
+                                total_tokens: parsed.usage.total_tokens ?? 0,
+                            };
+                        }
+                        const content =
+                            parsed.choices?.[0]?.delta?.content || '';
+                        const reasoning =
+                            parsed.choices?.[0]?.delta?.reasoning_content ||
+                            parsed.choices?.[0]?.delta?.reasoning ||
+                            '';
+                        if (content) {
+                            followUpContent += content;
+                            onChunk?.(content);
+                        }
+                        if (reasoning) {
+                            followUpReasoning += reasoning;
+                            onReasoningChunk?.(reasoning);
+                        }
+                    } catch {
+                        // Skip invalid JSON
+                    }
+                }
+            }
+        }
+
+        return {
+            content: followUpContent,
+            reasoning_content: followUpReasoning || undefined,
+            usage,
+        };
+    }
+
+    const followUpResult: ChatCompletionResponse = await followUpResponse.json();
+    return {
+        content: followUpResult.choices[0]?.message?.content || '',
+        reasoning_content:
+            followUpResult.choices[0]?.message?.reasoning_content ||
+            followUpResult.choices[0]?.message?.reasoning ||
+            undefined,
+        usage: followUpResult.usage ?? null,
     };
 }
 
@@ -474,27 +716,19 @@ export async function getCurrentlyLoadedModelInProvider(
         */
 }
 
-let cachedLLMTools:
-    | {
-          type: string;
-          function: {
-              name: string;
-              description: string | undefined;
-              parameters: {
-                  [x: string]: unknown;
-                  type: 'object';
-                  properties?: Record<string, object> | undefined;
-                  required?: string[] | undefined;
-              };
-          };
-      }[]
-    | null = null;
-const rpc = getRPC();
-async function getCachedTools() {
+let cachedLLMTools: LLMTool[] | null = null;
+
+export async function getCachedTools(): Promise<LLMTool[]> {
     if (!cachedLLMTools) {
-        const res = await rpc.request['ai:get-tools']();
-        cachedLLMTools = res;
-        console.log('ctools', res);
+        try {
+            const rpc = getRPC();
+            const res = await rpc.request['ai:get-tools']();
+            cachedLLMTools = res || [];
+            console.log('ctools', res);
+        } catch (error) {
+            console.warn('Failed to load AI tools from RPC:', error);
+            return [];
+        }
     }
-    return cachedLLMTools;
+    return cachedLLMTools ?? [];
 }

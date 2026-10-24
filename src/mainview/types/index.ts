@@ -1230,6 +1230,20 @@ export type SelectorSchema = {
                     };
                 }[];
             };
+            'ai:execute-tool': {
+                params: {
+                    name: string;
+                    arguments?: Record<string, unknown>;
+                };
+                response: {
+                    content: {
+                        type: string;
+                        text?: string;
+                        [key: string]: unknown;
+                    }[];
+                    isError?: boolean;
+                };
+            };
             'ai:process-prompt': {
                 params: ProcessAiPromptParams;
                 response: { text: string };
