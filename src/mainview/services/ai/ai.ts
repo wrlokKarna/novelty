@@ -1,5 +1,6 @@
-import type { Provider } from '../types/index';
-import { Model } from '../utils/ai/providerHelpers';
+import { getRPC } from '../../contexts/RPCContext';
+import type { Provider } from '../../types/index';
+import { Model } from '../../utils/ai/providerHelpers';
 
 export interface ApiMessage {
     role: string;
@@ -43,6 +44,19 @@ export interface ChatCompletionRequest {
     temperature?: number;
     max_tokens?: number;
     stream?: boolean;
+    tools?: {
+        type: string;
+        function: {
+            name: string;
+            description: string | undefined;
+            parameters: {
+                [x: string]: unknown;
+                type: 'object';
+                properties?: Record<string, object> | undefined;
+                required?: string[] | undefined;
+            };
+        };
+    }[];
 }
 
 export interface ChatCompletionResponse {
@@ -185,6 +199,7 @@ export async function chatCompletion(
         model: modelLabel,
         messages: apiMessages,
         temperature,
+        tools: (await getCachedTools()) ?? [],
         max_tokens: maxTokens,
         stream: !!onChunk,
     };
@@ -236,7 +251,7 @@ export async function chatCompletion(
                 readPromise,
                 new Promise<{ done: true; value: undefined }>((_, reject) => {
                     const timer = setTimeout(() => {
-                        reader.cancel().catch(() => { });
+                        reader.cancel().catch(() => {});
                         reject(
                             new AIAbortError(
                                 `No data received for ${Math.round(chunkTimeout / 1000)}s, stream may be stuck`
@@ -299,6 +314,9 @@ export async function chatCompletion(
     }
 
     const result: ChatCompletionResponse = await response.json();
+    const choice = result.choices[0];
+    const message = choice?.message;
+
     return {
         content: result.choices[0]?.message?.content || '',
         reasoning_content:
@@ -402,10 +420,12 @@ export async function getModelsFromProvider(
     }
 }
 
-export async function getCurrentlyLoadedModelInProvider(provider: Provider, modelName: string) {
-
+export async function getCurrentlyLoadedModelInProvider(
+    provider: Provider,
+    modelName: string
+) {
     const baseURL = provider.url.base.replace(/\/$/, '');
-    console.log("modelName", modelName, baseURL)
+    console.log('modelName', modelName, baseURL);
 
     const response = await fetch(`${baseURL}/api/generate`, {
         method: 'POST',
@@ -452,4 +472,29 @@ export async function getCurrentlyLoadedModelInProvider(provider: Provider, mode
         }
     }
         */
+}
+
+let cachedLLMTools:
+    | {
+          type: string;
+          function: {
+              name: string;
+              description: string | undefined;
+              parameters: {
+                  [x: string]: unknown;
+                  type: 'object';
+                  properties?: Record<string, object> | undefined;
+                  required?: string[] | undefined;
+              };
+          };
+      }[]
+    | null = null;
+const rpc = getRPC();
+async function getCachedTools() {
+    if (!cachedLLMTools) {
+        const res = await rpc.request['ai:get-tools']();
+        cachedLLMTools = res;
+        console.log('ctools', res);
+    }
+    return cachedLLMTools;
 }

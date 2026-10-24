@@ -14,7 +14,7 @@ import {
     IconChevronDown,
     IconChevronUp,
 } from '@tabler/icons-react';
-import type { ChatMessage } from '../services/ai';
+import type { ChatMessage } from '../services/ai/ai';
 //import 'highlight.js/styles/github-dark.css';
 
 interface MessageBubbleProps {

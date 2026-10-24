@@ -89,7 +89,6 @@ import ContextChips from './ContextChips';
 import SystemPromptToggle from './SystemPromptToggle';
 import { SettingsDialogActiveTab } from '../constants/layout_tabs';
 import { Model } from '../utils/ai/providerHelpers';
-import { rpcClient } from '../../bun/renderer/rpc';
 
 function smartTruncate(text: string, maxLen = 50): string {
     const cleaned = text
@@ -451,16 +450,19 @@ export default function ChatPanel({
     const handleSubmit = async (prompt?: string) => {
         const text = (prompt ?? input).trim();
         if (!text || isLoading || isStreamingRef.current) return;
-        
+
+        /*
         try {
-            console.log(text);    
-            const result = await rpcClient.request.processAiPrompt({
+            console.log(text);
+            const result = await rpc.request['ai:process-prompt']({
                 prompt: text,
+                model: selectedModel,
             });
             console.log('handleSubmit result', result);
         } catch (err) {
             console.log('RPC Error:', err);
         }
+        */
 
         let sessionId = activeSessionId;
         let sessionIsManuallyNamed: boolean;

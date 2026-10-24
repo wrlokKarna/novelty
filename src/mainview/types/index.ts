@@ -1,3 +1,4 @@
+import { ProcessAiPromptParams } from '../../bun/temp/mainMCP';
 import { Provider } from '../utils/ai/providerHelpers';
 
 export type WindowRequests = {
@@ -1212,6 +1213,26 @@ export type SelectorSchema = {
                     tokenEstimate: number;
                     sources: ContextSource[];
                 };
+            };
+            'ai:get-tools': {
+                params: void;
+                response: {
+                    type: string;
+                    function: {
+                        name: string;
+                        description: string | undefined;
+                        parameters: {
+                            [x: string]: unknown;
+                            type: 'object';
+                            properties?: Record<string, object> | undefined;
+                            required?: string[] | undefined;
+                        };
+                    };
+                }[];
+            };
+            'ai:process-prompt': {
+                params: ProcessAiPromptParams;
+                response: { text: string };
             };
         };
     };

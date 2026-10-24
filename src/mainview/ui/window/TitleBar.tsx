@@ -271,6 +271,21 @@ export function TitleBar({
                     )}
                 </div>
 
+                <div className="">
+                    <button
+                        onClick={async () =>
+                            console.log(
+                                await rpc.request['ai:process-prompt']({
+                                    prompt: 'hey babe',
+                                    model: 'gemma-4-26b-uc:latest',
+                                })
+                            )
+                        }
+                    >
+                        x
+                    </button>
+                </div>
+
                 <div
                     className={`${styles.titleBarRight} electrobun-webkit-app-region-no-drag`}
                 >

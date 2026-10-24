@@ -14,7 +14,7 @@ import { useSettings } from '../../contexts/SettingsContext';
 import {
     checkProviderConnection,
     getModelsFromProvider,
-} from '../../services/ai';
+} from '../../services/ai/ai';
 //import { div } from 'framer-motion/client';
 
 import type { Model, Provider } from './../../utils/ai/providerHelpers';
