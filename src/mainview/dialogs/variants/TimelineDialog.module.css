@@ -159,6 +159,9 @@
 }
 
 /* --- Added Bottom Checkbox Bar Styles (Circled Area) --- */
+
+/* --- Bottom Checkbox Bar Styles --- */
+
 .bottomFilterBar {
     display: flex;
     flex-direction: column;
@@ -175,6 +178,7 @@
     gap: 24px;
 }
 
+/* Main filter options */
 .filterCheckboxItem {
     display: flex;
     align-items: center;
@@ -185,65 +189,139 @@
     cursor: pointer;
     user-select: none;
     text-transform: capitalize;
+    padding: 8px 12px;
+    border-radius: 50px;
 }
 
 .filterCheckboxItem:hover {
     color: #ffffff;
+    background: #262525;
 }
 
-.filterCheckboxItem input[type='checkbox'] {
-    accent-color: #f0883e;
-    cursor: pointer;
-    width: 16px;
-    height: 16px;
-}
-
-.subCategoryContainer {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    /*flex-wrap: wrap;*/
-    padding: 8px 16px;
-    background-color: #1a1a1a;
-    border: 1px solid #333333;
-    border-radius: 6px;
-    width: fit-content;
-    margin-left: 10px;
-}
-
+/* Subcategory options */
 .subCheckboxItem {
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 13px;
-    color: #8c8c8c;
+    color: #a0a0a0;
     cursor: pointer;
     user-select: none;
+    padding: 7px 10px;
+    text-transform: capitalize;
+    border: 1px solid #353535;
+    border-radius: 24px;
+    background: #242424;
+    box-shadow: none;
+    box-sizing: border-box;
 }
 
 .subCheckboxItem:hover {
-    color: #e0e0e0;
+    color: #ffffff;
+    background: #303030;
 }
 
+/* Circular checkboxes */
+.filterCheckboxItem input[type='checkbox'],
 .subCheckboxItem input[type='checkbox'] {
-    accent-color: #f0883e;
+    appearance: none;
+    -webkit-appearance: none;
+
+    position: relative;
+    display: inline-block;
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    padding: 0;
+
+    border: 2px solid #686868;
+    border-radius: 50%;
+    background: transparent;
+    box-shadow: none;
+
     cursor: pointer;
-    width: 14px;
-    height: 14px;
+    box-sizing: border-box;
 }
 
-.subCategoryContainer {
-    width: 0px;
-    overflow: hidden;
-    padding: 0px;
-    transition: width 135s ease;
-    opacity: 0;
+/* Checked checkbox */
+.filterCheckboxItem input[type='checkbox']:checked,
+.subCheckboxItem input[type='checkbox']:checked {
+    border: 2px solid #1680f8;
+    border-radius: 50%;
+    background: #1680f8;
+    appearance: none;
+    -webkit-appearance: none;
+    margin: 0;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1.5px solid #555;
+    outline: none;
+    cursor: pointer;
+    display: grid;
+    place-content: center;
 }
+
+/* Check mark */
+.filterCheckboxItem input[type='checkbox']:checked::after,
+.subCheckboxItem input[type='checkbox']:checked::after {
+    content: '';
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg) translate(-1px, -1px);
+}
+
+/* Active filter pill: one outer border */
+.filterCheckboxItem:has(input[type='checkbox']:checked),
+.subCheckboxItem:has(input[type='checkbox']:checked) {
+    color: #f0f0f0;
+    background: #292929;
+    border: 1px solid #454545;
+    box-shadow: none;
+}
+
+/* Inactive filter pill: one outer border */
+.filterCheckboxItem:has(input[type='checkbox']:not(:checked)),
+.subCheckboxItem:has(input[type='checkbox']:not(:checked)) {
+    color: #a0a0a0;
+    background: #242424;
+    border: 1px solid #353535;
+    box-shadow: none;
+}
+
+/* Subcategory container */
+.subCategoryContainer {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+
+    width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 0;
+    margin-left: 10px;
+
+    box-sizing: border-box;
+    transition:
+        width 0.2s ease,
+        opacity 0.2s ease,
+        padding 0.2s ease;
+}
+
+/* Reveal subcategories when active */
 .filterActive {
     .subCategoryContainer {
         display: flex;
-        width: max-content;
-        padding: 8px 16px;
+        width: fit-content;
+        max-width: 100%;
+        padding: 8px 12px;
+        border-color: #333333;
+        border-radius: 12px;
+        text-transform: capitalize;
         opacity: 1;
     }
 }

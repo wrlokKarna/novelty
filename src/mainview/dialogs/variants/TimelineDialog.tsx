@@ -757,6 +757,15 @@ function NewTimeline() {
                         className={styles.primaryFilterGroup}
                         style={{ overflowX: 'auto' }}
                     >
+                        <button
+                            className={styles.tabSwitch}
+                            style={{
+                                borderRadius: '8px',
+                                border: '1px solid #727272',
+                            }}
+                        >
+                            Open Tabs
+                        </button>
                         {timelineFilters.map((filt) => {
                             const checkedSubCategories =
                                 filt.subCat?.filter((sub) => sub.checked) ?? [];
