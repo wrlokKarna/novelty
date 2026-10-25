@@ -757,64 +757,43 @@ function NewTimeline() {
                         className={styles.primaryFilterGroup}
                         style={{ overflowX: 'auto' }}
                     >
-                        {timelineFilters.map((filt) => (
-                            <div
-                                className={`${filterHovered === filt.cat ? styles.filterActive : ''}`}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                }}
-                                onMouseEnter={() => setFilterHovered(filt.cat)}
-                                onMouseLeave={() => setFilterHovered('')}
-                            >
-                                <div>
-                                    <label
-                                        className={styles.filterCheckboxItem}
-                                    >
-                                        {!filt.subCat && (
-                                            <input
-                                                type="checkbox"
-                                                checked={filt.checked ?? false}
-                                                onChange={() =>
-                                                    setTimelineFilters((prev) =>
-                                                        prev.map((item) =>
-                                                            item.cat ===
-                                                            filt.cat
-                                                                ? {
-                                                                      ...item,
-                                                                      checked:
-                                                                          !item.checked,
-                                                                  }
-                                                                : item
-                                                        )
-                                                    )
-                                                }
-                                            />
-                                        )}
-                                        {filt.cat}
+                        {timelineFilters.map((filt) => {
+                            const checkedSubCategories =
+                                filt.subCat?.filter((sub) => sub.checked) ?? [];
 
-                                        {filt.subCat &&
-                                            (filterHovered === filt.cat ? (
-                                                <IconChevronLeft size={18} />
-                                            ) : (
-                                                <IconChevronRight size={18} />
-                                            ))}
-                                    </label>
-                                </div>
-                                {filt.subCat && (
-                                    <div
-                                        className={styles.subCategoryContainer}
-                                    >
-                                        {filt.subCat.map((sub) => (
-                                            <label
-                                                key={sub.key}
-                                                className={
-                                                    styles.subCheckboxItem
-                                                }
-                                            >
+                            const uncheckedSubCategories =
+                                filt.subCat?.filter((sub) => !sub.checked) ??
+                                [];
+
+                            return (
+                                <div
+                                    key={filt.cat}
+                                    className={`${
+                                        filterHovered === filt.cat
+                                            ? styles.filterActive
+                                            : ''
+                                    }`}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                    }}
+                                    onMouseEnter={() =>
+                                        setFilterHovered(filt.cat)
+                                    }
+                                    onMouseLeave={() => setFilterHovered('')}
+                                >
+                                    <div>
+                                        <label
+                                            className={
+                                                styles.filterCheckboxItem
+                                            }
+                                        >
+                                            {!filt.subCat && (
                                                 <input
                                                     type="checkbox"
-                                                    checked={sub.checked}
+                                                    checked={
+                                                        filt.checked ?? false
+                                                    }
                                                     onChange={() =>
                                                         setTimelineFilters(
                                                             (prev) =>
@@ -824,32 +803,165 @@ function NewTimeline() {
                                                                         filt.cat
                                                                             ? {
                                                                                   ...item,
-                                                                                  subCat: item.subCat?.map(
-                                                                                      (
-                                                                                          sc
-                                                                                      ) =>
-                                                                                          sc.key ===
-                                                                                          sub.key
-                                                                                              ? {
-                                                                                                    ...sc,
-                                                                                                    checked:
-                                                                                                        !sc.checked,
-                                                                                                }
-                                                                                              : sc
-                                                                                  ),
+                                                                                  checked:
+                                                                                      !item.checked,
                                                                               }
                                                                             : item
                                                                 )
                                                         )
                                                     }
                                                 />
-                                                {sub.key}
-                                            </label>
-                                        ))}
+                                            )}
+
+                                            {filt.cat}
+
+                                            {filt.subCat &&
+                                                checkedSubCategories.length <=
+                                                    0 &&
+                                                (filterHovered === filt.cat ? (
+                                                    <IconChevronLeft
+                                                        size={18}
+                                                    />
+                                                ) : (
+                                                    <IconChevronRight
+                                                        size={18}
+                                                    />
+                                                ))}
+                                        </label>
                                     </div>
-                                )}
-                            </div>
-                        ))}
+
+                                    {/* Checked options remain visible on the left */}
+                                    {filt.subCat && (
+                                        <div
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                            }}
+                                        >
+                                            {checkedSubCategories.map((sub) => (
+                                                <label
+                                                    key={sub.key}
+                                                    className={
+                                                        styles.subCheckboxItem
+                                                    }
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={sub.checked}
+                                                        onChange={() =>
+                                                            setTimelineFilters(
+                                                                (prev) =>
+                                                                    prev.map(
+                                                                        (
+                                                                            item
+                                                                        ) =>
+                                                                            item.cat ===
+                                                                            filt.cat
+                                                                                ? {
+                                                                                      ...item,
+                                                                                      subCat: item.subCat?.map(
+                                                                                          (
+                                                                                              sc
+                                                                                          ) =>
+                                                                                              sc.key ===
+                                                                                              sub.key
+                                                                                                  ? {
+                                                                                                        ...sc,
+                                                                                                        checked:
+                                                                                                            !sc.checked,
+                                                                                                    }
+                                                                                                  : sc
+                                                                                      ),
+                                                                                  }
+                                                                                : item
+                                                                    )
+                                                            )
+                                                        }
+                                                    />
+                                                    {sub.key}
+                                                </label>
+                                            ))}
+                                            {filt.subCat &&
+                                                checkedSubCategories.length >
+                                                    0 &&
+                                                checkedSubCategories.length !==
+                                                    filt.subCat.length &&
+                                                (filterHovered === filt.cat ? (
+                                                    <IconChevronLeft
+                                                        size={18}
+                                                    />
+                                                ) : (
+                                                    <IconChevronRight
+                                                        size={18}
+                                                    />
+                                                ))}
+                                        </div>
+                                    )}
+
+                                    {/* Unchecked options appear inside the expandable menu */}
+                                    {filt.subCat &&
+                                        uncheckedSubCategories.length > 0 &&
+                                        filterHovered === filt.cat && (
+                                            <div
+                                                className={
+                                                    styles.subCategoryContainer
+                                                }
+                                            >
+                                                {uncheckedSubCategories.map(
+                                                    (sub) => (
+                                                        <label
+                                                            key={sub.key}
+                                                            className={
+                                                                styles.subCheckboxItem
+                                                            }
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={
+                                                                    sub.checked
+                                                                }
+                                                                onChange={() =>
+                                                                    setTimelineFilters(
+                                                                        (
+                                                                            prev
+                                                                        ) =>
+                                                                            prev.map(
+                                                                                (
+                                                                                    item
+                                                                                ) =>
+                                                                                    item.cat ===
+                                                                                    filt.cat
+                                                                                        ? {
+                                                                                              ...item,
+                                                                                              subCat: item.subCat?.map(
+                                                                                                  (
+                                                                                                      sc
+                                                                                                  ) =>
+                                                                                                      sc.key ===
+                                                                                                      sub.key
+                                                                                                          ? {
+                                                                                                                ...sc,
+                                                                                                                checked:
+                                                                                                                    !sc.checked,
+                                                                                                            }
+                                                                                                          : sc
+                                                                                              ),
+                                                                                          }
+                                                                                        : item
+                                                                            )
+                                                                    )
+                                                                }
+                                                            />
+                                                            {sub.key}
+                                                        </label>
+                                                    )
+                                                )}
+                                            </div>
+                                        )}
+                                </div>
+                            );
+                        })}
                     </div>
 
                     {/* Appears when Compendium checkbox is clicked */}
