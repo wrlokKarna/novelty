@@ -110,6 +110,8 @@ export interface AICompletionOptions {
     signal?: AbortSignal;
     connectTimeoutMs?: number;
     chunkTimeoutMs?: number;
+    supportsTools?: boolean;
+    onToolSupportDetermined?: (modelId: string, supports: boolean) => void;
 }
 
 export interface ChatCompletionResult {
@@ -198,20 +200,42 @@ export async function chatCompletion(
         chunkTimeoutMs = 120_000,
     } = options;
 
-    const modelLabel =
-        options.enabledModel.provider.models.find(
-            (m) => m.id === options.enabledModel.activeModelId
-        )?.label || 'local-model';
+    const activeModel = options.enabledModel.provider.models.find(
+        (m) => m.id === options.enabledModel.activeModelId
+    );
+    const modelLabel = activeModel?.label || 'local-model';
 
     console.log('ai.ts', modelLabel);
+
+    let toolsSupported: boolean =
+        options.supportsTools ?? activeModel?.supportsTools ?? false;
+    if (
+        options.supportsTools === undefined &&
+        activeModel?.supportsTools === undefined
+    ) {
+        const cacheKey = `${url}:${modelLabel}`;
+        if (toolSupportCache.has(cacheKey)) {
+            toolsSupported = toolSupportCache.get(cacheKey)!;
+        } else {
+            toolsSupported = await checkModelToolSupport(url, modelLabel);
+            toolSupportCache.set(cacheKey, toolsSupported);
+            if (activeModel) {
+                options.onToolSupportDetermined?.(
+                    activeModel.id,
+                    toolsSupported
+                );
+            }
+        }
+    }
 
     const apiMessages = toApiMessages(messages);
     if (systemPrompt) {
         apiMessages.unshift({ role: 'system', content: systemPrompt });
     }
 
-    const tools = await getCachedTools();
-
+    const tools = toolsSupported ? await getCachedTools() : undefined;
+    console.log('[checked tools]', tools);
+    console.log({ ...(tools && tools.length > 0 ? { tools } : {}) });
     const request: ChatCompletionRequest = {
         model: modelLabel,
         messages: apiMessages,
@@ -261,7 +285,11 @@ export async function chatCompletion(
         let usage: ChatCompletionResult['usage'] = null;
         const streamedToolCalls: Record<
             number,
-            { id?: string; type: string; function: { name: string; arguments: string } }
+            {
+                id?: string;
+                type: string;
+                function: { name: string; arguments: string };
+            }
         > = {};
 
         const chunkTimeout = chunkTimeoutMs;
@@ -311,9 +339,7 @@ export async function chatCompletion(
                         const delta = parsed.choices?.[0]?.delta;
                         const content = delta?.content || '';
                         const reasoning =
-                            delta?.reasoning_content ||
-                            delta?.reasoning ||
-                            '';
+                            delta?.reasoning_content || delta?.reasoning || '';
                         if (content) {
                             fullContent += content;
                             onChunk?.(content);
@@ -324,11 +350,14 @@ export async function chatCompletion(
                         }
 
                         if (Array.isArray(delta?.tool_calls)) {
+                            console.log('[delta tools]', delta?.tool_calls);
                             for (const tc of delta.tool_calls) {
                                 const idx = tc.index ?? 0;
                                 if (!streamedToolCalls[idx]) {
                                     streamedToolCalls[idx] = {
-                                        id: tc.id || `call_${idx}_${Date.now()}`,
+                                        id:
+                                            tc.id ||
+                                            `call_${idx}_${Date.now()}`,
                                         type: tc.type || 'function',
                                         function: {
                                             name: tc.function?.name || '',
@@ -339,11 +368,27 @@ export async function chatCompletion(
                                 if (tc.id) {
                                     streamedToolCalls[idx].id = tc.id;
                                 }
+                                /*
                                 if (tc.function?.name) {
-                                    streamedToolCalls[idx].function.name += tc.function.name;
+                                    streamedToolCalls[idx].function.name +=
+                                        tc.function.name;
+                                }
+                                */
+                                if (tc.function?.name) {
+                                    if (
+                                        !streamedToolCalls[
+                                            idx
+                                        ].function.name.endsWith(
+                                            tc.function.name
+                                        )
+                                    ) {
+                                        streamedToolCalls[idx].function.name +=
+                                            tc.function.name;
+                                    }
                                 }
                                 if (tc.function?.arguments) {
-                                    streamedToolCalls[idx].function.arguments += tc.function.arguments;
+                                    streamedToolCalls[idx].function.arguments +=
+                                        tc.function.arguments;
                                 }
                             }
                         }
@@ -391,9 +436,7 @@ export async function chatCompletion(
     return {
         content: message?.content || '',
         reasoning_content:
-            message?.reasoning_content ||
-            message?.reasoning ||
-            undefined,
+            message?.reasoning_content || message?.reasoning || undefined,
         usage: result.usage ?? null,
     };
 }
@@ -416,9 +459,11 @@ async function handleToolCallsAndFollowUp(
         tool_calls: toolCalls,
     });
 
-    // 2. Execute each tool call via RPC
+    console.log('[toolCalls]', toolCalls);
+
     for (const toolCall of toolCalls) {
         const toolName = toolCall.function.name;
+        console.log('[toolName]', toolName);
         let toolArgs: Record<string, unknown> = {};
 
         if (typeof toolCall.function.arguments === 'string') {
@@ -434,7 +479,10 @@ async function handleToolCallsAndFollowUp(
             toolArgs = toolCall.function.arguments as Record<string, unknown>;
         }
 
-        console.log(`[ai.ts] Executing tool '${toolName}' with arguments:`, toolArgs);
+        console.log(
+            `[ai.ts] Executing tool '${toolName}' with arguments:`,
+            toolArgs
+        );
 
         let resultText = '';
         try {
@@ -445,7 +493,10 @@ async function handleToolCallsAndFollowUp(
 
             if (execResult?.content && Array.isArray(execResult.content)) {
                 resultText = execResult.content
-                    .map((item: { text?: string; [k: string]: unknown }) => item.text || JSON.stringify(item))
+                    .map(
+                        (item: { text?: string; [k: string]: unknown }) =>
+                            item.text || JSON.stringify(item)
+                    )
                     .join('\n');
             } else {
                 resultText = JSON.stringify(execResult);
@@ -496,7 +547,9 @@ async function handleToolCallsAndFollowUp(
 
     if (!followUpResponse.ok) {
         const error = await followUpResponse.text();
-        throw new Error(`AI follow-up request failed: ${followUpResponse.status} ${error}`);
+        throw new Error(
+            `AI follow-up request failed: ${followUpResponse.status} ${error}`
+        );
     }
 
     if (onChunk && followUpResponse.body) {
@@ -558,7 +611,8 @@ async function handleToolCallsAndFollowUp(
         };
     }
 
-    const followUpResult: ChatCompletionResponse = await followUpResponse.json();
+    const followUpResult: ChatCompletionResponse =
+        await followUpResponse.json();
     return {
         content: followUpResult.choices[0]?.message?.content || '',
         reasoning_content:
@@ -714,6 +768,62 @@ export async function getCurrentlyLoadedModelInProvider(
         }
     }
         */
+}
+
+export const toolSupportCache = new Map<string, boolean>();
+
+export async function checkModelToolSupport(
+    endpoint: string,
+    modelLabel: string
+): Promise<boolean> {
+    try {
+        const testRequest = {
+            model: modelLabel,
+            messages: [{ role: 'user', content: 'test' }],
+            max_tokens: 1,
+            tools: [
+                {
+                    type: 'function',
+                    function: {
+                        name: 'probe_tool_support',
+                        description: 'Probe tool capability',
+                        parameters: {
+                            type: 'object',
+                            properties: {},
+                        },
+                    },
+                },
+            ],
+        };
+
+        const res = await fetch(`${endpoint}/chat/completions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(testRequest),
+        });
+
+        if (res.ok) {
+            return true;
+        }
+
+        const errorText = await res.text();
+        const lower = errorText.toLowerCase();
+        if (
+            res.status === 400 ||
+            res.status === 422 ||
+            lower.includes('tool') ||
+            lower.includes('function')
+        ) {
+            return false;
+        }
+
+        return false;
+    } catch (e) {
+        console.warn('Failed to probe tool support for model:', modelLabel, e);
+        return false;
+    }
 }
 
 let cachedLLMTools: LLMTool[] | null = null;

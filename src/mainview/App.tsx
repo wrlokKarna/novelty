@@ -1370,13 +1370,14 @@ function App() {
     async function handleCreateCompendiumEntryFromAI(
         category: CompendiumCategory,
         name: string,
-        templateData: Record<string, unknown>
+        templateData: Record<string, unknown>,
+        existingId?: string
     ): Promise<string | null> {
         if (!currentProject) return null;
-        const id = crypto.randomUUID();
+        const id = existingId || crypto.randomUUID();
+        const isUpdate = Boolean(existingId);
 
         try {
-            // Check template mismatches
             const resolved = await rpc.request['db:get-resolved-template']({
                 projectId: currentProject.id,
                 baseType: category,
@@ -1454,6 +1455,49 @@ function App() {
                             newResolved?.columns ?? DEFAULT_TEMPLATE_COLUMNS,
                     }));
                 }
+            }
+
+            if (isUpdate) {
+                const data = {
+                    name,
+                    templateData: finalTemplateData,
+                } as any;
+                switch (category) {
+                    case 'character':
+                        await rpc.request['db:update-character']({
+                            id,
+                            data,
+                        });
+                        break;
+                    case 'location':
+                        await rpc.request['db:update-location']({
+                            id,
+                            data,
+                        });
+                        break;
+                    case 'organization':
+                        await rpc.request['db:update-organization']({
+                            id,
+                            data,
+                        });
+                        break;
+                    case 'item':
+                        await rpc.request['db:update-item']({
+                            id,
+                            data,
+                        });
+                        break;
+                    case 'lore':
+                        await rpc.request['db:update-lore-entry']({
+                            id,
+                            data,
+                        });
+                        break;
+                }
+                if (currentProject) {
+                    await loadCompendium(currentProject.id);
+                }
+                return id;
             }
 
             let newEntry: unknown;

@@ -3,8 +3,9 @@ import {
     CallToolResultSchema,
     ListToolsResultSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+import { mcpServer } from '../services/mcp/server';
 
-import { mcpServer } from './mcp/Server';
+//import { mcpServer } from './mcp/Server';
 
 export interface ProcessAiPromptParams {
     prompt: string;

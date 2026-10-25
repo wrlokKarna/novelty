@@ -35,6 +35,7 @@ export interface BuildContextParams {
     scenes?: StoryScene[];
     sequences?: StorySequence[];
     resolvedTemplates?: Partial<Record<CompendiumCategory, FieldDefinition[]>>;
+    supportsTools?: boolean;
 }
 
 export interface BuildContextResult {
@@ -43,7 +44,7 @@ export interface BuildContextResult {
 }
 
 const ENTRY_PROMPT_INSTRUCTION =
-    '\n\nWhen asked to create a character, location, organization, item, or lore entry, append a JSON code block at the end of your response:\n```entry-data\n{"category": "character|location|organization|item|lore", "name": "Entry Name", "fields": {"field1": "value1", ...}}\n```\nInclude all relevant attributes in the fields object.';
+    '\n\nWhen asked to create or update a character, location, organization, item, or lore entry, append a JSON code block at the end of your response:\n```entry-data\n{"category": "character|location|organization|item|lore", "id": "optional-existing-id", "name": "Entry Name", "fields": {"field1": "value1", ...}}\n```\nInclude all relevant attributes in the fields object. If updating an already existing entry, include its "id".';
 
 function formatProjectPrompt(project: Project): string {
     const lines: string[] = [];
@@ -113,7 +114,7 @@ function formatCharacterEntity(
     ch: Character,
     resolvedFields?: FieldDefinition[]
 ): string {
-    const parts: string[] = [`\n[Character: "${ch.name}"]`];
+    const parts: string[] = [`\n[Character: "${ch.name}" (id: "${ch.id}")]`];
     parts.push(...formatTemplateData(ch.templateData, resolvedFields));
     return parts.join('\n');
 }
@@ -122,7 +123,7 @@ function formatLocationEntity(
     loc: Location,
     resolvedFields?: FieldDefinition[]
 ): string {
-    const parts: string[] = [`\n[Location: "${loc.name}"]`];
+    const parts: string[] = [`\n[Location: "${loc.name}" (id: "${loc.id}")]`];
     parts.push(...formatTemplateData(loc.templateData, resolvedFields));
     return parts.join('\n');
 }
@@ -131,7 +132,9 @@ function formatOrganizationEntity(
     org: Organization,
     resolvedFields?: FieldDefinition[]
 ): string {
-    const parts: string[] = [`\n[Organization: "${org.name}"]`];
+    const parts: string[] = [
+        `\n[Organization: "${org.name}" (id: "${org.id}")]`,
+    ];
     parts.push(...formatTemplateData(org.templateData, resolvedFields));
     return parts.join('\n');
 }
@@ -140,7 +143,7 @@ function formatItemEntity(
     item: Item,
     resolvedFields?: FieldDefinition[]
 ): string {
-    const parts: string[] = [`\n[Item: "${item.name}"]`];
+    const parts: string[] = [`\n[Item: "${item.name}" (id: "${item.id}")]`];
     parts.push(...formatTemplateData(item.templateData, resolvedFields));
     return parts.join('\n');
 }
@@ -149,7 +152,7 @@ function formatLoreEntity(
     lore: LoreEntry,
     resolvedFields?: FieldDefinition[]
 ): string {
-    const parts: string[] = [`\n[Lore: "${lore.name}"]`];
+    const parts: string[] = [`\n[Lore: "${lore.name}" (id: "${lore.id}")]`];
     parts.push(...formatTemplateData(lore.templateData, resolvedFields));
     return parts.join('\n');
 }
@@ -189,11 +192,12 @@ export function buildContext(params: BuildContextParams): BuildContextResult {
         scenes,
         sequences,
         resolvedTemplates,
+        supportsTools,
     } = params;
 
     const protectedParts: string[] = [
         formatProjectPrompt(project),
-        ENTRY_PROMPT_INSTRUCTION,
+        ...(!supportsTools ? [ENTRY_PROMPT_INSTRUCTION] : []),
         customPrompt?.trim() ? `\n${customPrompt.trim()}` : '',
     ].filter(Boolean);
 

@@ -55,8 +55,15 @@ export default function CompendiumEntryEditor({
     }
 
     const [entryLabel, setEntryLabel] = useState(entry.name);
+
     useEffect(() => {
-        onUpdate('name', entryLabel);
+        setEntryLabel(entry.name);
+    }, [entry?.id]);
+
+    useEffect(() => {
+        if (entryLabel !== entry.name) {
+            onUpdate('name', entryLabel);
+        }
     }, [entryLabel]);
 
     return (

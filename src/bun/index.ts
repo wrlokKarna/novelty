@@ -52,9 +52,11 @@ import { buildContext } from './services/contextEngine';
 import { sqliteVecAvailable } from './database/index';
 
 import { ProcessAiPromptParams } from './temp/mainMCP.js';
-import { mcpClient, mcpServer } from './temp/mcp/Server.js';
+
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
+import { mcpClient } from './services/mcp/client.js';
+import { mcpServer } from './services/mcp/server.js';
 
 try {
     const [clientTransport, serverTransport] =
@@ -1001,7 +1003,10 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
 
                     return llmTools;
                 } catch (error) {
-                    console.error('Error fetching MCP tools in ai:get-tools:', error);
+                    console.error(
+                        'Error fetching MCP tools in ai:get-tools:',
+                        error
+                    );
                     return [];
                 }
             },
@@ -1010,14 +1015,21 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 arguments?: Record<string, unknown>;
             }) => {
                 try {
-                    console.log('Executing MCP tool:', params.name, params.arguments);
+                    console.log(
+                        'Executing MCP tool:',
+                        params.name,
+                        params.arguments
+                    );
                     const result = await mcpClient.callTool({
                         name: params.name,
                         arguments: params.arguments || {},
                     });
                     return result as any;
                 } catch (error) {
-                    console.error(`Error executing tool ${params?.name}:`, error);
+                    console.error(
+                        `Error executing tool ${params?.name}:`,
+                        error
+                    );
                     return {
                         content: [
                             {

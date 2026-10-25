@@ -40,6 +40,7 @@ export async function buildBaseSystemPrompt({
     scenes,
     sequences,
     resolvedTemplates,
+    supportsTools,
 }: BuildBaseSystemPromptParams): Promise<BaseSystemPromptResult> {
     if (!project) return { systemPrompt: null };
 
@@ -76,6 +77,7 @@ export async function buildBaseSystemPrompt({
         scenes,
         sequences,
         resolvedTemplates,
+        supportsTools,
     });
     return {
         systemPrompt: result.systemPrompt,

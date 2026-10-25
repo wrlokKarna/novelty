@@ -122,7 +122,8 @@ interface ChatPanelProps {
     onCreateCompendiumEntry?: (
         category: CompendiumCategory,
         name: string,
-        templateData: Record<string, unknown>
+        templateData: Record<string, unknown>,
+        existingId?: string
     ) => Promise<string | null>;
     onExtractEntities?: (
         entries: ParsedEntry[],
@@ -167,7 +168,7 @@ export default function ChatPanel({
     resolvedTemplates,
     onCreateScenesAndSequences,
 }: ChatPanelProps) {
-    const { settings } = useSettings();
+    const { settings, updateProviderConf } = useSettings();
 
     const rpc = getRPC();
     const [input, setInput] = useState('');
@@ -211,7 +212,7 @@ export default function ChatPanel({
     }, [enabledProviders]);
 
     const [selectedModel, setSelectedModel] = useState<string>('');
-    console.log('selectedModel1', selectedModel);
+    //console.log('selectedModel1', selectedModel);
 
     // needs refactor
     const enabledModel = useMemo(() => {
@@ -234,7 +235,7 @@ export default function ChatPanel({
             activeModelId: selectedModel,
         };
     }, [selectedModel, enabledProviders]);
-    console.log('enabledModel', enabledModel);
+    //console.log('enabledModel', enabledModel);
 
     /*
     return {
@@ -551,6 +552,9 @@ export default function ChatPanel({
                 scenes,
                 sequences,
                 resolvedTemplates,
+                supportsTools: enabledModel.provider.models.find(
+                    (m) => m.id === enabledModel.activeModelId
+                )?.supportsTools,
             });
 
             if (ctxResult.systemPrompt) {
@@ -830,6 +834,10 @@ export default function ChatPanel({
 
             const completionMaxTokens = isAnalysisCommand ? 16384 : undefined;
 
+            const activeModel = enabledModel.provider.models.find(
+                (m) => m.id === enabledModel.activeModelId
+            );
+
             const result = await chatCompletion(endpoint, {
                 enabledModel,
                 messages: [...messages, userMessage],
@@ -837,6 +845,26 @@ export default function ChatPanel({
                 maxTokens: completionMaxTokens,
                 signal: abortController.signal,
                 chunkTimeoutMs: isAnalysisCommand ? 300_000 : 120_000,
+                supportsTools: activeModel?.supportsTools,
+                onToolSupportDetermined: (modelId, isSupported) => {
+                    if (!settings) return;
+                    const providerIndex = settings.providers.configs.findIndex(
+                        (p) => p.id === enabledModel.provider.id
+                    );
+                    if (providerIndex !== -1) {
+                        const providerConfig =
+                            settings.providers.configs[providerIndex];
+                        const updatedModels = providerConfig.models.map((m) =>
+                            m.id === modelId
+                                ? { ...m, supportsTools: isSupported }
+                                : m
+                        );
+                        updateProviderConf(providerIndex, {
+                            ...providerConfig,
+                            models: updatedModels,
+                        });
+                    }
+                },
                 onChunk: (chunk) => {
                     streamedContentRef.current += chunk;
                     if (rafIdRef.current === null) {
@@ -1871,6 +1899,7 @@ export default function ChatPanel({
                                 slashOverride?.category || entryData?.category;
                             const effectiveName =
                                 slashOverride?.name || entryData?.name;
+                            const isUpdate = Boolean(entryData?.existingId);
                             const createEntryBtn =
                                 entryData &&
                                 effectiveCategory &&
@@ -1884,7 +1913,8 @@ export default function ChatPanel({
                                                 await onCreateCompendiumEntry(
                                                     effectiveCategory!,
                                                     effectiveName!,
-                                                    entryData.templateData
+                                                    entryData.templateData,
+                                                    entryData.existingId
                                                 );
                                                 setPendingEntryData((prev) => {
                                                     const copy = { ...prev };
@@ -1896,7 +1926,11 @@ export default function ChatPanel({
                                             }
                                         }}
                                         disabled={creatingEntryId === msg.id}
-                                        title={`Create ${effectiveCategory} entry`}
+                                        title={
+                                            isUpdate
+                                                ? `Update ${effectiveCategory} entry`
+                                                : `Create ${effectiveCategory} entry`
+                                        }
                                     >
                                         {creatingEntryId === msg.id ? (
                                             <IconLoader2
@@ -1912,7 +1946,9 @@ export default function ChatPanel({
                                                 marginLeft: '2px',
                                             }}
                                         >
-                                            {effectiveCategory}
+                                            {isUpdate
+                                                ? `update ${effectiveCategory}`
+                                                : effectiveCategory}
                                         </span>
                                     </button>
                                 ) : undefined;

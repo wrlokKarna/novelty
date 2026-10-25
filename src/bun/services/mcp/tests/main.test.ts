@@ -1,9 +1,13 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { mcpServer } from './Server.ts';
-import { db, sqlite } from '../db/McpIndex.ts';
-import { characters } from '../db/McpSchema.ts';
+//import { mcpServer } from './Server.ts';
+//import { db, sqlite } from '../db/McpIndex.ts';
+//import { characters } from '../db/McpSchema.ts';
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
+import { db } from '../../../database';
+import { characters } from '../../../schema';
+import { sqlite } from '../../../temp/db/McpIndex';
+import { mcpServer } from '../server';
 
 async function runPhase1Tests() {
     console.log('Test-mcp ');
@@ -18,14 +22,11 @@ async function runPhase1Tests() {
       status TEXT DEFAULT 'Alive'
       );`);
 
-        // 1. Create a linked pair of in-memory transports
         const [clientTransport, serverTransport] =
             InMemoryTransport.createLinkedPair();
 
-        // 2. Connect the McpServer to the server side of the transport
         await mcpServer.connect(serverTransport);
 
-        // 3. Initialize an MCP Client connected to the client side
         const client = new Client(
             { name: 'test-client', version: '1.0.0' },
             { capabilities: {} }
@@ -37,7 +38,6 @@ async function runPhase1Tests() {
             '🔌 Connected MCP Client & Server via InMemoryTransport.\n'
         );
 
-        // Helper to invoke MCP tools using the standard MCP protocol schema
         const createCharRes = await client.callTool(
             {
                 name: 'create_character',
@@ -52,7 +52,6 @@ async function runPhase1Tests() {
 
         console.log(' Result', JSON.stringify(createCharRes.content));
 
-        // Verify in SQLite via Drizzle
         const allCharacters = await db.select().from(characters);
         console.assert(
             allCharacters.length > 0,

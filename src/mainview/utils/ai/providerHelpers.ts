@@ -9,6 +9,7 @@ export interface Model {
     favorite: boolean;
     enabled: boolean;
     active: boolean;
+    supportsTools?: boolean;
 }
 
 export type Provider = {
