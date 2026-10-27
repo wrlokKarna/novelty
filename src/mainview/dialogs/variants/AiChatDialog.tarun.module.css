@@ -3,3 +3,136 @@
         display: none;
     }
 }
+:root {
+    /* Backgrounds */
+    --theme-bg: #191b1f;
+    --theme-card-bg: #14171c;
+    --theme-card-hover: #1c2128;
+    --theme-border: #20252d;
+
+    /* Typography */
+    --theme-text-primary: #f3ede2;
+    --theme-text-step: #a3abb8;
+    --theme-text-body: #8b94a2;
+    --theme-text-muted: #5b6574;
+}
+
+/* 1. Sliding Shimmer Effect for the Thinking Header */
+.thinkingheader {
+    font-size: 0.85rem;
+    font-weight: 500;
+    display: inline-block;
+    min-height: 1.2rem;
+    margin-bottom: 8px;
+
+    /* Shimmer gradient using theme colors */
+    background: linear-gradient(
+        90deg,
+        var(--theme-text-muted) 0%,
+        var(--theme-text-step) 25%,
+        var(--theme-text-primary) 50%,
+        var(--theme-text-step) 75%,
+        var(--theme-text-muted) 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: slideThinkingSweep 2s linear infinite;
+}
+
+@keyframes slideThinkingSweep {
+    0% {
+        background-position: 200% center;
+    }
+    100% {
+        background-position: -200% center;
+    }
+}
+
+/* 2. Step Wrapper with Entry Slide-In Animation */
+.seqwrapper {
+    margin-bottom: 12px;
+    animation: slideInDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 3. Step Header + Built-in Chevron */
+.seqheader {
+    cursor: pointer;
+    user-select: none;
+    display: inline-block;
+    padding: 2px 0;
+}
+
+.seqheader h5 {
+    color: var(--theme-text-step);
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Chevron arrow built purely in CSS */
+.seqheader h5::after {
+    content: '';
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-right: 1.5px solid var(--theme-text-muted);
+    border-bottom: 1.5px solid var(--theme-text-muted);
+    transform: rotate(45deg);
+    margin-left: 2px;
+    transition: transform 0.3s ease;
+}
+
+/* Rotate chevron upwards when expanded */
+.seqwrapper:not(:has(.seqheader:focus)) .seqheader h5::after,
+.seqwrapper:has(.seqheader:active) .seqheader h5::after {
+    transform: rotate(-135deg);
+}
+
+/* 4. Sliding Expand/Collapse Body (CSS Grid Height Transition) */
+.seqbody {
+    background-color: var(--theme-card-bg);
+    border: 1px solid var(--theme-border);
+    color: var(--theme-text-body);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin-top: 8px;
+
+    /* Slide transition for height, opacity, and padding */
+    display: grid;
+    max-height: 500px;
+    opacity: 1;
+    overflow: hidden;
+    transform-origin: top;
+    transition:
+        max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.25s ease,
+        padding 0.35s ease,
+        margin-top 0.35s ease;
+}
+
+/* Interactive click-toggle behavior without changing TSX */
+.seqwrapper:has(.seqheader:focus) .seqbody {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    border: none;
+}
