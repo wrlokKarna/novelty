@@ -61,6 +61,8 @@ function AiChatDialog({ open, onClose }: Props) {
                 ) : (
                     <AiChatDialogChakri
                         activeView={activeView}
+                        setChatSeq={(s) => setChatSeq(s)}
+                        resetSeq={resetSeq}
                         chatSeq={chatSeq}
                     />
                 )}
