@@ -1,0 +1,5 @@
+.chakri {
+    &:not(.active) {
+        display: none;
+    }
+}

@@ -1,0 +1,5 @@
+.tarun {
+    &:not(.active) {
+        display: none;
+    }
+}
