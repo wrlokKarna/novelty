@@ -6,3 +6,10 @@
     padding: 10px;
     background-color: rgb(34, 31, 31);
 }
+
+.tarun,
+.chakri {
+    &:not(.active) {
+        display: none;
+    }
+}

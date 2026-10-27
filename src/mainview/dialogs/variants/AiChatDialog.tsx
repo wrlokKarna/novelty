@@ -1,8 +1,43 @@
-import { h3 } from 'framer-motion/client';
 import Dialog from '../Dialog';
 import { useEffect, useState } from 'react';
 import styles from './AiChatDialog.module.css';
 
+const MOCK_CHAT_DATA: chatSeqType = [
+    {
+        name: 'One',
+        timeOut: 1,
+        type: 'Thinking',
+        content:
+            'Lorem ipsum dolor sit amet consectetur adipiscing elit ipsum occaecat et at eu labore exercitation deserunt odio ex eos ipsum nisi non elit amet at',
+    },
+    {
+        name: 'Two',
+        timeOut: 2,
+        type: 'Tool',
+        content:
+            'Lorem ipsum dolor sit amet consectetur adipiscing elit ipsum occaecat et at eu labore exercitation deserunt odio',
+    },
+    {
+        name: 'Three',
+        timeOut: 1,
+        type: 'Thinking',
+        content:
+            'Lorem ipsum dolor sit amet consectetur adipiscing elit ipsum occaecat et at eu labore exercitation deserunt odio ex eos ipsum nisi non elit amet atLorem ipsum dolor sit amet consectetur adipiscing elit ipsum occaecat et at eu labore exercitation deserunt odio ex eos ipsum nisi non elit amet at',
+    },
+    {
+        name: 'Four',
+        timeOut: 3,
+        type: 'Tool',
+        content:
+            'Lorem Lorem ipsum dolor sit amet consectetur adipiscing elit ipsum occaecat et at eu labore exercitation deserunt odio ex eos ipsum nisi non elit amet atLorem ipsum dolor sit amet consectetur adipiscing elit ipsum occaecat et at eu labore exercitation deserunt odio ex eos ipsum nisi non elit amet at dolor sit amet consectetur adipiscing elit ipsum',
+    },
+    {
+        name: 'Five',
+        timeOut: 1,
+        type: 'Thinking',
+        content: 'Lorem ipsum dolor sit amet',
+    },
+];
 type Props = { open: boolean; onClose: () => void };
 type chatSeqType = {
     name: string;
@@ -14,42 +49,7 @@ type chatSeqType = {
 function AiChatDialog({ open, onClose }: Props) {
     const [chatSeq, setChatSeq] = useState<chatSeqType>([]);
     const [resetSeq, setResetSeq] = useState(false);
-    const MOCK_CHAT_DATA: chatSeqType = [
-        {
-            name: 'One',
-            timeOut: 1,
-            type: 'Thinking',
-            content:
-                'Lorem ipsum dolor sit amet consectetur adipiscing elit ipsum occaecat et at eu labore exercitation deserunt odio ex eos ipsum nisi non elit amet at',
-        },
-        {
-            name: 'Two',
-            timeOut: 2,
-            type: 'Tool',
-            content:
-                'Lorem ipsum dolor sit amet consectetur adipiscing elit ipsum occaecat et at eu labore exercitation deserunt odio',
-        },
-        {
-            name: 'Three',
-            timeOut: 1,
-            type: 'Thinking',
-            content:
-                'Lorem ipsum dolor sit amet consectetur adipiscing elit ipsum occaecat et at eu labore exercitation deserunt odio ex eos ipsum nisi non elit amet atLorem ipsum dolor sit amet consectetur adipiscing elit ipsum occaecat et at eu labore exercitation deserunt odio ex eos ipsum nisi non elit amet at',
-        },
-        {
-            name: 'Four',
-            timeOut: 3,
-            type: 'Tool',
-            content:
-                'Lorem Lorem ipsum dolor sit amet consectetur adipiscing elit ipsum occaecat et at eu labore exercitation deserunt odio ex eos ipsum nisi non elit amet atLorem ipsum dolor sit amet consectetur adipiscing elit ipsum occaecat et at eu labore exercitation deserunt odio ex eos ipsum nisi non elit amet at dolor sit amet consectetur adipiscing elit ipsum',
-        },
-        {
-            name: 'Five',
-            timeOut: 1,
-            type: 'Thinking',
-            content: 'Lorem ipsum dolor sit amet',
-        },
-    ];
+    const [activeView, setActiveView] = useState<'tarun' | 'chakri'>('tarun');
     useEffect(() => {
         if (resetSeq || MOCK_CHAT_DATA.length === chatSeq.length) {
             setChatSeq([]);
@@ -80,21 +80,37 @@ function AiChatDialog({ open, onClose }: Props) {
         >
             <div className="">
                 <button onClick={() => setResetSeq(!resetSeq)}>Reset</button>
-                <div>
-                    <div className={styles.thinkingheader}>
-                        {chatSeq[chatSeq.length - 1]?.type}
-                    </div>
-                </div>
-                {chatSeq.map((s, index) => (
-                    <div className="">
-                        <div className={styles.seqheader}>
-                            <h5>
-                                Step: {s.name} {s.type}
-                            </h5>
+                <button
+                    onClick={() =>
+                        setActiveView(
+                            activeView === 'tarun' ? 'chakri' : 'tarun'
+                        )
+                    }
+                >
+                    view
+                </button>
+                <div
+                    className={`${styles.tarun} ${activeView === 'tarun' ? styles.active : ''}`}
+                >
+                    <div>
+                        <div className={styles.thinkingheader}>
+                            {chatSeq[chatSeq.length - 1]?.type}
                         </div>
-                        <div className={styles.seqbody}>{s.content}</div>
                     </div>
-                ))}
+                    {chatSeq.map((s, index) => (
+                        <div className="">
+                            <div className={styles.seqheader}>
+                                <h5>
+                                    Step: {s.name} {s.type}
+                                </h5>
+                            </div>
+                            <div className={styles.seqbody}>{s.content}</div>
+                        </div>
+                    ))}
+                </div>
+                <div
+                    className={`${styles.tarun} ${activeView === 'chakri' ? styles.active : ''}`}
+                ></div>
             </div>
         </Dialog>
     );
