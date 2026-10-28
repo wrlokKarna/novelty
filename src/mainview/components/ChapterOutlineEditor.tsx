@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type {
-    Chapter,
     Character,
     PlotThread,
     ChapterPlotThread,
@@ -12,6 +11,7 @@ import { useCollapseState } from '../hooks/useCollapseState';
 import ChapterStructureEditor from './ChapterStructureEditor';
 import type { StructureItem } from './ChapterStructureEditor';
 import { StoryAct, ChapterStatus, StorySequence } from '../../shared/types';
+import { Chapter } from '../../shared/types/project';
 
 interface Props {
     projectId: string;

@@ -22,6 +22,7 @@ import {
     NewChatMessage,
     NewChatSession,
 } from '../../shared/types/ai';
+import { Chapter, NewChapter } from '../../shared/types/project';
 import { Provider } from '../utils/ai/providerHelpers';
 
 export type WindowRequests = {
@@ -106,25 +107,6 @@ export type UsageStats = {
     dailyRequestLimit: number;
     monthlyRequestLimit: number;
 };
-
-export type Chapter = {
-    id: string;
-    projectId: string | null;
-    title: string;
-    content: string | null;
-    filePath: string | null;
-    orderIndex: number;
-    status: ChapterStatus;
-    outline: string | null;
-    povCharacterId: string | null;
-    wordCountTarget: number | null;
-    actId: string | null;
-    sequenceId: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewChapter = Omit<Chapter, 'createdAt' | 'updatedAt'>;
 
 export type SceneOutline = {
     id: string;

@@ -1,6 +1,6 @@
 import { StoryAct, StorySequence } from '../../../shared/types';
+import { Chapter } from '../../../shared/types/project';
 import type {
-    Chapter,
     TimelineEvent,
     Character,
     Location,

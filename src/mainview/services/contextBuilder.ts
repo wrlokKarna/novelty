@@ -1,6 +1,5 @@
 import type {
     MentionTarget,
-    Chapter,
     Character,
     Location,
     Organization,
@@ -13,6 +12,7 @@ import type {
 import { isFieldVisible } from '../templates/fieldVisibility';
 import { isTreeEdge } from '../templates/tree';
 import { Project, StorySequence } from '../../shared/types';
+import { Chapter } from '../../shared/types/project';
 
 function estimateTokens(text: string): number {
     return Math.ceil(text.length / 4);

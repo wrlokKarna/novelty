@@ -7,12 +7,12 @@ import type {
     TimelineEvent,
     Character,
     Organization,
-    Chapter,
     CompendiumCategory,
 } from '../../types/index';
 import TimelineEventEditor from '../../components/TimelineEventEditor';
 import Dialog from '../Dialog';
 import './../../ui/timeline.css';
+import { Chapter } from '../../../shared/types/project';
 
 const EVENT_COLORS: Record<string, string> = {
     chapter: '#4a9eff',

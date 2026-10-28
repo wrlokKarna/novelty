@@ -9,7 +9,6 @@ import { useCollapseState } from '../hooks/useCollapseState';
 import type {
     StoryScene,
     PlotThread,
-    Chapter,
     StoryBeat,
     Character,
 } from '../types/index';
@@ -23,6 +22,7 @@ import {
 } from '@tabler/icons-react';
 import SceneCardEditor from './SceneCardEditor';
 import { StoryAct, StorySequence } from '../../shared/types';
+import { Chapter } from '../../shared/types/project';
 
 interface Props {
     projectId: string;

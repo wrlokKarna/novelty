@@ -1,25 +1,8 @@
 import { db } from './../index';
 import { chapters, storyScenes, storySequences } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-
-export type Chapter = {
-    id: string;
-    projectId: string | null;
-    title: string;
-    content: string | null;
-    filePath: string | null;
-    orderIndex: number;
-    status: string;
-    outline: string | null;
-    povCharacterId: string | null;
-    wordCountTarget: number | null;
-    actId: string | null;
-    sequenceId: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewChapter = Omit<Chapter, 'createdAt' | 'updatedAt'>;
+import { Chapter, NewChapter } from '../../../shared/types/project';
+import { ChapterStatus } from '../../../shared/types';
 
 function parseChapter(row: Record<string, unknown>): Chapter {
     return {
@@ -29,7 +12,7 @@ function parseChapter(row: Record<string, unknown>): Chapter {
         content: row.content as string | null,
         filePath: row.filePath as string | null,
         orderIndex: row.orderIndex as number,
-        status: (row.status as string) || 'outline',
+        status: (row.status as ChapterStatus) || 'outline',
         outline: row.outline as string | null,
         povCharacterId: row.povCharacterId as string | null,
         wordCountTarget: row.wordCountTarget as number | null,

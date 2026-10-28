@@ -9,8 +9,6 @@ import {
 import type { RichTextEditorHandle } from './components/RichTextEditor';
 import { useRPC } from './contexts/RPCContext';
 import type {
-    Chapter,
-    NewChapter,
     FileTab,
     CompendiumCategory,
     Character,
@@ -76,6 +74,7 @@ import LeftPanel from './ui/workspaces/editor/LeftPanel';
 import RightPanel from './ui/workspaces/editor/RightPanel';
 import { type ProjectDialogActiveTab } from './constants/layout_tabs';
 import { Project, StoryAct, StorySequence } from '../shared/types';
+import { Chapter, NewChapter } from '../shared/types/project';
 
 /*
 const categoryConfig: Record<

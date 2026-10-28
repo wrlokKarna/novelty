@@ -17,7 +17,6 @@ import {
     IconPencilMinus,
 } from '@tabler/icons-react';
 import {
-    Chapter,
     Character,
     Item,
     Location,
@@ -25,6 +24,7 @@ import {
     Organization,
 } from '../../../types';
 import type { CompendiumCategory } from '../../../types';
+import { Chapter } from '../../../../shared/types/project';
 
 const COMPENDIUM_CONFIG = {
     character: { label: 'Characters', icon: IconUsers, dataKey: 'characters' },
