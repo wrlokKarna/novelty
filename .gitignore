@@ -20,3 +20,4 @@ public/assets/fonts
 
 public\assets\macos\__MACOSX
 .env
+.local_sandbox/
