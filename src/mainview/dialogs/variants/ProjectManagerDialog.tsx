@@ -8,7 +8,6 @@ import type {
     Genre,
     Tag,
     Theme,
-    Asset,
     Series,
     NewSeries,
     Inspiration,
@@ -60,6 +59,7 @@ import {
     TargetAgeGroup,
     ProjectStatus,
     SeriesArchitecture,
+    Asset,
 } from '../../../shared/types';
 
 interface ProjectManagerProps {

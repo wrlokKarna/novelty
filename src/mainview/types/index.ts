@@ -9,6 +9,8 @@ import {
     NewStoryAct,
     StorySequence,
     NewStorySequence,
+    Asset,
+    NewAsset,
 } from '../../shared/types';
 import { Agent, AgentRun, NewAgent, NewAgentRun } from '../../shared/types/ai';
 import { Provider } from '../utils/ai/providerHelpers';
@@ -74,14 +76,14 @@ export type NewInspiration = Omit<Inspiration, 'createdAt' | 'updatedAt'>;
 
 export type MentionTarget = {
     type:
-        | 'chapter'
-        | 'character'
-        | 'location'
-        | 'organization'
-        | 'item'
-        | 'lore'
-        | 'scene'
-        | 'sequence';
+    | 'chapter'
+    | 'character'
+    | 'location'
+    | 'organization'
+    | 'item'
+    | 'lore'
+    | 'scene'
+    | 'sequence';
     id: string;
     label: string;
     mode?: 'brief' | 'full';
@@ -95,19 +97,6 @@ export type UsageStats = {
     dailyRequestLimit: number;
     monthlyRequestLimit: number;
 };
-
-export type Asset = {
-    id: string;
-    projectId: string | null;
-    name: string;
-    type: string;
-    path: string | null;
-    metadata: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewAsset = Omit<Asset, 'createdAt' | 'updatedAt'>;
 
 export type ChatSession = {
     id: string;
@@ -426,22 +415,22 @@ export type FieldVisibility = {
 export type FieldDefinition = {
     name: string;
     type:
-        | 'text'
-        | 'number'
-        | 'textarea'
-        | 'select'
-        | 'checkbox'
-        | 'date'
-        | 'file'
-        | 'multiselect'
-        | 'entitylink'
-        | 'richtext'
-        | 'color'
-        | 'toggle'
-        | 'range'
-        | 'portrait'
-        | 'images'
-        | 'tree';
+    | 'text'
+    | 'number'
+    | 'textarea'
+    | 'select'
+    | 'checkbox'
+    | 'date'
+    | 'file'
+    | 'multiselect'
+    | 'entitylink'
+    | 'richtext'
+    | 'color'
+    | 'toggle'
+    | 'range'
+    | 'portrait'
+    | 'images'
+    | 'tree';
     label: string;
     required: boolean;
     disabled?: boolean;
@@ -517,11 +506,11 @@ export type FileTab = {
     id: string;
     name: string;
     type:
-        | 'file'
-        | 'chapter'
-        | CompendiumCategory
-        | 'compendium-new'
-        | 'plot-architecture';
+    | 'file'
+    | 'chapter'
+    | CompendiumCategory
+    | 'compendium-new'
+    | 'plot-architecture';
     filePath: string;
     isModified: boolean;
     category?: CompendiumCategory;

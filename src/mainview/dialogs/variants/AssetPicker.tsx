@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import SubDialog from '../SubDialog';
 import { useRPC } from '../../contexts/RPCContext';
-import type { Asset } from '../../types/index';
 import { IconCheck, IconPlus } from '@tabler/icons-react';
 import styles from './AssetPicker.module.css';
+import { Asset } from '../../../shared/types';
 
 interface AssetPickerProps {
     open: boolean;

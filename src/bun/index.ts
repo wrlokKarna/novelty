@@ -7,7 +7,6 @@ import {
 
 import type {
     SelectorSchema,
-    NewAsset,
     NewChatSession,
     NewChatMessage,
     NewChapter,
@@ -55,6 +54,7 @@ import { mcpClient } from './services/mcp/client.js';
 import { mcpServer } from './services/mcp/server.js';
 import registerAllTools from './services/mcp/tools.js';
 import {
+    NewAsset,
     NewProject,
     NewStoryAct,
     NewStorySequence,
@@ -620,11 +620,11 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 const result = await templatesDB.getTemplateByProjectAndType(
                     projectId,
                     baseType as
-                        | 'character'
-                        | 'location'
-                        | 'organization'
-                        | 'item'
-                        | 'lore'
+                    | 'character'
+                    | 'location'
+                    | 'organization'
+                    | 'item'
+                    | 'lore'
                 );
                 return result;
             },
@@ -638,11 +638,11 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 const result = await templatesDB.resolveTemplate(
                     projectId,
                     baseType as
-                        | 'character'
-                        | 'location'
-                        | 'organization'
-                        | 'item'
-                        | 'lore'
+                    | 'character'
+                    | 'location'
+                    | 'organization'
+                    | 'item'
+                    | 'lore'
                 );
                 return result;
             },
@@ -660,11 +660,11 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 return await templatesDB.upsertTemplate(
                     projectId,
                     baseType as
-                        | 'character'
-                        | 'location'
-                        | 'organization'
-                        | 'item'
-                        | 'lore',
+                    | 'character'
+                    | 'location'
+                    | 'organization'
+                    | 'item'
+                    | 'lore',
                     customFields,
                     layout
                 );

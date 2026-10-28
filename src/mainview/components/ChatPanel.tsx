@@ -1375,6 +1375,7 @@ export default function ChatPanel({
 
     const handleCopy = (messageId: string) => {
         const msg = messages.find((m) => m.id === messageId);
+        console.log('messages', messages);
         if (!msg) return;
 
         const text =

@@ -101,3 +101,16 @@ export type StorySequence = {
 };
 
 export type NewStorySequence = Omit<StorySequence, 'createdAt' | 'updatedAt'>;
+
+export type Asset = {
+    id: string;
+    projectId: string | null;
+    name: string;
+    type: string;
+    path: string | null;
+    metadata: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+};
+
+export type NewAsset = Omit<Asset, 'createdAt' | 'updatedAt'>;

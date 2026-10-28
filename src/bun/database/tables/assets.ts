@@ -2,8 +2,8 @@ import { db } from './../index';
 import { assets } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
 
-export type Asset = typeof assets.$inferSelect;
-export type NewAsset = typeof assets.$inferInsert;
+type Asset = typeof assets.$inferSelect;
+type NewAsset = typeof assets.$inferInsert;
 
 export async function getAssetsByProject(projectId: string): Promise<Asset[]> {
     return db
