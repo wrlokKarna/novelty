@@ -59,3 +59,11 @@ export type Project = {
     createdAt: Date;
     updatedAt: Date;
 };
+
+export type TemplateFieldRecord = {
+    name: string;
+    type: string;
+    treeRelations?: { relation: string; inverse: string }[];
+    disabled?: boolean;
+    [key: string]: unknown;
+};
