@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import type {
     Location,
     Organization,
-    Item,
     LoreEntry,
     CompendiumCategory,
     EntityTemplate,
@@ -12,6 +11,7 @@ import type {
 import { isFieldVisible } from '../templates/fieldVisibility';
 import TemplateTab from './template/TemplateTab';
 import { Character } from '../../shared/types/project/compendium';
+import { Item } from '../../shared/types';
 
 interface CompendiumEntryEditorProps {
     entry: Character | Location | Organization | Item | LoreEntry;

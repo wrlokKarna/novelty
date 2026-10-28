@@ -2,7 +2,6 @@ import type {
     MentionTarget,
     Location,
     Organization,
-    Item,
     LoreEntry,
     FieldDefinition,
     CompendiumCategory,
@@ -10,7 +9,7 @@ import type {
 } from '../types/index';
 import { isFieldVisible } from '../templates/fieldVisibility';
 import { isTreeEdge } from '../templates/tree';
-import { Project, StorySequence } from '../../shared/types';
+import { Item, Project, StorySequence } from '../../shared/types';
 import { Chapter } from '../../shared/types/project';
 import { Character } from '../../shared/types/project/compendium';
 

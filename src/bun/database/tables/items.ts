@@ -1,18 +1,7 @@
 import { db } from './../index';
 import { items } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-
-export type Item = {
-    id: string;
-    projectId: string | null;
-    name: string;
-    filePath: string | null;
-    templateData: Record<string, unknown> | null;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewItem = Omit<Item, 'createdAt' | 'updatedAt'>;
+import { Item, NewItem } from '../../../shared/types';
 
 function parseItem(row: Record<string, unknown>): Item {
     return {

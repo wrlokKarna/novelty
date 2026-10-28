@@ -45,7 +45,6 @@ import type {
     MentionTarget,
     Location,
     Organization,
-    Item,
     LoreEntry,
     CompendiumCategory,
     FieldDefinition,
@@ -80,7 +79,7 @@ import ContextChips from './ContextChips';
 import SystemPromptToggle from './SystemPromptToggle';
 import { SettingsDialogActiveTab } from '../constants/layout_tabs';
 import { Model } from '../utils/ai/providerHelpers';
-import { Project, StorySequence } from '../../shared/types';
+import { Item, Project, StorySequence } from '../../shared/types';
 import {
     AssistantChatMessage,
     ChatMessage,

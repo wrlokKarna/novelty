@@ -114,3 +114,15 @@ export type Asset = {
 };
 
 export type NewAsset = Omit<Asset, 'createdAt' | 'updatedAt'>;
+
+export type Item = {
+    id: string;
+    projectId: string | null;
+    name: string;
+    filePath: string | null;
+    templateData: Record<string, unknown> | null;
+    createdAt: Date;
+    updatedAt: Date;
+};
+
+export type NewItem = Omit<Item, 'createdAt' | 'updatedAt'>;

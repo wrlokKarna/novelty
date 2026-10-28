@@ -11,6 +11,8 @@ import {
     NewStorySequence,
     Asset,
     NewAsset,
+    Item,
+    NewItem,
 } from '../../shared/types';
 import {
     Agent,
@@ -191,18 +193,6 @@ export type Organization = {
 };
 
 export type NewOrganization = Omit<Organization, 'createdAt' | 'updatedAt'>;
-
-export type Item = {
-    id: string;
-    projectId: string | null;
-    name: string;
-    filePath: string | null;
-    templateData: Record<string, unknown> | null;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewItem = Omit<Item, 'createdAt' | 'updatedAt'>;
 
 export type LoreEntry = {
     id: string;

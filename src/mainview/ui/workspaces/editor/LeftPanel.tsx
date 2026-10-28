@@ -16,10 +16,11 @@ import {
     IconPinFilled,
     IconPencilMinus,
 } from '@tabler/icons-react';
-import { Item, Location, LoreEntry, Organization } from '../../../types';
+import { Location, LoreEntry, Organization } from '../../../types';
 import type { CompendiumCategory } from '../../../types';
 import { Chapter } from '../../../../shared/types/project';
 import { Character } from '../../../../shared/types/project/compendium';
+import { Item } from '../../../../shared/types';
 
 const COMPENDIUM_CONFIG = {
     character: { label: 'Characters', icon: IconUsers, dataKey: 'characters' },
