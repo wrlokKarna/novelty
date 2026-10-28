@@ -1,5 +1,10 @@
 import { ProcessAiPromptParams } from '../../bun/temp/mainMCP';
-import { ProjectScope, SeriesArchitecture, Project } from '../../shared/types';
+import {
+    ProjectScope,
+    SeriesArchitecture,
+    Project,
+    NewProject,
+} from '../../shared/types';
 import { Provider } from '../utils/ai/providerHelpers';
 
 export type WindowRequests = {
@@ -17,8 +22,6 @@ export const PROJECT_SCOPE_TARGETS: Record<ProjectScope, WordCountTarget> = {
     standard: { min: 70000, max: 100000, label: '70k – 100k words' },
     epic: { min: 110000, max: 180000, label: '110k – 180k+ words' },
 };
-
-export type NewProject = Omit<Project, 'createdAt' | 'updatedAt'>;
 
 export type SourceType =
     | 'book'

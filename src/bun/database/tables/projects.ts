@@ -14,6 +14,7 @@ import { join } from 'path';
 import { mkdirSync, existsSync } from 'fs';
 
 import {
+    NewProject,
     PacingType,
     PointOfView,
     Project,
@@ -24,38 +25,6 @@ import {
     TargetAgeGroup,
     WorkType,
 } from '../../../shared/types';
-/*
-export type Project = {
-    id: string;
-    name: string;
-    path: string | null;
-    metadata: string | null;
-    description: string | null;
-    systemPrompt: string | null;
-    coverImageId: string | null;
-    coverImagesArray: string[];
-    projectScope: ProjectScope | null;
-    seriesArch: SeriesArchitecture | null;
-    seriesId: string | null;
-    pov: PointOfView | null;
-    pacing: PacingType | null;
-    workType: WorkType | null;
-    projectStructure: ProjectStructure | null;
-    targetAge: TargetAgeGroup | null;
-    projectStatus: ProjectStatus;
-    tonalType: string | null;
-    contentRating: string;
-    primaryGenre: string | null;
-    primaryTheme: string | null;
-    genres: string[];
-    tags: string[];
-    themes: string[];
-    createdAt: Date;
-    updatedAt: Date;
-};
-*/
-
-export type NewProject = Omit<Project, 'createdAt' | 'updatedAt'>;
 
 function safeParse(val: string | null) {
     if (!val || val === 'null') return [];

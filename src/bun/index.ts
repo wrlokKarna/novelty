@@ -7,7 +7,6 @@ import {
 
 import type {
     SelectorSchema,
-    NewProject,
     NewAsset,
     NewChatSession,
     NewChatMessage,
@@ -57,6 +56,7 @@ import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
 import { mcpClient } from './services/mcp/client.js';
 import { mcpServer } from './services/mcp/server.js';
 import registerAllTools from './services/mcp/tools.js';
+import { NewProject } from '../shared/types/index.js';
 
 registerAllTools();
 try {

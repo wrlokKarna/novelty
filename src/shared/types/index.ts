@@ -67,3 +67,5 @@ export type TemplateFieldRecord = {
     disabled?: boolean;
     [key: string]: unknown;
 };
+
+export type NewProject = Omit<Project, 'createdAt' | 'updatedAt'>;
