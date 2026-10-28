@@ -107,28 +107,6 @@ export type UsageStats = {
     monthlyRequestLimit: number;
 };
 
-export type ChatSession = {
-    id: string;
-    projectId: string | null;
-    title: string;
-    isArchived: boolean;
-    isManuallyNamed: boolean;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewChatSession = Omit<ChatSession, 'createdAt' | 'updatedAt'>;
-
-export type ChatMessage = {
-    id: string;
-    sessionId: string;
-    role: string;
-    content: string;
-    timestamp: Date;
-};
-
-export type NewChatMessage = Omit<ChatMessage, 'timestamp'>;
-
 export type Chapter = {
     id: string;
     projectId: string | null;
