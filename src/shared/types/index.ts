@@ -115,6 +115,18 @@ export type Asset = {
 
 export type NewAsset = Omit<Asset, 'createdAt' | 'updatedAt'>;
 
+export type Location = {
+    id: string;
+    projectId: string | null;
+    name: string;
+    filePath: string | null;
+    templateData: Record<string, unknown> | null;
+    createdAt: Date;
+    updatedAt: Date;
+};
+
+export type NewLocation = Omit<Location, 'createdAt' | 'updatedAt'>;
+
 export type Item = {
     id: string;
     projectId: string | null;

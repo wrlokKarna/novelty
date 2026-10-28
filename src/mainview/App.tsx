@@ -11,7 +11,6 @@ import { useRPC } from './contexts/RPCContext';
 import type {
     FileTab,
     CompendiumCategory,
-    Location,
     Organization,
     LoreEntry,
     EntityTemplate,
@@ -71,7 +70,13 @@ import { useSettings } from './contexts/SettingsContext';
 import LeftPanel from './ui/workspaces/editor/LeftPanel';
 import RightPanel from './ui/workspaces/editor/RightPanel';
 import { type ProjectDialogActiveTab } from './constants/layout_tabs';
-import { Item, Project, StoryAct, StorySequence } from '../shared/types';
+import {
+    Item,
+    Project,
+    StoryAct,
+    StorySequence,
+    Location,
+} from '../shared/types';
 import { Chapter, NewChapter } from '../shared/types/project';
 import { Character } from '../shared/types/project/compendium';
 

@@ -1,18 +1,7 @@
 import { db } from './../index';
 import { locations } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-
-export type Location = {
-    id: string;
-    projectId: string | null;
-    name: string;
-    filePath: string | null;
-    templateData: Record<string, unknown> | null;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewLocation = Omit<Location, 'createdAt' | 'updatedAt'>;
+import { Location, NewLocation } from '../../../shared/types';
 
 function parseLocation(row: Record<string, unknown>): Location {
     return {

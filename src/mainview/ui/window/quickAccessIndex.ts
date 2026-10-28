@@ -1,10 +1,9 @@
-import { Item, StoryAct, StorySequence } from '../../../shared/types';
+import { Item, StoryAct, StorySequence, Location } from '../../../shared/types';
 import { Chapter } from '../../../shared/types/project';
 import { Character } from '../../../shared/types/project/compendium';
 import type {
     CompendiumCategory,
     FileTab,
-    Location,
     LoreEntry,
     Organization,
     PlotThread,
