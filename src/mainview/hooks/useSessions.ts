@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getRPC } from '../contexts/RPCContext';
-import type { ChatSession, NewChatSession } from '../types/index';
+import { ChatSession, NewChatSession } from '../../shared/types/ai';
 
 interface UseSessionsReturn {
     sessions: ChatSession[];

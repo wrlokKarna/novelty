@@ -144,7 +144,11 @@ export async function initDatabase() {
 			session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
 			role TEXT NOT NULL,
 			content TEXT NOT NULL,
-			timestamp INTEGER NOT NULL
+			timestamp INTEGER NOT NULL,
+            model TEXT,
+            mode TEXT NOT NULL,
+            currentVariantIndex INTEGER NOT NULL
+
 		);
 
 		CREATE TABLE IF NOT EXISTS agents (
@@ -538,6 +542,21 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
         { table: 'organizations', name: 'template_data', type: 'TEXT' },
         { table: 'items', name: 'template_data', type: 'TEXT' },
         { table: 'lore_entries', name: 'template_data', type: 'TEXT' },
+        {
+            table: 'chat_messages',
+            name: 'model',
+            type: "text Default 'unknown'",
+        },
+        {
+            table: 'chat_messages',
+            name: 'mode',
+            type: "text NOT NULL Default 'assistant'",
+        },
+        {
+            table: 'chat_messages',
+            name: 'currentVariantIndex',
+            type: 'INTEGER NOT NULL DEFAULT 0',
+        },
         {
             table: 'chat_sessions',
             name: 'is_archived',

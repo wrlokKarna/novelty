@@ -40,13 +40,8 @@ import {
     typeLabels,
     SLASH_COMMANDS,
 } from '../features/ai/constants/chatpanel_consts';
+
 import type {
-    ChatMessage,
-    UserChatMessage,
-    AssistantChatMessage,
-} from '../services/ai';
-import type {
-    NewChatSession,
     MentionTarget,
     Chapter,
     Character,
@@ -88,6 +83,12 @@ import SystemPromptToggle from './SystemPromptToggle';
 import { SettingsDialogActiveTab } from '../constants/layout_tabs';
 import { Model } from '../utils/ai/providerHelpers';
 import { Project, StorySequence } from '../../shared/types';
+import {
+    AssistantChatMessage,
+    ChatMessage,
+    NewChatSession,
+    UserChatMessage,
+} from '../../shared/types/ai';
 
 function smartTruncate(text: string, maxLen = 50): string {
     const cleaned = text
@@ -786,6 +787,7 @@ export default function ChatPanel({
 
         const userMessage: UserChatMessage = {
             id: crypto.randomUUID(),
+            sessionId,
             role: 'user',
             content: displayText,
             mode,
@@ -795,6 +797,7 @@ export default function ChatPanel({
         const assistantId = crypto.randomUUID();
         const assistantMessage: AssistantChatMessage = {
             id: assistantId,
+            sessionId,
             role: 'assistant',
             content: [''],
             reasoning: '',
@@ -813,10 +816,11 @@ export default function ChatPanel({
 
         try {
             rpc.request['db:create-message']({
-                id: userMessage.id,
                 sessionId,
+                id: userMessage.id,
                 role: userMessage.role,
                 content: userMessage.content,
+                mode,
             });
 
             const provider = enabledModel.provider;
@@ -898,6 +902,8 @@ export default function ChatPanel({
                 sessionId,
                 role: 'assistant',
                 content: result.content,
+                mode,
+                model: enabledModel.activeModelId || '',
             });
 
             if (result.usage) {
@@ -1057,15 +1063,14 @@ export default function ChatPanel({
                     return {
                         id: m.id,
                         role: 'assistant' as const,
-                        content: [m.content],
+                        content: m.content,
                         currentVariantIndex: 0,
                         model: 'unknown',
                         mode: 'assistant' as const,
                         timestamp:
                             typeof m.timestamp === 'string'
                                 ? m.timestamp
-                                : m.timestamp?.toISOString?.() ||
-                                  new Date(m.timestamp).toISOString(),
+                                : new Date(m.timestamp).toISOString(),
                     } as AssistantChatMessage;
                 }
                 return {
@@ -1076,8 +1081,7 @@ export default function ChatPanel({
                     timestamp:
                         typeof m.timestamp === 'string'
                             ? m.timestamp
-                            : m.timestamp?.toISOString?.() ||
-                              new Date(m.timestamp).toISOString(),
+                            : new Date(m.timestamp).toISOString(),
                 } as UserChatMessage;
             });
             setMessages(mapped);

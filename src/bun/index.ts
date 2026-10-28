@@ -7,8 +7,6 @@ import {
 
 import type {
     SelectorSchema,
-    NewChatSession,
-    NewChatMessage,
     NewChapter,
     CompendiumCategory,
 } from '../mainview/types/index';
@@ -59,7 +57,12 @@ import {
     NewStoryAct,
     NewStorySequence,
 } from '../shared/types/index.js';
-import { NewAgent, NewAgentRun } from '../shared/types/ai/index.js';
+import {
+    NewAgent,
+    NewAgentRun,
+    NewChatMessage,
+    NewChatSession,
+} from '../shared/types/ai/index.js';
 
 registerAllTools();
 try {
@@ -620,11 +623,11 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 const result = await templatesDB.getTemplateByProjectAndType(
                     projectId,
                     baseType as
-                    | 'character'
-                    | 'location'
-                    | 'organization'
-                    | 'item'
-                    | 'lore'
+                        | 'character'
+                        | 'location'
+                        | 'organization'
+                        | 'item'
+                        | 'lore'
                 );
                 return result;
             },
@@ -638,11 +641,11 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 const result = await templatesDB.resolveTemplate(
                     projectId,
                     baseType as
-                    | 'character'
-                    | 'location'
-                    | 'organization'
-                    | 'item'
-                    | 'lore'
+                        | 'character'
+                        | 'location'
+                        | 'organization'
+                        | 'item'
+                        | 'lore'
                 );
                 return result;
             },
@@ -660,11 +663,11 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 return await templatesDB.upsertTemplate(
                     projectId,
                     baseType as
-                    | 'character'
-                    | 'location'
-                    | 'organization'
-                    | 'item'
-                    | 'lore',
+                        | 'character'
+                        | 'location'
+                        | 'organization'
+                        | 'item'
+                        | 'lore',
                     customFields,
                     layout
                 );

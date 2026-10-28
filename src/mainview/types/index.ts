@@ -12,7 +12,16 @@ import {
     Asset,
     NewAsset,
 } from '../../shared/types';
-import { Agent, AgentRun, NewAgent, NewAgentRun } from '../../shared/types/ai';
+import {
+    Agent,
+    AgentRun,
+    ChatMessage,
+    ChatSession,
+    NewAgent,
+    NewAgentRun,
+    NewChatMessage,
+    NewChatSession,
+} from '../../shared/types/ai';
 import { Provider } from '../utils/ai/providerHelpers';
 
 export type WindowRequests = {
@@ -76,14 +85,14 @@ export type NewInspiration = Omit<Inspiration, 'createdAt' | 'updatedAt'>;
 
 export type MentionTarget = {
     type:
-    | 'chapter'
-    | 'character'
-    | 'location'
-    | 'organization'
-    | 'item'
-    | 'lore'
-    | 'scene'
-    | 'sequence';
+        | 'chapter'
+        | 'character'
+        | 'location'
+        | 'organization'
+        | 'item'
+        | 'lore'
+        | 'scene'
+        | 'sequence';
     id: string;
     label: string;
     mode?: 'brief' | 'full';
@@ -415,22 +424,22 @@ export type FieldVisibility = {
 export type FieldDefinition = {
     name: string;
     type:
-    | 'text'
-    | 'number'
-    | 'textarea'
-    | 'select'
-    | 'checkbox'
-    | 'date'
-    | 'file'
-    | 'multiselect'
-    | 'entitylink'
-    | 'richtext'
-    | 'color'
-    | 'toggle'
-    | 'range'
-    | 'portrait'
-    | 'images'
-    | 'tree';
+        | 'text'
+        | 'number'
+        | 'textarea'
+        | 'select'
+        | 'checkbox'
+        | 'date'
+        | 'file'
+        | 'multiselect'
+        | 'entitylink'
+        | 'richtext'
+        | 'color'
+        | 'toggle'
+        | 'range'
+        | 'portrait'
+        | 'images'
+        | 'tree';
     label: string;
     required: boolean;
     disabled?: boolean;
@@ -506,11 +515,11 @@ export type FileTab = {
     id: string;
     name: string;
     type:
-    | 'file'
-    | 'chapter'
-    | CompendiumCategory
-    | 'compendium-new'
-    | 'plot-architecture';
+        | 'file'
+        | 'chapter'
+        | CompendiumCategory
+        | 'compendium-new'
+        | 'plot-architecture';
     filePath: string;
     isModified: boolean;
     category?: CompendiumCategory;

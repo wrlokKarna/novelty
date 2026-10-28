@@ -5,7 +5,7 @@ import {
     IconTrash,
     IconPencil,
 } from '@tabler/icons-react';
-import type { ChatSession } from '../types';
+import type { ChatSession } from '../../shared/types/ai';
 
 interface SessionListViewProps {
     sessions: ChatSession[];

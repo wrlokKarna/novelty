@@ -1,44 +1,12 @@
+import {
+    ApiMessage,
+    ChatMessage,
+    ToolCall,
+    UserChatMessage,
+} from '../../../shared/types/ai';
 import { getRPC } from '../../contexts/RPCContext';
 import type { Provider } from '../../types/index';
 import { Model } from '../../utils/ai/providerHelpers';
-
-export interface ToolCall {
-    id?: string;
-    type?: string;
-    function: {
-        name: string;
-        arguments: string;
-    };
-}
-
-export interface ApiMessage {
-    role: string;
-    content: string | null;
-    tool_calls?: ToolCall[];
-    tool_call_id?: string;
-    name?: string;
-}
-
-export interface UserChatMessage {
-    id: string;
-    role: 'user';
-    content: string;
-    mode: 'assistant' | 'editor';
-    timestamp: string;
-}
-
-export interface AssistantChatMessage {
-    id: string;
-    role: 'assistant';
-    content: string[];
-    reasoning?: string;
-    currentVariantIndex: number;
-    model: string;
-    mode: 'assistant' | 'editor';
-    timestamp: string;
-}
-
-export type ChatMessage = UserChatMessage | AssistantChatMessage;
 
 export function toApiMessages(messages: ChatMessage[]): ApiMessage[] {
     return messages.map((m) => ({
