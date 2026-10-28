@@ -115,19 +115,24 @@ const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                         </span>
                     </div>
                     {hasReasoning && (
-                        <div className="chat-message thinking">
+                        <div className="chat-message thinking-container">
                             <button
                                 className="thinking-toggle"
                                 onClick={() =>
                                     setThinkingExpanded(!thinkingExpanded)
                                 }
+                                aria-expanded={thinkingExpanded}
                             >
-                                <IconBrain size={14} />
-                                <span>Thinking</span>
+                                <div className="thinking-toggle-left">
+                                    <IconBrain size={16} />
+                                    <span className="thinking-title">
+                                        Reasoning
+                                    </span>
+                                </div>
                                 {thinkingExpanded ? (
-                                    <IconChevronUp size={12} />
+                                    <IconChevronUp size={14} />
                                 ) : (
-                                    <IconChevronDown size={12} />
+                                    <IconChevronDown size={14} />
                                 )}
                             </button>
                             {thinkingExpanded && (

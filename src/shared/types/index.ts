@@ -69,3 +69,35 @@ export type TemplateFieldRecord = {
 };
 
 export type NewProject = Omit<Project, 'createdAt' | 'updatedAt'>;
+
+export type ChapterStatus = 'outline' | 'draft' | 'revision' | 'done';
+
+export type StoryAct = {
+    id: string;
+    projectId: string | null;
+    title: string;
+    summary: string | null;
+    orderIndex: number;
+    actNumber: number;
+    status: ChapterStatus;
+    createdAt: Date;
+    updatedAt: Date;
+};
+
+export type NewStoryAct = Omit<StoryAct, 'createdAt' | 'updatedAt'>;
+
+export type StorySequence = {
+    id: string;
+    actId: string | null;
+    chapterId: string | null;
+    projectId: string | null;
+    title: string;
+    summary: string | null;
+    orderIndex: number;
+    displayOrder: number;
+    status: ChapterStatus;
+    createdAt: Date;
+    updatedAt: Date;
+};
+
+export type NewStorySequence = Omit<StorySequence, 'createdAt' | 'updatedAt'>;

@@ -1,5 +1,4 @@
 import type {
-    Project,
     MentionTarget,
     Chapter,
     Character,
@@ -10,10 +9,10 @@ import type {
     FieldDefinition,
     CompendiumCategory,
     StoryScene,
-    StorySequence,
 } from '../types/index';
 import { isFieldVisible } from '../templates/fieldVisibility';
 import { isTreeEdge } from '../templates/tree';
+import { Project, StorySequence } from '../../shared/types';
 
 function estimateTokens(text: string): number {
     return Math.ceil(text.length / 4);
@@ -48,7 +47,10 @@ const ENTRY_PROMPT_INSTRUCTION =
 
 function formatProjectPrompt(project: Project): string {
     const lines: string[] = [];
-    lines.push(`You are a writing assistant for "${project.name}".`);
+    lines.push(
+        `You are a writing assistant for "${project.name}" (Project ID: ${project.id}).`
+    );
+
     if (project.contentRating)
         lines.push(`Content rating: ${project.contentRating}`);
     if (project.primaryGenre) lines.push(`Genre: ${project.primaryGenre}`);
@@ -64,6 +66,8 @@ function formatProjectPrompt(project: Project): string {
         lines.push(`\nGenres: ${project.genres.join(', ')}`);
     if (project.themes?.length)
         lines.push(`Themes: ${project.themes.join(', ')}`);
+
+    console.log('[base context]: ', lines.join('\n'));
     return lines.join('\n');
 }
 
@@ -194,6 +198,8 @@ export function buildContext(params: BuildContextParams): BuildContextResult {
         resolvedTemplates,
         supportsTools,
     } = params;
+
+    console.log('[break]');
 
     const protectedParts: string[] = [
         formatProjectPrompt(project),

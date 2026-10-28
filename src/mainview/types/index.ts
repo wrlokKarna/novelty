@@ -4,7 +4,13 @@ import {
     SeriesArchitecture,
     Project,
     NewProject,
+    ChapterStatus,
+    StoryAct,
+    NewStoryAct,
+    StorySequence,
+    NewStorySequence,
 } from '../../shared/types';
+import { Agent, AgentRun, NewAgent, NewAgentRun } from '../../shared/types/ai';
 import { Provider } from '../utils/ai/providerHelpers';
 
 export type WindowRequests = {
@@ -125,33 +131,6 @@ export type ChatMessage = {
 
 export type NewChatMessage = Omit<ChatMessage, 'timestamp'>;
 
-export type Agent = {
-    id: string;
-    projectId: string | null;
-    name: string;
-    config: string | null;
-    systemPrompt: string | null;
-    tools: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewAgent = Omit<Agent, 'createdAt' | 'updatedAt'>;
-
-export type AgentRun = {
-    id: string;
-    agentId: string;
-    status: string;
-    input: string | null;
-    output: string | null;
-    startedAt: Date | null;
-    finishedAt: Date | null;
-};
-
-export type NewAgentRun = Omit<AgentRun, 'startedAt' | 'finishedAt'>;
-
-export type ChapterStatus = 'outline' | 'draft' | 'revision' | 'done';
-
 export type Chapter = {
     id: string;
     projectId: string | null;
@@ -188,36 +167,6 @@ export type ChapterOutlineData = {
     keyEvents: string[];
     notes: string;
 };
-
-export type StoryAct = {
-    id: string;
-    projectId: string | null;
-    title: string;
-    summary: string | null;
-    orderIndex: number;
-    actNumber: number;
-    status: ChapterStatus;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewStoryAct = Omit<StoryAct, 'createdAt' | 'updatedAt'>;
-
-export type StorySequence = {
-    id: string;
-    actId: string | null;
-    chapterId: string | null;
-    projectId: string | null;
-    title: string;
-    summary: string | null;
-    orderIndex: number;
-    displayOrder: number;
-    status: ChapterStatus;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewStorySequence = Omit<StorySequence, 'createdAt' | 'updatedAt'>;
 
 export type StoryScene = {
     id: string;

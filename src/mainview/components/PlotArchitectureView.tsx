@@ -7,8 +7,6 @@ import {
 import { useRPC } from '../contexts/RPCContext';
 import { useCollapseState } from '../hooks/useCollapseState';
 import type {
-    StoryAct,
-    StorySequence,
     StoryScene,
     PlotThread,
     Chapter,
@@ -24,6 +22,7 @@ import {
     IconRefresh,
 } from '@tabler/icons-react';
 import SceneCardEditor from './SceneCardEditor';
+import { StoryAct, StorySequence } from '../../shared/types';
 
 interface Props {
     projectId: string;

@@ -1,3 +1,4 @@
+import { StoryAct, StorySequence } from '../../../shared/types';
 import type {
     Chapter,
     Character,
@@ -8,10 +9,8 @@ import type {
     LoreEntry,
     Organization,
     PlotThread,
-    StoryAct,
     StoryBeat,
     StoryScene,
-    StorySequence,
 } from '../../types/index';
 
 export type QuickAccessKind =

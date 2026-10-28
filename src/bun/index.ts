@@ -10,8 +10,6 @@ import type {
     NewAsset,
     NewChatSession,
     NewChatMessage,
-    NewAgent,
-    NewAgentRun,
     NewChapter,
     CompendiumCategory,
 } from '../mainview/types/index';
@@ -56,7 +54,12 @@ import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
 import { mcpClient } from './services/mcp/client.js';
 import { mcpServer } from './services/mcp/server.js';
 import registerAllTools from './services/mcp/tools.js';
-import { NewProject } from '../shared/types/index.js';
+import {
+    NewProject,
+    NewStoryAct,
+    NewStorySequence,
+} from '../shared/types/index.js';
+import { NewAgent, NewAgentRun } from '../shared/types/ai/index.js';
 
 registerAllTools();
 try {
@@ -698,7 +701,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
             'db:get-story-act': async (id: string) => {
                 return (await actsDB.getActById(id)) as any;
             },
-            'db:create-story-act': async (act: actsDB.NewStoryAct) => {
+            'db:create-story-act': async (act: NewStoryAct) => {
                 return (await actsDB.createAct(act)) as any;
             },
             'db:update-story-act': async ({
@@ -706,7 +709,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 data,
             }: {
                 id: string;
-                data: Partial<actsDB.NewStoryAct>;
+                data: Partial<NewStoryAct>;
             }) => {
                 return (await actsDB.updateAct(id, data)) as any;
             },
@@ -719,9 +722,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
             'db:get-story-sequence': async (id: string) => {
                 return (await actsDB.getSequenceById(id)) as any;
             },
-            'db:create-story-sequence': async (
-                seq: actsDB.NewStorySequence
-            ) => {
+            'db:create-story-sequence': async (seq: NewStorySequence) => {
                 return (await actsDB.createSequence(seq)) as any;
             },
             'db:update-story-sequence': async ({
@@ -729,7 +730,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 data,
             }: {
                 id: string;
-                data: Partial<actsDB.NewStorySequence>;
+                data: Partial<NewStorySequence>;
             }) => {
                 return (await actsDB.updateSequence(id, data)) as any;
             },

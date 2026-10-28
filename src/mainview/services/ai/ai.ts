@@ -255,6 +255,8 @@ export async function chatCompletion(
         });
     }
 
+    console.log('[req]', JSON.stringify(request));
+
     const response = await withTimeout(
         fetch(`${url}/chat/completions`, {
             method: 'POST',

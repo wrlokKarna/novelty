@@ -1,11 +1,10 @@
+import { StoryAct, StorySequence } from '../../../shared/types';
 import type {
     Chapter,
     TimelineEvent,
     Character,
     Location,
     LoreEntry,
-    StoryAct,
-    StorySequence,
     PlotThread,
     StoryBeat,
 } from '../../types/index';

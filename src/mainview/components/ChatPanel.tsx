@@ -47,7 +47,6 @@ import type {
 } from '../services/ai';
 import type {
     NewChatSession,
-    Project,
     MentionTarget,
     Chapter,
     Character,
@@ -58,7 +57,6 @@ import type {
     CompendiumCategory,
     FieldDefinition,
     StoryScene,
-    StorySequence,
 } from '../types';
 import { parseEntryData, parseAllEntryData } from '../services/entryParser';
 import type { ParsedEntry } from '../services/entryParser';
@@ -89,6 +87,7 @@ import ContextChips from './ContextChips';
 import SystemPromptToggle from './SystemPromptToggle';
 import { SettingsDialogActiveTab } from '../constants/layout_tabs';
 import { Model } from '../utils/ai/providerHelpers';
+import { Project, StorySequence } from '../../shared/types';
 
 function smartTruncate(text: string, maxLen = 50): string {
     const cleaned = text

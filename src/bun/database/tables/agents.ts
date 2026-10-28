@@ -2,10 +2,10 @@ import { db } from './../index';
 import { agents, agentRuns } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
 
-export type Agent = typeof agents.$inferSelect;
-export type NewAgent = typeof agents.$inferInsert;
-export type AgentRun = typeof agentRuns.$inferSelect;
-export type NewAgentRun = typeof agentRuns.$inferInsert;
+type Agent = typeof agents.$inferSelect;
+type NewAgent = typeof agents.$inferInsert;
+type AgentRun = typeof agentRuns.$inferSelect;
+type NewAgentRun = typeof agentRuns.$inferInsert;
 
 export async function getAllAgents(): Promise<Agent[]> {
     return db.select().from(agents).orderBy(asc(agents.updatedAt));

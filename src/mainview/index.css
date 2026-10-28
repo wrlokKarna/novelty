@@ -2309,6 +2309,14 @@ select {
     border-radius: 4px;
     cursor: pointer;
     transition: color 0.15s;
+
+    svg {
+        width: 18px;
+        height: 18px;
+    }
+    span.txt {
+        font-size: 18px;
+    }
 }
 
 .message-action-btn:hover {
@@ -5649,4 +5657,60 @@ textarea {
 .structure-review-confirm-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.chat-message.thinking-container {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    transition: all 0.2s ease-in-out;
+}
+
+.thinking-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+}
+
+.thinking-toggle:hover {
+    color: #e5e7eb;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.thinking-toggle-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.thinking-title {
+    color: #d1d5db;
+}
+
+.thinking-body {
+    padding: 10px 14px 14px 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #9ca3af;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.thinking-body p {
+    margin: 0 0 8px 0;
+}
+
+.thinking-body p:last-child {
+    margin-bottom: 0;
 }

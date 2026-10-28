@@ -11,7 +11,6 @@ import { useRPC } from './contexts/RPCContext';
 import type {
     Chapter,
     NewChapter,
-    Project,
     FileTab,
     CompendiumCategory,
     Character,
@@ -24,8 +23,6 @@ import type {
     TemplateLayout,
     PlotThread,
     StoryBeat,
-    StoryAct,
-    StorySequence,
     StoryScene,
     ChapterPlotThread,
 } from './types/index';
@@ -78,6 +75,7 @@ import { useSettings } from './contexts/SettingsContext';
 import LeftPanel from './ui/workspaces/editor/LeftPanel';
 import RightPanel from './ui/workspaces/editor/RightPanel';
 import { type ProjectDialogActiveTab } from './constants/layout_tabs';
+import { Project, StoryAct, StorySequence } from '../shared/types';
 
 /*
 const categoryConfig: Record<

@@ -1,3 +1,4 @@
+/*
 import { Electroview } from "electrobun/view";
 import type { AppRPC } from "..";
 
@@ -7,3 +8,4 @@ export const rpcClient = Electroview.defineRPC<AppRPC>({
     requests: {},
   },
 });
+*/

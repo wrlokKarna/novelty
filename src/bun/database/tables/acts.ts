@@ -1,36 +1,13 @@
 import { db } from './../index';
 import { storyActs, storySequences, storyScenes } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-
-export type StoryAct = {
-    id: string;
-    projectId: string | null;
-    title: string;
-    summary: string | null;
-    orderIndex: number;
-    actNumber: number;
-    status: string;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewStoryAct = Omit<StoryAct, 'createdAt' | 'updatedAt'>;
-
-export type StorySequence = {
-    id: string;
-    actId: string | null;
-    chapterId: string | null;
-    projectId: string | null;
-    title: string;
-    summary: string | null;
-    orderIndex: number;
-    displayOrder: number;
-    status: string;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewStorySequence = Omit<StorySequence, 'createdAt' | 'updatedAt'>;
+import {
+    ChapterStatus,
+    NewStoryAct,
+    NewStorySequence,
+    StoryAct,
+    StorySequence,
+} from '../../../shared/types';
 
 function parseAct(row: typeof storyActs.$inferSelect): StoryAct {
     return {
@@ -40,7 +17,7 @@ function parseAct(row: typeof storyActs.$inferSelect): StoryAct {
         summary: row.summary,
         orderIndex: row.orderIndex,
         actNumber: row.actNumber,
-        status: row.status,
+        status: row.status as ChapterStatus,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     };
@@ -56,7 +33,7 @@ function parseSequence(row: typeof storySequences.$inferSelect): StorySequence {
         summary: row.summary,
         orderIndex: row.orderIndex,
         displayOrder: row.displayOrder,
-        status: row.status,
+        status: row.status as ChapterStatus,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     };

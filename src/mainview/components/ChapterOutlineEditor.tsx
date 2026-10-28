@@ -1,19 +1,17 @@
 import { useState } from 'react';
 import type {
     Chapter,
-    ChapterStatus,
     Character,
     PlotThread,
     ChapterPlotThread,
     ChapterOutlineData,
-    StoryAct,
     StoryScene,
-    StorySequence,
 } from '../types/index';
 import { IconPlus, IconTrash, IconArrowRight } from '@tabler/icons-react';
 import { useCollapseState } from '../hooks/useCollapseState';
 import ChapterStructureEditor from './ChapterStructureEditor';
 import type { StructureItem } from './ChapterStructureEditor';
+import { StoryAct, ChapterStatus, StorySequence } from '../../shared/types';
 
 interface Props {
     projectId: string;
