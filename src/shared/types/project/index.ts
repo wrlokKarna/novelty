@@ -18,3 +18,10 @@ export type Chapter = {
 };
 
 export type NewChapter = Omit<Chapter, 'createdAt' | 'updatedAt'>;
+
+export type Genre = {
+    id: string;
+    name: string;
+    isGlobal: boolean;
+    createdAt: Date;
+};

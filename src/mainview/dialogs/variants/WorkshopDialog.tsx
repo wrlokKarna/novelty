@@ -5,7 +5,7 @@ import AssetPicker from './AssetPicker';
 import SeriesCard from '../../components/cards/SeriesCard';
 import ProjectCard from '../../components/cards/ProjectCard';
 import { useRPC } from '../../contexts/RPCContext';
-import type { Genre, Tag, Series, NewSeries } from '../../types/index';
+import type { Tag, Series, NewSeries } from '../../types/index';
 import styles from './WorkshopDialog.module.css';
 import { IconGridDots, IconLayoutGrid } from '@tabler/icons-react';
 import { groupAndSort } from '../../features/workshop/workshop_utils';
@@ -15,6 +15,7 @@ import {
     ProjectScope,
     NewProject,
 } from '../../../shared/types';
+import { Genre } from '../../../shared/types/project';
 
 const seriesArchOptions: { value: SeriesArchitecture; label: string }[] = [
     { value: 'duology', label: 'Duology' },

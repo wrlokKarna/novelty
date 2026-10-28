@@ -22,7 +22,7 @@ import {
     NewChatMessage,
     NewChatSession,
 } from '../../shared/types/ai';
-import { Chapter, NewChapter } from '../../shared/types/project';
+import { Chapter, Genre, NewChapter } from '../../shared/types/project';
 import { Character, NewCharacter } from '../../shared/types/project/compendium';
 import { Provider } from '../utils/ai/providerHelpers';
 
@@ -252,13 +252,6 @@ export type LoreEntry = {
 };
 
 export type NewLoreEntry = Omit<LoreEntry, 'createdAt' | 'updatedAt'>;
-
-export type Genre = {
-    id: string;
-    name: string;
-    isGlobal: boolean;
-    createdAt: Date;
-};
 
 export type Tag = {
     id: string;

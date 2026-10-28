@@ -5,7 +5,6 @@ import SubDialog from '../SubDialog';
 import AssetPicker from './AssetPicker';
 import { useRPC } from '../../contexts/RPCContext';
 import type {
-    Genre,
     Tag,
     Theme,
     Series,
@@ -61,6 +60,7 @@ import {
     SeriesArchitecture,
     Asset,
 } from '../../../shared/types';
+import { Genre } from '../../../shared/types/project';
 
 interface ProjectManagerProps {
     open: boolean;
