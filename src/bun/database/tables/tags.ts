@@ -1,5 +1,5 @@
 import { db } from './../index';
-import { tags } from '../schema';
+import { tags } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
 
 export type Tag = {

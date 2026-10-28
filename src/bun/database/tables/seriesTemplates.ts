@@ -1,14 +1,14 @@
 import { db } from './../index';
-import { projects, seriesTemplates } from '../schema';
+import { projects, seriesTemplates } from '../../schema';
 import { eq, and } from 'drizzle-orm';
 import type {
     CompendiumCategory,
     FieldDefinition,
     SeriesTemplate,
     TemplateLayout,
-} from '../../mainview/types';
-import { normalizeTreeFields } from '../../mainview/templates/tree';
-import { normalizeLayout } from '../../mainview/templates/mergeFields';
+} from '../../../mainview/types';
+import { normalizeTreeFields } from '../../../mainview/templates/tree';
+import { normalizeLayout } from '../../../mainview/templates/mergeFields';
 
 // Canonical definitions live in mainview/types. Re-exported here because this
 // module is the public surface for series template reads/writes.
@@ -21,7 +21,7 @@ export type {
     TemplateLayout,
     VisibilityCondition,
     VisibilityOperator,
-} from '../../mainview/types';
+} from '../../../mainview/types';
 
 function parseLayout(raw: unknown): TemplateLayout | null {
     if (!raw || typeof raw !== 'string') return null;

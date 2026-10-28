@@ -1,5 +1,5 @@
 import { db } from './../index';
-import { storyScenes } from '../schema';
+import { storyScenes } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
 
 export type StoryScene = {
