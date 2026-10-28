@@ -1,4 +1,4 @@
-import { db } from './index';
+import { db } from './../index';
 import {
     projects,
     projectGenres,
@@ -7,22 +7,24 @@ import {
     genres,
     tags,
     themes,
-} from '../schema';
+} from '../../schema';
 import { eq, asc, desc, or } from 'drizzle-orm';
-import { getAllSettings, setSetting } from '../settings';
+import { getAllSettings, setSetting } from '../../settings';
 import { join } from 'path';
 import { mkdirSync, existsSync } from 'fs';
-import type {
-    ProjectScope,
-    SeriesArchitecture,
-    PointOfView,
-    PacingType,
-    WorkType,
-    ProjectStructure,
-    TargetAgeGroup,
-    ProjectStatus,
-} from '../../mainview/types';
 
+import {
+    PacingType,
+    PointOfView,
+    Project,
+    ProjectScope,
+    ProjectStatus,
+    ProjectStructure,
+    SeriesArchitecture,
+    TargetAgeGroup,
+    WorkType,
+} from '../../../shared/types';
+/*
 export type Project = {
     id: string;
     name: string;
@@ -51,6 +53,7 @@ export type Project = {
     createdAt: Date;
     updatedAt: Date;
 };
+*/
 
 export type NewProject = Omit<Project, 'createdAt' | 'updatedAt'>;
 

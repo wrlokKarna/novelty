@@ -1,5 +1,5 @@
-import { db } from './index';
-import { agents, agentRuns } from '../schema';
+import { db } from './../index';
+import { agents, agentRuns } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
 
 export type Agent = typeof agents.$inferSelect;

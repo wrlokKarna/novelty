@@ -1,4 +1,4 @@
-import { db } from './index';
+import { db } from './../index';
 import { series, projects } from '../schema';
 import { eq, asc } from 'drizzle-orm';
 import type { SeriesArchitecture } from '../../mainview/types';

@@ -1,5 +1,5 @@
-import { db } from './index';
-import { organizations } from '../schema';
+import { db } from './../index';
+import { organizations } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
 
 export type Organization = {

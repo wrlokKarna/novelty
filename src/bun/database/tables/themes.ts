@@ -1,4 +1,4 @@
-import { db } from './index';
+import { db } from './../index';
 import { themes } from '../schema';
 import { eq, asc } from 'drizzle-orm';
 import type { Theme } from '../../mainview/types';

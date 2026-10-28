@@ -1,4 +1,4 @@
-import { db } from './index';
+import { db } from './../index';
 import { projectReferences } from '../schema';
 import { eq, asc } from 'drizzle-orm';
 

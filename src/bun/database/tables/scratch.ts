@@ -1,5 +1,5 @@
-import { db } from './index';
-import { scratchNotes } from '../schema';
+import { db } from './../index';
+import { scratchNotes } from '../../schema';
 import { eq } from 'drizzle-orm';
 
 export type ScratchNote = {

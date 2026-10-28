@@ -1,5 +1,5 @@
-import { db } from './index';
-import { assets } from '../schema';
+import { db } from './../index';
+import { assets } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
 
 export type Asset = typeof assets.$inferSelect;

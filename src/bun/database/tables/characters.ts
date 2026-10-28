@@ -1,5 +1,5 @@
-import { db } from './index';
-import { characters } from '../schema';
+import { db } from './../index';
+import { characters } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
 
 export type Character = {

@@ -1,5 +1,5 @@
-import { db } from './index';
-import { genres } from '../schema';
+import { db } from './../index';
+import { genres } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
 
 export type Genre = {

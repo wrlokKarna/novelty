@@ -1,5 +1,10 @@
-import { db } from './index';
-import { timelineEvents, chapters, characters, organizations } from '../schema';
+import { db } from './../index';
+import {
+    timelineEvents,
+    chapters,
+    characters,
+    organizations,
+} from '../../schema';
 import { eq, asc, and } from 'drizzle-orm';
 
 export type TimelineEvent = {

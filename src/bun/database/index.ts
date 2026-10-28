@@ -1,14 +1,11 @@
 import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { Database } from 'bun:sqlite';
-import { Utils } from 'electrobun/main';
-import { join } from 'path';
+
 import { mkdirSync, existsSync } from 'fs';
 import * as schema from '../schema';
 import * as sqliteVec from 'sqlite-vec';
 import { normalizeTreeFields } from '../../mainview/templates/tree';
-
-const dbPath = join(Utils.paths.userData, 'novelty.db');
-const dbDir = Utils.paths.userData;
+import { dbDir, dbPath } from './db';
 
 console.log('Database path:', dbPath);
 console.log('Database directory:', dbDir);

@@ -1,5 +1,5 @@
-import { db } from './index';
-import { locations } from '../schema';
+import { db } from './../index';
+import { locations } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
 
 export type Location = {

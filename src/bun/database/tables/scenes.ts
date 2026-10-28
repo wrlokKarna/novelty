@@ -1,4 +1,4 @@
-import { db } from './index';
+import { db } from './../index';
 import { storyScenes } from '../schema';
 import { eq, asc } from 'drizzle-orm';
 

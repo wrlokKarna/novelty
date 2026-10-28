@@ -1,5 +1,5 @@
-import { db } from './index';
-import { chatSessions, chatMessages } from '../schema';
+import { db } from './../index';
+import { chatSessions, chatMessages } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
 
 export type ChatSession = typeof chatSessions.$inferSelect;

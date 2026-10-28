@@ -1,5 +1,5 @@
-import { db } from './index';
-import { items } from '../schema';
+import { db } from './../index';
+import { items } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
 
 export type Item = {

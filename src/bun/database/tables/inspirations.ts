@@ -1,7 +1,7 @@
-import { db } from './index';
-import { inspirations } from '../schema';
+import { db } from './../index';
+import { inspirations } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-import type { Inspiration, NewInspiration } from '../../mainview/types';
+import type { Inspiration, NewInspiration } from '../../../mainview/types';
 
 function parseInspiration(row: Record<string, unknown>): Inspiration {
     return {

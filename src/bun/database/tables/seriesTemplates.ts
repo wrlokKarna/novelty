@@ -1,4 +1,4 @@
-import { db } from './index';
+import { db } from './../index';
 import { projects, seriesTemplates } from '../schema';
 import { eq, and } from 'drizzle-orm';
 import type {
