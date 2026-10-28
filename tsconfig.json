@@ -21,6 +21,6 @@
         "baseUrl": null
     },
     "extends": "./.hutch/devkit/tsconfig.json",
-    "include": ["src", "electrobun.config.ts"],
+    "include": ["src", "electrobun.config.ts", ".local_sandbox/"],
     "exclude": ["node_modules", "dist", "build", "../../package/dist"]
 }
