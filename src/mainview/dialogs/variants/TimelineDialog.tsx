@@ -5,7 +5,6 @@ import 'vis-timeline/styles/vis-timeline-graph2d.css';
 import { useRPC } from '../../contexts/RPCContext';
 import type {
     TimelineEvent,
-    Character,
     Organization,
     CompendiumCategory,
 } from '../../types/index';
@@ -13,6 +12,7 @@ import TimelineEventEditor from '../../components/TimelineEventEditor';
 import Dialog from '../Dialog';
 import './../../ui/timeline.css';
 import { Chapter } from '../../../shared/types/project';
+import { Character } from '../../../shared/types/project/compendium';
 
 const EVENT_COLORS: Record<string, string> = {
     chapter: '#4a9eff',

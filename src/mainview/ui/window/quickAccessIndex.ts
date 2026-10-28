@@ -1,7 +1,7 @@
 import { StoryAct, StorySequence } from '../../../shared/types';
 import { Chapter } from '../../../shared/types/project';
+import { Character } from '../../../shared/types/project/compendium';
 import type {
-    Character,
     CompendiumCategory,
     FileTab,
     Item,

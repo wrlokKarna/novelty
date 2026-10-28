@@ -1,8 +1,8 @@
 import { StoryAct, StorySequence } from '../../../shared/types';
 import { Chapter } from '../../../shared/types/project';
+import { Character } from '../../../shared/types/project/compendium';
 import type {
     TimelineEvent,
-    Character,
     Location,
     LoreEntry,
     PlotThread,

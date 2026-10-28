@@ -43,7 +43,6 @@ import {
 
 import type {
     MentionTarget,
-    Character,
     Location,
     Organization,
     Item,
@@ -89,6 +88,7 @@ import {
     UserChatMessage,
 } from '../../shared/types/ai';
 import { Chapter } from '../../shared/types/project';
+import { Character } from '../../shared/types/project/compendium';
 
 function smartTruncate(text: string, maxLen = 50): string {
     const cleaned = text

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type {
-    Character,
     PlotThread,
     ChapterPlotThread,
     ChapterOutlineData,
@@ -12,6 +11,7 @@ import ChapterStructureEditor from './ChapterStructureEditor';
 import type { StructureItem } from './ChapterStructureEditor';
 import { StoryAct, ChapterStatus, StorySequence } from '../../shared/types';
 import { Chapter } from '../../shared/types/project';
+import { Character } from '../../shared/types/project/compendium';
 
 interface Props {
     projectId: string;

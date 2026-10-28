@@ -6,12 +6,7 @@ import {
 } from 'react';
 import { useRPC } from '../contexts/RPCContext';
 import { useCollapseState } from '../hooks/useCollapseState';
-import type {
-    StoryScene,
-    PlotThread,
-    StoryBeat,
-    Character,
-} from '../types/index';
+import type { StoryScene, PlotThread, StoryBeat } from '../types/index';
 import {
     IconPlus,
     IconTrash,
@@ -23,6 +18,7 @@ import {
 import SceneCardEditor from './SceneCardEditor';
 import { StoryAct, StorySequence } from '../../shared/types';
 import { Chapter } from '../../shared/types/project';
+import { Character } from '../../shared/types/project/compendium';
 
 interface Props {
     projectId: string;

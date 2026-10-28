@@ -23,6 +23,7 @@ import {
     NewChatSession,
 } from '../../shared/types/ai';
 import { Chapter, NewChapter } from '../../shared/types/project';
+import { Character, NewCharacter } from '../../shared/types/project/compendium';
 import { Provider } from '../utils/ai/providerHelpers';
 
 export type WindowRequests = {
@@ -203,18 +204,6 @@ export type StoryBeat = {
 };
 
 export type NewStoryBeat = Omit<StoryBeat, 'createdAt' | 'updatedAt'>;
-
-export type Character = {
-    id: string;
-    projectId: string | null;
-    name: string;
-    filePath: string | null;
-    templateData: Record<string, unknown> | null;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewCharacter = Omit<Character, 'createdAt' | 'updatedAt'>;
 
 export type Location = {
     id: string;

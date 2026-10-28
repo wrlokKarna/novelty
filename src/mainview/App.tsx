@@ -11,7 +11,6 @@ import { useRPC } from './contexts/RPCContext';
 import type {
     FileTab,
     CompendiumCategory,
-    Character,
     Location,
     Organization,
     Item,
@@ -75,6 +74,7 @@ import RightPanel from './ui/workspaces/editor/RightPanel';
 import { type ProjectDialogActiveTab } from './constants/layout_tabs';
 import { Project, StoryAct, StorySequence } from '../shared/types';
 import { Chapter, NewChapter } from '../shared/types/project';
+import { Character } from '../shared/types/project/compendium';
 
 /*
 const categoryConfig: Record<

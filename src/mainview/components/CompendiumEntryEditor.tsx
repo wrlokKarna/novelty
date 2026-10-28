@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import type {
-    Character,
     Location,
     Organization,
     Item,
@@ -12,6 +11,7 @@ import type {
 } from '../types/index';
 import { isFieldVisible } from '../templates/fieldVisibility';
 import TemplateTab from './template/TemplateTab';
+import { Character } from '../../shared/types/project/compendium';
 
 interface CompendiumEntryEditorProps {
     entry: Character | Location | Organization | Item | LoreEntry;

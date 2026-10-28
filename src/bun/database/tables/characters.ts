@@ -1,18 +1,10 @@
 import { db } from './../index';
 import { characters } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-
-export type Character = {
-    id: string;
-    projectId: string | null;
-    name: string;
-    filePath: string | null;
-    templateData: Record<string, unknown> | null;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewCharacter = Omit<Character, 'createdAt' | 'updatedAt'>;
+import {
+    Character,
+    NewCharacter,
+} from '../../../shared/types/project/compendium';
 
 function parseCharacter(row: Record<string, unknown>): Character {
     return {

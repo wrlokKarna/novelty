@@ -529,9 +529,6 @@ export const Mcpcharacters = sqliteTable('characters', {
 
 console.log('McpSchema ');
 
-export type Character = InferSelectModel<typeof characters>;
-export type NewCharacter = InferInsertModel<typeof characters>;
-
 export const Mcpscenes = sqliteTable('scenes', {
     id: integer('id').primaryKey({ autoIncrement: true }),
     title: text('title').notNull(),
