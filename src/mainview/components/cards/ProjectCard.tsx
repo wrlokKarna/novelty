@@ -1,8 +1,8 @@
-import type { Project } from '../../types/index';
 import { useState, useEffect } from 'react';
 import { useRPC } from '../../contexts/RPCContext';
 import styles from './ProjectCard.module.css';
 import { IconPencilFilled } from '@tabler/icons-react';
+import { Project } from '../../../shared/types';
 
 export type CardActionHandlers = {
     onSelect?: (projectId: string) => void;

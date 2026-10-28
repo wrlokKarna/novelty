@@ -19,11 +19,11 @@ import { isFieldVisible } from '../../mainview/templates/fieldVisibility';
 import { isTreeEdge } from '../../mainview/templates/tree';
 import type {
     EmbeddingSettings,
-    Project,
     MentionTarget,
     ContextSource,
     CompendiumCategory,
 } from '../../mainview/types';
+import { Project } from '../../shared/types';
 
 export interface ContextRequest {
     projectId: string;

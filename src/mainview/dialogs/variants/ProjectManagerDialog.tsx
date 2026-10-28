@@ -5,15 +5,6 @@ import SubDialog from '../SubDialog';
 import AssetPicker from './AssetPicker';
 import { useRPC } from '../../contexts/RPCContext';
 import type {
-    Project,
-    ProjectScope,
-    SeriesArchitecture,
-    PointOfView,
-    PacingType,
-    WorkType,
-    ProjectStructure,
-    TargetAgeGroup,
-    ProjectStatus,
     Genre,
     Tag,
     Theme,
@@ -59,6 +50,17 @@ import {
     targetAgeOptions,
     workTypeOptions,
 } from '../../constants/project_consts';
+import {
+    Project,
+    ProjectScope,
+    PointOfView,
+    PacingType,
+    WorkType,
+    ProjectStructure,
+    TargetAgeGroup,
+    ProjectStatus,
+    SeriesArchitecture,
+} from '../../../shared/types';
 
 interface ProjectManagerProps {
     open: boolean;
