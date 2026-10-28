@@ -22,7 +22,13 @@ import {
     NewChatMessage,
     NewChatSession,
 } from '../../shared/types/ai';
-import { Chapter, Genre, NewChapter } from '../../shared/types/project';
+import {
+    Chapter,
+    Genre,
+    Inspiration,
+    NewChapter,
+    NewInspiration,
+} from '../../shared/types/project';
 import { Character, NewCharacter } from '../../shared/types/project/compendium';
 import { Provider } from '../utils/ai/providerHelpers';
 
@@ -41,49 +47,6 @@ export const PROJECT_SCOPE_TARGETS: Record<ProjectScope, WordCountTarget> = {
     standard: { min: 70000, max: 100000, label: '70k – 100k words' },
     epic: { min: 110000, max: 180000, label: '110k – 180k+ words' },
 };
-
-export type SourceType =
-    | 'book'
-    | 'movie'
-    | 'tv_show'
-    | 'game'
-    | 'anime'
-    | 'manga'
-    | 'web_novel'
-    | 'web_series'
-    | 'comic'
-    | 'mythology'
-    | 'history'
-    | 'other';
-
-export const PREDEFINED_ASPECTS = [
-    'atmosphere',
-    'characters',
-    'story_arc',
-    'worldbuilding',
-    'themes',
-    'prose_style',
-    'magic_system',
-    'dialogue',
-    'pacing',
-    'aesthetic',
-] as const;
-
-export type InspiredAspect = (typeof PREDEFINED_ASPECTS)[number] | string;
-
-export type Inspiration = {
-    id: string;
-    projectId: string;
-    sourceName: string;
-    sourceType: SourceType;
-    sourceYear: number | null;
-    inspiredAspects: string[];
-    inspiredNotes: string;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewInspiration = Omit<Inspiration, 'createdAt' | 'updatedAt'>;
 
 export type MentionTarget = {
     type:

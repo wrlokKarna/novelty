@@ -9,11 +9,8 @@ import type {
     Theme,
     Series,
     NewSeries,
-    Inspiration,
-    NewInspiration,
     CompendiumCategory,
 } from '../../types/index';
-import { PREDEFINED_ASPECTS } from '../../types/index';
 import { PROJECT_SCOPE_TARGETS } from '../../types/index';
 import {
     IconCheck,
@@ -60,7 +57,12 @@ import {
     SeriesArchitecture,
     Asset,
 } from '../../../shared/types';
-import { Genre } from '../../../shared/types/project';
+import {
+    Genre,
+    Inspiration,
+    NewInspiration,
+    PREDEFINED_ASPECTS,
+} from '../../../shared/types/project';
 
 interface ProjectManagerProps {
     open: boolean;
