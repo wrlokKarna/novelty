@@ -1,42 +1,10 @@
 import { ProcessAiPromptParams } from '../../bun/temp/mainMCP';
+import { ProjectScope, SeriesArchitecture, Project } from '../../shared/types';
 import { Provider } from '../utils/ai/providerHelpers';
 
 export type WindowRequests = {
     'close-window': () => void;
 };
-
-export type ProjectScope = 'fast_paced' | 'standard' | 'epic';
-
-export type SeriesArchitecture =
-    'standalone' | 'duology' | 'trilogy' | 'ongoing';
-
-export type PointOfView = 'single' | 'multiple' | 'omniscient';
-
-export type PacingType = 'fast_paced' | 'balanced' | 'deep_dive';
-
-export type WorkType =
-    | 'original'
-    | 'fanfiction'
-    | 'adaptation'
-    | 'derivative'
-    | 'parody'
-    | 'translation'
-    | 'transformative';
-
-export type ProjectStructure =
-    | 'oneshot'
-    | 'standalone'
-    | 'serials'
-    | 'episodic'
-    | 'anthology'
-    | 'series'
-    | 'seasonal';
-
-export type TargetAgeGroup =
-    'children' | 'middle_grade' | 'young_adult' | 'new_adult' | 'adult';
-
-export type ProjectStatus =
-    'planning' | 'drafting' | 'revising' | 'completed' | 'hiatus' | 'published';
 
 export type WordCountTarget = {
     min: number | null;
@@ -48,35 +16,6 @@ export const PROJECT_SCOPE_TARGETS: Record<ProjectScope, WordCountTarget> = {
     fast_paced: { min: 50000, max: 70000, label: '50k – 70k words' },
     standard: { min: 70000, max: 100000, label: '70k – 100k words' },
     epic: { min: 110000, max: 180000, label: '110k – 180k+ words' },
-};
-
-export type Project = {
-    id: string;
-    name: string;
-    path: string | null;
-    metadata: string | null;
-    description: string | null;
-    systemPrompt: string | null;
-    coverImageId: string | null;
-    coverImagesArray: string[];
-    projectScope: ProjectScope | null;
-    seriesArch: SeriesArchitecture | null;
-    seriesId: string | null;
-    pov: PointOfView | null;
-    pacing: PacingType | null;
-    workType: WorkType | null;
-    projectStructure: ProjectStructure | null;
-    targetAge: TargetAgeGroup | null;
-    projectStatus: ProjectStatus;
-    tonalType: string | null;
-    contentRating: string;
-    primaryGenre: string | null;
-    primaryTheme: string | null;
-    genres: string[];
-    tags: string[];
-    themes: string[];
-    createdAt: Date;
-    updatedAt: Date;
 };
 
 export type NewProject = Omit<Project, 'createdAt' | 'updatedAt'>;

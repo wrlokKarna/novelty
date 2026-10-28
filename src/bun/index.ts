@@ -17,39 +17,38 @@ import type {
     CompendiumCategory,
 } from '../mainview/types/index';
 import { readFileSync, existsSync } from 'fs';
-import { initDatabase } from './database';
-import * as projectsDB from './database/projects';
-import * as assetsDB from './database/assets';
-import * as chatDB from './database/chat';
-import * as agentsDB from './database/agents';
-import * as chaptersDB from './database/chapters';
-import * as scratchDB from './database/scratch';
+import * as projectsDB from './database/tables/projects.js';
+import * as assetsDB from './database/tables/assets.js';
+import * as chatDB from './database/tables/chat.js';
+import * as agentsDB from './database/tables/agents.js';
+import * as chaptersDB from './database/tables/chapters.js';
+import * as scratchDB from './database/tables/scratch';
 import * as settingsDB from './settings';
-import * as charactersDB from './database/characters';
-import * as locationsDB from './database/locations';
-import * as organizationsDB from './database/organizations';
-import * as itemsDB from './database/items';
-import * as loreDB from './database/lore';
-import * as genresDB from './database/genres';
-import * as tagsDB from './database/tags';
-import * as themesDB from './database/themes';
-import * as templatesDB from './database/templates';
-import * as seriesDB from './database/series';
-import * as seriesTemplatesDB from './database/seriesTemplates';
-import * as timelineDB from './database/timeline';
-import * as usageDB from './database/usage';
-import * as actsDB from './database/acts';
-import * as plotThreadsDB from './database/plotThreads';
-import * as storyBeatsDB from './database/storyBeats';
-import * as scenesDB from './database/scenes';
-import * as inspirationsDB from './database/inspirations';
+import * as charactersDB from './database/tables/characters.js';
+import * as locationsDB from './database/tables/locations.js';
+import * as organizationsDB from './database/tables/organizations';
+import * as itemsDB from './database/tables/items.js';
+import * as loreDB from './database/tables/lore.js';
+import * as genresDB from './database/tables/genres.js';
+import * as tagsDB from './database/tables/tags';
+import * as themesDB from './database/tables/themes';
+import * as templatesDB from './database/tables/templates.js';
+import * as seriesDB from './database/tables/series';
+import * as seriesTemplatesDB from './database/tables/seriesTemplates';
+import * as timelineDB from './database/tables/timeline.js';
+import * as usageDB from './database/tables/usage.js';
+import * as actsDB from './database/tables/acts.js';
+import * as plotThreadsDB from './database/tables/plotThreads.js';
+import * as storyBeatsDB from './database/tables/storyBeats.js';
+import * as scenesDB from './database/tables/scenes';
+import * as inspirationsDB from './database/tables/inspirations.js';
 import {
     indexProject,
     getIndexStatus,
     rebuildProjectEmbeddings,
 } from './services/embeddings/pipeline';
 import { buildContext } from './services/contextEngine';
-import { sqliteVecAvailable } from './database/index';
+import { initDatabase, sqliteVecAvailable } from './database/index.js';
 
 import { ProcessAiPromptParams } from './temp/mainMCP.js';
 
@@ -57,7 +56,9 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
 import { mcpClient } from './services/mcp/client.js';
 import { mcpServer } from './services/mcp/server.js';
+import registerAllTools from './services/mcp/tools.js';
 
+registerAllTools();
 try {
     const [clientTransport, serverTransport] =
         InMemoryTransport.createLinkedPair();
@@ -66,7 +67,6 @@ try {
 } catch (err) {
     console.error('Failed to initialize MCP transport:', err);
 }
-
 const DEV_SERVER_PORT = 5173;
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`;
 

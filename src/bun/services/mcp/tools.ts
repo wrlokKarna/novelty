@@ -3,6 +3,13 @@ import { z } from 'zod';
 //import { eq } from 'drizzle-orm';
 //import { db } from '../../database/index.js';
 import { mcpServer } from './server.js';
+import * as projectDB from '../../database/tables/projects.js';
+import * as templatesDB from '../../database/tables/templates.js';
+import * as characterDB from '../../database/tables/characters.js';
+import * as locationDB from '../../database/tables/locations.js';
+import * as organizationDB from '../../database/tables/organizations.js';
+import * as itemDB from '../../database/tables/items.js';
+import * as loreDB from '../../database/tables/lore.js';
 
 const compendiumCategoryEnum = z.enum([
     'character',
@@ -11,233 +18,461 @@ const compendiumCategoryEnum = z.enum([
     'item',
     'lore',
 ]);
+export type CompendiumCategory = z.infer<typeof compendiumCategoryEnum>;
+export default function registerAllTools() {
+    mcpServer.registerTool(
+        'get_project_details',
+        {
+            title: 'Get Project Details',
+            description:
+                'Retrieve comprehensive details, configuration, and metadata for a specific project.',
+            inputSchema: z.object({
+                projectId: z.string().describe('The ID of the project'),
+            }),
+        },
+        async ({ projectId }) => {
+            console.log(
+                `[CRUD: Read] Fetching details for Project: ${projectId}`
+            );
+            const project = await projectDB.getProjectById(projectId);
+            console.log('[CRUD: Project]', project);
 
-mcpServer.registerTool(
-    'create_entry',
-    {
-        title: 'Create Entry',
-        description: 'Add a new entry to the story compendium database.',
-        inputSchema: z.object({
-            projectId: z.string().describe('The ID of the project'),
+            // Example DB query logic:
+            /*
+            const [project] = await db.select().from(projects).where(
+                eq(projects.id, projectId)
+            );
+            */
 
-            category: compendiumCategoryEnum.describe(
-                'The compendium category'
-            ),
-            data: z.string().describe('The entry data/content (JSON or text)'),
-        }),
-    },
-    async ({ projectId, category, data }) => {
-        console.log(
-            `[calling create_entry] Project: ${projectId}, Category: ${category}, Data ${data}`
-        );
+            /* Mock return for demonstration
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Retrieved details for project ${projectId}.`,
+                    },
+                ],
+            };
+            */
+            if (!project) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Error: Project with ID ${projectId} was not found.`,
+                        },
+                    ],
+                };
+            }
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(project, null, 2),
+                    },
+                ],
+            };
+        }
+    );
 
-        // TODO: Insert into your database based on category
-        // e.g., db.insert(compendiumEntries).values({ projectId, category, data })
-
-        return {
-            content: [
-                {
-                    type: 'text',
-                    text: `Successfully created ${category} entry for project ${projectId}`,
-                },
-            ],
-        };
-    }
-);
-
-/*
-// Tool 1: create_character
-// Matches response JSON structure: { category, name, id?, fields: { role, bio, status, ... } }
-// Uses upsert so if `id` is provided and already exists it updates instead of creating a duplicate.
-mcpServer.registerTool(
-    'create_character',
-    {
-        title: 'Create or Update Character',
-        description:
-            'Add a new character or update an existing one in the manuscript database. If `id` is provided and the character already exists it will be updated instead of creating a duplicate.',
-        inputSchema: z.object({
-            id: z
-                .string()
-                .optional()
-                .describe(
-                    'Existing character ID to update (omit to auto-generate)'
+    mcpServer.registerTool(
+        'get_template',
+        {
+            title: 'Retrieve a Template',
+            description:
+                'Retrieves a template for a specific compendium category within a project.',
+            inputSchema: z.object({
+                projectId: z.string().describe('The ID of the project'),
+                baseType: compendiumCategoryEnum.describe(
+                    'The category/base type of the entity'
                 ),
-            name: z.string().describe('Character name'),
-            projectId: z
-                .string()
-                .optional()
-                .describe('Project ID this character belongs to'),
-            fields: z
-                .record(z.unknown())
-                .optional()
-                .describe(
-                    'Character fields (role, bio, status, etc.) stored as template data'
-                ),
-        }),
-    },
-    async ({ id, name, projectId, fields }) => {
-        const now = new Date();
-        const characterId = id ?? crypto.randomUUID();
-        const templateDataJson = fields ? JSON.stringify(fields) : null;
+            }),
+        },
+        async ({ projectId, baseType }) => {
+            console.log(
+                `[Calling get_template] for Project: ${projectId}, Type: ${baseType}`
+            );
+            const template = await getTemplateByType(projectId, baseType);
+            console.log(`[CRUD: Read] Template:`, template);
 
-        // Upsert: insert if new, update name/templateData if id already exists
-        await db
-            .insert(characters)
-            .values({
-                id: characterId,
+            /*
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Retrieved template for compendium category ${baseType} for project ${projectId}.`,
+                    },
+                ],
+            };
+            */
+            if (!template) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Error: Template for compendium category ${baseType} for project ${projectId} was not found.`,
+                        },
+                    ],
+                };
+            }
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(template, null, 2),
+                    },
+                ],
+            };
+        }
+    );
+
+    mcpServer.registerTool(
+        'create_entity',
+        {
+            title: 'Create Entity',
+            description:
+                'Create a new dynamic entity (character, location, organization, item, lore) inside a project using its custom template fields.',
+            inputSchema: z.object({
+                projectId: z.string().describe('The ID of the project'),
+                baseType: compendiumCategoryEnum.describe(
+                    'The category/base type of the entity'
+                ),
+                name: z.string().describe('The primary name of the entity'),
+                // A flexible record where the LLM can populate whatever custom fields
+                // are defined in your entity_templates table for this baseType
+                attributes: z
+                    .record(z.any())
+                    .describe(
+                        'Key-value pairs matching the template fields (e.g. { age: 25, role: "Hero" })'
+                    ),
+            }),
+        },
+        async ({ projectId, baseType, name, attributes }) => {
+            console.log(
+                `[calling create_entity] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
+            );
+            console.log(
+                `[CRUD: Create] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
+            );
+
+            // Optional: Fetch the entity template from database to validate or inspect custom_fields
+            /*
+            const template = await db.query.entityTemplates.findFirst({
+                where: (t, { and, eq }) => and(eq(t.projectId, projectId), eq(t.baseType, baseType))
+            });
+
+            // template?.custom_fields contains your FieldDefinition[] array[cite: 1, 2]!
+            */
+
+            // TODO: Insert into your database entity table, saving `attributes` into your JSON data column
+            // Example DB insertion logic:
+            /*
+            const newEntity = await db.insert(entities).values({
+                projectId,
+                baseType,
                 name,
-                projectId: projectId ?? null,
-                templateData: templateDataJson,
-                createdAt: now,
-                updatedAt: now,
-            })
-            .onConflictDoUpdate({
-                target: characters.id,
-                set: {
-                    name,
-                    projectId: projectId ?? null,
-                    templateData: templateDataJson,
-                    updatedAt: now,
-                },
-            });
+                attributes: JSON.stringify(attributes),
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+            }).returning();
+            */
 
-        console.log('Server create_character', characterId);
-        return {
-            content: [
-                {
-                    type: 'text',
-                    text: `Character "${name}" saved with ID: ${characterId}`,
-                },
-            ],
-        };
-    }
-);
-
-// Tool 2: update_character_status
-// Reads existing templateData, merges new status in, and writes back
-mcpServer.registerTool(
-    'update_character_status',
-    {
-        title: 'Update Character Status',
-        description:
-            "Update a character's current status (e.g. Alive, Injured, Deceased) by merging it into their template data.",
-        inputSchema: z.object({
-            id: z.string().describe('Character ID (string)'),
-            newStatus: z.string().describe('New status value'),
-        }),
-    },
-    async ({ id, newStatus }) => {
-        const existing = await db
-            .select()
-            .from(characters)
-            .where(eq(characters.id, id));
-
-        if (!existing[0]) {
             return {
                 content: [
                     {
                         type: 'text',
-                        text: `Character with ID "${id}" not found.`,
+                        text: `Successfully created ${baseType} "${name}" with ${Object.keys(attributes).length} custom attributes.`,
                     },
                 ],
             };
         }
+    );
 
-        const existingFields: Record<string, unknown> = existing[0].templateData
-            ? JSON.parse(existing[0].templateData as string)
-            : {};
+    mcpServer.registerTool(
+        'get_entity',
+        {
+            title: 'Get Entity',
+            description:
+                'Retrieve details for a specific entity by its ID and baseType within a project.',
+            inputSchema: z.object({
+                projectId: z.string().describe('The ID of the project'),
+                baseType: compendiumCategoryEnum
+                    .optional()
+                    .describe('Optional category filter'),
+                entityId: z
+                    .string()
+                    .describe('The ID of the entity to retrieve'),
+            }),
+        },
+        async ({ projectId, baseType, entityId }) => {
+            console.log(
+                `[CRUD: Read] Fetching entity: ${entityId} for Project: ${projectId}, type: ${baseType}`
+            );
 
-        await db
-            .update(characters)
-            .set({
-                templateData: JSON.stringify({
-                    ...existingFields,
-                    status: newStatus,
-                }),
-                updatedAt: new Date(),
-            })
-            .where(eq(characters.id, id));
+            const entity = await getEntityByType(entityId, baseType);
+            //console.log(`[CRUD: Read] Entity: ${JSON.stringify(entity)}`);
+            console.log(`[CRUD: Read] Entity:`, entity);
 
-        return {
-            content: [
-                {
-                    type: 'text',
-                    text: `Character "${id}" status updated to: ${newStatus}`,
-                },
-            ],
-        };
-    }
-);
+            // Example DB query logic:
+            /*
+        const [entity] = await db.select().from(entities).where(
+            and(eq(entities.projectId, projectId), eq(entities.id, entityId))
+        );
+        */
 
-// Tool 3: update_character
-// Updates name and/or merges provided fields into existing templateData
-mcpServer.registerTool(
-    'update_character',
-    {
-        title: 'Update Character',
-        description:
-            'Update an existing character name and/or template fields (role, bio, status, etc.) in the manuscript database.',
-        inputSchema: z.object({
-            id: z.string().describe('Character ID (string)'),
-            name: z.string().optional().describe('New character name'),
-            fields: z
-                .record(z.unknown())
-                .optional()
-                .describe(
-                    'Fields to merge into template data (role, bio, status, etc.)'
-                ),
-        }),
-    },
-    async ({ id, name, fields }) => {
-        const existing = await db
-            .select()
-            .from(characters)
-            .where(eq(characters.id, id));
+            if (!entity) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Error: Entity with ID ${entityId} was not found.`,
+                        },
+                    ],
+                };
+            }
 
-        if (!existing[0]) {
             return {
                 content: [
                     {
                         type: 'text',
-                        text: `Character with ID "${id}" not found.`,
+                        text: JSON.stringify(entity),
+                    },
+                ],
+            };
+
+            /* Mock return for demonstration
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Retrieved details for entity ${entityId} in project ${projectId}.`,
+                    },
+                ],
+            };
+            */
+        }
+    );
+
+    mcpServer.registerTool(
+        'list_entities',
+        {
+            title: 'List Entities',
+            description:
+                'List or search entities in a project, optionally filtered by category type.',
+            inputSchema: z.object({
+                projectId: z.string().describe('The ID of the project'),
+                baseType: compendiumCategoryEnum
+                    .optional()
+                    .describe('Optional category filter'),
+            }),
+        },
+        async ({ projectId, baseType }) => {
+            console.log(
+                `[CRUD: Read] Fetching entities for Project: ${projectId}, Type: ${baseType || 'all'}`
+            );
+            const entities = await getAllEntities(projectId, baseType);
+            console.log(`[CRUD: Read] Entities:`, entities);
+
+            // Example DB query logic:
+            /*
+            const results = await db.select().from(entities).where(
+                baseType
+                    ? and(eq(entities.projectId, projectId), eq(entities.baseType, baseType))
+                    : eq(entities.projectId, projectId)
+            );
+
+
+            Mock return for demonstration
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Fetched entities for project ${projectId}.`,
+                    },
+                ],
+            };
+            */
+
+            if (!entities) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Error: No ${baseType} entities found in project ${projectId}`,
+                        },
+                    ],
+                };
+            }
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(entities),
                     },
                 ],
             };
         }
+    );
 
-        const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    mcpServer.registerTool(
+        'update_entity',
+        {
+            title: 'Update Entity',
+            description:
+                "Update an existing entity's name or custom field attributes.",
+            inputSchema: z.object({
+                entityId: z
+                    .string()
+                    .describe('The unique ID of the entity to update'),
+                name: z.string().optional().describe('New name if changing'),
+                attributes: z
+                    .record(z.any())
+                    .optional()
+                    .describe(
+                        'Updated or partial custom field key-value pairs'
+                    ),
+            }),
+        },
+        async ({ entityId, name, attributes }) => {
+            console.log(`[CRUD: Update] Entity ID: ${entityId}`);
 
-        if (name !== undefined) updateData.name = name;
+            // Example DB update logic:
+            /*
+            await db.update(entities)
+                .set({
+                    ...(name && { name }),
+                    ...(attributes && { attributes: JSON.stringify(attributes) }),
+                    updatedAt: Date.now()
+                })
+                .where(eq(entities.id, entityId));
+            */
 
-        if (fields !== undefined) {
-            const existingFields: Record<string, unknown> = existing[0]
-                .templateData
-                ? JSON.parse(existing[0].templateData as string)
-                : {};
-            updateData.templateData = JSON.stringify({
-                ...existingFields,
-                ...fields,
-            });
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Successfully updated entity ${entityId}.`,
+                    },
+                ],
+            };
         }
+    );
 
-        await db
-            .update(characters)
-            .set(updateData)
-            .where(eq(characters.id, id));
+    mcpServer.registerTool(
+        'delete_entity',
+        {
+            title: 'Delete Entity',
+            description:
+                'Delete an entity from the compendium database by its ID.',
+            inputSchema: z.object({
+                entityId: z
+                    .string()
+                    .describe('The unique ID of the entity to delete'),
+            }),
+        },
+        async ({ entityId }) => {
+            console.log(`[CRUD: Delete] Entity ID: ${entityId}`);
 
-        return {
-            content: [
-                {
-                    type: 'text',
-                    text: `Character "${id}" updated successfully.`,
-                },
-            ],
-        };
+            // Example DB delete logic:
+            /*
+            await db.delete(entities).where(eq(entities.id, entityId));
+            */
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Successfully deleted entity ${entityId}.`,
+                    },
+                ],
+            };
+        }
+    );
+
+    console.log('🛠️ All MCP tools registered successfully.');
+}
+
+async function getEntityByType(
+    entityId: string,
+    baseType?: CompendiumCategory
+) {
+    // If baseType is provided, route query to specific category tables/handlers
+    switch (baseType) {
+        case 'character':
+            return await characterDB.getCharacterById(entityId);
+        case 'location':
+            return await locationDB.getLocationById(entityId);
+        case 'organization':
+            return await organizationDB.getOrganizationById(entityId);
+        case 'item':
+            return await itemDB.getItemById(entityId);
+        case 'lore':
+            return await loreDB.getLoreEntryById(entityId);
+        default:
+            // Fallback if baseType is omitted: query unified entities table or search across categories
+            //return await entityDB.getById(projectId, entityId);
+            return null;
     }
-);
+}
 
-mcpServer.server.request(
-    { method: 'tools/list', params: {} },
-    ListToolsResultSchema
-);
-*/
+async function getAllEntities(
+    projectId: string,
+    baseType?: CompendiumCategory
+) {
+    // If baseType is provided, route query to specific category tables/handlers
+    switch (baseType) {
+        case 'character':
+            return await characterDB.getCharactersByProject(projectId);
+        case 'location':
+            return await locationDB.getLocationsByProject(projectId);
+        case 'organization':
+            return await organizationDB.getOrganizationsByProject(projectId);
+        case 'item':
+            return await itemDB.getItemsByProject(projectId);
+        case 'lore':
+            return await loreDB.getLoreEntriesByProject(projectId);
+        default:
+            // Fallback if baseType is omitted: query unified entities table or search across categories
+            //return await entityDB.getById(projectId, entityId);
+            return null;
+    }
+}
+
+async function getTemplateByType(
+    projectId: string,
+    baseType?: CompendiumCategory
+) {
+    // If baseType is provided, route query to specific category tables/handlers
+    switch (baseType) {
+        case 'character':
+            return await templatesDB.getTemplateByProjectAndType(
+                projectId,
+                'character'
+            );
+        case 'location':
+            return await templatesDB.getTemplateByProjectAndType(
+                projectId,
+                'location'
+            );
+        case 'organization':
+            return await templatesDB.getTemplateByProjectAndType(
+                projectId,
+                'organization'
+            );
+        case 'item':
+            return await templatesDB.getTemplateByProjectAndType(
+                projectId,
+                'item'
+            );
+        case 'lore':
+            return await templatesDB.getTemplateByProjectAndType(
+                projectId,
+                'lore'
+            );
+        default:
+            // Fallback if baseType is omitted: query unified entities table or search across categories
+            //return await entityDB.getById(projectId, entityId);
+            return null;
+    }
+}
