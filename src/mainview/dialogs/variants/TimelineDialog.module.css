@@ -158,27 +158,44 @@
     height: 4px;
 }
 
-/* --- Added Bottom Checkbox Bar Styles (Circled Area) --- */
-
-/* --- Bottom Checkbox Bar Styles --- */
+/* --- Bottom Filter Bar with Vertical Scroll --- */
 
 .bottomFilterBar {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding: 14px 20px;
+    padding: 12px 18px;
     background-color: #121212;
     border-top: 1px solid #282828;
     margin-top: auto;
+    max-height: 140px;
+    overflow-y: auto;
+    overflow-x: auto;
+    box-sizing: border-box;
+}
+
+/* Custom scrollbar styling */
+.bottomFilterBar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.bottomFilterBar::-webkit-scrollbar-thumb {
+    background: #383838;
+    border-radius: 4px;
+}
+
+.bottomFilterBar::-webkit-scrollbar-thumb:hover {
+    background: #4a4a4a;
 }
 
 .primaryFilterGroup {
     display: flex;
     align-items: center;
-    gap: 24px;
+    flex-wrap: wrap;
+    gap: 12px 20px;
 }
 
-/* Main filter options */
+/* Main filter pill */
 .filterCheckboxItem {
     display: flex;
     align-items: center;
@@ -189,13 +206,16 @@
     cursor: pointer;
     user-select: none;
     text-transform: capitalize;
-    padding: 8px 12px;
+    padding: 6px 14px;
     border-radius: 50px;
+    background: #242424;
+    border: 1px solid #353535;
+    transition: all 0.15s ease-in-out;
 }
 
 .filterCheckboxItem:hover {
     color: #ffffff;
-    background: #262525;
+    background: #2b2b2b;
 }
 
 /* Subcategory options */
@@ -207,13 +227,13 @@
     color: #a0a0a0;
     cursor: pointer;
     user-select: none;
-    padding: 7px 10px;
+    padding: 6px 12px;
     text-transform: capitalize;
     border: 1px solid #353535;
     border-radius: 24px;
     background: #242424;
-    box-shadow: none;
     box-sizing: border-box;
+    transition: all 0.15s ease-in-out;
 }
 
 .subCheckboxItem:hover {
@@ -221,49 +241,34 @@
     background: #303030;
 }
 
-/* Circular checkboxes */
+/* Circular Checkbox Default */
 .filterCheckboxItem input[type='checkbox'],
 .subCheckboxItem input[type='checkbox'] {
     appearance: none;
     -webkit-appearance: none;
-
     position: relative;
-    display: inline-block;
+    display: inline-grid;
+    place-content: center;
     flex: 0 0 18px;
     width: 18px;
     height: 18px;
     margin: 0;
     padding: 0;
-
     border: 2px solid #686868;
     border-radius: 50%;
     background: transparent;
-    box-shadow: none;
-
     cursor: pointer;
     box-sizing: border-box;
 }
 
-/* Checked checkbox */
+/* Checked Checkbox Circle */
 .filterCheckboxItem input[type='checkbox']:checked,
 .subCheckboxItem input[type='checkbox']:checked {
     border: 2px solid #1680f8;
-    border-radius: 50%;
     background: #1680f8;
-    appearance: none;
-    -webkit-appearance: none;
-    margin: 0;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    border: 1.5px solid #555;
-    outline: none;
-    cursor: pointer;
-    display: grid;
-    place-content: center;
 }
 
-/* Check mark */
+/* White check icon inside checked box */
 .filterCheckboxItem input[type='checkbox']:checked::after,
 .subCheckboxItem input[type='checkbox']:checked::after {
     content: '';
@@ -274,54 +279,31 @@
     transform: rotate(45deg) translate(-1px, -1px);
 }
 
-/* Active filter pill: one outer border */
-.filterCheckboxItem:has(input[type='checkbox']:checked),
+/* Subtle Orange Active Style matching image */
+.highlightedPill {
+    color: #e89345 !important;
+    background: #1f1b17 !important;
+    border: 1.5px solid rgba(232, 147, 69, 0.45) !important;
+}
+
 .subCheckboxItem:has(input[type='checkbox']:checked) {
     color: #f0f0f0;
     background: #292929;
     border: 1px solid #454545;
-    box-shadow: none;
 }
 
-/* Inactive filter pill: one outer border */
-.filterCheckboxItem:has(input[type='checkbox']:not(:checked)),
-.subCheckboxItem:has(input[type='checkbox']:not(:checked)) {
-    color: #a0a0a0;
-    background: #242424;
-    border: 1px solid #353535;
-    box-shadow: none;
-}
-
-/* Subcategory container */
+/* Subcategory Container */
 .subCategoryContainer {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 8px;
     flex-wrap: wrap;
-
-    width: 0;
-    max-width: 100%;
-    overflow: hidden;
-    padding: 0;
-    margin-left: 10px;
-
     box-sizing: border-box;
-    transition:
-        width 0.2s ease,
-        opacity 0.2s ease,
-        padding 0.2s ease;
 }
 
-/* Reveal subcategories when active */
-.filterActive {
-    .subCategoryContainer {
-        display: flex;
-        width: fit-content;
-        max-width: 100%;
-        padding: 8px 12px;
-        border-color: #333333;
-        border-radius: 12px;
-        text-transform: capitalize;
-        opacity: 1;
-    }
+.filterActive .subCategoryContainer {
+    display: flex;
+    width: fit-content;
+    padding: 2px 6px;
+    border-radius: 12px;
 }
