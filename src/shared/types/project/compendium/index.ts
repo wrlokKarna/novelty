@@ -56,3 +56,6 @@ export type LoreEntry = {
 };
 
 export type NewLoreEntry = Omit<LoreEntry, 'createdAt' | 'updatedAt'>;
+
+export type CompendiumCategory =
+    'character' | 'location' | 'organization' | 'item' | 'lore';

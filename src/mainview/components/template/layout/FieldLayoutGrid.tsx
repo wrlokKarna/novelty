@@ -11,12 +11,7 @@ import {
     type DragStartEvent,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import type {
-    FieldDefinition,
-    ResolvedField,
-    TemplateLayout,
-    TemplateSpan,
-} from '../../../types';
+
 import { MAX_COLUMNS } from '../../../types';
 import {
     MAX_ROW_SPAN,
@@ -29,6 +24,12 @@ import {
 import type { DropTarget } from '../../../templates/autoArrange';
 import { withBandPositions } from '../../../templates/autoArrange';
 import { useRowSpanResize, useSpanResize } from './useSpanResize';
+import {
+    TemplateSpan,
+    ResolvedField,
+    FieldDefinition,
+    TemplateLayout,
+} from '../../../../shared/types/project/templates';
 
 export const TEMPLATE_GRID_GAP = 12;
 

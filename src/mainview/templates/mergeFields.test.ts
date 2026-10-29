@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { FieldDefinition, TemplateLayout } from '../types';
+
 import { DEFAULT_TEMPLATE_COLUMNS, LAYOUT_VERSION } from '../types';
 import {
     applyLayout,
@@ -15,6 +15,10 @@ import {
     packGridPositions,
     withBandPositions,
 } from './autoArrange';
+import type {
+    FieldDefinition,
+    TemplateLayout,
+} from '../../shared/types/project/templates';
 
 function field(
     name: string,

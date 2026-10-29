@@ -15,8 +15,7 @@ import {
     randomBytes,
     scryptSync,
 } from 'crypto';
-
-import type { ProviderSettings, Settings } from '../mainview/types/index';
+import type { ProviderSettings, Settings } from '../shared/types/project/settings';
 
 const SETTINGS_FILE = 'settings.json';
 const APP_SALT = 'novelty-app-v1';

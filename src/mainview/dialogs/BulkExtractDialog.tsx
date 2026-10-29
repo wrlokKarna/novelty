@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
 import Dialog from './Dialog';
 import TemplateFieldMappingDialog from './TemplateFieldMappingDialog';
-import type { CompendiumCategory, FieldDefinition } from '../types/index';
+
 import type { ParsedEntry } from '../services/entryParser';
 import type { MappingResult } from './TemplateFieldMappingDialog';
+import { CompendiumCategory } from '../../shared/types/project/compendium';
+import { FieldDefinition } from '../../shared/types/project/templates';
 
 export interface BulkExtractResult {
     entries: (ParsedEntry & { templateData: Record<string, unknown> })[];

@@ -1,4 +1,8 @@
-import type { FieldDefinition, TemplateLayout, TemplateSpan } from '../types';
+import type {
+    FieldDefinition,
+    TemplateLayout,
+    TemplateSpan,
+} from '../../shared/types/project/templates';
 import {
     DEFAULT_TEMPLATE_COLUMNS,
     LAYOUT_VERSION,

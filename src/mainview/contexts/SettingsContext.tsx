@@ -7,7 +7,8 @@ import {
     ReactNode,
 } from 'react';
 import { getRPC } from './RPCContext';
-import type { Settings, Provider } from '../types/index';
+import { Settings } from '../../shared/types/project/settings';
+import { Provider } from '../../shared/types/ai/provider';
 
 interface SettingsContextType {
     settings: Settings | null;

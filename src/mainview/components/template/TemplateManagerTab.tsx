@@ -23,19 +23,20 @@ import {
     type DropTarget,
     type PlacedField,
 } from '../../templates/autoArrange';
-import type {
-    CompendiumCategory,
-    FieldDefinition,
-    SeriesTemplate,
-    TemplateLayout,
-    TemplateSpan,
-} from '../../types/index';
+
 import { DEFAULT_TEMPLATE_COLUMNS, LAYOUT_VERSION } from '../../types/index';
 import { FieldLayoutGrid } from './layout/FieldLayoutGrid';
 import { LayoutMatrix } from './layout/LayoutMatrix';
 import { LayoutToolbar } from './layout/LayoutToolbar';
 import TemplateField from './TemplateField';
 import styles from './TemplateManagerTab.module.css';
+import { CompendiumCategory } from '../../../shared/types/project/compendium';
+import {
+    FieldDefinition,
+    TemplateLayout,
+    TemplateSpan,
+} from '../../../shared/types/project/templates';
+import { SeriesTemplate } from '../../../shared/types/series';
 
 interface TemplateManagerTabProps {
     projectId: string;

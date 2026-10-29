@@ -3,13 +3,14 @@ import { Timeline } from 'vis-timeline';
 import { DataSet } from 'vis-data';
 import 'vis-timeline/styles/vis-timeline-graph2d.css';
 import { useRPC } from '../../contexts/RPCContext';
-import type { CompendiumCategory } from '../../types/index';
+
 import TimelineEventEditor from '../../components/TimelineEventEditor';
 import Dialog from '../Dialog';
 import './../../ui/timeline.css';
 import { Chapter } from '../../../shared/types/project';
 import {
     Character,
+    CompendiumCategory,
     Organization,
 } from '../../../shared/types/project/compendium';
 import { TimelineEvent } from '../../../shared/types/project/timeline';

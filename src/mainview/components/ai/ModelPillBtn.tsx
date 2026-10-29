@@ -1,11 +1,11 @@
 import React, { useRef } from 'react';
 import { IconCheck } from '@tabler/icons-react';
 
-import type { Model } from '../../utils/ai/providerHelpers';
-import type { ModelDisplayMode } from '../../types';
 import { getModelDisplayName } from '../../utils/ai/helper';
 
 import styles from './ModelPillBtn.module.css';
+import { Model } from '../../../shared/types/ai/provider';
+import { ModelDisplayMode } from '../../../shared/types/project/settings';
 
 type ModelPillBtnProps = {
     model: Model;

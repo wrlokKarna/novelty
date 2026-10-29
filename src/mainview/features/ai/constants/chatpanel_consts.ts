@@ -1,4 +1,5 @@
-import { CompendiumCategory, MentionTarget } from '../../../types';
+import type { MentionTarget } from '../../../../shared/types/ai/chat';
+import type { CompendiumCategory } from '../../../../shared/types/project/compendium';
 
 export const COMMAND_MAP: Record<string, CompendiumCategory> = {
     createcharacter: 'character',

@@ -1,13 +1,14 @@
 import { useMemo } from 'react';
-import type {
-    FieldDefinition,
-    ResolvedField,
-    TemplateLayout,
-    TemplateSpan,
-} from '../../types';
+
 import { DEFAULT_TEMPLATE_COLUMNS } from '../../types';
 import { FieldLayoutGrid } from './layout/FieldLayoutGrid';
 import TemplateField, { type EntryRef } from './TemplateField';
+import {
+    FieldDefinition,
+    TemplateLayout,
+    TemplateSpan,
+    ResolvedField,
+} from '../../../shared/types/project/templates';
 
 type Props = {
     tmplFields: FieldDefinition[];

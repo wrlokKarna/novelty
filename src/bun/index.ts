@@ -5,10 +5,6 @@ import {
     Utils,
 } from 'electrobun/main';
 
-import type {
-    SelectorSchema,
-    CompendiumCategory,
-} from '../mainview/types/index';
 import { readFileSync, existsSync } from 'fs';
 import * as projectsDB from './database/tables/projects.js';
 import * as assetsDB from './database/tables/assets.js';
@@ -43,33 +39,42 @@ import {
 import { buildContext } from './services/contextEngine';
 import { initDatabase, sqliteVecAvailable } from './database/index.js';
 
-import { ProcessAiPromptParams } from './temp/mainMCP.js';
+import type { ProcessAiPromptParams } from './temp/mainMCP.js';
 
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
 import { mcpClient } from './services/mcp/client.js';
 import { mcpServer } from './services/mcp/server.js';
 import registerAllTools from './services/mcp/tools.js';
-import {
+import type {
     NewAsset,
     NewProject,
     NewStoryAct,
     NewStorySequence,
 } from '../shared/types/index.js';
-import {
+import type {
     NewAgent,
     NewAgentRun,
     NewChatMessage,
     NewChatSession,
 } from '../shared/types/ai/index.js';
-import {
+import type {
     NewPlotThread,
     NewStoryBeat,
     NewStoryScene,
 } from '../shared/types/project/manuscript/index.js';
-import { NewChapter } from '../shared/types/project/index.js';
-import { NewSeries } from '../shared/types/series/index.js';
-import { NewTimelineEvent } from '../shared/types/project/timeline/index.js';
+import type { NewChapter } from '../shared/types/project/index.js';
+import type {
+    NewSeries,
+    SeriesTemplateInput,
+} from '../shared/types/series/index.js';
+import type { NewTimelineEvent } from '../shared/types/project/timeline/index.js';
+import type { SelectorSchema } from '../shared/types/mainRPC.js';
+import type { CompendiumCategory } from '../shared/types/project/compendium/index.js';
+import type {
+    FieldDefinition,
+    TemplateLayout,
+} from '../shared/types/project/templates/index.js';
 
 registerAllTools();
 try {
@@ -603,9 +608,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
             }) => {
                 return await seriesTemplatesDB.listSeriesTemplates(seriesId);
             },
-            'db:upsert-series-template': async (
-                data: seriesTemplatesDB.SeriesTemplateInput
-            ) => {
+            'db:upsert-series-template': async (data: SeriesTemplateInput) => {
                 return await seriesTemplatesDB.upsertSeriesTemplate(data);
             },
             'db:delete-series-template': async ({
@@ -664,8 +667,8 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
             }: {
                 projectId: string;
                 baseType: string;
-                customFields?: templatesDB.FieldDefinition[];
-                layout?: templatesDB.TemplateLayout | null;
+                customFields?: FieldDefinition[];
+                layout?: TemplateLayout | null;
             }) => {
                 return await templatesDB.upsertTemplate(
                     projectId,

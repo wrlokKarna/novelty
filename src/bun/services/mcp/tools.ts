@@ -10,6 +10,7 @@ import * as locationDB from '../../database/tables/locations.js';
 import * as organizationDB from '../../database/tables/organizations.js';
 import * as itemDB from '../../database/tables/items.js';
 import * as loreDB from '../../database/tables/lore.js';
+import type { CompendiumCategory } from '../../../shared/types/project/compendium/index.js';
 
 const compendiumCategoryEnum = z.enum([
     'character',
@@ -18,7 +19,7 @@ const compendiumCategoryEnum = z.enum([
     'item',
     'lore',
 ]);
-export type CompendiumCategory = z.infer<typeof compendiumCategoryEnum>;
+// export type CompendiumCategory = z.infer<typeof compendiumCategoryEnum>;
 export default function registerAllTools() {
     mcpServer.registerTool(
         'get_project_details',

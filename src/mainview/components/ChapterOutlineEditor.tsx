@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ChapterOutlineData } from '../types/index';
+
 import { IconPlus, IconTrash, IconArrowRight } from '@tabler/icons-react';
 import { useCollapseState } from '../hooks/useCollapseState';
 import ChapterStructureEditor from './ChapterStructureEditor';
@@ -11,6 +11,7 @@ import {
     PlotThread,
     ChapterPlotThread,
     StoryScene,
+    ChapterOutlineData,
 } from '../../shared/types/project/manuscript';
 
 interface Props {

@@ -1,5 +1,6 @@
+import type { MentionTarget } from '../../shared/types/ai/chat';
+import type { ContextSource } from '../../shared/types/project/settings';
 import { getRPC } from '../contexts/RPCContext';
-import type { ContextSource, MentionTarget } from '../types/index';
 
 export interface ContextResult {
     systemPrompt: string;

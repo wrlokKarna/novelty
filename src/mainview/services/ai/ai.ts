@@ -1,12 +1,11 @@
-import {
+import type {
     ApiMessage,
     ChatMessage,
     ToolCall,
     UserChatMessage,
 } from '../../../shared/types/ai';
+import type { Model, Provider } from '../../../shared/types/ai/provider';
 import { getRPC } from '../../contexts/RPCContext';
-import type { Provider } from '../../types/index';
-import { Model } from '../../utils/ai/providerHelpers';
 
 export function toApiMessages(messages: ChatMessage[]): ApiMessage[] {
     return messages.map((m) => ({

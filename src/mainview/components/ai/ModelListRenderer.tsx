@@ -1,8 +1,8 @@
-import { Settings } from '../../types';
-import { Model } from '../../utils/ai/providerHelpers';
 import ModelPillBtn from './ModelPillBtn';
 
 import styles from './ModelListRenderer.module.css';
+import { Settings } from '../../../shared/types/project/settings';
+import { Model } from '../../../shared/types/ai/provider';
 
 type ModelListRenderer = {
     settings: Settings | null;

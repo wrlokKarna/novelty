@@ -1,8 +1,9 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import type { CompendiumCategory } from '../types/index';
+
 import type { TreeEdge, TreeRelationPair } from '../templates/tree';
 import { inverseOf, treeEdgeKey, buildTreeGraph } from '../templates/tree';
 import { IconPlus, IconX, IconSearch } from '@tabler/icons-react';
+import { CompendiumCategory } from '../../shared/types/project/compendium';
 
 type EntryRef = {
     id: string;

@@ -41,11 +41,6 @@ import {
     SLASH_COMMANDS,
 } from '../features/ai/constants/chatpanel_consts';
 
-import type {
-    MentionTarget,
-    CompendiumCategory,
-    FieldDefinition,
-} from '../types';
 import { parseEntryData, parseAllEntryData } from '../services/entryParser';
 import type { ParsedEntry } from '../services/entryParser';
 import type { RichTextEditorHandle } from './RichTextEditor';
@@ -74,7 +69,7 @@ import type { SuggestionGroup } from './FloatingSuggestions';
 import ContextChips from './ContextChips';
 import SystemPromptToggle from './SystemPromptToggle';
 import { SettingsDialogActiveTab } from '../constants/layout_tabs';
-import { Model } from '../utils/ai/providerHelpers';
+
 import { Item, Project, StorySequence, Location } from '../../shared/types';
 import {
     AssistantChatMessage,
@@ -85,10 +80,14 @@ import {
 import { Chapter } from '../../shared/types/project';
 import {
     Character,
+    CompendiumCategory,
     LoreEntry,
     Organization,
 } from '../../shared/types/project/compendium';
 import { StoryScene } from '../../shared/types/project/manuscript';
+import { FieldDefinition } from '../../shared/types/project/templates';
+import { Model } from '../../shared/types/ai/provider';
+import { MentionTarget } from '../../shared/types/ai/chat';
 
 function smartTruncate(text: string, maxLen = 50): string {
     const cleaned = text

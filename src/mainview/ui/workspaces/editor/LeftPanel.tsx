@@ -17,10 +17,10 @@ import {
     IconPencilMinus,
 } from '@tabler/icons-react';
 
-import type { CompendiumCategory } from '../../../types';
 import { Chapter } from '../../../../shared/types/project';
 import {
     Character,
+    CompendiumCategory,
     LoreEntry,
     Organization,
 } from '../../../../shared/types/project/compendium';

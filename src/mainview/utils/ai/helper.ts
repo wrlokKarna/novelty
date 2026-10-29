@@ -1,5 +1,5 @@
-import { ModelDisplayMode } from '../../types';
-import { Model } from './providerHelpers';
+import type { Model } from '../../../shared/types/ai/provider';
+import type { ModelDisplayMode } from '../../../shared/types/project/settings';
 
 export const getModelDisplayName = (model: Model, mode: ModelDisplayMode) => {
     if (!model.alias) return model.label;

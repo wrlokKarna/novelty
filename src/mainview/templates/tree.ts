@@ -1,4 +1,4 @@
-import type { FieldDefinition } from '../types/index';
+import type { FieldDefinition } from '../../shared/types/project/templates';
 
 export type TreeEdge = {
     relation: string;

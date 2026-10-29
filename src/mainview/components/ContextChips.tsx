@@ -1,4 +1,3 @@
-import type { MentionTarget } from '../types/index';
 import {
     IconX,
     IconFiles,
@@ -9,6 +8,7 @@ import {
     IconBook,
     IconPaperclip,
 } from '@tabler/icons-react';
+import { MentionTarget } from '../../shared/types/ai/chat';
 
 const typeIcons: Record<string, React.ReactNode> = {
     chapter: <IconFiles size={14} />,

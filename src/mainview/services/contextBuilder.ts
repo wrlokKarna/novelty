@@ -1,18 +1,16 @@
-import type {
-    MentionTarget,
-    FieldDefinition,
-    CompendiumCategory,
-} from '../types/index';
 import { isFieldVisible } from '../templates/fieldVisibility';
 import { isTreeEdge } from '../templates/tree';
-import { Item, Project, StorySequence, Location } from '../../shared/types';
-import { Chapter } from '../../shared/types/project';
-import {
+import type { Item, Project, StorySequence, Location } from '../../shared/types';
+import type { Chapter } from '../../shared/types/project';
+import type {
     Character,
+    CompendiumCategory,
     LoreEntry,
     Organization,
 } from '../../shared/types/project/compendium';
-import { StoryScene } from '../../shared/types/project/manuscript';
+import type { StoryScene } from '../../shared/types/project/manuscript';
+import type { MentionTarget } from '../../shared/types/ai/chat';
+import type { FieldDefinition } from '../../shared/types/project/templates';
 
 function estimateTokens(text: string): number {
     return Math.ceil(text.length / 4);

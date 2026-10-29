@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
-import type {
-    CompendiumCategory,
-    EntityTemplate,
-    FieldDefinition,
-    TemplateLayout,
-} from '../types/index';
+
 import { isFieldVisible } from '../templates/fieldVisibility';
 import TemplateTab from './template/TemplateTab';
 import {
     Character,
+    CompendiumCategory,
     LoreEntry,
     Organization,
 } from '../../shared/types/project/compendium';
 import { Item, Location } from '../../shared/types';
+import {
+    EntityTemplate,
+    FieldDefinition,
+    TemplateLayout,
+} from '../../shared/types/project/templates';
 
 interface CompendiumEntryEditorProps {
     entry: Character | Location | Organization | Item | LoreEntry;

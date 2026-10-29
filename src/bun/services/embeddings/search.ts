@@ -1,6 +1,6 @@
+import type { EmbeddingSettings } from '../../../shared/types/project/settings';
 import { sqliteVecAvailable, rawSqlite } from '../../database/index';
 import { createEmbeddingProvider } from './provider';
-import type { EmbeddingSettings } from '../../../mainview/types';
 
 export interface SearchOptions {
     projectId: string;

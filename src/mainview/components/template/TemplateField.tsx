@@ -2,11 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import useDebounce from '../../hooks/debounced';
 import { IconCheck, IconPencil, IconPhoto, IconX } from '@tabler/icons-react';
-import type {
-    CompendiumCategory,
-    FieldDefinition,
-    ResolvedField,
-} from '../../types';
+
 import type { TreeEdge } from '../../templates/tree';
 import { TREE_PRESETS, getTreeRelations } from '../../templates/tree';
 import { RichTextEditor } from '../RichTextEditor';
@@ -15,6 +11,11 @@ import TreeRelationsEditor from '../TreeRelationsEditor';
 import VisibilityEditor from '../VisibilityEditor';
 import type { DragHandleProps } from './layout/FieldLayoutGrid';
 import styles from './TemplateField.module.css';
+import {
+    FieldDefinition,
+    ResolvedField,
+} from '../../../shared/types/project/templates';
+import { CompendiumCategory } from '../../../shared/types/project/compendium';
 
 export type EntryRef = { id: string; name: string };
 
@@ -1435,4 +1436,3 @@ export default function TemplateField(props: TemplateFieldProps) {
     }
     return <TemplateFieldView {...props} />;
 }
-

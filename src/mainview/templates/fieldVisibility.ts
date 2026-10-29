@@ -1,9 +1,9 @@
 import type {
     FieldDefinition,
-    FieldVisibility,
     VisibilityCondition,
     VisibilityOperator,
-} from '../types/index';
+    FieldVisibility,
+} from '../../shared/types/project/templates';
 
 export function isFieldVisible(
     field: FieldDefinition,

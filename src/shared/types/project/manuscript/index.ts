@@ -1,4 +1,4 @@
-import { ChapterStatus } from '../..';
+import type { ChapterStatus } from '../..';
 
 export type PlotThreadType =
     'main' | 'subplot' | 'character-arc' | 'mystery' | 'romance' | 'thematic';
@@ -77,3 +77,21 @@ export type StoryBeat = {
 };
 
 export type NewStoryBeat = Omit<StoryBeat, 'createdAt' | 'updatedAt'>;
+
+export type SceneOutline = {
+    id: string;
+    title: string;
+    summary: string;
+    setting: string;
+    charactersPresent: string[];
+    keyEvents: string[];
+    duration: string | null;
+    conflict: string | null;
+};
+
+export type ChapterOutlineData = {
+    summary: string;
+    scenes: SceneOutline[];
+    keyEvents: string[];
+    notes: string;
+};

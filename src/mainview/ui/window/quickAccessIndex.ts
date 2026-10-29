@@ -1,16 +1,17 @@
-import { Item, StoryAct, StorySequence, Location } from '../../../shared/types';
-import { Chapter } from '../../../shared/types/project';
-import {
+import type { Item, StoryAct, StorySequence, Location } from '../../../shared/types';
+import type { Chapter } from '../../../shared/types/project';
+import type {
     Character,
+    CompendiumCategory,
     LoreEntry,
     Organization,
 } from '../../../shared/types/project/compendium';
-import {
+import type {
     PlotThread,
     StoryBeat,
     StoryScene,
 } from '../../../shared/types/project/manuscript';
-import type { CompendiumCategory, FileTab } from '../../types/index';
+import type { FileTab } from '../../../shared/types/project/templates';
 
 export type QuickAccessKind =
     | 'chapter'

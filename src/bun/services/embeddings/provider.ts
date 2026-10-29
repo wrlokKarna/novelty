@@ -1,4 +1,4 @@
-import type { EmbeddingSettings } from '../../../mainview/types';
+import type { EmbeddingSettings } from '../../../shared/types/project/settings';
 
 export interface EmbeddingProvider {
     name: string;

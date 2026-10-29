@@ -1,7 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import type { FieldDefinition, TemplateLayout } from '../types';
+
 import { DEFAULT_TEMPLATE_COLUMNS, LAYOUT_VERSION } from '../types';
 import { compactLayout, compactPlaced } from './autoArrange';
+import type {
+    TemplateLayout,
+    FieldDefinition,
+} from '../../shared/types/project/templates';
 
 function layout(partial: Partial<TemplateLayout> = {}): TemplateLayout {
     return {

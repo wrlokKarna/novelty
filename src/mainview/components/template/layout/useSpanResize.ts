@@ -1,7 +1,8 @@
 import { useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import type { TemplateSpan } from '../../../types';
+
 import { MAX_COLUMNS } from '../../../types';
+import type { TemplateSpan } from '../../../../shared/types/project/templates';
 
 // A span is only meaningful up to the active column count; anything wider would
 // overflow the grid. Clamps to 1..columns (bounded by the 1..MAX_COLUMNS range

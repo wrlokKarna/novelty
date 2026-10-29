@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { FieldDefinition } from '../../types';
+
 import styles from './TemplateField.chakri.module.css';
+import { FieldDefinition } from '../../../shared/types/project/templates';
 
 type Props = {
     field: FieldDefinition;

@@ -10,7 +10,7 @@ import { embeddings } from '../../schema/index';
 import { eq, and } from 'drizzle-orm';
 import { createEmbeddingProvider } from './provider';
 import { chunkHtml, chunkText, type TextChunk } from './chunker';
-import type { EmbeddingSettings } from '../../../mainview/types';
+import type { EmbeddingSettings } from '../../../shared/types/project/settings';
 
 const ENTITY_TYPES = [
     'chapter',

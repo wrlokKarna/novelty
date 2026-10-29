@@ -1,5 +1,6 @@
+import { Provider } from '../../../shared/types/ai/provider';
 import { useSettings } from '../../contexts/SettingsContext';
-import { Provider } from '../../types';
+
 import ProviderCard from '../cards/ProviderCard';
 
 type Props = {

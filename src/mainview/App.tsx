@@ -8,13 +8,7 @@ import {
 } from 'react';
 import type { RichTextEditorHandle } from './components/RichTextEditor';
 import { useRPC } from './contexts/RPCContext';
-import type {
-    FileTab,
-    CompendiumCategory,
-    EntityTemplate,
-    FieldDefinition,
-    TemplateLayout,
-} from './types/index';
+
 import { DEFAULT_TEMPLATE_COLUMNS } from './types/index';
 import { type TreeEdge, treeEdgeKey } from './templates/tree';
 import type { ParsedEntry } from './services/entryParser';
@@ -64,25 +58,32 @@ import { useSettings } from './contexts/SettingsContext';
 import LeftPanel from './ui/workspaces/editor/LeftPanel';
 import RightPanel from './ui/workspaces/editor/RightPanel';
 import { type ProjectDialogActiveTab } from './constants/layout_tabs';
-import {
+import type {
     Item,
     Project,
     StoryAct,
     StorySequence,
     Location,
 } from '../shared/types';
-import { Chapter, NewChapter } from '../shared/types/project';
-import {
+import type { Chapter, NewChapter } from '../shared/types/project';
+import type {
     Character,
+    CompendiumCategory,
     LoreEntry,
     Organization,
 } from '../shared/types/project/compendium';
-import {
+import type {
     PlotThread,
     ChapterPlotThread,
     StoryScene,
     StoryBeat,
 } from '../shared/types/project/manuscript';
+import type {
+    EntityTemplate,
+    FieldDefinition,
+    FileTab,
+    TemplateLayout,
+} from '../shared/types/project/templates';
 
 /*
 const categoryConfig: Record<

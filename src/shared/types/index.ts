@@ -1,4 +1,4 @@
-import { SeriesArchitecture } from './series';
+import type { SeriesArchitecture } from './series';
 
 export type ProjectScope = 'fast_paced' | 'standard' | 'epic';
 
@@ -137,3 +137,9 @@ export type Item = {
 };
 
 export type NewItem = Omit<Item, 'createdAt' | 'updatedAt'>;
+
+export type WordCountTarget = {
+    min: number | null;
+    max: number | null;
+    label: string;
+};

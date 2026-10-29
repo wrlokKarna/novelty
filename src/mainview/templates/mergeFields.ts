@@ -3,7 +3,7 @@ import type {
     ResolvedField,
     TemplateLayout,
     TemplateSpan,
-} from '../types';
+} from '../../shared/types/project/templates';
 import {
     DEFAULT_TEMPLATE_COLUMNS,
     LAYOUT_VERSION,

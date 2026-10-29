@@ -1,13 +1,7 @@
 import { db } from './../index';
 import { entityTemplates } from '../../schema';
 import { eq, and } from 'drizzle-orm';
-import type {
-    CompendiumCategory,
-    EntityTemplate,
-    FieldDefinition,
-    ResolvedTemplateInfo,
-    TemplateLayout,
-} from '../../../mainview/types';
+
 import { DEFAULT_TEMPLATE_COLUMNS } from '../../../mainview/types';
 import { normalizeTreeFields } from '../../../mainview/templates/tree';
 // Shared so the server's resolved order and the editor's merged order can never
@@ -20,18 +14,13 @@ import {
     orderByLayout,
 } from '../../../mainview/templates/mergeFields';
 import { getSeriesTemplateForProject } from './seriesTemplates';
-
-export type {
-    CompendiumCategory,
+import type { CompendiumCategory } from '../../../shared/types/project/compendium';
+import type {
     EntityTemplate,
     FieldDefinition,
-    FieldVisibility,
     ResolvedTemplateInfo,
-    SeriesTemplate,
     TemplateLayout,
-    VisibilityCondition,
-    VisibilityOperator,
-} from '../../../mainview/types';
+} from '../../../shared/types/project/templates';
 
 export type NewEntityTemplate = Omit<EntityTemplate, 'createdAt' | 'updatedAt'>;
 

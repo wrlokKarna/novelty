@@ -1,5 +1,6 @@
-import { Project } from '../../shared/types';
-import type { CompendiumCategory } from '../types';
+import type { Project } from '../../shared/types';
+import type { CompendiumCategory } from '../../shared/types/project/compendium';
+
 import { buildAIContext } from './context_engine_requests';
 import { buildContext, type BuildContextParams } from './contextBuilder';
 

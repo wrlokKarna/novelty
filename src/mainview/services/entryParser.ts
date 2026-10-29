@@ -1,4 +1,4 @@
-import type { CompendiumCategory } from '../types/index';
+import type { CompendiumCategory } from '../../shared/types/project/compendium';
 
 export interface ParsedEntry {
     category: CompendiumCategory;

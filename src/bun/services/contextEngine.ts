@@ -14,16 +14,18 @@ import { eq } from 'drizzle-orm';
 import { semanticSearch } from './embeddings/search';
 import { countTokens, truncateToTokens } from './embeddings/tokenizer';
 import { resolveTemplate } from '../database/tables/templates';
-import type { FieldDefinition } from '../database/tables/templates';
+
 import { isFieldVisible } from '../../mainview/templates/fieldVisibility';
 import { isTreeEdge } from '../../mainview/templates/tree';
+
+import type { Project } from '../../shared/types';
+import type { MentionTarget } from '../../shared/types/ai/chat';
 import type {
-    EmbeddingSettings,
-    MentionTarget,
     ContextSource,
-    CompendiumCategory,
-} from '../../mainview/types';
-import { Project } from '../../shared/types';
+    EmbeddingSettings,
+} from '../../shared/types/project/settings';
+import type { FieldDefinition } from '../../shared/types/project/templates';
+import type { CompendiumCategory } from '../../shared/types/project/compendium';
 
 export interface ContextRequest {
     projectId: string;
