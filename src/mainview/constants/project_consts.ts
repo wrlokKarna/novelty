@@ -1,13 +1,13 @@
 import {
     ProjectScope,
-    SeriesArchitecture,
     PointOfView,
     PacingType,
     WorkType,
     ProjectStructure,
     TargetAgeGroup,
     ProjectStatus,
-} from '../types';
+} from '../../shared/types';
+import { SeriesArchitecture } from '../../shared/types/series';
 
 export const projectScopes: { value: ProjectScope; label: string }[] = [
     { value: 'fast_paced', label: 'Fast-Paced / Pulp' },

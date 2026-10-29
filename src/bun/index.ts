@@ -67,6 +67,7 @@ import {
     NewStoryScene,
 } from '../shared/types/project/manuscript/index.js';
 import { NewChapter } from '../shared/types/project/index.js';
+import { NewSeries } from '../shared/types/series/index.js';
 
 registerAllTools();
 try {
@@ -575,7 +576,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
             'db:get-series': async (id: string) => {
                 return await seriesDB.getSeriesById(id);
             },
-            'db:create-series': async (data: seriesDB.NewSeries) => {
+            'db:create-series': async (data: NewSeries) => {
                 return await seriesDB.createSeries(data);
             },
             'db:update-series': async ({
@@ -583,7 +584,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 data,
             }: {
                 id: string;
-                data: Partial<seriesDB.NewSeries>;
+                data: Partial<NewSeries>;
             }) => {
                 return await seriesDB.updateSeries(id, data);
             },

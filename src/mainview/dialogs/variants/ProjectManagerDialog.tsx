@@ -4,13 +4,7 @@ import dialogStyles from '../Dialog.module.css';
 import SubDialog from '../SubDialog';
 import AssetPicker from './AssetPicker';
 import { useRPC } from '../../contexts/RPCContext';
-import type {
-    Tag,
-    Theme,
-    Series,
-    NewSeries,
-    CompendiumCategory,
-} from '../../types/index';
+import type { Tag, Theme, CompendiumCategory } from '../../types/index';
 import { PROJECT_SCOPE_TARGETS } from '../../types/index';
 import {
     IconCheck,
@@ -54,7 +48,6 @@ import {
     ProjectStructure,
     TargetAgeGroup,
     ProjectStatus,
-    SeriesArchitecture,
     Asset,
 } from '../../../shared/types';
 import {
@@ -63,6 +56,11 @@ import {
     NewInspiration,
     PREDEFINED_ASPECTS,
 } from '../../../shared/types/project';
+import {
+    Series,
+    SeriesArchitecture,
+    NewSeries,
+} from '../../../shared/types/series';
 
 interface ProjectManagerProps {
     open: boolean;

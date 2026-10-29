@@ -1,9 +1,9 @@
-import type { Series } from '../../types/index';
 import ProjectCard from './ProjectCard';
 import styles from './SeriesCard.module.css';
 import type { CardActionHandlers } from './ProjectCard';
 import { IconPencilFilled, IconTrashFilled } from '@tabler/icons-react';
 import { Project } from '../../../shared/types';
+import { Series } from '../../../shared/types/series';
 
 export default function SeriesCard({
     seriesId,

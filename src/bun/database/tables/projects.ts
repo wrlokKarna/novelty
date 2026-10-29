@@ -21,10 +21,10 @@ import {
     ProjectScope,
     ProjectStatus,
     ProjectStructure,
-    SeriesArchitecture,
     TargetAgeGroup,
     WorkType,
 } from '../../../shared/types';
+import { SeriesArchitecture } from '../../../shared/types/series';
 
 function safeParse(val: string | null) {
     if (!val || val === 'null') return [];

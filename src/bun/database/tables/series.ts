@@ -1,23 +1,11 @@
 import { db } from './../index';
 import { series, projects } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-import { SeriesArchitecture } from '../../../shared/types';
-
-export type Series = {
-    id: string;
-    name: string;
-    description: string | null;
-    seriesArch: SeriesArchitecture | null;
-    coverImageId: string | null;
-    projectCount?: number;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewSeries = Omit<
+import {
+    NewSeries,
     Series,
-    'createdAt' | 'updatedAt' | 'projectCount'
->;
+    SeriesArchitecture,
+} from '../../../shared/types/series';
 
 function parseSeries(row: typeof series.$inferSelect): Series {
     return {

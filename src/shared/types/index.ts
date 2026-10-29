@@ -1,7 +1,6 @@
-export type ProjectScope = 'fast_paced' | 'standard' | 'epic';
+import { SeriesArchitecture } from './series';
 
-export type SeriesArchitecture =
-    'standalone' | 'duology' | 'trilogy' | 'ongoing';
+export type ProjectScope = 'fast_paced' | 'standard' | 'epic';
 
 export type PointOfView = 'single' | 'multiple' | 'omniscient';
 
