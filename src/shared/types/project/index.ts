@@ -95,3 +95,10 @@ export type Tag = {
     isGlobal: boolean;
     createdAt: Date;
 };
+
+export type Theme = {
+    id: string;
+    name: string;
+    isGlobal: boolean;
+    createdAt: Date;
+};

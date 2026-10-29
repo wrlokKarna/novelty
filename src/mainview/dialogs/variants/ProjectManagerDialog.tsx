@@ -4,7 +4,7 @@ import dialogStyles from '../Dialog.module.css';
 import SubDialog from '../SubDialog';
 import AssetPicker from './AssetPicker';
 import { useRPC } from '../../contexts/RPCContext';
-import type { Theme, CompendiumCategory } from '../../types/index';
+import type { CompendiumCategory } from '../../types/index';
 import { PROJECT_SCOPE_TARGETS } from '../../types/index';
 import {
     IconCheck,
@@ -56,6 +56,7 @@ import {
     NewInspiration,
     PREDEFINED_ASPECTS,
     Tag,
+    Theme,
 } from '../../../shared/types/project';
 import {
     Series,

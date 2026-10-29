@@ -31,6 +31,7 @@ import {
     NewChapter,
     NewInspiration,
     Tag,
+    Theme,
 } from '../../shared/types/project';
 import {
     Character,
@@ -108,13 +109,6 @@ export type ChapterOutlineData = {
     scenes: SceneOutline[];
     keyEvents: string[];
     notes: string;
-};
-
-export type Theme = {
-    id: string;
-    name: string;
-    isGlobal: boolean;
-    createdAt: Date;
 };
 
 export type TimelineEvent = {

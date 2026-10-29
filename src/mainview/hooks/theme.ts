@@ -1,24 +1,24 @@
 const STORAGE_KEY = 'novelty-theme';
 const THEMES = ['light', 'dark', 'system'];
 
-export type Theme = 'light' | 'dark' | 'system';
+export type AppTheme = 'light' | 'dark' | 'system';
 
-export function getStoredTheme(): Theme {
+export function getStoredTheme(): AppTheme {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored && THEMES.includes(stored as Theme)) {
-        return stored as Theme;
+    if (stored && THEMES.includes(stored as AppTheme)) {
+        return stored as AppTheme;
     }
     return 'system';
 }
 
-export function setTheme(theme: Theme): void {
+export function setTheme(theme: AppTheme): void {
     localStorage.setItem(STORAGE_KEY, theme);
     applyTheme(theme);
 }
 
-export function toggleTheme(): Theme {
+export function toggleTheme(): AppTheme {
     const current = getStoredTheme();
-    const themeOrder: Theme[] = ['system', 'light', 'dark'];
+    const themeOrder: AppTheme[] = ['system', 'light', 'dark'];
     const currentIndex = themeOrder.indexOf(current);
     const nextTheme = themeOrder[(currentIndex + 1) % themeOrder.length];
     setTheme(nextTheme);
@@ -35,7 +35,7 @@ export function getResolvedTheme(): 'light' | 'dark' {
     return theme;
 }
 
-function applyTheme(theme: Theme): void {
+function applyTheme(theme: AppTheme): void {
     const resolved =
         theme === 'system'
             ? window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -61,7 +61,7 @@ export function initTheme(): void {
         });
 }
 
-export function getThemeIcon(theme: Theme): string {
+export function getThemeIcon(theme: AppTheme): string {
     switch (theme) {
         case 'light':
             return '☀️';

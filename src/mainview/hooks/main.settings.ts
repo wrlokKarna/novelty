@@ -4,14 +4,14 @@ import {
     setTheme,
     getStoredTheme,
     getThemeIcon,
-    type Theme,
+    type AppTheme,
 } from './theme';
 
 initTheme();
 
 const app = document.getElementById('app')!;
 
-const themeOptions: Theme[] = ['system', 'light', 'dark'];
+const themeOptions: AppTheme[] = ['system', 'light', 'dark'];
 
 function render() {
     const currentTheme = getStoredTheme();
@@ -61,7 +61,7 @@ function render() {
 
     document.querySelectorAll('[data-theme]').forEach((btn) => {
         btn.addEventListener('click', () => {
-            const theme = btn.getAttribute('data-theme') as Theme;
+            const theme = btn.getAttribute('data-theme') as AppTheme;
             setTheme(theme);
             render();
         });
