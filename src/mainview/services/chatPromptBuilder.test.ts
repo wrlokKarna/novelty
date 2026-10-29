@@ -4,6 +4,7 @@ import {
     buildTitlePrompt,
 } from './chatPromptBuilder';
 import { buildContext } from './contextBuilder';
+import type { Project } from '@/shared/types';
 
 const project = {
     id: 'project-1',
@@ -28,7 +29,7 @@ const project = {
     tonalType: null,
     workType: 'original',
     primaryTheme: null,
-} as unknown as import('./../../shared/types').Project;
+} as unknown as Project;
 
 describe('prompt regression coverage', () => {
     test('appends task instructions without dropping the base prompt', () => {
