@@ -1,6 +1,7 @@
+import { eq, asc } from 'drizzle-orm';
+
 import { db } from './../index';
 import { assets } from '../../schema';
-import { eq, asc } from 'drizzle-orm';
 
 type Asset = typeof assets.$inferSelect;
 type NewAsset = typeof assets.$inferInsert;

@@ -1,10 +1,11 @@
+import { eq, asc } from 'drizzle-orm';
+
 import { db } from './../index';
 import { organizations } from '../../schema';
-import { eq, asc } from 'drizzle-orm';
 import type {
     Organization,
     NewOrganization,
-} from '../../../shared/types/project/compendium';
+} from '@/shared/types/project/compendium';
 
 function parseOrganization(row: Record<string, unknown>): Organization {
     return {

@@ -1,15 +1,15 @@
-import { db } from './../index';
-import { projects, seriesTemplates } from '../../schema';
 import { eq, and } from 'drizzle-orm';
 
+import { db } from './../index';
+import { projects, seriesTemplates } from '../../schema';
 import { normalizeTreeFields } from '../../../mainview/templates/tree';
 import { normalizeLayout } from '../../../mainview/templates/mergeFields';
-import type { SeriesTemplate } from '../../../shared/types/series';
-import type { CompendiumCategory } from '../../../shared/types/project/compendium';
+import type { SeriesTemplate } from '@/shared/types/series';
+import type { CompendiumCategory } from '@/shared/types/project/compendium';
 import type {
     FieldDefinition,
     TemplateLayout,
-} from '../../../shared/types/project/templates';
+} from '@/shared/types/project/templates';
 
 function parseLayout(raw: unknown): TemplateLayout | null {
     if (!raw || typeof raw !== 'string') return null;

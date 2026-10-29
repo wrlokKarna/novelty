@@ -1,13 +1,14 @@
+import { eq, asc } from 'drizzle-orm';
+
 import { db } from './../index';
 import { storyActs, storySequences, storyScenes } from '../../schema';
-import { eq, asc } from 'drizzle-orm';
 import type {
     ChapterStatus,
     NewStoryAct,
     NewStorySequence,
     StoryAct,
     StorySequence,
-} from '../../../shared/types';
+} from '@/shared/types';
 
 function parseAct(row: typeof storyActs.$inferSelect): StoryAct {
     return {

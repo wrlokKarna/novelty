@@ -1,6 +1,7 @@
+import { sql } from 'drizzle-orm';
+
 import { db } from './../index';
 import { tokenUsage } from '../../schema';
-import { sql } from 'drizzle-orm';
 
 export type NewTokenUsage = typeof tokenUsage.$inferInsert;
 

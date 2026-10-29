@@ -1,10 +1,11 @@
+import { eq, asc } from 'drizzle-orm';
+
 import { db } from './../index';
 import { characters } from '../../schema';
-import { eq, asc } from 'drizzle-orm';
 import type {
     Character,
     NewCharacter,
-} from '../../../shared/types/project/compendium';
+} from '@/shared/types/project/compendium';
 
 function parseCharacter(row: Record<string, unknown>): Character {
     return {

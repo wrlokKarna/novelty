@@ -1,11 +1,12 @@
+import { eq, asc } from 'drizzle-orm';
+
 import { db } from './../index';
 import { series, projects } from '../../schema';
-import { eq, asc } from 'drizzle-orm';
 import type {
     NewSeries,
     Series,
     SeriesArchitecture,
-} from '../../../shared/types/series';
+} from '@/shared/types/series';
 
 function parseSeries(row: typeof series.$inferSelect): Series {
     return {

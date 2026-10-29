@@ -1,3 +1,5 @@
+import { eq, asc, and } from 'drizzle-orm';
+
 import { db } from './../index';
 import {
     timelineEvents,
@@ -5,11 +7,10 @@ import {
     characters,
     organizations,
 } from '../../schema';
-import { eq, asc, and } from 'drizzle-orm';
 import type {
     NewTimelineEvent,
     TimelineEvent,
-} from '../../../shared/types/project/timeline';
+} from '@/shared/types/project/timeline';
 
 function parseEvent(row: Record<string, unknown>): TimelineEvent {
     return {

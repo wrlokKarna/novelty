@@ -1,12 +1,13 @@
+import { eq, asc } from 'drizzle-orm';
+
 import { db } from './../index';
 import { chatSessions, chatMessages } from '../../schema';
-import { eq, asc } from 'drizzle-orm';
 import type {
     ChatSession,
     NewChatSession,
     ChatMessage,
     NewChatMessage,
-} from '../../../shared/types/ai';
+} from '@/shared/types/ai';
 
 //type ChatSession = typeof chatSessions.$inferSelect;
 //type NewChatSession = typeof chatSessions.$inferInsert;

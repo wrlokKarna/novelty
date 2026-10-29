@@ -1,11 +1,12 @@
+import { eq, asc } from 'drizzle-orm';
+
 import { db } from './../index';
 import { storyBeats } from '../../schema';
-import { eq, asc } from 'drizzle-orm';
 import type {
     StoryBeat,
     NewStoryBeat,
     StoryBeatType,
-} from '../../../shared/types/project/manuscript';
+} from '@/shared/types/project/manuscript';
 
 function parseBeat(row: typeof storyBeats.$inferSelect): StoryBeat {
     return {

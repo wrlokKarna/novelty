@@ -1,7 +1,8 @@
+import { eq, asc } from 'drizzle-orm';
+
 import { db } from './../index';
 import { genres } from '../../schema';
-import { eq, asc } from 'drizzle-orm';
-import type { Genre } from '../../../shared/types/project';
+import type { Genre } from '@/shared/types/project';
 
 export async function getAllGenres(): Promise<Genre[]> {
     const rows = await db.select().from(genres).orderBy(asc(genres.name));

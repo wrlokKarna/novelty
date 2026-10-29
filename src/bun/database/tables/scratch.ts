@@ -1,7 +1,8 @@
+import { eq } from 'drizzle-orm';
+
 import { db } from './../index';
 import { scratchNotes } from '../../schema';
-import { eq } from 'drizzle-orm';
-import type { ScratchNote } from '../../../shared/types/project';
+import type { ScratchNote } from '@/shared/types/project';
 
 export async function getScratchNote(
     projectId: string

@@ -1,3 +1,7 @@
+import { join } from 'path';
+import { mkdirSync, existsSync } from 'fs';
+import { eq, asc, desc, or } from 'drizzle-orm';
+
 import { db } from './../index';
 import {
     projects,
@@ -8,11 +12,7 @@ import {
     tags,
     themes,
 } from '../../schema';
-import { eq, asc, desc, or } from 'drizzle-orm';
 import { getAllSettings, setSetting } from '../../settings';
-import { join } from 'path';
-import { mkdirSync, existsSync } from 'fs';
-
 import type {
     NewProject,
     PacingType,
@@ -23,8 +23,8 @@ import type {
     ProjectStructure,
     TargetAgeGroup,
     WorkType,
-} from '../../../shared/types';
-import type { SeriesArchitecture } from '../../../shared/types/series';
+} from '@/shared/types';
+import type { SeriesArchitecture } from '@/shared/types/series';
 
 function safeParse(val: string | null) {
     if (!val || val === 'null') return [];

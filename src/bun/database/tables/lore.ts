@@ -1,10 +1,11 @@
+import { eq, asc } from 'drizzle-orm';
+
 import { db } from './../index';
 import { loreEntries } from '../../schema';
-import { eq, asc } from 'drizzle-orm';
 import type {
     LoreEntry,
     NewLoreEntry,
-} from '../../../shared/types/project/compendium';
+} from '@/shared/types/project/compendium';
 
 export async function getLoreEntriesByProject(
     projectId: string

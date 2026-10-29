@@ -1,12 +1,13 @@
+import { eq, asc } from 'drizzle-orm';
+
 import { db } from './../index';
 import { plotThreads, chapterPlotThreads } from '../../schema';
-import { eq, asc } from 'drizzle-orm';
 import type {
     ChapterPlotThread,
     NewPlotThread,
     PlotThread,
     PlotThreadType,
-} from '../../../shared/types/project/manuscript';
+} from '@/shared/types/project/manuscript';
 
 function parseThread(row: typeof plotThreads.$inferSelect): PlotThread {
     return {
