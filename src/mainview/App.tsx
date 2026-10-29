@@ -14,10 +14,7 @@ import type {
     EntityTemplate,
     FieldDefinition,
     TemplateLayout,
-    PlotThread,
     StoryBeat,
-    StoryScene,
-    ChapterPlotThread,
 } from './types/index';
 import { DEFAULT_TEMPLATE_COLUMNS } from './types/index';
 import { type TreeEdge, treeEdgeKey } from './templates/tree';
@@ -81,6 +78,11 @@ import {
     LoreEntry,
     Organization,
 } from '../shared/types/project/compendium';
+import {
+    PlotThread,
+    ChapterPlotThread,
+    StoryScene,
+} from '../shared/types/project/manuscript';
 
 /*
 const categoryConfig: Record<

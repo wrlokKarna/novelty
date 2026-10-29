@@ -5,13 +5,11 @@ import {
     LoreEntry,
     Organization,
 } from '../../../shared/types/project/compendium';
-import { PlotThread } from '../../../shared/types/project/manuscript';
-import type {
-    CompendiumCategory,
-    FileTab,
-    StoryBeat,
+import {
+    PlotThread,
     StoryScene,
-} from '../../types/index';
+} from '../../../shared/types/project/manuscript';
+import type { CompendiumCategory, FileTab, StoryBeat } from '../../types/index';
 
 export type QuickAccessKind =
     | 'chapter'

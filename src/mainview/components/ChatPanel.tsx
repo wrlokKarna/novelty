@@ -45,7 +45,6 @@ import type {
     MentionTarget,
     CompendiumCategory,
     FieldDefinition,
-    StoryScene,
 } from '../types';
 import { parseEntryData, parseAllEntryData } from '../services/entryParser';
 import type { ParsedEntry } from '../services/entryParser';
@@ -89,6 +88,7 @@ import {
     LoreEntry,
     Organization,
 } from '../../shared/types/project/compendium';
+import { StoryScene } from '../../shared/types/project/manuscript';
 
 function smartTruncate(text: string, maxLen = 50): string {
     const cleaned = text

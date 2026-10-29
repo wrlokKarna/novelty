@@ -1,28 +1,11 @@
 import { db } from './../index';
 import { storyScenes } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-
-export type StoryScene = {
-    id: string;
-    projectId: string | null;
-    actId: string | null;
-    sequenceId: string | null;
-    chapterId: string | null;
-    title: string;
-    summary: string | null;
-    setting: string | null;
-    charactersPresent: string | null;
-    keyEvents: string | null;
-    duration: string | null;
-    conflict: string | null;
-    status: string;
-    orderIndex: number;
-    displayOrder: number;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewStoryScene = Omit<StoryScene, 'createdAt' | 'updatedAt'>;
+import {
+    StoryScene,
+    NewStoryScene,
+} from '../../../shared/types/project/manuscript';
+import { ChapterStatus } from '../../../shared/types';
 
 function parseScene(row: typeof storyScenes.$inferSelect): StoryScene {
     return {
@@ -38,7 +21,7 @@ function parseScene(row: typeof storyScenes.$inferSelect): StoryScene {
         keyEvents: row.keyEvents,
         duration: row.duration,
         conflict: row.conflict,
-        status: row.status,
+        status: row.status as ChapterStatus,
         orderIndex: row.orderIndex,
         displayOrder: row.displayOrder,
         createdAt: row.createdAt,

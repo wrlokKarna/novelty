@@ -62,7 +62,10 @@ import {
     NewChatMessage,
     NewChatSession,
 } from '../shared/types/ai/index.js';
-import { NewPlotThread } from '../shared/types/project/manuscript/index.js';
+import {
+    NewPlotThread,
+    NewStoryScene,
+} from '../shared/types/project/manuscript/index.js';
 import { NewChapter } from '../shared/types/project/index.js';
 
 registerAllTools();
@@ -773,7 +776,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
             'db:get-scenes-by-chapter': async (chapterId: string) => {
                 return (await scenesDB.getScenesByChapter(chapterId)) as any;
             },
-            'db:create-story-scene': async (scene: scenesDB.NewStoryScene) => {
+            'db:create-story-scene': async (scene: NewStoryScene) => {
                 return (await scenesDB.createScene(scene)) as any;
             },
             'db:update-story-scene': async ({
@@ -781,7 +784,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 data,
             }: {
                 id: string;
-                data: Partial<scenesDB.NewStoryScene>;
+                data: Partial<NewStoryScene>;
             }) => {
                 return (await scenesDB.updateScene(id, data)) as any;
             },

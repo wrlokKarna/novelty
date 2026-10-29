@@ -1,5 +1,4 @@
 import { useState, useCallback, useMemo, Fragment } from 'react';
-import type { StoryScene } from '../types/index';
 import {
     IconPlus,
     IconTrash,
@@ -11,6 +10,7 @@ import SceneCardEditor from './SceneCardEditor';
 import type { CollapseState } from '../hooks/useCollapseState';
 import { StorySequence } from '../../shared/types';
 import { Character } from '../../shared/types/project/compendium';
+import { StoryScene } from '../../shared/types/project/manuscript';
 
 export type DragItemType = 'scene' | 'sequence';
 
