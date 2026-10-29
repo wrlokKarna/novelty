@@ -80,3 +80,11 @@ export type Reference = {
 };
 
 export type NewReference = Omit<Reference, 'createdAt' | 'updatedAt'>;
+
+export type ScratchNote = {
+    id: string;
+    projectId: string | null;
+    content: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+};
