@@ -498,14 +498,19 @@ export default function LeftPanel({
                                                                             e
                                                                         ) => {
                                                                             e.stopPropagation();
-                                                                            isManuscript
-                                                                                ? deleteChapter(
-                                                                                      entry
-                                                                                  )
-                                                                                : deleteCompendiumEntry(
-                                                                                      entry.id,
-                                                                                      explorerTab as CompendiumCategory
-                                                                                  );
+
+                                                                            if (
+                                                                                isManuscript
+                                                                            ) {
+                                                                                deleteChapter(
+                                                                                    entry
+                                                                                );
+                                                                            } else {
+                                                                                deleteCompendiumEntry(
+                                                                                    entry.id,
+                                                                                    explorerTab as CompendiumCategory
+                                                                                );
+                                                                            }
                                                                         }}
                                                                     >
                                                                         <IconTrash
