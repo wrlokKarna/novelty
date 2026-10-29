@@ -45,6 +45,8 @@ import {
     ChapterPlotThread,
     NewStoryScene,
     StoryScene,
+    NewStoryBeat,
+    StoryBeat,
 } from '../../shared/types/project/manuscript';
 import { Series, NewSeries } from '../../shared/types/series';
 import { Provider } from '../utils/ai/providerHelpers';
@@ -106,40 +108,6 @@ export type ChapterOutlineData = {
     keyEvents: string[];
     notes: string;
 };
-
-export type StoryBeatType =
-    | 'opening-image'
-    | 'theme-stated'
-    | 'setup'
-    | 'catalyst'
-    | 'debate'
-    | 'break-into-two'
-    | 'b-story'
-    | 'fun-and-games'
-    | 'midpoint'
-    | 'bad-guys-close-in'
-    | 'all-is-lost'
-    | 'dark-night-of-soul'
-    | 'break-into-three'
-    | 'climax'
-    | 'falling-action'
-    | 'finale'
-    | 'final-image'
-    | 'custom';
-
-export type StoryBeat = {
-    id: string;
-    projectId: string | null;
-    chapterId: string | null;
-    beatType: StoryBeatType;
-    title: string;
-    description: string | null;
-    orderIndex: number;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewStoryBeat = Omit<StoryBeat, 'createdAt' | 'updatedAt'>;
 
 export type Tag = {
     id: string;

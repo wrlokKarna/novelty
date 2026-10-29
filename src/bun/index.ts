@@ -64,6 +64,7 @@ import {
 } from '../shared/types/ai/index.js';
 import {
     NewPlotThread,
+    NewStoryBeat,
     NewStoryScene,
 } from '../shared/types/project/manuscript/index.js';
 import { NewChapter } from '../shared/types/project/index.js';
@@ -857,7 +858,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
             'db:get-story-beat': async (id: string) => {
                 return (await storyBeatsDB.getBeatById(id)) as any;
             },
-            'db:create-story-beat': async (beat: storyBeatsDB.NewStoryBeat) => {
+            'db:create-story-beat': async (beat: NewStoryBeat) => {
                 return (await storyBeatsDB.createBeat(beat)) as any;
             },
             'db:update-story-beat': async ({
@@ -865,7 +866,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 data,
             }: {
                 id: string;
-                data: Partial<storyBeatsDB.NewStoryBeat>;
+                data: Partial<NewStoryBeat>;
             }) => {
                 return (await storyBeatsDB.updateBeat(id, data)) as any;
             },

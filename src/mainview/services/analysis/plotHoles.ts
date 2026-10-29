@@ -1,8 +1,11 @@
 import { StoryAct, StorySequence, Location } from '../../../shared/types';
 import { Chapter } from '../../../shared/types/project';
 import { Character, LoreEntry } from '../../../shared/types/project/compendium';
-import { PlotThread } from '../../../shared/types/project/manuscript';
-import type { TimelineEvent, StoryBeat } from '../../types/index';
+import {
+    PlotThread,
+    StoryBeat,
+} from '../../../shared/types/project/manuscript';
+import type { TimelineEvent } from '../../types/index';
 
 export type AnalysisIssueSeverity = 'error' | 'warning' | 'info';
 

@@ -1,27 +1,18 @@
 import { db } from './../index';
 import { storyBeats } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-
-export type StoryBeat = {
-    id: string;
-    projectId: string | null;
-    chapterId: string | null;
-    beatType: string;
-    title: string;
-    description: string | null;
-    orderIndex: number;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewStoryBeat = Omit<StoryBeat, 'createdAt' | 'updatedAt'>;
+import {
+    StoryBeat,
+    NewStoryBeat,
+    StoryBeatType,
+} from '../../../shared/types/project/manuscript';
 
 function parseBeat(row: typeof storyBeats.$inferSelect): StoryBeat {
     return {
         id: row.id,
         projectId: row.projectId,
         chapterId: row.chapterId,
-        beatType: row.beatType,
+        beatType: row.beatType as StoryBeatType,
         title: row.title,
         description: row.description,
         orderIndex: row.orderIndex,

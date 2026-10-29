@@ -14,7 +14,6 @@ import type {
     EntityTemplate,
     FieldDefinition,
     TemplateLayout,
-    StoryBeat,
 } from './types/index';
 import { DEFAULT_TEMPLATE_COLUMNS } from './types/index';
 import { type TreeEdge, treeEdgeKey } from './templates/tree';
@@ -82,6 +81,7 @@ import {
     PlotThread,
     ChapterPlotThread,
     StoryScene,
+    StoryBeat,
 } from '../shared/types/project/manuscript';
 
 /*

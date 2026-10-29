@@ -7,9 +7,10 @@ import {
 } from '../../../shared/types/project/compendium';
 import {
     PlotThread,
+    StoryBeat,
     StoryScene,
 } from '../../../shared/types/project/manuscript';
-import type { CompendiumCategory, FileTab, StoryBeat } from '../../types/index';
+import type { CompendiumCategory, FileTab } from '../../types/index';
 
 export type QuickAccessKind =
     | 'chapter'
