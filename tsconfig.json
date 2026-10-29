@@ -27,6 +27,7 @@
         "src",
         "electrobun.config.ts",
         "eslint.config.ts",
+        "vite.config.ts",
         ".local_sandbox/"
     ],
     "exclude": ["node_modules", "dist", "build", "../../package/dist"]
