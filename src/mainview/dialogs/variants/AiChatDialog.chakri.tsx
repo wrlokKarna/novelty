@@ -2,7 +2,13 @@ import { chatSeqType, MOCK_CHAT_DATA } from './AiChatDialog.common';
 import styles from './AiChatDialog.chakri.module.css';
 import { useEffect, useState, useRef } from 'react';
 
-const STEP_LABELS = ['One', 'Two', 'Three', 'Four', 'Five'];
+// Exact 4 steps structure
+const STEP_CONFIG = [
+    { type: 'reasoning' as const },
+    { type: 'tool' as const },
+    { type: 'reasoning' as const },
+    { type: 'tool' as const },
+];
 
 export default function AiChatDialogChakri({
     activeView,
@@ -55,8 +61,8 @@ export default function AiChatDialogChakri({
         setIsGenerating(true);
         setIsAccordionOpen(true);
 
-        // Strict 5 steps cap
-        const fiveSteps = MOCK_CHAT_DATA.slice(0, 5);
+        // Cap to exactly 4 steps
+        const fourSteps = MOCK_CHAT_DATA.slice(0, 4);
 
         const streamWords = (
             text: string,
@@ -98,13 +104,13 @@ export default function AiChatDialogChakri({
         const generateStepByStep = (index: number) => {
             if (currentRunId !== runIdRef.current) return;
 
-            if (index < fiveSteps.length) {
-                const currentItem = fiveSteps[index];
+            if (index < fourSteps.length) {
+                const currentItem = fourSteps[index];
 
                 const timeout = setTimeout(() => {
                     if (currentRunId !== runIdRef.current) return;
 
-                    setChatSeq(fiveSteps.slice(0, index + 1));
+                    setChatSeq(fourSteps.slice(0, index + 1));
                     setOpenSteps((prev) => ({ ...prev, [index]: true }));
 
                     streamWords(currentItem.content || '', index, () => {
@@ -124,10 +130,7 @@ export default function AiChatDialogChakri({
         return () => clearTimers();
     }, [resetSeq]);
 
-    const displayedSteps = chatSeq.slice(0, 5);
-    const toolCount = displayedSteps.filter(
-        (item) => item.type === 'Tool'
-    ).length;
+    const displayedSteps = chatSeq.slice(0, 4);
 
     return (
         <div
@@ -144,21 +147,21 @@ export default function AiChatDialogChakri({
                             {isGenerating ? (
                                 <>
                                     <span className={styles.spinner} />
-                                    <span className={styles.headerTitle}></span>
-                                    <span className={styles.headerBadge}>
+                                    <span className={styles.headerTitle}>
                                         Thinking...
+                                    </span>
+                                    <span className={styles.headerBadge}>
+                                        Running
                                     </span>
                                 </>
                             ) : (
                                 <>
                                     <span className={styles.statusSuccessDot} />
                                     <span className={styles.headerTitle}>
-                                        {toolCount > 0
-                                            ? `Called ${toolCount} Tools`
-                                            : 'Reasoning Completed'}
+                                        Completed 4 Steps
                                     </span>
                                     <span className={styles.headerBadge}>
-                                        5 Steps
+                                        4 Steps
                                     </span>
                                 </>
                             )}
@@ -181,60 +184,49 @@ export default function AiChatDialogChakri({
                     {/* Stepper Pipeline */}
                     {isAccordionOpen && (
                         <div className={styles.reasoningBody}>
-                            {displayedSteps.map((item, index) => {
+                            {displayedSteps.map((_, index) => {
                                 const isOpen = openSteps[index] ?? false;
-                                const stepName =
-                                    item.name ||
-                                    STEP_LABELS[index] ||
-                                    `${index + 1}`;
                                 const isStreaming =
                                     activeStreamingIndex === index;
-                                const isCompleted =
-                                    !isStreaming &&
-                                    (streamedText[index]?.length ?? 0) > 0;
+                                const stepMeta = STEP_CONFIG[index];
+                                const isReasoning =
+                                    stepMeta?.type === 'reasoning';
 
                                 return (
                                     <div
                                         key={index}
                                         className={styles.stepItem}
                                     >
-                                        {/* Step Trigger Pill */}
+                                        {/* Step Trigger Row */}
                                         <div
                                             className={styles.seqheader}
                                             onClick={() => toggleStep(index)}
                                         >
-                                            <div className={styles.stepBadge}>
-                                                <span
-                                                    className={`${styles.stepNode} ${
-                                                        isStreaming
-                                                            ? styles.stepNodeActive
-                                                            : isCompleted
-                                                              ? styles.stepNodeCompleted
-                                                              : ''
-                                                    }`}
-                                                >
-                                                    {isCompleted
-                                                        ? '✓'
-                                                        : index + 1}
-                                                </span>
-                                                <span
-                                                    className={styles.stepTitle}
-                                                >
-                                                    Step {index + 1}
-                                                </span>
+                                            <div
+                                                className={
+                                                    styles.stepLabelGroup
+                                                }
+                                            >
+                                                {/* Circular loading indicator when actively generating */}
+                                                {isStreaming && (
+                                                    <span
+                                                        className={
+                                                            styles.stepSpinner
+                                                        }
+                                                    />
+                                                )}
+
+                                                {/* Step Label: Reasoning/Reasoned or Tool */}
                                                 <span
                                                     className={
-                                                        styles.stepDivider
+                                                        styles.stepTitleText
                                                     }
                                                 >
-                                                    •
-                                                </span>
-                                                <span
-                                                    className={
-                                                        styles.stepSubtitle
-                                                    }
-                                                >
-                                                    {stepName}
+                                                    {isReasoning
+                                                        ? isStreaming
+                                                            ? 'Reasoning'
+                                                            : 'Reasoned'
+                                                        : 'Tool'}
                                                 </span>
                                             </div>
 
