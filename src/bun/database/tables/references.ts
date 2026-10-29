@@ -1,18 +1,7 @@
 import { db } from './../index';
 import { projectReferences } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-
-export type Reference = {
-    id: string;
-    projectId: string | null;
-    name: string;
-    filePath: string | null;
-    category: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewReference = Omit<Reference, 'createdAt' | 'updatedAt'>;
+import { NewReference, Reference } from '../../../shared/types/project';
 
 export async function getReferencesByProject(
     projectId: string

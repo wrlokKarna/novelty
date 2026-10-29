@@ -68,3 +68,15 @@ export type Inspiration = {
 };
 
 export type NewInspiration = Omit<Inspiration, 'createdAt' | 'updatedAt'>;
+
+export type Reference = {
+    id: string;
+    projectId: string | null;
+    name: string;
+    filePath: string | null;
+    category: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+};
+
+export type NewReference = Omit<Reference, 'createdAt' | 'updatedAt'>;
