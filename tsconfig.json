@@ -1,4 +1,5 @@
 {
+    "extends": "./.hutch/devkit/tsconfig.json",
     "compilerOptions": {
         "target": "ESNext",
         "module": "ESNext",
@@ -18,9 +19,15 @@
         "noUnusedParameters": true,
         "noFallthroughCasesInSwitch": true,
         "types": ["node", "bun-types"],
-        "baseUrl": null
+        "paths": {
+            "@/*": ["./src/*"]
+        }
     },
-    "extends": "./.hutch/devkit/tsconfig.json",
-    "include": ["src", "electrobun.config.ts", ".local_sandbox/"],
+    "include": [
+        "src",
+        "electrobun.config.ts",
+        "eslint.config.ts",
+        ".local_sandbox/"
+    ],
     "exclude": ["node_modules", "dist", "build", "../../package/dist"]
 }

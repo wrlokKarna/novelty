@@ -6,9 +6,14 @@ import pluginReact from 'eslint-plugin-react';
 import json from '@eslint/json';
 import markdown from '@eslint/markdown';
 import css from '@eslint/css';
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export default defineConfig(
-    // 1. Global Ignores (Strictly skip internal tool folders and bundles)
+    // 1. Global Ignores
     {
         ignores: [
             'dist/**',
@@ -23,7 +28,6 @@ export default defineConfig(
     },
 
     // 2. JavaScript & TypeScript Source Scope
-    // Map the rules arrays specifically to source script extensions so they never bleed into MD/JSON/CSS
     {
         files: ['**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
         rules: {
@@ -34,6 +38,32 @@ export default defineConfig(
         ...config,
         files: ['**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     })),
+    {
+        files: ['**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+        languageOptions: {
+            parserOptions: {
+                projectService: {
+                    defaultProject: './tsconfig.json',
+                },
+                tsconfigRootDir: __dirname,
+            },
+        },
+        rules: {
+            '@typescript-eslint/consistent-type-imports': [
+                'error',
+                {
+                    prefer: 'type-imports',
+                    fixStyle: 'separate-type-imports',
+                },
+            ],
+            '@typescript-eslint/consistent-type-exports': [
+                'error',
+                {
+                    fixMixedExportsWithInlineTypeSpecifier: true,
+                },
+            ],
+        },
+    },
 
     // 3. React Source Scope
     {
@@ -46,11 +76,11 @@ export default defineConfig(
             },
         },
         rules: {
-            'react/react-in-jsx-scope': 'off', // Essential for modern React/Next.js runtimes
+            'react/react-in-jsx-scope': 'off',
         },
     },
 
-    // 4. Data & Metadata Files (Protected from script rules)
+    // 4. Data & Metadata Files
     {
         files: ['**/*.json'],
         plugins: { json },
