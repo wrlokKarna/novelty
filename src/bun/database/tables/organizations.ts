@@ -1,18 +1,10 @@
 import { db } from './../index';
 import { organizations } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-
-export type Organization = {
-    id: string;
-    projectId: string | null;
-    name: string;
-    filePath: string | null;
-    templateData: Record<string, unknown> | null;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewOrganization = Omit<Organization, 'createdAt' | 'updatedAt'>;
+import {
+    Organization,
+    NewOrganization,
+} from '../../../shared/types/project/compendium';
 
 function parseOrganization(row: Record<string, unknown>): Organization {
     return {

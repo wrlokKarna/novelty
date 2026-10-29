@@ -33,6 +33,18 @@ export type Character = {
 
 export type NewCharacter = Omit<Character, 'createdAt' | 'updatedAt'>;
 
+export type Organization = {
+    id: string;
+    projectId: string | null;
+    name: string;
+    filePath: string | null;
+    templateData: Record<string, unknown> | null;
+    createdAt: Date;
+    updatedAt: Date;
+};
+
+export type NewOrganization = Omit<Organization, 'createdAt' | 'updatedAt'>;
+
 export type LoreEntry = {
     id: string;
     projectId: string | null;

@@ -43,7 +43,6 @@ import {
 
 import type {
     MentionTarget,
-    Organization,
     CompendiumCategory,
     FieldDefinition,
     StoryScene,
@@ -85,7 +84,11 @@ import {
     UserChatMessage,
 } from '../../shared/types/ai';
 import { Chapter } from '../../shared/types/project';
-import { Character, LoreEntry } from '../../shared/types/project/compendium';
+import {
+    Character,
+    LoreEntry,
+    Organization,
+} from '../../shared/types/project/compendium';
 
 function smartTruncate(text: string, maxLen = 50): string {
     const cleaned = text

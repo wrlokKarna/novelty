@@ -16,12 +16,13 @@ import {
     IconPinFilled,
     IconPencilMinus,
 } from '@tabler/icons-react';
-import { Organization } from '../../../types';
+
 import type { CompendiumCategory } from '../../../types';
 import { Chapter } from '../../../../shared/types/project';
 import {
     Character,
     LoreEntry,
+    Organization,
 } from '../../../../shared/types/project/compendium';
 import { Item, Location } from '../../../../shared/types';
 

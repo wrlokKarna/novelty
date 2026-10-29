@@ -11,7 +11,6 @@ import { useRPC } from './contexts/RPCContext';
 import type {
     FileTab,
     CompendiumCategory,
-    Organization,
     EntityTemplate,
     FieldDefinition,
     TemplateLayout,

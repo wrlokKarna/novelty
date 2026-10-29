@@ -1,6 +1,5 @@
 import type {
     MentionTarget,
-    Organization,
     FieldDefinition,
     CompendiumCategory,
     StoryScene,
@@ -9,7 +8,11 @@ import { isFieldVisible } from '../templates/fieldVisibility';
 import { isTreeEdge } from '../templates/tree';
 import { Item, Project, StorySequence, Location } from '../../shared/types';
 import { Chapter } from '../../shared/types/project';
-import { Character, LoreEntry } from '../../shared/types/project/compendium';
+import {
+    Character,
+    LoreEntry,
+    Organization,
+} from '../../shared/types/project/compendium';
 
 function estimateTokens(text: string): number {
     return Math.ceil(text.length / 4);

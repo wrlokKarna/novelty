@@ -38,6 +38,8 @@ import {
     LoreEntry,
     NewCharacter,
     NewLoreEntry,
+    NewOrganization,
+    Organization,
 } from '../../shared/types/project/compendium';
 import { Provider } from '../utils/ai/providerHelpers';
 
@@ -176,18 +178,6 @@ export type StoryBeat = {
 };
 
 export type NewStoryBeat = Omit<StoryBeat, 'createdAt' | 'updatedAt'>;
-
-export type Organization = {
-    id: string;
-    projectId: string | null;
-    name: string;
-    filePath: string | null;
-    templateData: Record<string, unknown> | null;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewOrganization = Omit<Organization, 'createdAt' | 'updatedAt'>;
 
 export type Tag = {
     id: string;
