@@ -549,6 +549,3 @@ export const McptimelineEvents = sqliteTable('timeline_events', {
         onDelete: 'set null',
     }),
 });
-
-export type TimelineEvent = InferSelectModel<typeof timelineEvents>;
-export type NewTimelineEvent = InferInsertModel<typeof timelineEvents>;

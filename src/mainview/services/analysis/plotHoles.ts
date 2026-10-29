@@ -5,7 +5,7 @@ import {
     PlotThread,
     StoryBeat,
 } from '../../../shared/types/project/manuscript';
-import type { TimelineEvent } from '../../types/index';
+import { TimelineEvent } from '../../../shared/types/project/timeline';
 
 export type AnalysisIssueSeverity = 'error' | 'warning' | 'info';
 

@@ -69,6 +69,7 @@ import {
 } from '../shared/types/project/manuscript/index.js';
 import { NewChapter } from '../shared/types/project/index.js';
 import { NewSeries } from '../shared/types/series/index.js';
+import { NewTimelineEvent } from '../shared/types/project/timeline/index.js';
 
 registerAllTools();
 try {
@@ -684,9 +685,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
             'db:get-timeline-event': async (id: string) => {
                 return await timelineDB.getEventById(id);
             },
-            'db:create-timeline-event': async (
-                event: timelineDB.NewTimelineEvent
-            ) => {
+            'db:create-timeline-event': async (event: NewTimelineEvent) => {
                 return await timelineDB.createEvent(event);
             },
             'db:update-timeline-event': async ({
@@ -694,7 +693,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 data,
             }: {
                 id: string;
-                data: Partial<timelineDB.NewTimelineEvent>;
+                data: Partial<NewTimelineEvent>;
             }) => {
                 return await timelineDB.updateEvent(id, data);
             },
