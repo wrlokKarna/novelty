@@ -1,18 +1,10 @@
 import { db } from './../index';
 import { loreEntries } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-
-export type LoreEntry = {
-    id: string;
-    projectId: string | null;
-    name: string;
-    filePath: string | null;
-    templateData: Record<string, unknown> | null;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewLoreEntry = Omit<LoreEntry, 'createdAt' | 'updatedAt'>;
+import {
+    LoreEntry,
+    NewLoreEntry,
+} from '../../../shared/types/project/compendium';
 
 export async function getLoreEntriesByProject(
     projectId: string

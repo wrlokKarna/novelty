@@ -33,7 +33,12 @@ import {
     NewChapter,
     NewInspiration,
 } from '../../shared/types/project';
-import { Character, NewCharacter } from '../../shared/types/project/compendium';
+import {
+    Character,
+    LoreEntry,
+    NewCharacter,
+    NewLoreEntry,
+} from '../../shared/types/project/compendium';
 import { Provider } from '../utils/ai/providerHelpers';
 
 export type WindowRequests = {
@@ -183,18 +188,6 @@ export type Organization = {
 };
 
 export type NewOrganization = Omit<Organization, 'createdAt' | 'updatedAt'>;
-
-export type LoreEntry = {
-    id: string;
-    projectId: string | null;
-    name: string;
-    filePath: string | null;
-    templateData: Record<string, unknown> | null;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewLoreEntry = Omit<LoreEntry, 'createdAt' | 'updatedAt'>;
 
 export type Tag = {
     id: string;

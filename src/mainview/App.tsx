@@ -12,7 +12,6 @@ import type {
     FileTab,
     CompendiumCategory,
     Organization,
-    LoreEntry,
     EntityTemplate,
     FieldDefinition,
     TemplateLayout,
@@ -78,7 +77,7 @@ import {
     Location,
 } from '../shared/types';
 import { Chapter, NewChapter } from '../shared/types/project';
-import { Character } from '../shared/types/project/compendium';
+import { Character, LoreEntry } from '../shared/types/project/compendium';
 
 /*
 const categoryConfig: Record<
