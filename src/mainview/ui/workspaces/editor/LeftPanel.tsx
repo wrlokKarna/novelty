@@ -43,7 +43,7 @@ const COMPENDIUM_CONFIG = {
 const MANUSCRIPT_CONFIG = {
     chapters: { label: 'Chapters', icon: IconFiles, dataKey: 'chapters' },
 } as const;
-const EXPLORER_CONFIG = {
+export const EXPLORER_CONFIG = {
     ...MANUSCRIPT_CONFIG,
     ...COMPENDIUM_CONFIG,
 } as const;
@@ -378,12 +378,15 @@ export default function LeftPanel({
                                                 <div className="chapter-list">
                                                     {currentData.map(
                                                         (
-                                                            entry: any,
+                                                            entry:
+                                                                | Chapter
+                                                                | Character,
                                                             index: number
                                                         ) => {
                                                             const label =
-                                                                entry.title ||
-                                                                entry.name;
+                                                                'title' in entry
+                                                                    ? entry.title
+                                                                    : entry.name;
                                                             const isManuscript =
                                                                 mode ===
                                                                 'manuscript';
@@ -397,7 +400,7 @@ export default function LeftPanel({
                                                                     onClick={() =>
                                                                         isManuscript
                                                                             ? openChapter(
-                                                                                  entry
+                                                                                  entry as Chapter
                                                                               )
                                                                             : openCompendiumEntry(
                                                                                   entry.id,
@@ -479,8 +482,7 @@ export default function LeftPanel({
                                                                                     e.stopPropagation();
                                                                                     handleStartRename(
                                                                                         entry.id,
-                                                                                        entry.title ||
-                                                                                            ''
+                                                                                        label
                                                                                     );
                                                                                 }}
                                                                             >
@@ -503,7 +505,7 @@ export default function LeftPanel({
                                                                                 isManuscript
                                                                             ) {
                                                                                 deleteChapter(
-                                                                                    entry
+                                                                                    entry as Chapter
                                                                                 );
                                                                             } else {
                                                                                 deleteCompendiumEntry(
