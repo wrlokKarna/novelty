@@ -1,6 +1,6 @@
 import { sqlite } from '.';
 import { normalizeTreeFields } from '../../mainview/templates/tree';
-import { TemplateFieldRecord } from '../../shared/types';
+import type { TemplateFieldRecord } from '../../shared/types';
 import { columnExists, parseFieldList } from './utils';
 
 export function migrateOutlineScenesToStoryScenes() {

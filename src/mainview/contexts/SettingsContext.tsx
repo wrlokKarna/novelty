@@ -1,14 +1,15 @@
+import type {
+    ReactNode} from 'react';
 import {
     createContext,
     useContext,
     useState,
     useEffect,
-    useCallback,
-    ReactNode,
+    useCallback
 } from 'react';
 import { getRPC } from './RPCContext';
-import { Settings } from '../../shared/types/project/settings';
-import { Provider } from '../../shared/types/ai/provider';
+import type { Settings } from '../../shared/types/project/settings';
+import type { Provider } from '../../shared/types/ai/provider';
 
 interface SettingsContextType {
     settings: Settings | null;

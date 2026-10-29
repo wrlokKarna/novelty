@@ -1,7 +1,7 @@
 import { db } from './../index';
 import { storyBeats } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-import {
+import type {
     StoryBeat,
     NewStoryBeat,
     StoryBeatType,

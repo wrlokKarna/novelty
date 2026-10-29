@@ -1,7 +1,7 @@
 import { db } from './../index';
 import { locations } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-import { Location, NewLocation } from '../../../shared/types';
+import type { Location, NewLocation } from '../../../shared/types';
 
 function parseLocation(row: Record<string, unknown>): Location {
     return {

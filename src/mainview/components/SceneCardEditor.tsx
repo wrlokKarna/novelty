@@ -5,8 +5,8 @@ import {
     IconChevronDown,
     IconChevronRight,
 } from '@tabler/icons-react';
-import { Character } from '../../shared/types/project/compendium';
-import { StoryScene } from '../../shared/types/project/manuscript';
+import type { Character } from '../../shared/types/project/compendium';
+import type { StoryScene } from '../../shared/types/project/manuscript';
 
 interface Props {
     scene: StoryScene;

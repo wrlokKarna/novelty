@@ -1,7 +1,7 @@
 import { db } from './../index';
 import { items } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-import { Item, NewItem } from '../../../shared/types';
+import type { Item, NewItem } from '../../../shared/types';
 
 function parseItem(row: Record<string, unknown>): Item {
     return {

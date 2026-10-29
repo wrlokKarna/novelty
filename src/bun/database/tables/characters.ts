@@ -1,7 +1,7 @@
 import { db } from './../index';
 import { characters } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-import {
+import type {
     Character,
     NewCharacter,
 } from '../../../shared/types/project/compendium';

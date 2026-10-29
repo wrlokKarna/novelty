@@ -8,9 +8,9 @@ import {
 } from '@tabler/icons-react';
 import SceneCardEditor from './SceneCardEditor';
 import type { CollapseState } from '../hooks/useCollapseState';
-import { StorySequence } from '../../shared/types';
-import { Character } from '../../shared/types/project/compendium';
-import { StoryScene } from '../../shared/types/project/manuscript';
+import type { StorySequence } from '../../shared/types';
+import type { Character } from '../../shared/types/project/compendium';
+import type { StoryScene } from '../../shared/types/project/manuscript';
 
 export type DragItemType = 'scene' | 'sequence';
 

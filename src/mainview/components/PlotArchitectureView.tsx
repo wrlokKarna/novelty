@@ -15,10 +15,10 @@ import {
     IconRefresh,
 } from '@tabler/icons-react';
 import SceneCardEditor from './SceneCardEditor';
-import { StoryAct, StorySequence } from '../../shared/types';
-import { Chapter } from '../../shared/types/project';
-import { Character } from '../../shared/types/project/compendium';
-import {
+import type { StoryAct, StorySequence } from '../../shared/types';
+import type { Chapter } from '../../shared/types/project';
+import type { Character } from '../../shared/types/project/compendium';
+import type {
     PlotThread,
     StoryBeat,
     StoryScene,

@@ -1,7 +1,7 @@
 import { db } from './../index';
 import { projectReferences } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-import { NewReference, Reference } from '../../../shared/types/project';
+import type { NewReference, Reference } from '../../../shared/types/project';
 
 export async function getReferencesByProject(
     projectId: string

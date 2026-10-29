@@ -4,8 +4,8 @@ import TemplateFieldMappingDialog from './TemplateFieldMappingDialog';
 
 import type { ParsedEntry } from '../services/entryParser';
 import type { MappingResult } from './TemplateFieldMappingDialog';
-import { CompendiumCategory } from '../../shared/types/project/compendium';
-import { FieldDefinition } from '../../shared/types/project/templates';
+import type { CompendiumCategory } from '../../shared/types/project/compendium';
+import type { FieldDefinition } from '../../shared/types/project/templates';
 
 export interface BulkExtractResult {
     entries: (ParsedEntry & { templateData: Record<string, unknown> })[];

@@ -7,13 +7,13 @@ import { useRPC } from '../../contexts/RPCContext';
 import TimelineEventEditor from '../../components/TimelineEventEditor';
 import Dialog from '../Dialog';
 import './../../ui/timeline.css';
-import { Chapter } from '../../../shared/types/project';
-import {
+import type { Chapter } from '../../../shared/types/project';
+import type {
     Character,
     CompendiumCategory,
     Organization,
 } from '../../../shared/types/project/compendium';
-import { TimelineEvent } from '../../../shared/types/project/timeline';
+import type { TimelineEvent } from '../../../shared/types/project/timeline';
 
 const EVENT_COLORS: Record<string, string> = {
     chapter: '#4a9eff',

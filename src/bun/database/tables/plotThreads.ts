@@ -1,7 +1,7 @@
 import { db } from './../index';
 import { plotThreads, chapterPlotThreads } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-import {
+import type {
     ChapterPlotThread,
     NewPlotThread,
     PlotThread,

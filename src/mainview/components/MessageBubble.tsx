@@ -14,7 +14,7 @@ import {
     IconChevronDown,
     IconChevronUp,
 } from '@tabler/icons-react';
-import { ChatMessage } from '../../shared/types/ai';
+import type { ChatMessage } from '../../shared/types/ai';
 
 //import 'highlight.js/styles/github-dark.css';
 

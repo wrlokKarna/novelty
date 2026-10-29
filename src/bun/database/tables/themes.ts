@@ -1,7 +1,7 @@
 import { db } from './../index';
 import { themes } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-import { Theme } from '../../../shared/types/project';
+import type { Theme } from '../../../shared/types/project';
 
 export async function getAllThemes(): Promise<Theme[]> {
     const rows = await db.select().from(themes).orderBy(asc(themes.name));

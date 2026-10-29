@@ -20,7 +20,7 @@ import {
 import styles from './ProviderCard.module.css';
 
 import { ModelListRenderer } from '../ai/ModelListRenderer';
-import { Model, Provider } from '../../../shared/types/ai/provider';
+import type { Model, Provider } from '../../../shared/types/ai/provider';
 
 type DefaultCardProps = {
     cardType?: 'default';

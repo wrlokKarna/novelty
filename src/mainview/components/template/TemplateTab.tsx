@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { DEFAULT_TEMPLATE_COLUMNS } from '../../types';
 import { FieldLayoutGrid } from './layout/FieldLayoutGrid';
 import TemplateField, { type EntryRef } from './TemplateField';
-import {
+import type {
     FieldDefinition,
     TemplateLayout,
     TemplateSpan,

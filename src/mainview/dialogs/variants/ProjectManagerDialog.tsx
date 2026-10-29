@@ -17,10 +17,11 @@ import {
 } from '@tabler/icons-react';
 import TemplateManagerTab from '../../components/template/TemplateManagerTab';
 import IconTextSideBar from '../../ui/layout/IconTextSideBar';
+import type {
+    ProjectDialogActiveTab} from '../../constants/layout_tabs';
 import {
     PROJECT_DIALOG_TABS,
-    PROJECT_DIALOG_TABS_ICONS,
-    ProjectDialogActiveTab,
+    PROJECT_DIALOG_TABS_ICONS
 } from '../../constants/layout_tabs';
 
 import SplitDialogLayout from '../../ui/layout/SplitDialogLayout';
@@ -39,7 +40,7 @@ import {
     targetAgeOptions,
     workTypeOptions,
 } from '../../constants/project_consts';
-import {
+import type {
     Project,
     ProjectScope,
     PointOfView,
@@ -50,20 +51,21 @@ import {
     ProjectStatus,
     Asset,
 } from '../../../shared/types';
-import {
+import type {
     Genre,
     Inspiration,
     NewInspiration,
-    PREDEFINED_ASPECTS,
     Tag,
-    Theme,
-} from '../../../shared/types/project';
+    Theme} from '../../../shared/types/project';
 import {
+    PREDEFINED_ASPECTS
+} from '../../../shared/types/project';
+import type {
     Series,
     SeriesArchitecture,
     NewSeries,
 } from '../../../shared/types/series';
-import { CompendiumCategory } from '../../../shared/types/project/compendium';
+import type { CompendiumCategory } from '../../../shared/types/project/compendium';
 
 interface ProjectManagerProps {
     open: boolean;

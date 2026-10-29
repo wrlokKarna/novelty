@@ -1,5 +1,5 @@
-import { Project } from '../../../shared/types';
-import { Character } from '../../../shared/types/project/compendium';
+import type { Project } from '../../../shared/types';
+import type { Character } from '../../../shared/types/project/compendium';
 
 export type GeneratedSkeleton = {
     acts: GeneratedAct[];

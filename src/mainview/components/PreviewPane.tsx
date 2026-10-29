@@ -1,7 +1,7 @@
 import { IconBooks, IconFileText, IconX } from '@tabler/icons-react';
 import { BookReader } from './BookReader';
 import styles from '../App.module.css';
-import { Chapter } from '../../shared/types/project';
+import type { Chapter } from '../../shared/types/project';
 
 export type ReaderMode = 'chapter' | 'book';
 

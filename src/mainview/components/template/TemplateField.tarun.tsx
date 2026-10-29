@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import styles from './TemplateField.tarun.module.css';
-import { FieldDefinition } from '../../../shared/types/project/templates';
+import type { FieldDefinition } from '../../../shared/types/project/templates';
 
 type Props = {
     field: FieldDefinition;

@@ -1,4 +1,4 @@
-import { Project } from '../../../shared/types';
+import type { Project } from '../../../shared/types';
 
 export function getRandomTimestamp(start: Date, end: Date) {
     const startTime = start.getTime();

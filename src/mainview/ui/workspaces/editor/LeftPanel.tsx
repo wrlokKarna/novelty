@@ -17,14 +17,14 @@ import {
     IconPencilMinus,
 } from '@tabler/icons-react';
 
-import { Chapter } from '../../../../shared/types/project';
-import {
+import type { Chapter } from '../../../../shared/types/project';
+import type {
     Character,
     CompendiumCategory,
     LoreEntry,
     Organization,
 } from '../../../../shared/types/project/compendium';
-import { Item, Location } from '../../../../shared/types';
+import type { Item, Location } from '../../../../shared/types';
 
 const COMPENDIUM_CONFIG = {
     character: { label: 'Characters', icon: IconUsers, dataKey: 'characters' },

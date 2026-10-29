@@ -30,13 +30,13 @@ import { LayoutMatrix } from './layout/LayoutMatrix';
 import { LayoutToolbar } from './layout/LayoutToolbar';
 import TemplateField from './TemplateField';
 import styles from './TemplateManagerTab.module.css';
-import { CompendiumCategory } from '../../../shared/types/project/compendium';
-import {
+import type { CompendiumCategory } from '../../../shared/types/project/compendium';
+import type {
     FieldDefinition,
     TemplateLayout,
     TemplateSpan,
 } from '../../../shared/types/project/templates';
-import { SeriesTemplate } from '../../../shared/types/series';
+import type { SeriesTemplate } from '../../../shared/types/series';
 
 interface TemplateManagerTabProps {
     projectId: string;

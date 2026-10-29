@@ -1,4 +1,4 @@
-import { ChapterStatus } from '..';
+import type { ChapterStatus } from '..';
 
 export type Chapter = {
     id: string;

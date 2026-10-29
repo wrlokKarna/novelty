@@ -68,26 +68,26 @@ import FloatingSuggestions from './FloatingSuggestions';
 import type { SuggestionGroup } from './FloatingSuggestions';
 import ContextChips from './ContextChips';
 import SystemPromptToggle from './SystemPromptToggle';
-import { SettingsDialogActiveTab } from '../constants/layout_tabs';
+import type { SettingsDialogActiveTab } from '../constants/layout_tabs';
 
-import { Item, Project, StorySequence, Location } from '../../shared/types';
-import {
+import type { Item, Project, StorySequence, Location } from '../../shared/types';
+import type {
     AssistantChatMessage,
     ChatMessage,
     NewChatSession,
     UserChatMessage,
 } from '../../shared/types/ai';
-import { Chapter } from '../../shared/types/project';
-import {
+import type { Chapter } from '../../shared/types/project';
+import type {
     Character,
     CompendiumCategory,
     LoreEntry,
     Organization,
 } from '../../shared/types/project/compendium';
-import { StoryScene } from '../../shared/types/project/manuscript';
-import { FieldDefinition } from '../../shared/types/project/templates';
-import { Model } from '../../shared/types/ai/provider';
-import { MentionTarget } from '../../shared/types/ai/chat';
+import type { StoryScene } from '../../shared/types/project/manuscript';
+import type { FieldDefinition } from '../../shared/types/project/templates';
+import type { Model } from '../../shared/types/ai/provider';
+import type { MentionTarget } from '../../shared/types/ai/chat';
 
 function smartTruncate(text: string, maxLen = 50): string {
     const cleaned = text

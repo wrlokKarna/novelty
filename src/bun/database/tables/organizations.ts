@@ -1,7 +1,7 @@
 import { db } from './../index';
 import { organizations } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-import {
+import type {
     Organization,
     NewOrganization,
 } from '../../../shared/types/project/compendium';

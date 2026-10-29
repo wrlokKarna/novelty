@@ -1,5 +1,5 @@
 import { sqlite } from '.';
-import { TemplateFieldRecord } from '../../shared/types';
+import type { TemplateFieldRecord } from '../../shared/types';
 
 export function parseFieldList(raw: unknown): TemplateFieldRecord[] {
     if (typeof raw !== 'string' || !raw) return [];

@@ -1,7 +1,7 @@
 import { db } from './../index';
 import { loreEntries } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-import {
+import type {
     LoreEntry,
     NewLoreEntry,
 } from '../../../shared/types/project/compendium';

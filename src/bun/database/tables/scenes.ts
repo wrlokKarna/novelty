@@ -1,11 +1,11 @@
 import { db } from './../index';
 import { storyScenes } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-import {
+import type {
     StoryScene,
     NewStoryScene,
 } from '../../../shared/types/project/manuscript';
-import { ChapterStatus } from '../../../shared/types';
+import type { ChapterStatus } from '../../../shared/types';
 
 function parseScene(row: typeof storyScenes.$inferSelect): StoryScene {
     return {

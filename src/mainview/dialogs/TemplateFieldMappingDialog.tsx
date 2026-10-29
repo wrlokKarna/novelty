@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import Dialog from './Dialog';
-import { FieldDefinition } from '../../shared/types/project/templates';
-import { CompendiumCategory } from '../../shared/types/project/compendium';
+import type { FieldDefinition } from '../../shared/types/project/templates';
+import type { CompendiumCategory } from '../../shared/types/project/compendium';
 
 export interface AIFieldInfo {
     name: string;

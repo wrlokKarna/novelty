@@ -24,7 +24,7 @@ import {
 import type { DropTarget } from '../../../templates/autoArrange';
 import { withBandPositions } from '../../../templates/autoArrange';
 import { useRowSpanResize, useSpanResize } from './useSpanResize';
-import {
+import type {
     TemplateSpan,
     ResolvedField,
     FieldDefinition,

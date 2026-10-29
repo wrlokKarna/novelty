@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 
 import { isFieldVisible } from '../templates/fieldVisibility';
 import TemplateTab from './template/TemplateTab';
-import {
+import type {
     Character,
     CompendiumCategory,
     LoreEntry,
     Organization,
 } from '../../shared/types/project/compendium';
-import { Item, Location } from '../../shared/types';
-import {
+import type { Item, Location } from '../../shared/types';
+import type {
     EntityTemplate,
     FieldDefinition,
     TemplateLayout,

@@ -1,4 +1,4 @@
-import { Chapter } from '../../shared/types/project';
+import type { Chapter } from '../../shared/types/project';
 import type { RichTextEditorHandle } from '../components/RichTextEditor';
 
 export interface ExtractionSource {

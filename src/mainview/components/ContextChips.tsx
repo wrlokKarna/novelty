@@ -8,7 +8,7 @@ import {
     IconBook,
     IconPaperclip,
 } from '@tabler/icons-react';
-import { MentionTarget } from '../../shared/types/ai/chat';
+import type { MentionTarget } from '../../shared/types/ai/chat';
 
 const typeIcons: Record<string, React.ReactNode> = {
     chapter: <IconFiles size={14} />,

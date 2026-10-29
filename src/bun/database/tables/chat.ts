@@ -1,7 +1,7 @@
 import { db } from './../index';
 import { chatSessions, chatMessages } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-import {
+import type {
     ChatSession,
     NewChatSession,
     ChatMessage,

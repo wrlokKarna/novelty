@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import SubDialog from '../dialogs/SubDialog';
 
-import { TimelineEvent } from '../../shared/types/project/timeline';
-import { CompendiumCategory } from '../../shared/types/project/compendium';
+import type { TimelineEvent } from '../../shared/types/project/timeline';
+import type { CompendiumCategory } from '../../shared/types/project/compendium';
 
 interface TimelineEventEditorProps {
     open: boolean;

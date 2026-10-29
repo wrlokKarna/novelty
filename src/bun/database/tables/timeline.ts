@@ -6,7 +6,7 @@ import {
     organizations,
 } from '../../schema';
 import { eq, asc, and } from 'drizzle-orm';
-import {
+import type {
     NewTimelineEvent,
     TimelineEvent,
 } from '../../../shared/types/project/timeline';

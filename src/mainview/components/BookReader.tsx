@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Chapter } from '../../shared/types/project';
+import type { Chapter } from '../../shared/types/project';
 
 interface BookReaderProps {
     chapters: Chapter[];

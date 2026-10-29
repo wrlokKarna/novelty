@@ -1,8 +1,8 @@
 import { db } from './../index';
 import { chapters, storyScenes, storySequences } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-import { Chapter, NewChapter } from '../../../shared/types/project';
-import { ChapterStatus } from '../../../shared/types';
+import type { Chapter, NewChapter } from '../../../shared/types/project';
+import type { ChapterStatus } from '../../../shared/types';
 
 function parseChapter(row: Record<string, unknown>): Chapter {
     return {

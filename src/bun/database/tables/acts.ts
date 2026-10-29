@@ -1,7 +1,7 @@
 import { db } from './../index';
 import { storyActs, storySequences, storyScenes } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-import {
+import type {
     ChapterStatus,
     NewStoryAct,
     NewStorySequence,

@@ -1,6 +1,7 @@
-import { createContext, useContext, ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { createContext, useContext } from 'react';
 import { createRPC, Electroview } from 'electrobun/view';
-import { SelectorSchema } from '../../shared/types/mainRPC';
+import type { SelectorSchema } from '../../shared/types/mainRPC';
 
 type LocalSchema = {
     requests: SelectorSchema['webview']['requests'];

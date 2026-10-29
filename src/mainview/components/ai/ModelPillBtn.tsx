@@ -4,8 +4,8 @@ import { IconCheck } from '@tabler/icons-react';
 import { getModelDisplayName } from '../../utils/ai/helper';
 
 import styles from './ModelPillBtn.module.css';
-import { Model } from '../../../shared/types/ai/provider';
-import { ModelDisplayMode } from '../../../shared/types/project/settings';
+import type { Model } from '../../../shared/types/ai/provider';
+import type { ModelDisplayMode } from '../../../shared/types/project/settings';
 
 type ModelPillBtnProps = {
     model: Model;

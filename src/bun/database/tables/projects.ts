@@ -13,7 +13,7 @@ import { getAllSettings, setSetting } from '../../settings';
 import { join } from 'path';
 import { mkdirSync, existsSync } from 'fs';
 
-import {
+import type {
     NewProject,
     PacingType,
     PointOfView,
@@ -24,7 +24,7 @@ import {
     TargetAgeGroup,
     WorkType,
 } from '../../../shared/types';
-import { SeriesArchitecture } from '../../../shared/types/series';
+import type { SeriesArchitecture } from '../../../shared/types/series';
 
 function safeParse(val: string | null) {
     if (!val || val === 'null') return [];

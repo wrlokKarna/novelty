@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getRPC } from '../contexts/RPCContext';
-import { Project } from '../../shared/types';
+import type { Project } from '../../shared/types';
 
 interface SystemPromptToggleProps {
     project: Project | null;
