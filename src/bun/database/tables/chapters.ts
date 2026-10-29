@@ -43,7 +43,7 @@ export async function getChapterById(id: string): Promise<Chapter | undefined> {
 
 export async function createChapter(chapter: NewChapter): Promise<Chapter> {
     const now = new Date();
-    const vals: Record<string, unknown> = {
+    const vals: Chapter = {
         id: chapter.id,
         projectId: chapter.projectId,
         title: chapter.title,
@@ -59,7 +59,7 @@ export async function createChapter(chapter: NewChapter): Promise<Chapter> {
         createdAt: now,
         updatedAt: now,
     };
-    await db.insert(chapters).values(vals as any);
+    await db.insert(chapters).values(vals);
     return parseChapter({
         ...chapter,
         createdAt: now,
@@ -72,7 +72,8 @@ export async function updateChapter(
     id: string,
     data: Partial<NewChapter>
 ): Promise<Chapter | undefined> {
-    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    const updateData: Partial<Chapter> = { updatedAt: new Date() };
+
     if (data.title !== undefined) updateData.title = data.title;
     if (data.content !== undefined) updateData.content = data.content;
     if (data.filePath !== undefined) updateData.filePath = data.filePath;
@@ -85,10 +86,9 @@ export async function updateChapter(
         updateData.wordCountTarget = data.wordCountTarget;
     if (data.actId !== undefined) updateData.actId = data.actId;
     if (data.sequenceId !== undefined) updateData.sequenceId = data.sequenceId;
-    await db
-        .update(chapters)
-        .set(updateData as any)
-        .where(eq(chapters.id, id));
+
+    await db.update(chapters).set(updateData).where(eq(chapters.id, id));
+
     return getChapterById(id);
 }
 

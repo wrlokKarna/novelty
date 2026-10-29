@@ -63,18 +63,40 @@ export async function deleteSession(id: string): Promise<void> {
 export async function getMessagesBySession(
     sessionId: string
 ): Promise<ChatMessage[]> {
-    return db
+    const rows = await db
         .select()
         .from(chatMessages)
         .where(eq(chatMessages.sessionId, sessionId))
         .orderBy(asc(chatMessages.timestamp));
+
+    return rows.map((row) => ({
+        ...row,
+        timestamp: row.timestamp.toISOString(),
+
+        content:
+            row.role === 'assistant' ? JSON.parse(row.content) : row.content,
+    })) as ChatMessage[];
 }
 
 export async function createMessage(
     message: NewChatMessage
 ): Promise<ChatMessage> {
-    await db.insert(chatMessages).values(message);
-    return message as ChatMessage;
+    const now = new Date();
+
+    const dbValues = {
+        ...message,
+        content: Array.isArray(message.content)
+            ? JSON.stringify(message.content)
+            : message.content,
+        timestamp: now,
+    };
+
+    await db.insert(chatMessages).values(dbValues as any);
+
+    return {
+        ...message,
+        timestamp: now.toISOString(),
+    } as ChatMessage;
 }
 
 export async function deleteMessage(id: string): Promise<void> {

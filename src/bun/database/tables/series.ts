@@ -88,5 +88,5 @@ export async function getSeriesProjects(seriesId: string) {
         .from(projects)
         .where(eq(projects.seriesId, seriesId))
         .orderBy(asc(projects.name));
-    return rows as any[];
+    return rows as Series[];
 }
