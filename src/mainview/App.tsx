@@ -76,7 +76,11 @@ import {
     Location,
 } from '../shared/types';
 import { Chapter, NewChapter } from '../shared/types/project';
-import { Character, LoreEntry } from '../shared/types/project/compendium';
+import {
+    Character,
+    LoreEntry,
+    Organization,
+} from '../shared/types/project/compendium';
 
 /*
 const categoryConfig: Record<

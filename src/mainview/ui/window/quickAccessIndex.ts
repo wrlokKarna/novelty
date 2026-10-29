@@ -5,10 +5,10 @@ import {
     LoreEntry,
     Organization,
 } from '../../../shared/types/project/compendium';
+import { PlotThread } from '../../../shared/types/project/manuscript';
 import type {
     CompendiumCategory,
     FileTab,
-    PlotThread,
     StoryBeat,
     StoryScene,
 } from '../../types/index';

@@ -1,25 +1,12 @@
 import { db } from './../index';
 import { plotThreads, chapterPlotThreads } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-
-export type PlotThread = {
-    id: string;
-    projectId: string | null;
-    name: string;
-    description: string | null;
-    threadType: string;
-    color: string;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewPlotThread = Omit<PlotThread, 'createdAt' | 'updatedAt'>;
-
-export type ChapterPlotThread = {
-    chapterId: string;
-    plotThreadId: string;
-    intensity: number;
-};
+import {
+    ChapterPlotThread,
+    NewPlotThread,
+    PlotThread,
+    PlotThreadType,
+} from '../../../shared/types/project/manuscript';
 
 function parseThread(row: typeof plotThreads.$inferSelect): PlotThread {
     return {
@@ -27,7 +14,7 @@ function parseThread(row: typeof plotThreads.$inferSelect): PlotThread {
         projectId: row.projectId,
         name: row.name,
         description: row.description,
-        threadType: row.threadType,
+        threadType: row.threadType as PlotThreadType,
         color: row.color,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,

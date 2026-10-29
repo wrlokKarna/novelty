@@ -7,7 +7,6 @@ import {
 
 import type {
     SelectorSchema,
-    NewChapter,
     CompendiumCategory,
 } from '../mainview/types/index';
 import { readFileSync, existsSync } from 'fs';
@@ -63,6 +62,8 @@ import {
     NewChatMessage,
     NewChatSession,
 } from '../shared/types/ai/index.js';
+import { NewPlotThread } from '../shared/types/project/manuscript/index.js';
+import { NewChapter } from '../shared/types/project/index.js';
 
 registerAllTools();
 try {
@@ -819,9 +820,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
             'db:get-plot-thread': async (id: string) => {
                 return (await plotThreadsDB.getThreadById(id)) as any;
             },
-            'db:create-plot-thread': async (
-                thread: plotThreadsDB.NewPlotThread
-            ) => {
+            'db:create-plot-thread': async (thread: NewPlotThread) => {
                 return (await plotThreadsDB.createThread(thread)) as any;
             },
             'db:update-plot-thread': async ({
@@ -829,7 +828,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 data,
             }: {
                 id: string;
-                data: Partial<plotThreadsDB.NewPlotThread>;
+                data: Partial<NewPlotThread>;
             }) => {
                 return (await plotThreadsDB.updateThread(id, data)) as any;
             },

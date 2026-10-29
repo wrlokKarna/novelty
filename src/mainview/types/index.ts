@@ -41,6 +41,11 @@ import {
     NewOrganization,
     Organization,
 } from '../../shared/types/project/compendium';
+import {
+    PlotThread,
+    NewPlotThread,
+    ChapterPlotThread,
+} from '../../shared/types/project/manuscript';
 import { Provider } from '../utils/ai/providerHelpers';
 
 export type WindowRequests = {
@@ -122,28 +127,6 @@ export type StoryScene = {
 };
 
 export type NewStoryScene = Omit<StoryScene, 'createdAt' | 'updatedAt'>;
-
-export type PlotThreadType =
-    'main' | 'subplot' | 'character-arc' | 'mystery' | 'romance' | 'thematic';
-
-export type PlotThread = {
-    id: string;
-    projectId: string | null;
-    name: string;
-    description: string | null;
-    threadType: PlotThreadType;
-    color: string;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type NewPlotThread = Omit<PlotThread, 'createdAt' | 'updatedAt'>;
-
-export type ChapterPlotThread = {
-    chapterId: string;
-    plotThreadId: string;
-    intensity: number;
-};
 
 export type StoryBeatType =
     | 'opening-image'
