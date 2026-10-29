@@ -88,3 +88,10 @@ export type ScratchNote = {
     createdAt: Date;
     updatedAt: Date;
 };
+
+export type Tag = {
+    id: string;
+    name: string;
+    isGlobal: boolean;
+    createdAt: Date;
+};

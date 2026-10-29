@@ -1,13 +1,7 @@
 import { db } from './../index';
 import { tags } from '../../schema';
 import { eq, asc } from 'drizzle-orm';
-
-export type Tag = {
-    id: string;
-    name: string;
-    isGlobal: boolean;
-    createdAt: Date;
-};
+import { Tag } from '../../../shared/types/project';
 
 export async function getAllTags(): Promise<Tag[]> {
     const rows = await db.select().from(tags).orderBy(asc(tags.name));
