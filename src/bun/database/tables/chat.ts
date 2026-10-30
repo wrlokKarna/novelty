@@ -1,24 +1,25 @@
 import { eq, asc } from 'drizzle-orm';
 
-import { db } from './../index';
-import { chatSessions, chatMessages } from '../../schema';
+import { chatSessions, chatMessages } from '../../../shared/schema';
 import type {
     ChatSession,
     NewChatSession,
     ChatMessage,
     NewChatMessage,
 } from '@/shared/types/ai';
+import type { SQLiteDB } from '@/shared/types/db';
 
 //type ChatSession = typeof chatSessions.$inferSelect;
 //type NewChatSession = typeof chatSessions.$inferInsert;
 //type ChatMessage = typeof chatMessages.$inferSelect;
 //type NewChatMessage = typeof chatMessages.$inferInsert;
 
-export async function getAllSessions(): Promise<ChatSession[]> {
+export async function getAllSessions(db: SQLiteDB): Promise<ChatSession[]> {
     return db.select().from(chatSessions).orderBy(asc(chatSessions.updatedAt));
 }
 
 export async function getSessionById(
+    db: SQLiteDB,
     id: string
 ): Promise<ChatSession | undefined> {
     const result = await db
@@ -29,6 +30,7 @@ export async function getSessionById(
 }
 
 export async function getSessionsByProject(
+    db: SQLiteDB,
     projectId: string
 ): Promise<ChatSession[]> {
     return db
@@ -39,6 +41,7 @@ export async function getSessionsByProject(
 }
 
 export async function createSession(
+    db: SQLiteDB,
     session: NewChatSession
 ): Promise<ChatSession> {
     await db.insert(chatSessions).values(session);
@@ -46,6 +49,7 @@ export async function createSession(
 }
 
 export async function updateSession(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewChatSession>
 ): Promise<ChatSession | undefined> {
@@ -53,14 +57,15 @@ export async function updateSession(
         .update(chatSessions)
         .set({ ...data, updatedAt: new Date() })
         .where(eq(chatSessions.id, id));
-    return getSessionById(id);
+    return getSessionById(db, id);
 }
 
-export async function deleteSession(id: string): Promise<void> {
+export async function deleteSession(db: SQLiteDB, id: string): Promise<void> {
     await db.delete(chatSessions).where(eq(chatSessions.id, id));
 }
 
 export async function getMessagesBySession(
+    db: SQLiteDB,
     sessionId: string
 ): Promise<ChatMessage[]> {
     const rows = await db
@@ -79,6 +84,7 @@ export async function getMessagesBySession(
 }
 
 export async function createMessage(
+    db: SQLiteDB,
     message: NewChatMessage
 ): Promise<ChatMessage> {
     const now = new Date();
@@ -99,6 +105,6 @@ export async function createMessage(
     } as ChatMessage;
 }
 
-export async function deleteMessage(id: string): Promise<void> {
+export async function deleteMessage(db: SQLiteDB, id: string): Promise<void> {
     await db.delete(chatMessages).where(eq(chatMessages.id, id));
 }

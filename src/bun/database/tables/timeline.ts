@@ -1,16 +1,16 @@
 import { eq, asc, and } from 'drizzle-orm';
 
-import { db } from './../index';
 import {
     timelineEvents,
     chapters,
     characters,
     organizations,
-} from '../../schema';
+} from '../../../shared/schema';
 import type {
     NewTimelineEvent,
     TimelineEvent,
 } from '@/shared/types/project/timeline';
+import type { SQLiteDB } from '@/shared/types/db';
 
 function parseEvent(row: Record<string, unknown>): TimelineEvent {
     return {
@@ -21,6 +21,7 @@ function parseEvent(row: Record<string, unknown>): TimelineEvent {
 }
 
 export async function getEventsByProject(
+    db: SQLiteDB,
     projectId: string
 ): Promise<TimelineEvent[]> {
     const rows = await db
@@ -32,6 +33,7 @@ export async function getEventsByProject(
 }
 
 export async function getEventById(
+    db: SQLiteDB,
     id: string
 ): Promise<TimelineEvent | undefined> {
     const result = await db
@@ -43,6 +45,7 @@ export async function getEventById(
 }
 
 export async function createEvent(
+    db: SQLiteDB,
     event: NewTimelineEvent
 ): Promise<TimelineEvent> {
     const now = new Date();
@@ -62,6 +65,7 @@ export async function createEvent(
 }
 
 export async function updateEvent(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewTimelineEvent>
 ): Promise<TimelineEvent | undefined> {
@@ -85,14 +89,17 @@ export async function updateEvent(
         .update(timelineEvents)
         .set(updateData)
         .where(eq(timelineEvents.id, id));
-    return getEventById(id);
+    return getEventById(db, id);
 }
 
-export async function deleteEvent(id: string): Promise<void> {
+export async function deleteEvent(db: SQLiteDB, id: string): Promise<void> {
     await db.delete(timelineEvents).where(eq(timelineEvents.id, id));
 }
 
-export async function autoGenerateEvents(projectId: string): Promise<number> {
+export async function autoGenerateEvents(
+    db: SQLiteDB,
+    projectId: string
+): Promise<number> {
     let count = 0;
 
     const existingAuto = await db

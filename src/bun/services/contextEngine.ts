@@ -1,4 +1,4 @@
-import { db, sqliteVecAvailable } from '../database/index';
+import { db, sqliteVecAvailable } from '../electrobun/db';
 import {
     characters,
     locations,
@@ -9,7 +9,7 @@ import {
     chapterPlotThreads,
     storyBeats,
     chapters,
-} from '../schema/index';
+} from '../../shared/schema/index';
 import { eq } from 'drizzle-orm';
 import { semanticSearch } from './embeddings/search';
 import { countTokens, truncateToTokens } from './embeddings/tokenizer';
@@ -103,6 +103,7 @@ async function getResolvedFields(
 ): Promise<FieldDefinition[]> {
     try {
         const resolved = await resolveTemplate(
+            db,
             projectId,
             type as CompendiumCategory
         );

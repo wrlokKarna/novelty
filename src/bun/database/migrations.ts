@@ -1,9 +1,114 @@
-import { sqlite } from '.';
+import type { Database } from 'bun:sqlite';
 import { normalizeTreeFields } from '../../mainview/templates/tree';
 import type { TemplateFieldRecord } from '../../shared/types';
 import { columnExists, parseFieldList } from './utils';
 
-export function migrateOutlineScenesToStoryScenes() {
+export const SCHEMA_MIGRATIONS = [
+    {
+        table: 'chapters',
+        name: 'status',
+        type: "TEXT NOT NULL DEFAULT 'outline'",
+    },
+    { table: 'chapters', name: 'outline', type: 'TEXT' },
+    {
+        table: 'chapters',
+        name: 'pov_character_id',
+        type: 'TEXT REFERENCES characters(id)',
+    },
+    { table: 'chapters', name: 'word_count_target', type: 'INTEGER' },
+    {
+        table: 'chapters',
+        name: 'act_id',
+        type: 'TEXT REFERENCES story_acts(id)',
+    },
+    {
+        table: 'chapters',
+        name: 'sequence_id',
+        type: 'TEXT REFERENCES story_sequences(id)',
+    },
+    {
+        table: 'story_sequences',
+        name: 'chapter_id',
+        type: 'TEXT REFERENCES chapters(id)',
+    },
+    { table: 'projects', name: 'cover_image_id', type: 'TEXT' },
+    { table: 'projects', name: 'cover_images_array', type: 'TEXT' },
+    { table: 'projects', name: 'project_scope', type: 'TEXT' },
+    { table: 'projects', name: 'series_arch', type: 'TEXT' },
+    {
+        table: 'projects',
+        name: 'series_id',
+        type: 'TEXT REFERENCES series(id)',
+    },
+    { table: 'projects', name: 'pov', type: 'TEXT' },
+    { table: 'projects', name: 'pacing', type: 'TEXT' },
+    { table: 'projects', name: 'work_type', type: 'TEXT' },
+    { table: 'projects', name: 'project_structure', type: 'TEXT' },
+    { table: 'projects', name: 'target_age', type: 'TEXT' },
+    {
+        table: 'projects',
+        name: 'project_status',
+        type: "TEXT NOT NULL DEFAULT 'planning'",
+    },
+    { table: 'projects', name: 'tonal_type', type: 'TEXT' },
+    { table: 'projects', name: 'description', type: 'TEXT' },
+    { table: 'projects', name: 'system_prompt', type: 'TEXT' },
+    { table: 'characters', name: 'template_data', type: 'TEXT' },
+    { table: 'locations', name: 'template_data', type: 'TEXT' },
+    { table: 'organizations', name: 'template_data', type: 'TEXT' },
+    { table: 'items', name: 'template_data', type: 'TEXT' },
+    { table: 'lore_entries', name: 'template_data', type: 'TEXT' },
+    {
+        table: 'chat_messages',
+        name: 'model',
+        type: "text Default 'unknown'",
+    },
+    {
+        table: 'chat_messages',
+        name: 'mode',
+        type: "text NOT NULL Default 'assistant'",
+    },
+    {
+        table: 'chat_messages',
+        name: 'currentVariantIndex',
+        type: 'INTEGER NOT NULL DEFAULT 0',
+    },
+    {
+        table: 'chat_sessions',
+        name: 'is_archived',
+        type: 'INTEGER NOT NULL DEFAULT 0',
+    },
+    {
+        table: 'chat_sessions',
+        name: 'is_manually_named',
+        type: 'INTEGER NOT NULL DEFAULT 0',
+    },
+    {
+        table: 'project_genres',
+        name: 'is_primary',
+        type: 'INTEGER NOT NULL DEFAULT 0',
+    },
+    {
+        table: 'projects',
+        name: 'content_rating',
+        type: "TEXT NOT NULL DEFAULT 'Unrated'",
+    },
+    { table: 'lore_entries', name: 'file_path', type: 'TEXT' },
+    {
+        table: 'story_sequences',
+        name: 'display_order',
+        type: 'INTEGER NOT NULL DEFAULT 0',
+    },
+    {
+        table: 'story_scenes',
+        name: 'display_order',
+        type: 'INTEGER NOT NULL DEFAULT 0',
+    },
+    { table: 'entity_templates', name: 'layout', type: 'TEXT' },
+    { table: 'series_templates', name: 'layout', type: 'TEXT' },
+];
+
+async function migrateOutlineScenesToStoryScenes(sqlite: Database) {
     try {
         const chapters = sqlite
             .query(
@@ -104,15 +209,16 @@ export function migrateOutlineScenesToStoryScenes() {
 // stored field definitions. Idempotent: a row that already carries a layout is
 // skipped, so an interrupted run resumes cleanly. The `columns` column is
 // dropped afterwards; fresh databases never create it.
-export function migrateTemplateLayouts() {
+async function migrateTemplateLayouts(sqlite: Database) {
     try {
         const backfill = (
             table: 'entity_templates' | 'series_templates',
             includeColumns: boolean
         ) => {
-            if (!columnExists(table, 'custom_fields')) return;
-            if (!columnExists(table, 'layout')) return;
-            const hasColumns = includeColumns && columnExists(table, 'columns');
+            if (!columnExists(sqlite, table, 'custom_fields')) return;
+            if (!columnExists(sqlite, table, 'layout')) return;
+            const hasColumns =
+                includeColumns && columnExists(sqlite, table, 'columns');
             const cols = `id, custom_fields, layout${
                 hasColumns ? ', columns' : ''
             }`;
@@ -195,7 +301,7 @@ export function migrateTemplateLayouts() {
         backfill('entity_templates', true);
         backfill('series_templates', false);
 
-        if (columnExists('entity_templates', 'columns')) {
+        if (columnExists(sqlite, 'entity_templates', 'columns')) {
             sqlite.exec(`ALTER TABLE entity_templates DROP COLUMN columns`);
             console.log('Migrated template layouts; dropped columns column');
         }
@@ -204,7 +310,7 @@ export function migrateTemplateLayouts() {
     }
 }
 
-export function migrateGlobalTemplatesAway() {
+async function migrateGlobalTemplatesAway(sqlite: Database) {
     try {
         const exists = sqlite
             .query(
@@ -276,12 +382,16 @@ export function migrateGlobalTemplatesAway() {
             sqlite.exec(`DROP TABLE global_templates`);
             // series_templates.global_template_id was never created by the
             // original DDL or ALTER list, so guard every statement.
-            if (columnExists('entity_templates', 'global_template_id')) {
+            if (
+                columnExists(sqlite, 'entity_templates', 'global_template_id')
+            ) {
                 sqlite.exec(
                     `ALTER TABLE entity_templates DROP COLUMN global_template_id`
                 );
             }
-            if (columnExists('series_templates', 'global_template_id')) {
+            if (
+                columnExists(sqlite, 'series_templates', 'global_template_id')
+            ) {
                 sqlite.exec(
                     `ALTER TABLE series_templates DROP COLUMN global_template_id`
                 );
@@ -303,13 +413,14 @@ export function migrateGlobalTemplatesAway() {
 // Collapses series templates to one per (series, category) and drops the stored
 // project -> series template link in favour of deriving it from projects.series_id.
 // Every step is independently guarded so an interrupted run resumes cleanly.
-export function migrateSeriesTemplatesToSinglePerCategory() {
+async function migrateSeriesTemplatesToSinglePerCategory(sqlite: Database) {
     try {
         const legacyLink = columnExists(
+            sqlite,
             'entity_templates',
             'series_template_id'
         );
-        const legacyName = columnExists('series_templates', 'name');
+        const legacyName = columnExists(sqlite, 'series_templates', 'name');
         if (!legacyLink && !legacyName) return;
 
         sqlite.exec('BEGIN');
@@ -441,7 +552,7 @@ export function migrateSeriesTemplatesToSinglePerCategory() {
                 ['series_templates', 'name'],
                 ['series_templates', 'description'],
             ] as const) {
-                if (!columnExists(table, column)) continue;
+                if (!columnExists(sqlite, table, column)) continue;
                 sqlite.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
             }
 
@@ -459,4 +570,11 @@ export function migrateSeriesTemplatesToSinglePerCategory() {
     } catch (err) {
         console.warn('Failed to collapse series templates:', err);
     }
+}
+
+export default async function runComplexMigrations(sqlite: Database) {
+    await migrateTemplateLayouts(sqlite);
+    await migrateOutlineScenesToStoryScenes(sqlite);
+    await migrateGlobalTemplatesAway(sqlite);
+    await migrateSeriesTemplatesToSinglePerCategory(sqlite);
 }

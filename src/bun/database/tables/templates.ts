@@ -1,7 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 
-import { db } from './../index';
-import { entityTemplates } from '../../schema';
+import { entityTemplates } from '../../../shared/schema';
 import { DEFAULT_TEMPLATE_COLUMNS } from '../../../mainview/types';
 import { normalizeTreeFields } from '../../../mainview/templates/tree';
 // Shared so the server's resolved order and the editor's merged order can never
@@ -21,6 +20,7 @@ import type {
     ResolvedTemplateInfo,
     TemplateLayout,
 } from '@/shared/types/project/templates';
+import type { SQLiteDB } from '@/shared/types/db';
 
 export type NewEntityTemplate = Omit<EntityTemplate, 'createdAt' | 'updatedAt'>;
 
@@ -44,6 +44,7 @@ function parseTemplate(row: Record<string, unknown>): EntityTemplate {
 }
 
 export async function getTemplateByProjectAndType(
+    db: SQLiteDB,
     projectId: string,
     baseType: CompendiumCategory
 ): Promise<EntityTemplate | undefined> {
@@ -61,6 +62,7 @@ export async function getTemplateByProjectAndType(
 }
 
 export async function getTemplatesByProject(
+    db: SQLiteDB,
     projectId: string
 ): Promise<EntityTemplate[]> {
     const rows = await db
@@ -71,6 +73,7 @@ export async function getTemplatesByProject(
 }
 
 export async function createTemplate(
+    db: SQLiteDB,
     template: NewEntityTemplate
 ): Promise<EntityTemplate> {
     const now = new Date();
@@ -92,6 +95,7 @@ export async function createTemplate(
 }
 
 export async function updateTemplate(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewEntityTemplate>
 ): Promise<EntityTemplate | undefined> {
@@ -115,25 +119,26 @@ export async function updateTemplate(
     return parseTemplate(result[0]);
 }
 
-export async function deleteTemplate(id: string): Promise<void> {
+export async function deleteTemplate(db: SQLiteDB, id: string): Promise<void> {
     await db.delete(entityTemplates).where(eq(entityTemplates.id, id));
 }
 
 export async function upsertTemplate(
+    db: SQLiteDB,
     projectId: string,
     baseType: CompendiumCategory,
     customFields?: FieldDefinition[],
     layout?: TemplateLayout | null
 ): Promise<EntityTemplate> {
-    const existing = await getTemplateByProjectAndType(projectId, baseType);
+    const existing = await getTemplateByProjectAndType(db, projectId, baseType);
     if (existing) {
         const data: Partial<NewEntityTemplate> = {};
         if (customFields !== undefined) data.customFields = customFields;
         if (layout !== undefined) data.layout = layout;
-        return (await updateTemplate(existing.id, data))!;
+        return (await updateTemplate(db, existing.id, data))!;
     }
     const id = `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    return createTemplate({
+    return createTemplate(db, {
         id,
         projectId,
         baseType,
@@ -143,13 +148,14 @@ export async function upsertTemplate(
 }
 
 export async function resolveTemplate(
+    db: SQLiteDB,
     projectId: string,
     baseType: CompendiumCategory
 ): Promise<ResolvedTemplateInfo> {
     const projectTemplate =
-        (await getTemplateByProjectAndType(projectId, baseType)) ?? null;
+        (await getTemplateByProjectAndType(db, projectId, baseType)) ?? null;
     const seriesTemplate =
-        (await getSeriesTemplateForProject(projectId, baseType)) ?? null;
+        (await getSeriesTemplateForProject(db, projectId, baseType)) ?? null;
 
     const merged = mergeSeriesFields(
         projectTemplate?.customFields ?? [],

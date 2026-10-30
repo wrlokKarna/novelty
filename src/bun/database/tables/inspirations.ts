@@ -1,8 +1,8 @@
 import { eq, asc } from 'drizzle-orm';
 
-import { db } from './../index';
-import { inspirations } from '../../schema';
+import { inspirations } from '../../../shared/schema';
 import type { Inspiration, NewInspiration } from '@/shared/types/project';
+import type { SQLiteDB } from '@/shared/types/db';
 
 function parseInspiration(row: Record<string, unknown>): Inspiration {
     return {
@@ -15,6 +15,7 @@ function parseInspiration(row: Record<string, unknown>): Inspiration {
 }
 
 export async function getInspirations(
+    db: SQLiteDB,
     projectId: string
 ): Promise<Inspiration[]> {
     const rows = await db
@@ -26,6 +27,7 @@ export async function getInspirations(
 }
 
 export async function getInspirationById(
+    db: SQLiteDB,
     id: string
 ): Promise<Inspiration | undefined> {
     const result = await db
@@ -37,6 +39,7 @@ export async function getInspirationById(
 }
 
 export async function createInspiration(
+    db: SQLiteDB,
     data: NewInspiration
 ): Promise<Inspiration> {
     const now = new Date();
@@ -56,6 +59,7 @@ export async function createInspiration(
 }
 
 export async function updateInspiration(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewInspiration>
 ): Promise<Inspiration | undefined> {
@@ -74,9 +78,12 @@ export async function updateInspiration(
         .update(inspirations)
         .set(updateData)
         .where(eq(inspirations.id, id));
-    return getInspirationById(id);
+    return getInspirationById(db, id);
 }
 
-export async function deleteInspiration(id: string): Promise<void> {
+export async function deleteInspiration(
+    db: SQLiteDB,
+    id: string
+): Promise<void> {
     await db.delete(inspirations).where(eq(inspirations.id, id));
 }

@@ -1,11 +1,11 @@
 import { eq, asc } from 'drizzle-orm';
 
-import { db } from './../index';
-import { organizations } from '../../schema';
+import { organizations } from '../../../shared/schema';
 import type {
     Organization,
     NewOrganization,
 } from '@/shared/types/project/compendium';
+import type { SQLiteDB } from '@/shared/types/db';
 
 function parseOrganization(row: Record<string, unknown>): Organization {
     return {
@@ -17,6 +17,7 @@ function parseOrganization(row: Record<string, unknown>): Organization {
 }
 
 export async function getOrganizationsByProject(
+    db: SQLiteDB,
     projectId: string
 ): Promise<Organization[]> {
     const rows = await db
@@ -28,6 +29,7 @@ export async function getOrganizationsByProject(
 }
 
 export async function getOrganizationById(
+    db: SQLiteDB,
     id: string
 ): Promise<Organization | undefined> {
     const result = await db
@@ -39,6 +41,7 @@ export async function getOrganizationById(
 }
 
 export async function createOrganization(
+    db: SQLiteDB,
     organization: NewOrganization
 ): Promise<Organization> {
     const now = new Date();
@@ -58,6 +61,7 @@ export async function createOrganization(
 }
 
 export async function updateOrganization(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewOrganization>
 ): Promise<Organization | undefined> {
@@ -73,9 +77,12 @@ export async function updateOrganization(
         .update(organizations)
         .set(updateData)
         .where(eq(organizations.id, id));
-    return getOrganizationById(id);
+    return getOrganizationById(db, id);
 }
 
-export async function deleteOrganization(id: string): Promise<void> {
+export async function deleteOrganization(
+    db: SQLiteDB,
+    id: string
+): Promise<void> {
     await db.delete(organizations).where(eq(organizations.id, id));
 }

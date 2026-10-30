@@ -1,13 +1,13 @@
 import { eq, asc } from 'drizzle-orm';
 
-import { db } from './../index';
-import { plotThreads, chapterPlotThreads } from '../../schema';
+import { plotThreads, chapterPlotThreads } from '../../../shared/schema';
 import type {
     ChapterPlotThread,
     NewPlotThread,
     PlotThread,
     PlotThreadType,
 } from '@/shared/types/project/manuscript';
+import type { SQLiteDB } from '@/shared/types/db';
 
 function parseThread(row: typeof plotThreads.$inferSelect): PlotThread {
     return {
@@ -23,6 +23,7 @@ function parseThread(row: typeof plotThreads.$inferSelect): PlotThread {
 }
 
 export async function getThreadsByProject(
+    db: SQLiteDB,
     projectId: string
 ): Promise<PlotThread[]> {
     const rows = await db
@@ -34,6 +35,7 @@ export async function getThreadsByProject(
 }
 
 export async function getThreadById(
+    db: SQLiteDB,
     id: string
 ): Promise<PlotThread | undefined> {
     const result = await db
@@ -44,7 +46,10 @@ export async function getThreadById(
     return parseThread(result[0]);
 }
 
-export async function createThread(thread: NewPlotThread): Promise<PlotThread> {
+export async function createThread(
+    db: SQLiteDB,
+    thread: NewPlotThread
+): Promise<PlotThread> {
     const now = new Date();
     await db
         .insert(plotThreads)
@@ -53,6 +58,7 @@ export async function createThread(thread: NewPlotThread): Promise<PlotThread> {
 }
 
 export async function updateThread(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewPlotThread>
 ): Promise<PlotThread | undefined> {
@@ -64,14 +70,15 @@ export async function updateThread(
     if (data.color !== undefined) updateData.color = data.color;
     if (data.projectId !== undefined) updateData.projectId = data.projectId;
     await db.update(plotThreads).set(updateData).where(eq(plotThreads.id, id));
-    return getThreadById(id);
+    return getThreadById(db, id);
 }
 
-export async function deleteThread(id: string): Promise<void> {
+export async function deleteThread(db: SQLiteDB, id: string): Promise<void> {
     await db.delete(plotThreads).where(eq(plotThreads.id, id));
 }
 
 export async function getChapterThreads(
+    db: SQLiteDB,
     chapterId: string
 ): Promise<ChapterPlotThread[]> {
     const rows = await db
@@ -86,6 +93,7 @@ export async function getChapterThreads(
 }
 
 export async function setChapterThreads(
+    db: SQLiteDB,
     chapterId: string,
     threads: { plotThreadId: string; intensity: number }[]
 ): Promise<void> {

@@ -1,8 +1,8 @@
 import { eq, asc } from 'drizzle-orm';
 
-import { db } from './../index';
-import { locations } from '../../schema';
+import { locations } from '../../../shared/schema';
 import type { Location, NewLocation } from '@/shared/types';
+import type { SQLiteDB } from '@/shared/types/db';
 
 function parseLocation(row: Record<string, unknown>): Location {
     return {
@@ -14,6 +14,7 @@ function parseLocation(row: Record<string, unknown>): Location {
 }
 
 export async function getLocationsByProject(
+    db: SQLiteDB,
     projectId: string
 ): Promise<Location[]> {
     const rows = await db
@@ -25,6 +26,7 @@ export async function getLocationsByProject(
 }
 
 export async function getLocationById(
+    db: SQLiteDB,
     id: string
 ): Promise<Location | undefined> {
     const result = await db
@@ -35,7 +37,10 @@ export async function getLocationById(
     return parseLocation(result[0]);
 }
 
-export async function createLocation(location: NewLocation): Promise<Location> {
+export async function createLocation(
+    db: SQLiteDB,
+    location: NewLocation
+): Promise<Location> {
     const now = new Date();
     const newLoc = {
         ...location,
@@ -53,6 +58,7 @@ export async function createLocation(location: NewLocation): Promise<Location> {
 }
 
 export async function updateLocation(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewLocation>
 ): Promise<Location | undefined> {
@@ -65,9 +71,9 @@ export async function updateLocation(
             : null;
 
     await db.update(locations).set(updateData).where(eq(locations.id, id));
-    return getLocationById(id);
+    return getLocationById(db, id);
 }
 
-export async function deleteLocation(id: string): Promise<void> {
+export async function deleteLocation(db: SQLiteDB, id: string): Promise<void> {
     await db.delete(locations).where(eq(locations.id, id));
 }

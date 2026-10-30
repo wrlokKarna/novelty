@@ -6,38 +6,14 @@ import {
 } from 'electrobun/main';
 
 import { readFileSync, existsSync } from 'fs';
-import * as projectsDB from './database/tables/projects.js';
-import * as assetsDB from './database/tables/assets.js';
-import * as chatDB from './database/tables/chat.js';
-import * as agentsDB from './database/tables/agents.js';
-import * as chaptersDB from './database/tables/chapters.js';
-import * as scratchDB from './database/tables/scratch';
-import * as settingsDB from './settings';
-import * as charactersDB from './database/tables/characters.js';
-import * as locationsDB from './database/tables/locations.js';
-import * as organizationsDB from './database/tables/organizations';
-import * as itemsDB from './database/tables/items.js';
-import * as loreDB from './database/tables/lore.js';
-import * as genresDB from './database/tables/genres.js';
-import * as tagsDB from './database/tables/tags';
-import * as themesDB from './database/tables/themes';
-import * as templatesDB from './database/tables/templates.js';
-import * as seriesDB from './database/tables/series';
-import * as seriesTemplatesDB from './database/tables/seriesTemplates';
-import * as timelineDB from './database/tables/timeline.js';
-import * as usageDB from './database/tables/usage.js';
-import * as actsDB from './database/tables/acts.js';
-import * as plotThreadsDB from './database/tables/plotThreads.js';
-import * as storyBeatsDB from './database/tables/storyBeats.js';
-import * as scenesDB from './database/tables/scenes';
-import * as inspirationsDB from './database/tables/inspirations.js';
+
 import {
     indexProject,
     getIndexStatus,
     rebuildProjectEmbeddings,
 } from './services/embeddings/pipeline';
 import { buildContext } from './services/contextEngine';
-import { initDatabase, sqliteVecAvailable } from './database/index.js';
+import * as settingsDB from './services/settings/settings';
 
 import type { ProcessAiPromptParams } from './temp/mainMCP.js';
 
@@ -48,6 +24,8 @@ import { mcpServer } from './services/mcp/server.js';
 import registerAllTools from './services/mcp/tools.js';
 import type {
     NewAsset,
+    NewItem,
+    NewLocation,
     NewProject,
     NewStoryAct,
     NewStorySequence,
@@ -63,18 +41,54 @@ import type {
     NewStoryBeat,
     NewStoryScene,
 } from '../shared/types/project/manuscript/index.js';
-import type { NewChapter } from '../shared/types/project/index.js';
+import type {
+    NewChapter,
+    NewInspiration,
+} from '../shared/types/project/index.js';
 import type {
     NewSeries,
     SeriesTemplateInput,
 } from '../shared/types/series/index.js';
 import type { NewTimelineEvent } from '../shared/types/project/timeline/index.js';
 import type { SelectorSchema } from '../shared/types/mainRPC.js';
-import type { CompendiumCategory } from '../shared/types/project/compendium/index.js';
+import type {
+    CompendiumCategory,
+    NewCharacter,
+    NewLoreEntry,
+    NewOrganization,
+} from '../shared/types/project/compendium/index.js';
 import type {
     FieldDefinition,
     TemplateLayout,
 } from '../shared/types/project/templates/index.js';
+import { initDatabase } from '@/bun/database/init.js';
+import {
+    projectsDB,
+    assetsDB,
+    chaptersDB,
+    scratchDB,
+    chatDB,
+    agentsDB,
+    charactersDB,
+    locationsDB,
+    organizationsDB,
+    itemsDB,
+    loreDB,
+    genresDB,
+    tagsDB,
+    themesDB,
+    seriesDB,
+    seriesTemplatesDB,
+    templatesDB,
+    timelineDB,
+    actsDB,
+    scenesDB,
+    plotThreadsDB,
+    storyBeatsDB,
+    usageDB,
+    inspirationsDB,
+} from '@/bun/database';
+import { db, sqliteVecAvailable, rawSqlite, dbPath } from '@/bun/electrobun/db';
 
 registerAllTools();
 try {
@@ -125,13 +139,13 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
         requests: {
             'window:is-maximized': () => win?.isMaximized() ?? false,
             'db:get-projects': async () => {
-                return await projectsDB.getAllProjects();
+                return await projectsDB.getAllProjects(db);
             },
             'db:get-project': async (id: string) => {
-                return await projectsDB.getProjectById(id);
+                return await projectsDB.getProjectById(db, id);
             },
             'db:create-project': async (project: NewProject) => {
-                return await projectsDB.createProject(project);
+                return await projectsDB.createProject(db, project);
             },
             'db:update-project': async ({
                 id,
@@ -140,17 +154,17 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 id: string;
                 data: Partial<NewProject>;
             }) => {
-                return await projectsDB.updateProject(id, data);
+                return await projectsDB.updateProject(db, id, data);
             },
             'db:delete-project': async (id: string) => {
-                return await projectsDB.deleteProject(id);
+                return await projectsDB.deleteProject(db, id);
             },
             'project:get-current': async () => {
                 if (!currentProjectId) return null;
-                return await projectsDB.getProjectById(currentProjectId);
+                return await projectsDB.getProjectById(db, currentProjectId);
             },
             'project:set-current': async (projectId: string) => {
-                const project = await projectsDB.getProjectById(projectId);
+                const project = await projectsDB.getProjectById(db, projectId);
                 if (project) {
                     currentProjectId = projectId;
                     const settings = settingsDB.getAllSettings();
@@ -172,13 +186,13 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 return null;
             },
             'db:get-assets': async (projectId: string) => {
-                return await assetsDB.getAssetsByProject(projectId);
+                return await assetsDB.getAssetsByProject(db, projectId);
             },
             'db:get-asset': async (id: string) => {
-                return await assetsDB.getAssetById(id);
+                return await assetsDB.getAssetById(db, id);
             },
             'db:create-asset': async (asset: NewAsset) => {
-                return await assetsDB.createAsset(asset);
+                return await assetsDB.createAsset(db, asset);
             },
             'db:update-asset': async ({
                 id,
@@ -187,21 +201,19 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 id: string;
                 data: Partial<NewAsset>;
             }) => {
-                return await assetsDB.updateAsset(id, data);
+                return await assetsDB.updateAsset(db, id, data);
             },
             'db:delete-asset': async (id: string) => {
-                return await assetsDB.deleteAsset(id);
+                return await assetsDB.deleteAsset(db, id);
             },
             'db:get-chapters': async (projectId: string) => {
-                return (await chaptersDB.getChaptersByProject(
-                    projectId
-                )) as any;
+                return await chaptersDB.getChaptersByProject(db, projectId);
             },
             'db:get-chapter': async (id: string) => {
-                return (await chaptersDB.getChapterById(id)) as any;
+                return await chaptersDB.getChapterById(db, id);
             },
             'db:create-chapter': async (chapter: NewChapter) => {
-                return (await chaptersDB.createChapter(chapter)) as any;
+                return await chaptersDB.createChapter(db, chapter);
             },
             'db:update-chapter': async ({
                 id,
@@ -210,16 +222,16 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 id: string;
                 data: Partial<NewChapter>;
             }) => {
-                return (await chaptersDB.updateChapter(id, data)) as any;
+                return await chaptersDB.updateChapter(db, id, data);
             },
             'db:delete-chapter': async (id: string) => {
-                return await chaptersDB.deleteChapter(id);
+                return await chaptersDB.deleteChapter(db, id);
             },
             'db:get-chapter-by-id': async (id: string) => {
-                return (await chaptersDB.getChapterById(id)) as any;
+                return await chaptersDB.getChapterById(db, id);
             },
             'db:get-scratch': async (projectId: string) => {
-                const result = await scratchDB.getScratchNote(projectId);
+                const result = await scratchDB.getScratchNote(db, projectId);
                 return result?.content || null;
             },
             'db:save-scratch': async ({
@@ -229,16 +241,16 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 projectId: string;
                 content: string;
             }) => {
-                await scratchDB.saveScratchNote(projectId, content);
+                await scratchDB.saveScratchNote(db, projectId, content);
             },
             'db:get-sessions': async () => {
-                return await chatDB.getAllSessions();
+                return await chatDB.getAllSessions(db);
             },
             'db:get-session': async (id: string) => {
-                return await chatDB.getSessionById(id);
+                return await chatDB.getSessionById(db, id);
             },
             'db:create-session': async (session: NewChatSession) => {
-                return await chatDB.createSession(session);
+                return await chatDB.createSession(db, session);
             },
             'db:update-session': async ({
                 id,
@@ -247,28 +259,28 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 id: string;
                 data: Partial<NewChatSession>;
             }) => {
-                return await chatDB.updateSession(id, data);
+                return await chatDB.updateSession(db, id, data);
             },
             'db:delete-session': async (id: string) => {
-                return await chatDB.deleteSession(id);
+                return await chatDB.deleteSession(db, id);
             },
             'db:get-sessions-by-project': async (projectId: string) => {
-                return await chatDB.getSessionsByProject(projectId);
+                return await chatDB.getSessionsByProject(db, projectId);
             },
             'db:get-messages': async (sessionId: string) => {
-                return await chatDB.getMessagesBySession(sessionId);
+                return await chatDB.getMessagesBySession(db, sessionId);
             },
             'db:create-message': async (message: NewChatMessage) => {
-                return await chatDB.createMessage(message);
+                return await chatDB.createMessage(db, message);
             },
             'db:get-agents': async () => {
-                return await agentsDB.getAllAgents();
+                return await agentsDB.getAllAgents(db);
             },
             'db:get-agent': async (id: string) => {
-                return await agentsDB.getAgentById(id);
+                return await agentsDB.getAgentById(db, id);
             },
             'db:create-agent': async (agent: NewAgent) => {
-                return await agentsDB.createAgent(agent);
+                return await agentsDB.createAgent(db, agent);
             },
             'db:update-agent': async ({
                 id,
@@ -277,16 +289,16 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 id: string;
                 data: Partial<NewAgent>;
             }) => {
-                return await agentsDB.updateAgent(id, data);
+                return await agentsDB.updateAgent(db, id, data);
             },
             'db:delete-agent': async (id: string) => {
-                return await agentsDB.deleteAgent(id);
+                return await agentsDB.deleteAgent(db, id);
             },
             'db:get-runs': async (agentId: string) => {
-                return await agentsDB.getRunsByAgent(agentId);
+                return await agentsDB.getRunsByAgent(db, agentId);
             },
             'db:create-run': async (run: NewAgentRun) => {
-                return await agentsDB.createRun(run);
+                return await agentsDB.createRun(db, run);
             },
             'db:update-run': async ({
                 id,
@@ -295,7 +307,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 id: string;
                 data: Partial<NewAgentRun>;
             }) => {
-                return await agentsDB.updateRun(id, data);
+                return await agentsDB.updateRun(db, id, data);
             },
             'settings:get-all': async () => {
                 return settingsDB.getAllSettings();
@@ -376,7 +388,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 }
             },
             'open-project-folder': async (projectId: string) => {
-                const project = await projectsDB.getProjectById(projectId);
+                const project = await projectsDB.getProjectById(db, projectId);
                 if (project?.path) {
                     Utils.openPath(project.path);
                 }
@@ -401,139 +413,127 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 projectId: string;
                 prompt: string;
             }) => {
-                await projectsDB.updateProject(projectId, {
+                await projectsDB.updateProject(db, projectId, {
                     systemPrompt: prompt,
                 } as Partial<NewProject>);
             },
             'db:get-project-system-prompt': async (projectId: string) => {
-                const project = await projectsDB.getProjectById(projectId);
+                const project = await projectsDB.getProjectById(db, projectId);
                 return project?.systemPrompt || null;
             },
             'db:get-characters': async (projectId: string) => {
-                return await charactersDB.getCharactersByProject(projectId);
+                return await charactersDB.getCharactersByProject(db, projectId);
             },
             'db:get-character': async (id: string) => {
-                return await charactersDB.getCharacterById(id);
+                return await charactersDB.getCharacterById(db, id);
             },
-            'db:create-character': async (
-                character: Parameters<typeof charactersDB.createCharacter>[0]
-            ) => {
-                return await charactersDB.createCharacter(character);
+            'db:create-character': async (character: NewCharacter) => {
+                return await charactersDB.createCharacter(db, character);
             },
             'db:update-character': async ({
                 id,
                 data,
             }: {
                 id: string;
-                data: Partial<
-                    Parameters<typeof charactersDB.updateCharacter>[1]
-                >;
+                data: Partial<NewCharacter>;
             }) => {
-                return await charactersDB.updateCharacter(id, data);
+                return await charactersDB.updateCharacter(db, id, data);
             },
             'db:delete-character': async (id: string) => {
-                return await charactersDB.deleteCharacter(id);
+                return await charactersDB.deleteCharacter(db, id);
             },
             'db:get-locations': async (projectId: string) => {
-                return await locationsDB.getLocationsByProject(projectId);
+                return await locationsDB.getLocationsByProject(db, projectId);
             },
             'db:get-location': async (id: string) => {
-                return await locationsDB.getLocationById(id);
+                return await locationsDB.getLocationById(db, id);
             },
-            'db:create-location': async (
-                location: Parameters<typeof locationsDB.createLocation>[0]
-            ) => {
-                return await locationsDB.createLocation(location);
+            'db:create-location': async (location: NewLocation) => {
+                return await locationsDB.createLocation(db, location);
             },
             'db:update-location': async ({
                 id,
                 data,
             }: {
                 id: string;
-                data: Partial<Parameters<typeof locationsDB.updateLocation>[1]>;
+                data: Partial<NewLocation>;
             }) => {
-                return await locationsDB.updateLocation(id, data);
+                return await locationsDB.updateLocation(db, id, data);
             },
             'db:delete-location': async (id: string) => {
-                return await locationsDB.deleteLocation(id);
+                return await locationsDB.deleteLocation(db, id);
             },
             'db:get-organizations': async (projectId: string) => {
                 return await organizationsDB.getOrganizationsByProject(
+                    db,
                     projectId
                 );
             },
             'db:get-organization': async (id: string) => {
-                return await organizationsDB.getOrganizationById(id);
+                return await organizationsDB.getOrganizationById(db, id);
             },
-            'db:create-organization': async (
-                organization: Parameters<
-                    typeof organizationsDB.createOrganization
-                >[0]
-            ) => {
-                return await organizationsDB.createOrganization(organization);
+            'db:create-organization': async (organization: NewOrganization) => {
+                return await organizationsDB.createOrganization(
+                    db,
+                    organization
+                );
             },
             'db:update-organization': async ({
                 id,
                 data,
             }: {
                 id: string;
-                data: Partial<
-                    Parameters<typeof organizationsDB.updateOrganization>[1]
-                >;
+                data: Partial<NewOrganization>;
             }) => {
-                return await organizationsDB.updateOrganization(id, data);
+                return await organizationsDB.updateOrganization(db, id, data);
             },
             'db:delete-organization': async (id: string) => {
-                return await organizationsDB.deleteOrganization(id);
+                return await organizationsDB.deleteOrganization(db, id);
             },
             'db:get-items': async (projectId: string) => {
-                return await itemsDB.getItemsByProject(projectId);
+                return await itemsDB.getItemsByProject(db, projectId);
             },
             'db:get-item': async (id: string) => {
-                return await itemsDB.getItemById(id);
+                return await itemsDB.getItemById(db, id);
             },
-            'db:create-item': async (
-                item: Parameters<typeof itemsDB.createItem>[0]
-            ) => {
-                return await itemsDB.createItem(item);
+            'db:create-item': async (item: NewItem) => {
+                return await itemsDB.createItem(db, item);
             },
             'db:update-item': async ({
                 id,
                 data,
             }: {
                 id: string;
-                data: Partial<Parameters<typeof itemsDB.updateItem>[1]>;
+                data: Partial<NewItem>;
             }) => {
-                return await itemsDB.updateItem(id, data);
+                return await itemsDB.updateItem(db, id, data);
             },
             'db:delete-item': async (id: string) => {
-                return await itemsDB.deleteItem(id);
+                return await itemsDB.deleteItem(db, id);
             },
             'db:get-lore-entries': async (projectId: string) => {
-                return await loreDB.getLoreEntriesByProject(projectId);
+                return await loreDB.getLoreEntriesByProject(db, projectId);
             },
             'db:get-lore-entry': async (id: string) => {
-                return await loreDB.getLoreEntryById(id);
+                return await loreDB.getLoreEntryById(db, id);
             },
-            'db:create-lore-entry': async (
-                entry: Parameters<typeof loreDB.createLoreEntry>[0]
-            ) => {
-                return await loreDB.createLoreEntry(entry);
+            'db:create-lore-entry': async (entry: NewLoreEntry) => {
+                return await loreDB.createLoreEntry(db, entry);
             },
             'db:update-lore-entry': async ({
                 id,
                 data,
             }: {
                 id: string;
-                data: Partial<Parameters<typeof loreDB.updateLoreEntry>[1]>;
+                data: Partial<NewLoreEntry>;
             }) => {
-                return await loreDB.updateLoreEntry(id, data);
+                return await loreDB.updateLoreEntry(db, id, data);
             },
             'db:delete-lore-entry': async (id: string) => {
-                return await loreDB.deleteLoreEntry(id);
+                return await loreDB.deleteLoreEntry(db, id);
             },
             'db:get-genres': async () => {
-                return await genresDB.getAllGenres();
+                return await genresDB.getAllGenres(db);
             },
             'db:create-genre': async ({
                 name,
@@ -542,13 +542,13 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 name: string;
                 isGlobal?: boolean;
             }) => {
-                return await genresDB.createGenre(name, isGlobal);
+                return await genresDB.createGenre(db, name, isGlobal);
             },
             'db:delete-genre': async (id: string) => {
-                return await genresDB.deleteGenre(id);
+                return await genresDB.deleteGenre(db, id);
             },
             'db:get-tags': async () => {
-                return await tagsDB.getAllTags();
+                return await tagsDB.getAllTags(db);
             },
             'db:create-tag': async ({
                 name,
@@ -557,13 +557,13 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 name: string;
                 isGlobal?: boolean;
             }) => {
-                return await tagsDB.createTag(name, isGlobal);
+                return await tagsDB.createTag(db, name, isGlobal);
             },
             'db:delete-tag': async (id: string) => {
-                return await tagsDB.deleteTag(id);
+                return await tagsDB.deleteTag(db, id);
             },
             'db:get-themes': async () => {
-                return await themesDB.getAllThemes();
+                return await themesDB.getAllThemes(db);
             },
             'db:create-theme': async ({
                 name,
@@ -572,19 +572,19 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 name: string;
                 isGlobal?: boolean;
             }) => {
-                return await themesDB.createTheme(name, isGlobal);
+                return await themesDB.createTheme(db, name, isGlobal);
             },
             'db:delete-theme': async (id: string) => {
-                return await themesDB.deleteTheme(id);
+                return await themesDB.deleteTheme(db, id);
             },
             'db:list-series': async () => {
-                return await seriesDB.listSeries();
+                return await seriesDB.listSeries(db);
             },
             'db:get-series': async (id: string) => {
-                return await seriesDB.getSeriesById(id);
+                return await seriesDB.getSeriesById(db, id);
             },
             'db:create-series': async (data: NewSeries) => {
-                return await seriesDB.createSeries(data);
+                return await seriesDB.createSeries(db, data);
             },
             'db:update-series': async ({
                 id,
@@ -593,23 +593,26 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 id: string;
                 data: Partial<NewSeries>;
             }) => {
-                return await seriesDB.updateSeries(id, data);
+                return await seriesDB.updateSeries(db, id, data);
             },
             'db:delete-series': async (id: string) => {
-                return await seriesDB.deleteSeries(id);
+                return await seriesDB.deleteSeries(db, id);
             },
             'db:get-series-projects': async (seriesId: string) => {
-                return await seriesDB.getSeriesProjects(seriesId);
+                return await seriesDB.getSeriesProjects(db, seriesId);
             },
             'db:list-series-templates': async ({
                 seriesId,
             }: {
                 seriesId: string;
             }) => {
-                return await seriesTemplatesDB.listSeriesTemplates(seriesId);
+                return await seriesTemplatesDB.listSeriesTemplates(
+                    db,
+                    seriesId
+                );
             },
             'db:upsert-series-template': async (data: SeriesTemplateInput) => {
-                return await seriesTemplatesDB.upsertSeriesTemplate(data);
+                return await seriesTemplatesDB.upsertSeriesTemplate(db, data);
             },
             'db:delete-series-template': async ({
                 seriesId,
@@ -619,6 +622,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 baseType: CompendiumCategory;
             }) => {
                 return await seriesTemplatesDB.deleteSeriesTemplate(
+                    db,
                     seriesId,
                     baseType
                 );
@@ -631,6 +635,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 baseType: string;
             }) => {
                 const result = await templatesDB.getTemplateByProjectAndType(
+                    db,
                     projectId,
                     baseType as
                         | 'character'
@@ -649,6 +654,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 baseType: string;
             }) => {
                 const result = await templatesDB.resolveTemplate(
+                    db,
                     projectId,
                     baseType as
                         | 'character'
@@ -671,6 +677,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 layout?: TemplateLayout | null;
             }) => {
                 return await templatesDB.upsertTemplate(
+                    db,
                     projectId,
                     baseType as
                         | 'character'
@@ -683,13 +690,13 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 );
             },
             'db:get-timeline-events': async (projectId: string) => {
-                return await timelineDB.getEventsByProject(projectId);
+                return await timelineDB.getEventsByProject(db, projectId);
             },
             'db:get-timeline-event': async (id: string) => {
-                return await timelineDB.getEventById(id);
+                return await timelineDB.getEventById(db, id);
             },
             'db:create-timeline-event': async (event: NewTimelineEvent) => {
-                return await timelineDB.createEvent(event);
+                return await timelineDB.createEvent(db, event);
             },
             'db:update-timeline-event': async ({
                 id,
@@ -698,22 +705,22 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 id: string;
                 data: Partial<NewTimelineEvent>;
             }) => {
-                return await timelineDB.updateEvent(id, data);
+                return await timelineDB.updateEvent(db, id, data);
             },
             'db:delete-timeline-event': async (id: string) => {
-                return await timelineDB.deleteEvent(id);
+                return await timelineDB.deleteEvent(db, id);
             },
             'db:auto-generate-timeline-events': async (projectId: string) => {
-                return await timelineDB.autoGenerateEvents(projectId);
+                return await timelineDB.autoGenerateEvents(db, projectId);
             },
             'db:get-story-acts': async (projectId: string) => {
-                return (await actsDB.getActsByProject(projectId)) as any;
+                return await actsDB.getActsByProject(db, projectId);
             },
             'db:get-story-act': async (id: string) => {
-                return (await actsDB.getActById(id)) as any;
+                return await actsDB.getActById(db, id);
             },
             'db:create-story-act': async (act: NewStoryAct) => {
-                return (await actsDB.createAct(act)) as any;
+                return await actsDB.createAct(db, act);
             },
             'db:update-story-act': async ({
                 id,
@@ -722,19 +729,19 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 id: string;
                 data: Partial<NewStoryAct>;
             }) => {
-                return (await actsDB.updateAct(id, data)) as any;
+                return await actsDB.updateAct(db, id, data);
             },
             'db:delete-story-act': async (id: string) => {
-                await actsDB.deleteAct(id);
+                await actsDB.deleteAct(db, id);
             },
             'db:get-story-sequences': async (projectId: string) => {
-                return (await actsDB.getSequencesByProject(projectId)) as any;
+                return await actsDB.getSequencesByProject(db, projectId);
             },
             'db:get-story-sequence': async (id: string) => {
-                return (await actsDB.getSequenceById(id)) as any;
+                return await actsDB.getSequenceById(db, id);
             },
             'db:create-story-sequence': async (seq: NewStorySequence) => {
-                return (await actsDB.createSequence(seq)) as any;
+                return await actsDB.createSequence(db, seq);
             },
             'db:update-story-sequence': async ({
                 id,
@@ -743,21 +750,21 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 id: string;
                 data: Partial<NewStorySequence>;
             }) => {
-                return (await actsDB.updateSequence(id, data)) as any;
+                return await actsDB.updateSequence(db, id, data);
             },
             'db:delete-story-sequence': async (id: string) => {
-                await actsDB.deleteSequence(id);
+                await actsDB.deleteSequence(db, id);
             },
             'db:get-sequences-by-act': async (actId: string) => {
-                return (await actsDB.getSequencesByAct(actId)) as any;
+                return await actsDB.getSequencesByAct(db, actId);
             },
             'db:get-sequences-by-chapter': async (chapterId: string) => {
-                return (await actsDB.getSequencesByChapter(chapterId)) as any;
+                return await actsDB.getSequencesByChapter(db, chapterId);
             },
             'db:reorder-acts': async (
                 updates: { id: string; orderIndex: number }[]
             ) => {
-                await actsDB.reorderActs(updates);
+                await actsDB.reorderActs(db, updates);
             },
             'db:reorder-sequences': async (
                 updates: {
@@ -766,22 +773,22 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                     displayOrder?: number;
                 }[]
             ) => {
-                await actsDB.reorderSequences(updates);
+                await actsDB.reorderSequences(db, updates);
             },
             'db:get-story-scenes': async (projectId: string) => {
-                return (await scenesDB.getScenesByProject(projectId)) as any;
+                return await scenesDB.getScenesByProject(db, projectId);
             },
             'db:get-story-scene': async (id: string) => {
-                return (await scenesDB.getSceneById(id)) as any;
+                return await scenesDB.getSceneById(db, id);
             },
             'db:get-scenes-by-sequence': async (sequenceId: string) => {
-                return (await scenesDB.getScenesBySequence(sequenceId)) as any;
+                return await scenesDB.getScenesBySequence(db, sequenceId);
             },
             'db:get-scenes-by-chapter': async (chapterId: string) => {
-                return (await scenesDB.getScenesByChapter(chapterId)) as any;
+                return await scenesDB.getScenesByChapter(db, chapterId);
             },
             'db:create-story-scene': async (scene: NewStoryScene) => {
-                return (await scenesDB.createScene(scene)) as any;
+                return await scenesDB.createScene(db, scene);
             },
             'db:update-story-scene': async ({
                 id,
@@ -790,10 +797,10 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 id: string;
                 data: Partial<NewStoryScene>;
             }) => {
-                return (await scenesDB.updateScene(id, data)) as any;
+                return await scenesDB.updateScene(db, id, data);
             },
             'db:delete-story-scene': async (id: string) => {
-                await scenesDB.deleteScene(id);
+                await scenesDB.deleteScene(db, id);
             },
             'db:reorder-scenes': async (
                 updates: {
@@ -802,7 +809,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                     displayOrder?: number;
                 }[]
             ) => {
-                await scenesDB.reorderScenes(updates);
+                await scenesDB.reorderScenes(db, updates);
             },
             'db:move-scene': async ({
                 id,
@@ -817,18 +824,16 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                     displayOrder?: number;
                 };
             }) => {
-                return (await scenesDB.moveScene(id, data)) as any;
+                return await scenesDB.moveScene(db, id, data);
             },
             'db:get-plot-threads': async (projectId: string) => {
-                return (await plotThreadsDB.getThreadsByProject(
-                    projectId
-                )) as any;
+                return await plotThreadsDB.getThreadsByProject(db, projectId);
             },
             'db:get-plot-thread': async (id: string) => {
-                return (await plotThreadsDB.getThreadById(id)) as any;
+                return await plotThreadsDB.getThreadById(db, id);
             },
             'db:create-plot-thread': async (thread: NewPlotThread) => {
-                return (await plotThreadsDB.createThread(thread)) as any;
+                return await plotThreadsDB.createThread(db, thread);
             },
             'db:update-plot-thread': async ({
                 id,
@@ -837,13 +842,13 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 id: string;
                 data: Partial<NewPlotThread>;
             }) => {
-                return (await plotThreadsDB.updateThread(id, data)) as any;
+                return await plotThreadsDB.updateThread(db, id, data);
             },
             'db:delete-plot-thread': async (id: string) => {
-                await plotThreadsDB.deleteThread(id);
+                await plotThreadsDB.deleteThread(db, id);
             },
             'db:get-chapter-plot-threads': async (chapterId: string) => {
-                return await plotThreadsDB.getChapterThreads(chapterId);
+                return await plotThreadsDB.getChapterThreads(db, chapterId);
             },
             'db:set-chapter-plot-threads': async ({
                 chapterId,
@@ -852,16 +857,16 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 chapterId: string;
                 threads: { plotThreadId: string; intensity: number }[];
             }) => {
-                await plotThreadsDB.setChapterThreads(chapterId, threads);
+                await plotThreadsDB.setChapterThreads(db, chapterId, threads);
             },
             'db:get-story-beats': async (projectId: string) => {
-                return (await storyBeatsDB.getBeatsByProject(projectId)) as any;
+                return await storyBeatsDB.getBeatsByProject(db, projectId);
             },
             'db:get-story-beat': async (id: string) => {
-                return (await storyBeatsDB.getBeatById(id)) as any;
+                return await storyBeatsDB.getBeatById(db, id);
             },
             'db:create-story-beat': async (beat: NewStoryBeat) => {
-                return (await storyBeatsDB.createBeat(beat)) as any;
+                return await storyBeatsDB.createBeat(db, beat);
             },
             'db:update-story-beat': async ({
                 id,
@@ -870,10 +875,10 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 id: string;
                 data: Partial<NewStoryBeat>;
             }) => {
-                return (await storyBeatsDB.updateBeat(id, data)) as any;
+                return await storyBeatsDB.updateBeat(db, id, data);
             },
             'db:delete-story-beat': async (id: string) => {
-                await storyBeatsDB.deleteBeat(id);
+                await storyBeatsDB.deleteBeat(db, id);
             },
             'usage:log': async (params: {
                 sessionId: string | null;
@@ -883,7 +888,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 totalTokens: number;
                 model: string | null;
             }) => {
-                await usageDB.logUsage({
+                await usageDB.logUsage(db, {
                     id: crypto.randomUUID(),
                     sessionId: params.sessionId,
                     projectId: params.projectId,
@@ -900,29 +905,25 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 period: 'today' | 'month';
                 projectId: string | null;
             }) => {
-                return await usageDB.getUsageStats(period, projectId);
+                return await usageDB.getUsageStats(db, period, projectId);
             },
             'db:get-inspirations': async (projectId: string) => {
-                return await inspirationsDB.getInspirations(projectId);
+                return await inspirationsDB.getInspirations(db, projectId);
             },
-            'db:create-inspiration': async (
-                data: Parameters<typeof inspirationsDB.createInspiration>[0]
-            ) => {
-                return await inspirationsDB.createInspiration(data);
+            'db:create-inspiration': async (data: NewInspiration) => {
+                return await inspirationsDB.createInspiration(db, data);
             },
             'db:update-inspiration': async ({
                 id,
                 data,
             }: {
                 id: string;
-                data: Partial<
-                    Parameters<typeof inspirationsDB.updateInspiration>[1]
-                >;
+                data: Partial<NewInspiration>;
             }) => {
-                return await inspirationsDB.updateInspiration(id, data);
+                return await inspirationsDB.updateInspiration(db, id, data);
             },
             'db:delete-inspiration': async (id: string) => {
-                await inspirationsDB.deleteInspiration(id);
+                await inspirationsDB.deleteInspiration(db, id);
             },
             'embeddings:index-project': async (params: {
                 projectId: string;
@@ -986,6 +987,7 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
             }) => {
                 const settings = settingsDB.getAllSettings();
                 const project = await projectsDB.getProjectById(
+                    db,
                     params.projectId
                 );
                 if (!project) {
@@ -1153,7 +1155,7 @@ async function createMainWindow(projectId: string | null) {
 
     let projectTitle = 'Novelty';
     if (projectId) {
-        const project = await projectsDB.getProjectById(projectId);
+        const project = await projectsDB.getProjectById(db, projectId);
         if (project) {
             projectTitle = project.name;
         }
@@ -1181,7 +1183,7 @@ async function createMainWindow(projectId: string | null) {
     console.log(`Main window loaded with project: ${projectTitle}`);
 }
 async function start() {
-    await initDatabase();
+    await initDatabase(rawSqlite, dbPath);
     const settings = settingsDB.getAllSettings();
     const shouldOpenRecent = settings.projects.openRecentProjectOnStartup;
     const recentProjects = settings.projects.recentProjects;
@@ -1190,7 +1192,7 @@ async function start() {
     if (shouldOpenRecent && recentProjects.length > 0) {
         projectId = recentProjects[0];
 
-        const project = await projectsDB.getProjectById(projectId || '');
+        const project = await projectsDB.getProjectById(db, projectId || '');
         if (project) {
             currentProjectId = projectId;
         }

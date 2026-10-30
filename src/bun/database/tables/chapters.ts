@@ -1,9 +1,9 @@
 import { eq, asc } from 'drizzle-orm';
 
-import { db } from './../index';
-import { chapters, storyScenes, storySequences } from '../../schema';
+import { chapters, storyScenes, storySequences } from '../../../shared/schema';
 import type { Chapter, NewChapter } from '@/shared/types/project';
 import type { ChapterStatus } from '@/shared/types';
+import type { SQLiteDB } from '@/shared/types/db';
 
 function parseChapter(row: Record<string, unknown>): Chapter {
     return {
@@ -25,6 +25,7 @@ function parseChapter(row: Record<string, unknown>): Chapter {
 }
 
 export async function getChaptersByProject(
+    db: SQLiteDB,
     projectId: string
 ): Promise<Chapter[]> {
     const rows = await db
@@ -35,13 +36,19 @@ export async function getChaptersByProject(
     return rows.map(parseChapter);
 }
 
-export async function getChapterById(id: string): Promise<Chapter | undefined> {
+export async function getChapterById(
+    db: SQLiteDB,
+    id: string
+): Promise<Chapter | undefined> {
     const result = await db.select().from(chapters).where(eq(chapters.id, id));
     if (!result[0]) return undefined;
     return parseChapter(result[0]);
 }
 
-export async function createChapter(chapter: NewChapter): Promise<Chapter> {
+export async function createChapter(
+    db: SQLiteDB,
+    chapter: NewChapter
+): Promise<Chapter> {
     const now = new Date();
     const vals: Chapter = {
         id: chapter.id,
@@ -69,6 +76,7 @@ export async function createChapter(chapter: NewChapter): Promise<Chapter> {
 }
 
 export async function updateChapter(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewChapter>
 ): Promise<Chapter | undefined> {
@@ -89,10 +97,10 @@ export async function updateChapter(
 
     await db.update(chapters).set(updateData).where(eq(chapters.id, id));
 
-    return getChapterById(id);
+    return getChapterById(db, id);
 }
 
-export async function deleteChapter(id: string): Promise<void> {
+export async function deleteChapter(db: SQLiteDB, id: string): Promise<void> {
     await db.delete(storyScenes).where(eq(storyScenes.chapterId, id));
     await db.delete(storySequences).where(eq(storySequences.chapterId, id));
     await db.delete(chapters).where(eq(chapters.id, id));

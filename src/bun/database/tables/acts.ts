@@ -1,7 +1,6 @@
 import { eq, asc } from 'drizzle-orm';
 
-import { db } from './../index';
-import { storyActs, storySequences, storyScenes } from '../../schema';
+import { storyActs, storySequences, storyScenes } from '@/shared/schema';
 import type {
     ChapterStatus,
     NewStoryAct,
@@ -9,6 +8,7 @@ import type {
     StoryAct,
     StorySequence,
 } from '@/shared/types';
+import type { SQLiteDB } from '@/shared/types/db';
 
 function parseAct(row: typeof storyActs.$inferSelect): StoryAct {
     return {
@@ -40,7 +40,10 @@ function parseSequence(row: typeof storySequences.$inferSelect): StorySequence {
     };
 }
 
-export async function getActsByProject(projectId: string): Promise<StoryAct[]> {
+export async function getActsByProject(
+    db: SQLiteDB,
+    projectId: string
+): Promise<StoryAct[]> {
     const rows = await db
         .select()
         .from(storyActs)
@@ -49,7 +52,10 @@ export async function getActsByProject(projectId: string): Promise<StoryAct[]> {
     return rows.map(parseAct);
 }
 
-export async function getActById(id: string): Promise<StoryAct | undefined> {
+export async function getActById(
+    db: SQLiteDB,
+    id: string
+): Promise<StoryAct | undefined> {
     const result = await db
         .select()
         .from(storyActs)
@@ -58,7 +64,10 @@ export async function getActById(id: string): Promise<StoryAct | undefined> {
     return parseAct(result[0]);
 }
 
-export async function createAct(act: NewStoryAct): Promise<StoryAct> {
+export async function createAct(
+    db: SQLiteDB,
+    act: NewStoryAct
+): Promise<StoryAct> {
     const now = new Date();
     await db
         .insert(storyActs)
@@ -67,6 +76,7 @@ export async function createAct(act: NewStoryAct): Promise<StoryAct> {
 }
 
 export async function updateAct(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewStoryAct>
 ): Promise<StoryAct | undefined> {
@@ -78,16 +88,17 @@ export async function updateAct(
     if (data.status !== undefined) updateData.status = data.status;
     if (data.projectId !== undefined) updateData.projectId = data.projectId;
     await db.update(storyActs).set(updateData).where(eq(storyActs.id, id));
-    return getActById(id);
+    return getActById(db, id);
 }
 
-export async function deleteAct(id: string): Promise<void> {
+export async function deleteAct(db: SQLiteDB, id: string): Promise<void> {
     await db.delete(storyScenes).where(eq(storyScenes.actId, id));
     await db.delete(storySequences).where(eq(storySequences.actId, id));
     await db.delete(storyActs).where(eq(storyActs.id, id));
 }
 
 export async function getSequencesByProject(
+    db: SQLiteDB,
     projectId: string
 ): Promise<StorySequence[]> {
     const rows = await db
@@ -99,6 +110,7 @@ export async function getSequencesByProject(
 }
 
 export async function getSequencesByAct(
+    db: SQLiteDB,
     actId: string
 ): Promise<StorySequence[]> {
     const rows = await db
@@ -110,6 +122,7 @@ export async function getSequencesByAct(
 }
 
 export async function getSequencesByChapter(
+    db: SQLiteDB,
     chapterId: string
 ): Promise<StorySequence[]> {
     const rows = await db
@@ -121,6 +134,7 @@ export async function getSequencesByChapter(
 }
 
 export async function getSequenceById(
+    db: SQLiteDB,
     id: string
 ): Promise<StorySequence | undefined> {
     const result = await db
@@ -132,6 +146,7 @@ export async function getSequenceById(
 }
 
 export async function createSequence(
+    db: SQLiteDB,
     seq: NewStorySequence
 ): Promise<StorySequence> {
     const now = new Date();
@@ -142,6 +157,7 @@ export async function createSequence(
 }
 
 export async function updateSequence(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewStorySequence>
 ): Promise<StorySequence | undefined> {
@@ -159,15 +175,16 @@ export async function updateSequence(
         .update(storySequences)
         .set(updateData)
         .where(eq(storySequences.id, id));
-    return getSequenceById(id);
+    return getSequenceById(db, id);
 }
 
-export async function deleteSequence(id: string): Promise<void> {
+export async function deleteSequence(db: SQLiteDB, id: string): Promise<void> {
     await db.delete(storyScenes).where(eq(storyScenes.sequenceId, id));
     await db.delete(storySequences).where(eq(storySequences.id, id));
 }
 
 export async function reorderActs(
+    db: SQLiteDB,
     updates: { id: string; orderIndex: number }[]
 ): Promise<void> {
     await db.transaction(async (tx) => {
@@ -181,6 +198,7 @@ export async function reorderActs(
 }
 
 export async function reorderSequences(
+    db: SQLiteDB,
     updates: { id: string; orderIndex: number; displayOrder?: number }[]
 ): Promise<void> {
     await db.transaction(async (tx) => {

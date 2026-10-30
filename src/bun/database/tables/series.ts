@@ -1,12 +1,13 @@
 import { eq, asc } from 'drizzle-orm';
 
-import { db } from './../index';
-import { series, projects } from '../../schema';
+import { series, projects } from '../../../shared/schema';
 import type {
     NewSeries,
     Series,
     SeriesArchitecture,
 } from '@/shared/types/series';
+import type { SQLiteDB } from '@/shared/types/db';
+import type { Project } from '@/shared/types';
 
 function parseSeries(row: typeof series.$inferSelect): Series {
     return {
@@ -20,7 +21,7 @@ function parseSeries(row: typeof series.$inferSelect): Series {
     };
 }
 
-export async function listSeries(): Promise<Series[]> {
+export async function listSeries(db: SQLiteDB): Promise<Series[]> {
     const rows = await db.select().from(series).orderBy(asc(series.updatedAt));
     const result: Series[] = [];
     for (const row of rows) {
@@ -35,7 +36,10 @@ export async function listSeries(): Promise<Series[]> {
     return result;
 }
 
-export async function getSeriesById(id: string): Promise<Series | undefined> {
+export async function getSeriesById(
+    db: SQLiteDB,
+    id: string
+): Promise<Series | undefined> {
     const result = await db.select().from(series).where(eq(series.id, id));
     if (!result[0]) return undefined;
     const s = parseSeries(result[0]);
@@ -47,7 +51,10 @@ export async function getSeriesById(id: string): Promise<Series | undefined> {
     return s;
 }
 
-export async function createSeries(data: NewSeries): Promise<Series> {
+export async function createSeries(
+    db: SQLiteDB,
+    data: NewSeries
+): Promise<Series> {
     const now = new Date();
     await db.insert(series).values({
         ...data,
@@ -63,6 +70,7 @@ export async function createSeries(data: NewSeries): Promise<Series> {
 }
 
 export async function updateSeries(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewSeries>
 ): Promise<Series | undefined> {
@@ -75,18 +83,26 @@ export async function updateSeries(
         updateData.coverImageId = data.coverImageId;
 
     await db.update(series).set(updateData).where(eq(series.id, id));
-    return getSeriesById(id);
+    return getSeriesById(db, id);
 }
 
-export async function deleteSeries(id: string): Promise<void> {
+export async function deleteSeries(db: SQLiteDB, id: string): Promise<void> {
     await db.delete(series).where(eq(series.id, id));
 }
 
-export async function getSeriesProjects(seriesId: string) {
+export async function getSeriesProjects(db: SQLiteDB, seriesId: string) {
     const rows = await db
         .select()
         .from(projects)
         .where(eq(projects.seriesId, seriesId))
         .orderBy(asc(projects.name));
-    return rows as Series[];
+    return rows as Omit<
+        Project,
+        | 'coverImagesArray'
+        | 'primaryGenre'
+        | 'primaryTheme'
+        | 'genres'
+        | 'tags'
+        | 'themes'
+    >[];
 }

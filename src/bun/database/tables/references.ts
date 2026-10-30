@@ -1,10 +1,11 @@
 import { eq, asc } from 'drizzle-orm';
 
-import { db } from './../index';
-import { projectReferences } from '../../schema';
+import { projectReferences } from '../../../shared/schema';
 import type { NewReference, Reference } from '@/shared/types/project';
+import type { SQLiteDB } from '@/shared/types/db';
 
 export async function getReferencesByProject(
+    db: SQLiteDB,
     projectId: string
 ): Promise<Reference[]> {
     const rows = await db
@@ -16,6 +17,7 @@ export async function getReferencesByProject(
 }
 
 export async function getReferencesByCategory(
+    db: SQLiteDB,
     projectId: string,
     category: string
 ): Promise<Reference[]> {
@@ -28,6 +30,7 @@ export async function getReferencesByCategory(
 }
 
 export async function getReferenceById(
+    db: SQLiteDB,
     id: string
 ): Promise<Reference | undefined> {
     const result = await db
@@ -38,6 +41,7 @@ export async function getReferenceById(
 }
 
 export async function createReference(
+    db: SQLiteDB,
     reference: NewReference
 ): Promise<Reference> {
     await db.insert(projectReferences).values(reference);
@@ -45,6 +49,7 @@ export async function createReference(
 }
 
 export async function updateReference(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewReference>
 ): Promise<Reference | undefined> {
@@ -56,9 +61,9 @@ export async function updateReference(
         .update(projectReferences)
         .set(updateData)
         .where(eq(projectReferences.id, id));
-    return getReferenceById(id);
+    return getReferenceById(db, id);
 }
 
-export async function deleteReference(id: string): Promise<void> {
+export async function deleteReference(db: SQLiteDB, id: string): Promise<void> {
     await db.delete(projectReferences).where(eq(projectReferences.id, id));
 }

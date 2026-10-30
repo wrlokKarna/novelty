@@ -1,15 +1,19 @@
 import { sql } from 'drizzle-orm';
 
-import { db } from './../index';
-import { tokenUsage } from '../../schema';
+import { tokenUsage } from '../../../shared/schema';
+import type { SQLiteDB } from '@/shared/types/db';
 
 export type NewTokenUsage = typeof tokenUsage.$inferInsert;
 
-export async function logUsage(record: NewTokenUsage): Promise<void> {
+export async function logUsage(
+    db: SQLiteDB,
+    record: NewTokenUsage
+): Promise<void> {
     await db.insert(tokenUsage).values(record);
 }
 
 export async function getUsageStats(
+    db: SQLiteDB,
     period: 'today' | 'month',
     projectId: string | null
 ): Promise<{ tokensConsumed: number; requestCount: number }> {

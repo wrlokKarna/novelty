@@ -1,12 +1,8 @@
 import { createHash } from 'crypto';
-import {
-    db,
-    sqliteVecAvailable,
-    rawSqlite,
-    ensureVecTable,
-} from '../../database/index';
-import * as schema from '../../schema/index';
-import { embeddings } from '../../schema/index';
+import { db, sqliteVecAvailable, rawSqlite } from '../../electrobun/db';
+import { ensureVecTable } from '../../database/utils';
+import * as schema from '../../../shared/schema/index';
+import { embeddings } from '../../../shared/schema/index';
 import { eq, and } from 'drizzle-orm';
 import { createEmbeddingProvider } from './provider';
 import { chunkHtml, chunkText, type TextChunk } from './chunker';
@@ -109,7 +105,7 @@ export async function indexProject(
         );
     }
 
-    ensureVecTable(settings.dimension);
+    ensureVecTable(rawSqlite, sqliteVecAvailable, settings.dimension);
 
     const provider = createEmbeddingProvider(settings);
     const result: IndexResult = {
@@ -174,9 +170,10 @@ export async function indexProject(
                     )
                     .all();
 
-                const existingMap = new Map(
-                    existingRows.map((r: any) => [r.chunkIndex, r])
-                );
+                const existingMap = new Map<
+                    number,
+                    (typeof existingRows)[number]
+                >(existingRows.map((r) => [r.chunkIndex, r] as const));
 
                 const toEmbed: {
                     chunk: TextChunk;

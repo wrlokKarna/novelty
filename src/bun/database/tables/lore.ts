@@ -1,13 +1,14 @@
 import { eq, asc } from 'drizzle-orm';
 
-import { db } from './../index';
-import { loreEntries } from '../../schema';
+import { loreEntries } from '../../../shared/schema';
 import type {
     LoreEntry,
     NewLoreEntry,
 } from '@/shared/types/project/compendium';
+import type { SQLiteDB } from '@/shared/types/db';
 
 export async function getLoreEntriesByProject(
+    db: SQLiteDB,
     projectId: string
 ): Promise<LoreEntry[]> {
     const rows = await db
@@ -22,6 +23,7 @@ export async function getLoreEntriesByProject(
 }
 
 export async function getLoreEntryById(
+    db: SQLiteDB,
     id: string
 ): Promise<LoreEntry | undefined> {
     const result = await db
@@ -36,7 +38,10 @@ export async function getLoreEntryById(
     };
 }
 
-export async function createLoreEntry(entry: NewLoreEntry): Promise<LoreEntry> {
+export async function createLoreEntry(
+    db: SQLiteDB,
+    entry: NewLoreEntry
+): Promise<LoreEntry> {
     const now = new Date();
     const newEntry = {
         ...entry,
@@ -54,6 +59,7 @@ export async function createLoreEntry(entry: NewLoreEntry): Promise<LoreEntry> {
 }
 
 export async function updateLoreEntry(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewLoreEntry>
 ): Promise<LoreEntry | undefined> {
@@ -66,9 +72,9 @@ export async function updateLoreEntry(
             : null;
 
     await db.update(loreEntries).set(updateData).where(eq(loreEntries.id, id));
-    return getLoreEntryById(id);
+    return getLoreEntryById(db, id);
 }
 
-export async function deleteLoreEntry(id: string): Promise<void> {
+export async function deleteLoreEntry(db: SQLiteDB, id: string): Promise<void> {
     await db.delete(loreEntries).where(eq(loreEntries.id, id));
 }

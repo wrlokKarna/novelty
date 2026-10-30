@@ -1,12 +1,12 @@
 import { eq, asc } from 'drizzle-orm';
 
-import { db } from './../index';
-import { storyBeats } from '../../schema';
+import { storyBeats } from '../../../shared/schema';
 import type {
     StoryBeat,
     NewStoryBeat,
     StoryBeatType,
 } from '@/shared/types/project/manuscript';
+import type { SQLiteDB } from '@/shared/types/db';
 
 function parseBeat(row: typeof storyBeats.$inferSelect): StoryBeat {
     return {
@@ -23,6 +23,7 @@ function parseBeat(row: typeof storyBeats.$inferSelect): StoryBeat {
 }
 
 export async function getBeatsByProject(
+    db: SQLiteDB,
     projectId: string
 ): Promise<StoryBeat[]> {
     const rows = await db
@@ -33,7 +34,10 @@ export async function getBeatsByProject(
     return rows.map(parseBeat);
 }
 
-export async function getBeatById(id: string): Promise<StoryBeat | undefined> {
+export async function getBeatById(
+    db: SQLiteDB,
+    id: string
+): Promise<StoryBeat | undefined> {
     const result = await db
         .select()
         .from(storyBeats)
@@ -42,7 +46,10 @@ export async function getBeatById(id: string): Promise<StoryBeat | undefined> {
     return parseBeat(result[0]);
 }
 
-export async function createBeat(beat: NewStoryBeat): Promise<StoryBeat> {
+export async function createBeat(
+    db: SQLiteDB,
+    beat: NewStoryBeat
+): Promise<StoryBeat> {
     const now = new Date();
     await db
         .insert(storyBeats)
@@ -51,6 +58,7 @@ export async function createBeat(beat: NewStoryBeat): Promise<StoryBeat> {
 }
 
 export async function updateBeat(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewStoryBeat>
 ): Promise<StoryBeat | undefined> {
@@ -63,9 +71,9 @@ export async function updateBeat(
     if (data.orderIndex !== undefined) updateData.orderIndex = data.orderIndex;
     if (data.projectId !== undefined) updateData.projectId = data.projectId;
     await db.update(storyBeats).set(updateData).where(eq(storyBeats.id, id));
-    return getBeatById(id);
+    return getBeatById(db, id);
 }
 
-export async function deleteBeat(id: string): Promise<void> {
+export async function deleteBeat(db: SQLiteDB, id: string): Promise<void> {
     await db.delete(storyBeats).where(eq(storyBeats.id, id));
 }

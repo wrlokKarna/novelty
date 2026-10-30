@@ -1,8 +1,8 @@
 import { eq, asc } from 'drizzle-orm';
 
-import { db } from './../index';
-import { items } from '../../schema';
+import { items } from '../../../shared/schema';
 import type { Item, NewItem } from '@/shared/types';
+import type { SQLiteDB } from '@/shared/types/db';
 
 function parseItem(row: Record<string, unknown>): Item {
     return {
@@ -13,7 +13,10 @@ function parseItem(row: Record<string, unknown>): Item {
     } as Item;
 }
 
-export async function getItemsByProject(projectId: string): Promise<Item[]> {
+export async function getItemsByProject(
+    db: SQLiteDB,
+    projectId: string
+): Promise<Item[]> {
     const rows = await db
         .select()
         .from(items)
@@ -22,13 +25,16 @@ export async function getItemsByProject(projectId: string): Promise<Item[]> {
     return rows.map(parseItem);
 }
 
-export async function getItemById(id: string): Promise<Item | undefined> {
+export async function getItemById(
+    db: SQLiteDB,
+    id: string
+): Promise<Item | undefined> {
     const result = await db.select().from(items).where(eq(items.id, id));
     if (!result[0]) return undefined;
     return parseItem(result[0]);
 }
 
-export async function createItem(item: NewItem): Promise<Item> {
+export async function createItem(db: SQLiteDB, item: NewItem): Promise<Item> {
     const now = new Date();
     const newItem = {
         ...item,
@@ -46,6 +52,7 @@ export async function createItem(item: NewItem): Promise<Item> {
 }
 
 export async function updateItem(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewItem>
 ): Promise<Item | undefined> {
@@ -58,9 +65,9 @@ export async function updateItem(
             : null;
 
     await db.update(items).set(updateData).where(eq(items.id, id));
-    return getItemById(id);
+    return getItemById(db, id);
 }
 
-export async function deleteItem(id: string): Promise<void> {
+export async function deleteItem(db: SQLiteDB, id: string): Promise<void> {
     await db.delete(items).where(eq(items.id, id));
 }

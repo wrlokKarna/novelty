@@ -1,7 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 
-import { db } from './../index';
-import { projects, seriesTemplates } from '../../schema';
+import { projects, seriesTemplates } from '../../../shared/schema';
 import { normalizeTreeFields } from '../../../mainview/templates/tree';
 import { normalizeLayout } from '../../../mainview/templates/mergeFields';
 import type { SeriesTemplate } from '@/shared/types/series';
@@ -10,6 +9,7 @@ import type {
     FieldDefinition,
     TemplateLayout,
 } from '@/shared/types/project/templates';
+import type { SQLiteDB } from '@/shared/types/db';
 
 function parseLayout(raw: unknown): TemplateLayout | null {
     if (!raw || typeof raw !== 'string') return null;
@@ -37,6 +37,7 @@ export function parseSeriesTemplateRow(
 }
 
 export async function listSeriesTemplates(
+    db: SQLiteDB,
     seriesId: string
 ): Promise<SeriesTemplate[]> {
     const rows = await db
@@ -47,6 +48,7 @@ export async function listSeriesTemplates(
 }
 
 export async function getSeriesTemplateBySeriesAndType(
+    db: SQLiteDB,
     seriesId: string,
     baseType: CompendiumCategory
 ): Promise<SeriesTemplate | undefined> {
@@ -63,14 +65,18 @@ export async function getSeriesTemplateBySeriesAndType(
     return parseSeriesTemplateRow(result[0]);
 }
 
-export async function upsertSeriesTemplate(input: {
-    seriesId: string;
-    baseType: CompendiumCategory;
-    customFields: FieldDefinition[];
-    layout?: TemplateLayout | null;
-}): Promise<SeriesTemplate> {
+export async function upsertSeriesTemplate(
+    db: SQLiteDB,
+    input: {
+        seriesId: string;
+        baseType: CompendiumCategory;
+        customFields: FieldDefinition[];
+        layout?: TemplateLayout | null;
+    }
+): Promise<SeriesTemplate> {
     const now = new Date();
     const existing = await getSeriesTemplateBySeriesAndType(
+        db,
         input.seriesId,
         input.baseType
     );
@@ -117,6 +123,7 @@ export async function upsertSeriesTemplate(input: {
 }
 
 export async function deleteSeriesTemplate(
+    db: SQLiteDB,
     seriesId: string,
     baseType: CompendiumCategory
 ): Promise<void> {
@@ -133,6 +140,7 @@ export async function deleteSeriesTemplate(
 // Walks project -> series -> the single template for that category, which is
 // how every read resolves a project's series template.
 export async function getSeriesTemplateForProject(
+    db: SQLiteDB,
     projectId: string,
     baseType: CompendiumCategory
 ): Promise<SeriesTemplate | undefined> {

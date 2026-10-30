@@ -1,12 +1,12 @@
 import { eq, asc } from 'drizzle-orm';
 
-import { db } from './../index';
-import { storyScenes } from '../../schema';
+import { storyScenes } from '../../../shared/schema';
 import type {
     StoryScene,
     NewStoryScene,
 } from '@/shared/types/project/manuscript';
 import type { ChapterStatus } from '@/shared/types';
+import type { SQLiteDB } from '@/shared/types/db';
 
 function parseScene(row: typeof storyScenes.$inferSelect): StoryScene {
     return {
@@ -31,6 +31,7 @@ function parseScene(row: typeof storyScenes.$inferSelect): StoryScene {
 }
 
 export async function getScenesByProject(
+    db: SQLiteDB,
     projectId: string
 ): Promise<StoryScene[]> {
     const rows = await db
@@ -42,6 +43,7 @@ export async function getScenesByProject(
 }
 
 export async function getSceneById(
+    db: SQLiteDB,
     id: string
 ): Promise<StoryScene | undefined> {
     const result = await db
@@ -53,6 +55,7 @@ export async function getSceneById(
 }
 
 export async function getScenesBySequence(
+    db: SQLiteDB,
     sequenceId: string
 ): Promise<StoryScene[]> {
     const rows = await db
@@ -64,6 +67,7 @@ export async function getScenesBySequence(
 }
 
 export async function getScenesByChapter(
+    db: SQLiteDB,
     chapterId: string
 ): Promise<StoryScene[]> {
     const rows = await db
@@ -74,7 +78,10 @@ export async function getScenesByChapter(
     return rows.map(parseScene);
 }
 
-export async function createScene(scene: NewStoryScene): Promise<StoryScene> {
+export async function createScene(
+    db: SQLiteDB,
+    scene: NewStoryScene
+): Promise<StoryScene> {
     const now = new Date();
     await db
         .insert(storyScenes)
@@ -83,6 +90,7 @@ export async function createScene(scene: NewStoryScene): Promise<StoryScene> {
 }
 
 export async function updateScene(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewStoryScene>
 ): Promise<StoryScene | undefined> {
@@ -104,14 +112,15 @@ export async function updateScene(
     if (data.chapterId !== undefined) updateData.chapterId = data.chapterId;
     if (data.projectId !== undefined) updateData.projectId = data.projectId;
     await db.update(storyScenes).set(updateData).where(eq(storyScenes.id, id));
-    return getSceneById(id);
+    return getSceneById(db, id);
 }
 
-export async function deleteScene(id: string): Promise<void> {
+export async function deleteScene(db: SQLiteDB, id: string): Promise<void> {
     await db.delete(storyScenes).where(eq(storyScenes.id, id));
 }
 
 export async function reorderScenes(
+    db: SQLiteDB,
     updates: { id: string; orderIndex: number; displayOrder?: number }[]
 ): Promise<void> {
     await db.transaction(async (tx) => {
@@ -131,6 +140,7 @@ export async function reorderScenes(
 }
 
 export async function moveScene(
+    db: SQLiteDB,
     id: string,
     data: {
         sequenceId?: string | null;
@@ -148,5 +158,5 @@ export async function moveScene(
     if (data.displayOrder !== undefined)
         updateData.displayOrder = data.displayOrder;
     await db.update(storyScenes).set(updateData).where(eq(storyScenes.id, id));
-    return getSceneById(id);
+    return getSceneById(db, id);
 }

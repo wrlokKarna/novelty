@@ -1,11 +1,11 @@
 import { eq, asc } from 'drizzle-orm';
 
-import { db } from './../index';
-import { characters } from '../../schema';
+import { characters } from '../../../shared/schema';
 import type {
     Character,
     NewCharacter,
 } from '@/shared/types/project/compendium';
+import type { SQLiteDB } from '@/shared/types/db';
 
 function parseCharacter(row: Record<string, unknown>): Character {
     return {
@@ -17,6 +17,7 @@ function parseCharacter(row: Record<string, unknown>): Character {
 }
 
 export async function getCharactersByProject(
+    db: SQLiteDB,
     projectId: string
 ): Promise<Character[]> {
     const rows = await db
@@ -28,6 +29,7 @@ export async function getCharactersByProject(
 }
 
 export async function getCharacterById(
+    db: SQLiteDB,
     id: string
 ): Promise<Character | undefined> {
     const result = await db
@@ -39,6 +41,7 @@ export async function getCharacterById(
 }
 
 export async function createCharacter(
+    db: SQLiteDB,
     character: NewCharacter
 ): Promise<Character> {
     const now = new Date();
@@ -58,6 +61,7 @@ export async function createCharacter(
 }
 
 export async function updateCharacter(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewCharacter>
 ): Promise<Character | undefined> {
@@ -70,9 +74,9 @@ export async function updateCharacter(
             : null;
 
     await db.update(characters).set(updateData).where(eq(characters.id, id));
-    return getCharacterById(id);
+    return getCharacterById(db, id);
 }
 
-export async function deleteCharacter(id: string): Promise<void> {
+export async function deleteCharacter(db: SQLiteDB, id: string): Promise<void> {
     await db.delete(characters).where(eq(characters.id, id));
 }

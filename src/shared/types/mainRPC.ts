@@ -76,6 +76,7 @@ export type SelectorSchema = {
             'window-state-changed': boolean;
         };
         requests: {
+            'window:is-maximized': { params: void; response: boolean };
             'select-project': { params: string; response: void };
             'open-projects': { params: void; response: void };
             'open-project-folder': { params: string; response: void };
@@ -122,7 +123,7 @@ export type SelectorSchema = {
                 };
                 response: string | null;
             };
-            'window:is-maximized': { params: void; response: boolean };
+
             'db:get-projects': { params: void; response: Project[] };
             'db:get-project': { params: string; response: Project | undefined };
             'db:create-project': { params: NewProject; response: Project };
@@ -318,7 +319,18 @@ export type SelectorSchema = {
                 response: Series | undefined;
             };
             'db:delete-series': { params: string; response: void };
-            'db:get-series-projects': { params: string; response: Project[] };
+            'db:get-series-projects': {
+                params: string;
+                response: Omit<
+                    Project,
+                    | 'coverImagesArray'
+                    | 'primaryGenre'
+                    | 'primaryTheme'
+                    | 'genres'
+                    | 'tags'
+                    | 'themes'
+                >[];
+            };
             'db:list-series-templates': {
                 params: { seriesId: string };
                 response: SeriesTemplate[];

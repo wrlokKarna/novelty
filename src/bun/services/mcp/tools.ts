@@ -3,6 +3,7 @@ import { z } from 'zod';
 //import { eq } from 'drizzle-orm';
 //import { db } from '../../database/index.js';
 import { mcpServer } from './server.js';
+import { db } from '../../electrobun/db';
 import * as projectDB from '../../database/tables/projects.js';
 import * as templatesDB from '../../database/tables/templates.js';
 import * as characterDB from '../../database/tables/characters.js';
@@ -35,7 +36,7 @@ export default function registerAllTools() {
             console.log(
                 `[CRUD: Read] Fetching details for Project: ${projectId}`
             );
-            const project = await projectDB.getProjectById(projectId);
+            const project = await projectDB.getProjectById(db, projectId);
             console.log('[CRUD: Project]', project);
 
             // Example DB query logic:
@@ -401,15 +402,15 @@ async function getEntityByType(
     // If baseType is provided, route query to specific category tables/handlers
     switch (baseType) {
         case 'character':
-            return await characterDB.getCharacterById(entityId);
+            return await characterDB.getCharacterById(db, entityId);
         case 'location':
-            return await locationDB.getLocationById(entityId);
+            return await locationDB.getLocationById(db, entityId);
         case 'organization':
-            return await organizationDB.getOrganizationById(entityId);
+            return await organizationDB.getOrganizationById(db, entityId);
         case 'item':
-            return await itemDB.getItemById(entityId);
+            return await itemDB.getItemById(db, entityId);
         case 'lore':
-            return await loreDB.getLoreEntryById(entityId);
+            return await loreDB.getLoreEntryById(db, entityId);
         default:
             // Fallback if baseType is omitted: query unified entities table or search across categories
             //return await entityDB.getById(projectId, entityId);
@@ -424,15 +425,18 @@ async function getAllEntities(
     // If baseType is provided, route query to specific category tables/handlers
     switch (baseType) {
         case 'character':
-            return await characterDB.getCharactersByProject(projectId);
+            return await characterDB.getCharactersByProject(db, projectId);
         case 'location':
-            return await locationDB.getLocationsByProject(projectId);
+            return await locationDB.getLocationsByProject(db, projectId);
         case 'organization':
-            return await organizationDB.getOrganizationsByProject(projectId);
+            return await organizationDB.getOrganizationsByProject(
+                db,
+                projectId
+            );
         case 'item':
-            return await itemDB.getItemsByProject(projectId);
+            return await itemDB.getItemsByProject(db, projectId);
         case 'lore':
-            return await loreDB.getLoreEntriesByProject(projectId);
+            return await loreDB.getLoreEntriesByProject(db, projectId);
         default:
             // Fallback if baseType is omitted: query unified entities table or search across categories
             //return await entityDB.getById(projectId, entityId);
@@ -448,26 +452,31 @@ async function getTemplateByType(
     switch (baseType) {
         case 'character':
             return await templatesDB.getTemplateByProjectAndType(
+                db,
                 projectId,
                 'character'
             );
         case 'location':
             return await templatesDB.getTemplateByProjectAndType(
+                db,
                 projectId,
                 'location'
             );
         case 'organization':
             return await templatesDB.getTemplateByProjectAndType(
+                db,
                 projectId,
                 'organization'
             );
         case 'item':
             return await templatesDB.getTemplateByProjectAndType(
+                db,
                 projectId,
                 'item'
             );
         case 'lore':
             return await templatesDB.getTemplateByProjectAndType(
+                db,
                 projectId,
                 'lore'
             );

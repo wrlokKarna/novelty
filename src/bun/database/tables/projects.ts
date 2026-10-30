@@ -2,7 +2,6 @@ import { join } from 'path';
 import { mkdirSync, existsSync } from 'fs';
 import { eq, asc, desc, or } from 'drizzle-orm';
 
-import { db } from './../index';
 import {
     projects,
     projectGenres,
@@ -11,8 +10,8 @@ import {
     genres,
     tags,
     themes,
-} from '../../schema';
-import { getAllSettings, setSetting } from '../../settings';
+} from '../../../shared/schema';
+import { getAllSettings, setSetting } from './../../services/settings/settings';
 import type {
     NewProject,
     PacingType,
@@ -25,6 +24,7 @@ import type {
     WorkType,
 } from '@/shared/types';
 import type { SeriesArchitecture } from '@/shared/types/series';
+import type { SQLiteDB } from '@/shared/types/db';
 
 function safeParse(val: string | null) {
     if (!val || val === 'null') return [];
@@ -68,6 +68,7 @@ function parseProject(row: typeof projects.$inferSelect): Project {
 }
 
 async function resolveProjectJunctions(
+    db: SQLiteDB,
     row: typeof projects.$inferSelect,
     parsed: Project
 ) {
@@ -100,7 +101,7 @@ async function resolveProjectJunctions(
     parsed.themes = themeRows.map((t) => t.name);
 }
 
-export async function getAllProjects(): Promise<Project[]> {
+export async function getAllProjects(db: SQLiteDB): Promise<Project[]> {
     const rows = await db
         .select()
         .from(projects)
@@ -108,23 +109,29 @@ export async function getAllProjects(): Promise<Project[]> {
     const projectsWithMeta = await Promise.all(
         rows.map(async (row) => {
             const parsed = parseProject(row);
-            await resolveProjectJunctions(row, parsed);
+            await resolveProjectJunctions(db, row, parsed);
             return parsed;
         })
     );
     return projectsWithMeta;
 }
 
-export async function getProjectById(id: string): Promise<Project | undefined> {
+export async function getProjectById(
+    db: SQLiteDB,
+    id: string
+): Promise<Project | undefined> {
     const result = await db.select().from(projects).where(eq(projects.id, id));
     if (!result[0]) return undefined;
     const row = result[0];
     const parsed = parseProject(row);
-    await resolveProjectJunctions(row, parsed);
+    await resolveProjectJunctions(db, row, parsed);
     return parsed;
 }
 
-export async function createProject(project: NewProject): Promise<Project> {
+export async function createProject(
+    db: SQLiteDB,
+    project: NewProject
+): Promise<Project> {
     const settings = getAllSettings();
     const projectsDir = settings.projects.defaultProjectsDir;
 
@@ -175,6 +182,7 @@ export async function createProject(project: NewProject): Promise<Project> {
 }
 
 export async function updateProject(
+    db: SQLiteDB,
     id: string,
     data: Partial<NewProject> & {
         primaryGenre?: string | null;
@@ -249,9 +257,9 @@ export async function updateProject(
         }
     }
 
-    return getProjectById(id);
+    return getProjectById(db, id);
 }
 
-export async function deleteProject(id: string): Promise<void> {
+export async function deleteProject(db: SQLiteDB, id: string): Promise<void> {
     await db.delete(projects).where(eq(projects.id, id));
 }

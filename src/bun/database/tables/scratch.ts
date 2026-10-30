@@ -1,10 +1,11 @@
 import { eq } from 'drizzle-orm';
 
-import { db } from './../index';
-import { scratchNotes } from '../../schema';
+import { scratchNotes } from '../../../shared/schema';
 import type { ScratchNote } from '@/shared/types/project';
+import type { SQLiteDB } from '@/shared/types/db';
 
 export async function getScratchNote(
+    db: SQLiteDB,
     projectId: string
 ): Promise<ScratchNote | undefined> {
     const result = await db
@@ -15,6 +16,7 @@ export async function getScratchNote(
 }
 
 export async function saveScratchNote(
+    db: SQLiteDB,
     projectId: string,
     content: string
 ): Promise<ScratchNote> {
