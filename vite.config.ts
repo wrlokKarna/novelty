@@ -1,16 +1,18 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
-import tsconfigPaths from 'vite-tsconfig-paths';
-import { electrobunViteAliases } from './.hutch/devkit/api/config/electrobun-vite';
+
+import { electrobunViteAliases } from './.hutch/devkit/api/config/electrobun-vite.js';
 
 export default defineConfig({
     resolve: {
-        alias: electrobunViteAliases(resolve(__dirname, '.hutch/devkit')),
+        alias: electrobunViteAliases(
+            resolve(import.meta.dirname, '.hutch/devkit')
+        ),
+        tsconfigPaths: true,
     },
     plugins: [
         react(),
-        tsconfigPaths(),
         {
             name: 'fix-electrobun-paths',
             enforce: 'post',
@@ -27,9 +29,13 @@ export default defineConfig({
     build: {
         outDir: '../dist',
         emptyOutDir: true,
+        cssMinify: 'esbuild',
         rollupOptions: {
             input: {
-                mainview: resolve(__dirname, 'src/mainview/index.html'),
+                mainview: resolve(
+                    import.meta.dirname,
+                    'src/mainview/index.html'
+                ),
             },
             output: {
                 // Force the JS to be inside the view folder
@@ -50,7 +56,7 @@ export default defineConfig({
                 // CRITICAL: Disable code splitting
                 // This forces 'client-Xk-RIFYY.js' content INTO projectsview.js
                 manualChunks: undefined,
-                inlineDynamicImports: false,
+                codeSplitting: false,
 
                 // This helper ensures that shared dependencies don't
                 // create a separate 'chunks' folder
