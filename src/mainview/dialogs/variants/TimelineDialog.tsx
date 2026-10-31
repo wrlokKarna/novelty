@@ -14,7 +14,11 @@ import type {
     Organization,
 } from '../../../shared/types/project/compendium';
 import styles from './TimelineDialog.module.css';
-import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
+import {
+    IconChevronLeft,
+    IconChevronRight,
+    IconPlus,
+} from '@tabler/icons-react';
 import type { TimelineEvent } from '../../../shared/types/project/timeline';
 
 const EVENT_COLORS: Record<string, string> = {
@@ -336,10 +340,6 @@ export default function TimelineDialog({
         <>
             <Dialog open={open} onClose={onClose} title="Timeline" large={true}>
                 <>
-                    {/*Dev Flag */}
-                    <button onClick={() => SetOverhaulToggle(!overhaulToggle)}>
-                        Switch Layout
-                    </button>
                     {!overhaulToggle && (
                         <div
                             style={{
@@ -380,6 +380,15 @@ export default function TimelineDialog({
                                         </button>
                                     </>
                                 )}
+                                <button
+                                    className={styles.switchLayoutBtn}
+                                    style={{ marginLeft: 'auto' }}
+                                    onClick={() =>
+                                        SetOverhaulToggle(!overhaulToggle)
+                                    }
+                                >
+                                    Switch Layout
+                                </button>
                             </div>
                             <div
                                 ref={containerRef}
@@ -387,7 +396,7 @@ export default function TimelineDialog({
                             />
 
                             {selectedEvent && (
-                                <div className="eventDetail">
+                                <div className={styles.eventDetail}>
                                     <h3>{selectedEvent.title}</h3>
                                     <div
                                         style={{
@@ -482,7 +491,13 @@ export default function TimelineDialog({
                             </div>
                         </div>
                     )}
-                    {overhaulToggle && <NewTimeline />}
+                    {overhaulToggle && (
+                        <NewTimeline
+                            onSwitchLayout={() =>
+                                SetOverhaulToggle(!overhaulToggle)
+                            }
+                        />
+                    )}
                 </>
             </Dialog>
 
@@ -510,7 +525,7 @@ type timelineFilterBtn = {
     checked?: boolean;
 };
 
-function NewTimeline() {
+function NewTimeline({ onSwitchLayout }: { onSwitchLayout: () => void }) {
     const [timelineEvents, setTimeLineEvents] = useState<number[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<string>('');
     const [openTabsChecked, setOpenTabsChecked] = useState(false);
@@ -522,75 +537,62 @@ function NewTimeline() {
                 checked: false,
                 subCat: [
                     { key: 'acts', checked: false },
-                    {
-                        key: 'plot threads',
-                        checked: true,
-                    },
+                    { key: 'plot threads', checked: true },
                 ],
             },
             {
                 cat: 'compendium',
                 subCat: [
-                    {
-                        key: 'characters',
-                        checked: false,
-                    },
-                    {
-                        key: 'location',
-                        checked: false,
-                    },
-                    {
-                        key: 'organizations',
-                        checked: false,
-                    },
-                    {
-                        key: 'items',
-                        checked: false,
-                    },
-                    {
-                        key: 'lore',
-                        checked: false,
-                    },
+                    { key: 'characters', checked: false },
+                    { key: 'location', checked: false },
+                    { key: 'organizations', checked: false },
+                    { key: 'items', checked: false },
+                    { key: 'lore', checked: false },
                 ],
             },
         ]
     );
 
-    const [filterHovered, setFilterHovered] = useState('');
+    const [expandedCat, setExpandedCat] = useState<string>('compendium');
+    const [hoveredCat, setHoveredCat] = useState<string>('');
 
     const maxCol = 7;
     const maxRow = 3;
 
+    const toggleExpand = (cat: string) => {
+        setExpandedCat((prev) => (prev === cat ? '' : cat));
+    };
+
     return (
-        <div
-            style={{
-                width: '100%',
-                height: '100%',
-                minHeight: 'max-content',
-                backgroundColor: '#181818',
-                display: 'flex',
-                flexDirection: 'column',
-            }}
-        >
-            <div style={{ flex: '1' }}>
+        <div className={styles.timelineGridWrapper}>
+            <div className={styles.gridControlHeader}>
                 <button
+                    className={styles.addEventBtn}
                     onClick={() =>
                         setTimeLineEvents([
                             ...timelineEvents,
                             timelineEvents.length + 1,
                         ])
                     }
-                    style={{ alignSelf: 'flex-start', margin: '8px 12px' }}
                 >
-                    Add Event
+                    <IconPlus size={14} />
+                    <span>Add Event</span>
                 </button>
+                <button
+                    className={styles.switchLayoutBtn}
+                    onClick={onSwitchLayout}
+                >
+                    Switch Layout
+                </button>
+            </div>
+
+            <div className={styles.gridScrollCanvas}>
                 <div
                     className={`${styles.timelineGrid} ${selectedEvent ? styles.insertActive : ''}`}
                     style={{
                         display: 'grid',
-                        gridTemplateColumns: `repeat(${maxCol}, 120px)`,
-                        gridTemplateRows: `repeat(${maxRow}, 120px)`,
-                        overflow: 'auto',
+                        gridTemplateColumns: `repeat(${maxCol}, 130px)`,
+                        gridTemplateRows: `repeat(${maxRow}, 130px)`,
                     }}
                 >
                     {Array.from({ length: maxCol }, (_, i) => (
@@ -598,8 +600,9 @@ function NewTimeline() {
                             key={`col-${i}`}
                             style={{
                                 gridColumn: `${i + 1}`,
-                                gridRow: `1/ span 5`,
-                                borderRight: '1px solid #4a61726c',
+                                gridRow: `1 / span 5`,
+                                borderRight:
+                                    '1px solid rgba(255, 255, 255, 0.05)',
                                 display: 'flex',
                                 justifyContent: 'space-between',
                             }}
@@ -618,9 +621,10 @@ function NewTimeline() {
                         <div
                             key={`row-${i}`}
                             style={{
-                                gridColumn: `1/ span ${maxCol}`,
+                                gridColumn: `1 / span ${maxCol}`,
                                 gridRow: `${i + 1}`,
-                                borderBottom: '1px solid #724a4a6c',
+                                borderBottom:
+                                    '1px solid rgba(255, 255, 255, 0.05)',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 justifyContent: 'space-between',
@@ -636,223 +640,157 @@ function NewTimeline() {
                             />
                         </div>
                     ))}
+
                     <div
-                        className="e1"
-                        style={{
-                            gridColumn: '1',
-                            gridRow: '2',
-                            backgroundColor: '#1F1F1F',
-                            border: '1px solid #727272',
-                            borderRadius: '12px',
-                            margin: '12px',
-                            padding: '12px',
-                        }}
+                        className={styles.eventCard}
+                        style={{ gridColumn: '1', gridRow: '2' }}
                     >
-                        Event 1
+                        <span>Event 1</span>
                     </div>
                     <div
-                        className="e2"
-                        style={{
-                            gridColumn: '2',
-                            gridRow: '2',
-                            backgroundColor: '#1F1F1F',
-                            border: '1px solid #727272',
-                            borderRadius: '12px',
-                            margin: '12px',
-                            padding: '12px',
-                        }}
+                        className={styles.eventCard}
+                        style={{ gridColumn: '2', gridRow: '2' }}
                     >
-                        Event 2
+                        <span>Event 2</span>
                     </div>
                     <div
-                        className="e3"
-                        style={{
-                            gridColumn: '3',
-                            gridRow: '1',
-                            backgroundColor: '#1F1F1F',
-                            border: '1px solid #727272',
-                            borderRadius: '12px',
-                            margin: '12px',
-                            padding: '12px',
-                        }}
+                        className={styles.eventCard}
+                        style={{ gridColumn: '3', gridRow: '1' }}
                     >
-                        Event 3
+                        <span>Event 3</span>
                     </div>
                     <div
-                        className="e4"
-                        style={{
-                            gridColumn: '3',
-                            gridRow: '3',
-                            backgroundColor: '#1F1F1F',
-                            border: '1px solid #727272',
-                            borderRadius: '12px',
-                            margin: '12px',
-                            padding: '12px',
-                        }}
+                        className={styles.eventCard}
+                        style={{ gridColumn: '3', gridRow: '3' }}
                     >
-                        Event 4
+                        <span>Event 4</span>
                     </div>
                     <div
-                        className="e5"
-                        style={{
-                            gridColumn: '4',
-                            gridRow: '2',
-                            backgroundColor: '#1F1F1F',
-                            border: '1px solid #727272',
-                            borderRadius: '12px',
-                            margin: '12px',
-                            padding: '12px',
-                        }}
+                        className={styles.eventCard}
+                        style={{ gridColumn: '4', gridRow: '2' }}
                     >
-                        Event 5
+                        <span>Event 5</span>
                     </div>
                     <div
-                        className="e5"
-                        style={{
-                            gridColumn: '7',
-                            gridRow: '2',
-                            backgroundColor: '#1F1F1F',
-                            border: '1px solid #727272',
-                            borderRadius: '12px',
-                            margin: '12px',
-                            padding: '12px',
-                        }}
+                        className={styles.eventCard}
+                        style={{ gridColumn: '7', gridRow: '2' }}
                     >
-                        Event 5
+                        <span>Event 5</span>
                     </div>
                 </div>
+            </div>
 
-                <div className="unassisngedEvents">
+            {timelineEvents.length > 0 && (
+                <div className={styles.unassignedEventsBar}>
                     {timelineEvents.map((e) => (
                         <button
                             key={e}
-                            style={{
-                                width: '120px',
-                                backgroundColor: '#1F1F1F',
-                                border: '1px solid #727272',
-                                borderRadius: '12px',
-                                margin: '12px',
-                                padding: '12px',
-                            }}
+                            className={`${styles.unassignedEventChip} ${
+                                selectedEvent === String(e)
+                                    ? styles.unassignedEventActive
+                                    : ''
+                            }`}
                             onClick={() =>
                                 setSelectedEvent(
                                     selectedEvent === String(e) ? '' : String(e)
                                 )
                             }
                         >
-                            {selectedEvent === String(e) ? 'cancel' : e}
+                            {selectedEvent === String(e)
+                                ? 'Cancel Selection'
+                                : `Event #${e}`}
                         </button>
                     ))}
                 </div>
-            </div>
+            )}
 
-            {/* Bottom Filter Bar */}
+            {/* Bottom Filter Dock */}
             <div className={styles.bottomFilterBar}>
                 <div className={styles.primaryFilterGroup}>
-                    {/* Open Tabs as Checkbox */}
-                    <label
+                    {/* Open Tabs */}
+                    <div
                         className={`${styles.filterCheckboxItem} ${
                             openTabsChecked ? styles.highlightedPill : ''
                         }`}
+                        onClick={() => setOpenTabsChecked(!openTabsChecked)}
                     >
-                        <input
-                            type="checkbox"
-                            checked={openTabsChecked}
-                            onChange={() =>
-                                setOpenTabsChecked(!openTabsChecked)
-                            }
-                        />
-                        Open Tabs
-                    </label>
+                        <span
+                            className={`${styles.nodeIndicator} ${
+                                openTabsChecked
+                                    ? styles.nodeIndicatorActive
+                                    : ''
+                            }`}
+                        >
+                            {openTabsChecked && (
+                                <span
+                                    className={styles.nodeIndicatorActiveCheck}
+                                />
+                            )}
+                        </span>
+                        <span>Open Tabs</span>
+                    </div>
 
-                    {/* Filter categories */}
+                    {/* Filter categories: Manuscript & Compendium */}
                     {timelineFilters.map((filt) => {
-                        const checkedSubCategories =
-                            filt.subCat?.filter((sub) => sub.checked) ?? [];
-
-                        const uncheckedSubCategories =
-                            filt.subCat?.filter((sub) => !sub.checked) ?? [];
-
-                        const hasCheckedSubs = checkedSubCategories.length > 0;
+                        const hasCheckedSubs =
+                            (filt.subCat?.filter((sub) => sub.checked) ?? [])
+                                .length > 0;
+                        const isExpanded =
+                            expandedCat === filt.cat || hoveredCat === filt.cat;
 
                         return (
                             <div
                                 key={filt.cat}
-                                className={`${
-                                    filterHovered === filt.cat
-                                        ? styles.filterActive
-                                        : ''
-                                }`}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    flexShrink: 0,
-                                }}
-                                onMouseEnter={() => setFilterHovered(filt.cat)}
-                                onMouseLeave={() => setFilterHovered('')}
+                                className={styles.categoryWrapper}
+                                onMouseEnter={() => setHoveredCat(filt.cat)}
+                                onMouseLeave={() => setHoveredCat('')}
                             >
-                                <div>
-                                    <label
-                                        className={`${styles.filterCheckboxItem} ${
-                                            hasCheckedSubs
-                                                ? styles.highlightedPill
-                                                : ''
-                                        }`}
-                                    >
-                                        {!filt.subCat && (
-                                            <input
-                                                type="checkbox"
-                                                checked={filt.checked ?? false}
-                                                onChange={() =>
-                                                    setTimelineFilters((prev) =>
-                                                        prev.map((item) =>
-                                                            item.cat ===
-                                                            filt.cat
-                                                                ? {
-                                                                      ...item,
-                                                                      checked:
-                                                                          !item.checked,
-                                                                  }
-                                                                : item
-                                                        )
-                                                    )
-                                                }
+                                {/* Main Pill: Manuscript / Compendium */}
+                                <div
+                                    className={`${styles.filterCheckboxItem} ${
+                                        hasCheckedSubs
+                                            ? styles.highlightedPill
+                                            : ''
+                                    }`}
+                                    onClick={() => toggleExpand(filt.cat)}
+                                >
+                                    <span>{filt.cat}</span>
+
+                                    {filt.subCat &&
+                                        (isExpanded ? (
+                                            <IconChevronLeft
+                                                size={15}
+                                                className={styles.chevronIcon}
                                             />
-                                        )}
-
-                                        {filt.cat}
-
-                                        {filt.subCat &&
-                                            checkedSubCategories.length <= 0 &&
-                                            (filterHovered === filt.cat ? (
-                                                <IconChevronLeft size={18} />
-                                            ) : (
-                                                <IconChevronRight size={18} />
-                                            ))}
-                                    </label>
+                                        ) : (
+                                            <IconChevronRight
+                                                size={15}
+                                                className={styles.chevronIcon}
+                                            />
+                                        ))}
                                 </div>
 
-                                {/* Checked options on the left */}
+                                {/* Options placed horizontally BESIDE with horizontal scroll */}
                                 {filt.subCat && (
                                     <div
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                        }}
+                                        className={
+                                            styles.horizontalOptionsTrack
+                                        }
                                     >
-                                        {checkedSubCategories.map((sub) => (
-                                            <label
-                                                key={sub.key}
-                                                className={
-                                                    styles.subCheckboxItem
-                                                }
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={sub.checked}
-                                                    onChange={() =>
+                                        {filt.subCat
+                                            .filter(
+                                                (sub) =>
+                                                    sub.checked || isExpanded
+                                            )
+                                            .map((sub) => (
+                                                <div
+                                                    key={sub.key}
+                                                    className={`${styles.subCheckboxItem} ${
+                                                        sub.checked
+                                                            ? styles.subActive
+                                                            : ''
+                                                    }`}
+                                                    onClick={() =>
                                                         setTimelineFilters(
                                                             (prev) =>
                                                                 prev.map(
@@ -879,80 +817,27 @@ function NewTimeline() {
                                                                 )
                                                         )
                                                     }
-                                                />
-                                                {sub.key}
-                                            </label>
-                                        ))}
-
-                                        {checkedSubCategories.length > 0 &&
-                                            checkedSubCategories.length !==
-                                                filt.subCat.length &&
-                                            (filterHovered === filt.cat ? (
-                                                <IconChevronLeft size={18} />
-                                            ) : (
-                                                <IconChevronRight size={18} />
+                                                >
+                                                    <span
+                                                        className={`${styles.nodeIndicator} ${
+                                                            sub.checked
+                                                                ? styles.nodeIndicatorActive
+                                                                : ''
+                                                        }`}
+                                                    >
+                                                        {sub.checked && (
+                                                            <span
+                                                                className={
+                                                                    styles.nodeIndicatorActiveCheck
+                                                                }
+                                                            />
+                                                        )}
+                                                    </span>
+                                                    <span>{sub.key}</span>
+                                                </div>
                                             ))}
                                     </div>
                                 )}
-
-                                {/* Unchecked options revealed on hover */}
-                                {filt.subCat &&
-                                    uncheckedSubCategories.length > 0 &&
-                                    filterHovered === filt.cat && (
-                                        <div
-                                            className={
-                                                styles.subCategoryContainer
-                                            }
-                                        >
-                                            {uncheckedSubCategories.map(
-                                                (sub) => (
-                                                    <label
-                                                        key={sub.key}
-                                                        className={
-                                                            styles.subCheckboxItem
-                                                        }
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={
-                                                                sub.checked
-                                                            }
-                                                            onChange={() =>
-                                                                setTimelineFilters(
-                                                                    (prev) =>
-                                                                        prev.map(
-                                                                            (
-                                                                                item
-                                                                            ) =>
-                                                                                item.cat ===
-                                                                                filt.cat
-                                                                                    ? {
-                                                                                          ...item,
-                                                                                          subCat: item.subCat?.map(
-                                                                                              (
-                                                                                                  sc
-                                                                                              ) =>
-                                                                                                  sc.key ===
-                                                                                                  sub.key
-                                                                                                      ? {
-                                                                                                            ...sc,
-                                                                                                            checked:
-                                                                                                                !sc.checked,
-                                                                                                        }
-                                                                                                      : sc
-                                                                                          ),
-                                                                                      }
-                                                                                    : item
-                                                                        )
-                                                                )
-                                                            }
-                                                        />
-                                                        {sub.key}
-                                                    </label>
-                                                )
-                                            )}
-                                        </div>
-                                    )}
                             </div>
                         );
                     })}

@@ -8,6 +8,9 @@
     height: 100%;
     display: flex;
     flex-direction: column;
+    background-color: #111215;
+    border: 1px solid #23262f;
+    border-radius: 10px;
 }
 
 .timelineDialog :global(.body) {
@@ -18,56 +21,64 @@
     overflow: hidden;
 }
 
+/* --- Top Header & Controls --- */
 .timelineToolbar {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    border-bottom: 1px solid #333;
-    background: #1e1e1e;
+    gap: 10px;
+    padding: 10px 20px;
+    border-bottom: 1px solid #1f222b;
+    background: #14161b;
     flex-shrink: 0;
 }
 
 .timelineToolbar h3 {
     margin: 0;
-    font-size: 14px;
-    color: #ccc;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #e2e8f0;
+    letter-spacing: -0.01em;
     flex: 1;
 }
 
 .timelineToolbar button {
-    background: #2a2a2a;
-    border: 1px solid #444;
-    color: #ccc;
-    padding: 4px 12px;
-    border-radius: 4px;
+    background: #1e2129;
+    border: 1px solid #2d313c;
+    color: #cbd5e1;
+    padding: 5px 13px;
+    border-radius: 6px;
     cursor: pointer;
     font-size: 12px;
+    font-weight: 500;
+    transition: all 0.15s ease;
 }
 
 .timelineToolbar button:hover {
-    background: #333;
-    color: #fff;
+    background: #272a35;
+    border-color: #3f4554;
+    color: #ffffff;
 }
 
 .timelineToolbar button.primaryBtn {
-    background: #4a7c59;
-    border-color: #5a9c69;
-    color: #fff;
+    background: #2563eb;
+    border-color: #3b82f6;
+    color: #ffffff;
 }
 
 .timelineToolbar button.primaryBtn:hover {
-    background: #5a9c69;
+    background: #1d4ed8;
+    border-color: #60a5fa;
 }
 
 .timelineToolbar button.dangerBtn {
-    background: #7c4a4a;
-    border-color: #9c5a5a;
-    color: #fff;
+    background: #7f1d1d;
+    border-color: #991b1b;
+    color: #fecaca;
 }
 
 .timelineToolbar button.dangerBtn:hover {
-    background: #9c5a5a;
+    background: #991b1b;
+    border-color: #b91c1c;
 }
 
 .timelineContainer {
@@ -78,232 +89,386 @@
 
 .timelineLegend {
     display: flex;
-    gap: 12px;
-    padding: 6px 16px;
-    border-top: 1px solid #333;
-    background: #1e1e1e;
+    gap: 14px;
+    padding: 8px 20px;
+    border-top: 1px solid #1f222b;
+    background: #131418;
     flex-shrink: 0;
-    font-size: 11px;
-    color: #888;
+    font-size: 11.5px;
+    color: #717786;
 }
 
 .legendItem {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
 }
 
 .legendDot {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     display: inline-block;
 }
 
 .eventDetail {
-    padding: 16px;
+    padding: 16px 20px;
+    background-color: #14161b;
+    border-top: 1px solid #1f222b;
 }
 
 .eventDetail h3 {
     margin: 0 0 8px 0;
-    font-size: 16px;
+    font-size: 15px;
     color: #fff;
 }
 
 .eventDetail p {
     margin: 4px 0;
     font-size: 13px;
-    color: #aaa;
+    color: #94a3b8;
 }
 
 .eventDetail .label {
-    color: #666;
+    color: #64748b;
     font-size: 11px;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .autoGenNotice {
     font-size: 11px;
-    color: #666;
+    color: #64748b;
     font-style: italic;
 }
 
+/* --- Timeline Grid Work area --- */
+.timelineGridWrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    background-color: #121316;
+}
+
+.gridControlHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid #1a1c22;
+}
+
+.addEventBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #1a1c23;
+    border: 1px solid #2c303c;
+    color: #f1f5f9;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.addEventBtn:hover {
+    background: #232732;
+    border-color: #3b4050;
+    color: #ffffff;
+}
+
+.switchLayoutBtn {
+    background: transparent;
+    border: 1px solid #2b2e38;
+    color: #94a3b8;
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.switchLayoutBtn:hover {
+    color: #f1f5f9;
+    border-color: #434756;
+}
+
+.gridScrollCanvas {
+    flex: 1;
+    overflow: auto;
+    padding: 20px;
+}
+
 .timelineGrid {
-    &.insertActive {
-        .insertLine {
-            display: block;
-        }
-    }
+    position: relative;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.timelineGrid.insertActive .insertLine {
+    display: block;
 }
 
 .insertLine {
     display: none;
-    background-color: var(--accent-subtle, rgba(240, 160, 80, 0.08));
-    border-radius: 8px;
+    background-color: rgba(245, 158, 11, 0.15);
+    border-radius: 4px;
     cursor: pointer;
+    transition: background 0.15s ease;
 }
 
 .insertLine:hover {
-    background-color: var(--accent, #f0883e);
+    background-color: #f59e0b;
 }
 
 .insertCol {
-    width: 4px;
+    width: 3px;
     height: 100%;
 }
 
 .insertRow {
     width: 100%;
+    height: 3px;
+}
+
+/* Event Node Cards */
+.eventCard {
+    background: #17181d;
+    border: 1px solid #282a32;
+    border-radius: 8px;
+    margin: 10px;
+    padding: 12px 14px;
+    color: #e2e8f0;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+    user-select: none;
+    transition:
+        transform 0.15s ease,
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.eventCard:hover {
+    transform: translateY(-2px);
+    border-color: #3f4454;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+
+.unassignedEventsBar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    overflow-x: auto;
+    border-top: 1px solid #1a1c22;
+    background: #131418;
+}
+
+.unassignedEventChip {
+    background: #1a1c23;
+    border: 1px solid #2a2e3a;
+    color: #cbd5e1;
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.unassignedEventChip:hover {
+    border-color: #424859;
+    color: #ffffff;
+}
+
+.unassignedEventActive {
+    background: rgba(245, 158, 11, 0.15);
+    border-color: #f59e0b;
+    color: #fbbf24;
+}
+
+/* --- Bottom Filter Dock (Strictly One Row) --- */
+.bottomFilterBar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 12px 20px;
+    background-color: #121316;
+    border-top: 1px solid #1f222a;
+    margin-top: auto;
+    width: 100%;
+    box-sizing: border-box;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: #2b2e38 transparent;
+}
+
+.bottomFilterBar::-webkit-scrollbar {
     height: 4px;
 }
 
-/* --- Bottom Filter Bar with Vertical Scroll --- */
-
-.bottomFilterBar {
-    display: flex;
-    flex-direction: column;
-    padding: 12px 18px;
-    background-color: #121212;
-    border-top: 1px solid #282828;
-    margin-top: auto;
-    max-height: 140px;
-    overflow-y: auto;
-    overflow-x: auto;
-    box-sizing: border-box;
-}
-
-/* Custom scrollbar styling */
-.bottomFilterBar::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-
 .bottomFilterBar::-webkit-scrollbar-thumb {
-    background: #383838;
+    background: #2b2e38;
     border-radius: 4px;
-}
-
-.bottomFilterBar::-webkit-scrollbar-thumb:hover {
-    background: #4a4a4a;
 }
 
 .primaryFilterGroup {
     display: flex;
+    flex-direction: row;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 12px 20px;
+    flex-wrap: nowrap;
+    gap: 10px;
+    width: max-content;
+    flex-shrink: 0;
 }
 
-/* Main filter pill */
-.filterCheckboxItem {
-    display: flex;
+.categoryWrapper {
+    display: inline-flex;
+    flex-direction: row;
     align-items: center;
     gap: 8px;
-    font-size: 14px;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+}
+
+/* Main Pill Trigger */
+.filterCheckboxItem {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
     font-weight: 500;
-    color: #b5b5b5;
+    color: #a1a7b5;
     cursor: pointer;
     user-select: none;
     text-transform: capitalize;
-    padding: 6px 14px;
-    border-radius: 50px;
-    background: #242424;
-    border: 1px solid #353535;
-    transition: all 0.15s ease-in-out;
+    padding: 6px 15px;
+    border-radius: 20px;
+    background: #18191f;
+    border: 1px solid #272a33;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: all 0.18s ease;
 }
 
 .filterCheckboxItem:hover {
     color: #ffffff;
-    background: #2b2b2b;
+    background: #20222a;
+    border-color: #393e4c;
 }
 
-/* Subcategory options */
-.subCheckboxItem {
-    display: flex;
+/* Active Highlight Accent (Amber Theme) */
+.highlightedPill {
+    color: #f59e0b !important;
+    background: rgba(245, 158, 11, 0.1) !important;
+    border: 1px solid rgba(245, 158, 11, 0.4) !important;
+}
+
+.chevronIcon {
+    opacity: 0.6;
+    transition:
+        transform 0.2s ease,
+        opacity 0.15s ease;
+}
+
+.filterCheckboxItem:hover .chevronIcon {
+    opacity: 1;
+}
+
+/* Options Container Beside Parent Button */
+.horizontalOptionsTrack {
+    display: inline-flex;
+    flex-direction: row;
     align-items: center;
     gap: 6px;
-    font-size: 13px;
-    color: #a0a0a0;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    max-width: 520px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 2px 2px;
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: #2b2e38 transparent;
+}
+
+.horizontalOptionsTrack::-webkit-scrollbar {
+    height: 3px;
+}
+
+.horizontalOptionsTrack::-webkit-scrollbar-thumb {
+    background: #2b2e38;
+    border-radius: 3px;
+}
+
+/* Sub-Option Pill */
+.subCheckboxItem {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #8b92a2;
     cursor: pointer;
     user-select: none;
-    padding: 6px 12px;
+    padding: 5px 12px;
     text-transform: capitalize;
-    border: 1px solid #353535;
-    border-radius: 24px;
-    background: #242424;
+    border: 1px solid #232630;
+    border-radius: 18px;
+    background: #18191f;
+    white-space: nowrap;
+    flex-shrink: 0;
     box-sizing: border-box;
-    transition: all 0.15s ease-in-out;
+    transition: all 0.15s ease;
 }
 
 .subCheckboxItem:hover {
-    color: #ffffff;
-    background: #303030;
+    color: #f1f5f9;
+    background: #21232c;
+    border-color: #343846;
 }
 
-/* Circular Checkbox Default */
-.filterCheckboxItem input[type='checkbox'],
-.subCheckboxItem input[type='checkbox'] {
-    appearance: none;
-    -webkit-appearance: none;
-    position: relative;
-    display: inline-grid;
-    place-content: center;
-    flex: 0 0 18px;
-    width: 18px;
-    height: 18px;
-    margin: 0;
-    padding: 0;
-    border: 2px solid #686868;
+/* Sub-Option Checked State */
+.subCheckboxItem.subActive {
+    color: #93c5fd;
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.35);
+}
+
+/* Radio / Check Node Indicator */
+.nodeIndicator {
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
-    background: transparent;
-    cursor: pointer;
-    box-sizing: border-box;
-}
-
-/* Checked Checkbox Circle */
-.filterCheckboxItem input[type='checkbox']:checked,
-.subCheckboxItem input[type='checkbox']:checked {
-    border: 2px solid #1680f8;
-    background: #1680f8;
-}
-
-/* White check icon inside checked box */
-.filterCheckboxItem input[type='checkbox']:checked::after,
-.subCheckboxItem input[type='checkbox']:checked::after {
-    content: '';
-    width: 4px;
-    height: 8px;
-    border: solid white;
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg) translate(-1px, -1px);
-}
-
-/* Subtle Orange Active Style matching image */
-.highlightedPill {
-    color: #e89345 !important;
-    background: #1f1b17 !important;
-    border: 1.5px solid rgba(232, 147, 69, 0.45) !important;
-}
-
-.subCheckboxItem:has(input[type='checkbox']:checked) {
-    color: #f0f0f0;
-    background: #292929;
-    border: 1px solid #454545;
-}
-
-/* Subcategory Container */
-.subCategoryContainer {
+    border: 1.5px solid #4a5162;
     display: flex;
     align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    box-sizing: border-box;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
 }
 
-.filterActive .subCategoryContainer {
-    display: flex;
-    width: fit-content;
-    padding: 2px 6px;
-    border-radius: 12px;
+.nodeIndicatorActive {
+    border-color: #3b82f6;
+    background: #3b82f6;
+}
+
+.nodeIndicatorActiveCheck {
+    width: 3.5px;
+    height: 6.5px;
+    border: solid white;
+    border-width: 0 1.5px 1.5px 0;
+    transform: rotate(45deg) translate(-0.5px, -0.5px);
 }
