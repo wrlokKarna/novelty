@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { chatSeqType } from './AiChatDialog.common';
+import type { chatSeqType } from './AiChatDialog.common';
 import styles from './AiChatDialog.tarun.module.css';
 
 function WordByWordText({ text }: { text: string }) {

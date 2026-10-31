@@ -1,4 +1,5 @@
-import { chatSeqType, MOCK_CHAT_DATA } from './AiChatDialog.common';
+import type { chatSeqType} from './AiChatDialog.common';
+import { MOCK_CHAT_DATA } from './AiChatDialog.common';
 import styles from './AiChatDialog.chakri.module.css';
 import { useEffect, useState, useRef } from 'react';
 
