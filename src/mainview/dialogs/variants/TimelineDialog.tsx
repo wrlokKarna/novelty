@@ -705,7 +705,15 @@ function NewTimeline({ onSwitchLayout }: { onSwitchLayout: () => void }) {
             )}
 
             {/* Bottom Filter Dock */}
-            <div className={styles.bottomFilterBar}>
+            <div
+                className={styles.bottomFilterBar}
+                onWheel={(e) => {
+                    if (e.deltaY !== 0) {
+                        e.preventDefault();
+                        e.currentTarget.scrollLeft += e.deltaY;
+                    }
+                }}
+            >
                 <div className={styles.primaryFilterGroup}>
                     {/* Open Tabs */}
                     <div

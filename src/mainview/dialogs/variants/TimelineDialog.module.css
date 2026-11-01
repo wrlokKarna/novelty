@@ -313,6 +313,7 @@
     overflow-y: hidden;
     scrollbar-width: thin;
     scrollbar-color: #2b2e38 transparent;
+    scrollbar-gutter: stable both-edges;
 }
 
 .bottomFilterBar::-webkit-scrollbar {
