@@ -537,7 +537,8 @@ function NewTimeline({ onSwitchLayout }: { onSwitchLayout: () => void }) {
                 checked: false,
                 subCat: [
                     { key: 'acts', checked: false },
-                    { key: 'plot threads', checked: true },
+                    { key: 'plot threads', checked: false },
+                    { key: 'Story Beats', checked: false },
                 ],
             },
             {
@@ -552,8 +553,7 @@ function NewTimeline({ onSwitchLayout }: { onSwitchLayout: () => void }) {
             },
         ]
     );
-
-    const [expandedCat, setExpandedCat] = useState<string>('compendium');
+    const [expandedCat, setExpandedCat] = useState<string>('');
     const [hoveredCat, setHoveredCat] = useState<string>('');
 
     const maxCol = 7;
@@ -752,7 +752,8 @@ function NewTimeline({ onSwitchLayout }: { onSwitchLayout: () => void }) {
                                             ? styles.highlightedPill
                                             : ''
                                     }`}
-                                    onClick={() => toggleExpand(filt.cat)}
+                                    onMouseEnter={() => toggleExpand(filt.cat)}
+                                    onMouseLeave={() => toggleExpand('')}
                                 >
                                     <span>{filt.cat}</span>
 
