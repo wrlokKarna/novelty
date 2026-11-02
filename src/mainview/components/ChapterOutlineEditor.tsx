@@ -4,7 +4,11 @@ import { IconPlus, IconTrash, IconArrowRight } from '@tabler/icons-react';
 import { useCollapseState } from '../hooks/useCollapseState';
 import ChapterStructureEditor from './ChapterStructureEditor';
 import type { StructureItem } from './ChapterStructureEditor';
-import type { StoryAct, ChapterStatus, StorySequence } from '../../shared/types';
+import type {
+    StoryAct,
+    ChapterStatus,
+    StorySequence,
+} from '../../shared/types';
 import type { Chapter } from '../../shared/types/project';
 import type { Character } from '../../shared/types/project/compendium';
 import type {
@@ -137,6 +141,11 @@ export default function ChapterOutlineEditor({
             </div>
 
             <div className="outline-meta-grid">
+                <div className="outline-chaptername">
+                    <label>Chapter Name</label>
+                    <span>{chapter.title}</span>
+                </div>
+
                 <div className="outline-field">
                     <label>Point of View</label>
                     <select

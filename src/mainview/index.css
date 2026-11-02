@@ -4129,17 +4129,24 @@ select {
     gap: 12px;
 }
 
-.outline-field {
+.outline-field,
+.outline-chaptername {
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
-.outline-field label {
+.outline-field label,
+.outline-chaptername label {
     font-size: 14px;
     color: #6b7280;
     text-transform: uppercase;
     font-weight: 600;
+}
+
+.outline-chaptername span {
+    font-size: 16px;
+    font-weight: 500;
 }
 
 .outline-field select,
