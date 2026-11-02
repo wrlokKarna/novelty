@@ -531,16 +531,38 @@ type timelineFilterBtn = {
     checked: boolean;
 };
 
-function NewTimeline({
+type PlacedEvent = {
+    id: string | number;
+    col: number;
+    row: number;
+    title: string;
+};
+
+export function NewTimeline({
     onSwitchLayout,
     tabs,
 }: {
     onSwitchLayout: () => void;
     tabs: FileTab[];
 }) {
+    // Unassigned events waiting in the bottom tray
     const [timelineEvents, setTimeLineEvents] = useState<number[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<string>('');
     const [openTabsChecked, setOpenTabsChecked] = useState(false);
+
+    // Dynamic grid dimensions
+    const [maxCol, setMaxCol] = useState<number>(7);
+    const [maxRow, setMaxRow] = useState<number>(3);
+
+    // Grid placed cards matching your exact positions
+    const [placedEvents, setPlacedEvents] = useState<PlacedEvent[]>([
+        { id: 'ev-1', col: 1, row: 2, title: 'Event 1' },
+        { id: 'ev-2', col: 2, row: 2, title: 'Event 2' },
+        { id: 'ev-3', col: 3, row: 1, title: 'Event 3' },
+        { id: 'ev-4', col: 3, row: 3, title: 'Event 4' },
+        { id: 'ev-5', col: 4, row: 2, title: 'Event 5' },
+        { id: 'ev-6', col: 7, row: 2, title: 'Event 6' },
+    ]);
 
     const [timelineFilters, setTimelineFilters] = useState<timelineFilterBtn[]>(
         [
@@ -574,8 +596,8 @@ function NewTimeline({
     const [hoveredCat, setHoveredCat] = useState<string>('');
     const [hoveredChip, setHoveredChip] = useState<string>('');
 
-    const maxCol = 7;
-    const maxRow = 3;
+    // const maxCol = 7;
+    // const maxRow = 3;
 
     const toggleExpand = (cat: string) => {
         setExpandedCat((prev) => (prev === cat ? '' : cat));
@@ -628,17 +650,110 @@ function NewTimeline({
         }
     };
 
+    // Helper: remove the placed number from the unassigned bottom bar
+    const consumeSelectedEvent = (replacedCardTitle?: string) => {
+        const placedNum = Number(selectedEvent);
+        setTimeLineEvents((prev) => {
+            const next = prev.filter((e) => e !== placedNum);
+            // If replacing an existing card, send the replaced event back to the tray
+            if (replacedCardTitle) {
+                const replacedNum = parseInt(
+                    replacedCardTitle.replace(/\D/g, ''),
+                    10
+                );
+                if (!isNaN(replacedNum) && !next.includes(replacedNum)) {
+                    next.push(replacedNum);
+                }
+            }
+            return next;
+        });
+        setSelectedEvent('');
+    };
+
+    // 1. ADD TO EMPTY CELL OR REPLACE EXISTING CARD
+    const handlePlaceOrReplace = (col: number, row: number) => {
+        if (!selectedEvent) return;
+
+        const existingEvent = placedEvents.find(
+            (ev) => ev.col === col && ev.row === row
+        );
+
+        // Put the new event into (col, row), replacing existing if present
+        setPlacedEvents((prev) => [
+            ...prev.filter((ev) => !(ev.col === col && ev.row === row)),
+            {
+                id: `placed-${Date.now()}`,
+                col,
+                row,
+                title: `Event #${selectedEvent}`,
+            },
+        ]);
+
+        consumeSelectedEvent(existingEvent?.title);
+    };
+
+    // 2. INSERT NEW COLUMN BETWEEN TWO COLUMNS (e.g. between 1 and 2 => insertAtCol = 2)
+    const handleInsertColumn = (insertAtCol: number) => {
+        if (!selectedEvent) return;
+
+        // Shift everything rightward by 1
+        setPlacedEvents((prev) => [
+            ...prev.map((ev) =>
+                ev.col >= insertAtCol ? { ...ev, col: ev.col + 1 } : ev
+            ),
+            {
+                id: `placed-${Date.now()}`,
+                col: insertAtCol,
+                row: 2, // Default middle row
+                title: `Event #${selectedEvent}`,
+            },
+        ]);
+
+        setMaxCol((prev) => prev + 1);
+        consumeSelectedEvent();
+    };
+
+    // 3. INSERT NEW ROW BETWEEN TWO ROWS (e.g. between 1 and 2 => insertAtRow = 2)
+    const handleInsertRow = (insertAtRow: number) => {
+        if (!selectedEvent) return;
+
+        // Shift everything downward by 1
+        setPlacedEvents((prev) => [
+            ...prev.map((ev) =>
+                ev.row >= insertAtRow ? { ...ev, row: ev.row + 1 } : ev
+            ),
+            {
+                id: `placed-${Date.now()}`,
+                col: 2, // Default column
+                row: insertAtRow,
+                title: `Event #${selectedEvent}`,
+            },
+        ]);
+
+        setMaxRow((prev) => prev + 1);
+        consumeSelectedEvent();
+    };
+
     return (
         <div className={styles.timelineGridWrapper}>
             <div className={styles.gridControlHeader}>
                 <button
                     className={styles.addEventBtn}
-                    onClick={() =>
-                        setTimeLineEvents([
+                    onClick={() => {
+                        const allNumbers = [
                             ...timelineEvents,
-                            timelineEvents.length + 1,
-                        ])
-                    }
+                            ...placedEvents.map(
+                                (e) =>
+                                    parseInt(e.title.replace(/\D/g, ''), 10) ||
+                                    0
+                            ),
+                        ];
+                        const nextId =
+                            allNumbers.length > 0
+                                ? Math.max(...allNumbers) + 1
+                                : 1;
+                        setTimeLineEvents([...timelineEvents, nextId]);
+                    }}
                 >
                     <IconPlus size={14} />
                     <span>Add Event</span>
@@ -658,93 +773,129 @@ function NewTimeline({
                         display: 'grid',
                         gridTemplateColumns: `repeat(${maxCol}, 130px)`,
                         gridTemplateRows: `repeat(${maxRow}, 130px)`,
+                        position: 'relative',
                     }}
                 >
-                    {Array.from({ length: maxCol }, (_, i) => (
+                    {/* BACKGROUND GRID CELLS (Empty clicks target these) */}
+                    {Array.from({ length: maxCol * maxRow }, (_, index) => {
+                        const col = (index % maxCol) + 1;
+                        const row = Math.floor(index / maxCol) + 1;
+                        return (
+                            <div
+                                key={`cell-${col}-${row}`}
+                                onClick={() => handlePlaceOrReplace(col, row)}
+                                style={{
+                                    gridColumn: col,
+                                    gridRow: row,
+                                    borderRight:
+                                        '1px solid rgba(255, 255, 255, 0.05)',
+                                    borderBottom:
+                                        '1px solid rgba(255, 255, 255, 0.05)',
+                                    cursor: selectedEvent
+                                        ? 'pointer'
+                                        : 'default',
+                                    zIndex: 1,
+                                    boxSizing: 'border-box',
+                                }}
+                            />
+                        );
+                    })}
+
+                    {/* PLACED EVENT CARDS (Clicking replaces the card) */}
+                    {placedEvents.map((ev) => (
                         <div
-                            key={`col-${i}`}
+                            key={ev.id}
+                            className={styles.eventCard}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handlePlaceOrReplace(ev.col, ev.row);
+                            }}
                             style={{
-                                gridColumn: `${i + 1}`,
-                                gridRow: `1 / span 5`,
-                                borderRight:
-                                    '1px solid rgba(255, 255, 255, 0.05)',
-                                display: 'flex',
-                                justifyContent: 'space-between',
+                                gridColumn: `${ev.col}`,
+                                gridRow: `${ev.row}`,
+                                zIndex: 2,
+                                cursor: selectedEvent ? 'pointer' : 'default',
                             }}
                         >
-                            {i === maxCol - 1 && (
-                                <div
-                                    className={`${styles.insertLine} ${styles.insertCol}`}
-                                />
-                            )}
-                            <div
-                                className={`${styles.insertLine} ${styles.insertCol}`}
-                            />
-                        </div>
-                    ))}
-                    {Array.from({ length: maxRow }, (_, i) => (
-                        <div
-                            key={`row-${i}`}
-                            style={{
-                                gridColumn: `1 / span ${maxCol}`,
-                                gridRow: `${i + 1}`,
-                                borderBottom:
-                                    '1px solid rgba(255, 255, 255, 0.05)',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                justifyContent: 'space-between',
-                            }}
-                        >
-                            {i === maxRow - 1 && (
-                                <div
-                                    className={`${styles.insertLine} ${styles.insertRow}`}
-                                />
-                            )}
-                            <div
-                                className={`${styles.insertLine} ${styles.insertRow}`}
-                            />
+                            <span>{ev.title}</span>
                         </div>
                     ))}
 
-                    <div
-                        className={styles.eventCard}
-                        style={{ gridColumn: '1', gridRow: '2' }}
-                    >
-                        <span>Event 1</span>
-                    </div>
-                    <div
-                        className={styles.eventCard}
-                        style={{ gridColumn: '2', gridRow: '2' }}
-                    >
-                        <span>Event 2</span>
-                    </div>
-                    <div
-                        className={styles.eventCard}
-                        style={{ gridColumn: '3', gridRow: '1' }}
-                    >
-                        <span>Event 3</span>
-                    </div>
-                    <div
-                        className={styles.eventCard}
-                        style={{ gridColumn: '3', gridRow: '3' }}
-                    >
-                        <span>Event 4</span>
-                    </div>
-                    <div
-                        className={styles.eventCard}
-                        style={{ gridColumn: '4', gridRow: '2' }}
-                    >
-                        <span>Event 5</span>
-                    </div>
-                    <div
-                        className={styles.eventCard}
-                        style={{ gridColumn: '7', gridRow: '2' }}
-                    >
-                        <span>Event 5</span>
-                    </div>
+                    {/* VERTICAL COLUMN INSERTION STRIPS (Between columns) */}
+                    {selectedEvent &&
+                        Array.from({ length: maxCol - 1 }, (_, i) => {
+                            const insertColIndex = i + 2; // Clicking between col 1 & 2 inserts at col 2
+                            return (
+                                <div
+                                    key={`col-split-${i}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleInsertColumn(insertColIndex);
+                                    }}
+                                    title={`Insert column between ${i + 1} and ${i + 2}`}
+                                    style={{
+                                        gridColumn: i + 1,
+                                        gridRow: `1 / span ${maxRow}`,
+                                        position: 'relative',
+                                        zIndex: 3,
+                                        pointerEvents: 'none',
+                                    }}
+                                >
+                                    <div
+                                        className={`${styles.insertLine} ${styles.insertCol}`}
+                                        style={{
+                                            position: 'absolute',
+                                            top: 0,
+                                            right: -7,
+                                            width: 14,
+                                            height: '100%',
+                                            cursor: 'col-resize',
+                                            pointerEvents: 'auto',
+                                        }}
+                                    />
+                                </div>
+                            );
+                        })}
+
+                    {/* HORIZONTAL ROW INSERTION STRIPS (Between rows) */}
+                    {selectedEvent &&
+                        Array.from({ length: maxRow - 1 }, (_, i) => {
+                            const insertRowIndex = i + 2; // Clicking between row 1 & 2 inserts at row 2
+                            return (
+                                <div
+                                    key={`row-split-${i}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleInsertRow(insertRowIndex);
+                                    }}
+                                    title={`Insert row between ${i + 1} and ${i + 2}`}
+                                    style={{
+                                        gridColumn: `1 / span ${maxCol}`,
+                                        gridRow: i + 1,
+                                        position: 'relative',
+                                        zIndex: 3,
+                                        pointerEvents: 'none',
+                                    }}
+                                >
+                                    <div
+                                        className={`${styles.insertLine} ${styles.insertRow}`}
+                                        style={{
+                                            position: 'absolute',
+                                            left: 0,
+                                            bottom: -7,
+                                            width: '100%',
+                                            height: 14,
+                                            cursor: 'row-resize',
+                                            pointerEvents: 'auto',
+                                        }}
+                                    />
+                                </div>
+                            );
+                        })}
                 </div>
             </div>
 
+            {/* UNASSIGNED EVENTS BOTTOM BAR */}
             {timelineEvents.length > 0 && (
                 <div className={styles.unassignedEventsBar}>
                     {timelineEvents.map((e) => (
@@ -783,7 +934,21 @@ function NewTimeline({
                 </div>
             )}
 
-            {/* Bottom Filter Dock */}
+            {/* Filter preview tooltip */}
+            {JSON.stringify(
+                allFilterChips.find((f) => f?.key === hoveredChip && f?.hasitem)
+            )}
+            {timelineFilters.find(
+                (f) => f?.cat === hoveredChip && f?.hasitem
+            ) && (
+                <div>
+                    {hoveredChip === 'opened tabs'
+                        ? tabs.map((t) => t.name)
+                        : hoveredChip}
+                </div>
+            )}
+
+            {/* BOTTOM FILTER DOCK */}
             <div
                 className={styles.bottomFilterBar}
                 onWheel={(e) => {
