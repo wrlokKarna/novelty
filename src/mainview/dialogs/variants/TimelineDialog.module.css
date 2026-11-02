@@ -313,7 +313,6 @@
     overflow-y: hidden;
     scrollbar-width: thin;
     scrollbar-color: #2b2e38 transparent;
-    scrollbar-gutter: stable both-edges;
 }
 
 .bottomFilterBar::-webkit-scrollbar {
@@ -333,6 +332,49 @@
     gap: 10px;
     width: max-content;
     flex-shrink: 0;
+}
+
+/* All / Clear Toggle Button */
+.clearAllBtn {
+    background: #18191f;
+    border: 1px solid #272a33;
+    color: #a1a7b5;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.18s ease;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.clearAllBtn:hover {
+    color: #ffffff;
+    background: #20222a;
+    border-color: #393e4c;
+}
+
+.clearAllBtn.clearActive {
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.clearAllBtn.clearActive:hover {
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.6);
+    background: rgba(239, 68, 68, 0.22);
+}
+
+.filterDivider {
+    color: #2e3440;
+    font-size: 14px;
+    user-select: none;
+    margin: 0 2px;
 }
 
 .categoryWrapper {

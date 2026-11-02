@@ -3346,6 +3346,7 @@ function App() {
                     characters={characters}
                     organizations={organizations}
                     chapters={chapters}
+                    tabs={openTabs}
                     onOpenEntity={(id, type) => {
                         handleOpenCompendiumEntry(id, type);
                     }}

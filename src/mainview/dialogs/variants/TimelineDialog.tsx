@@ -20,6 +20,7 @@ import {
     IconPlus,
 } from '@tabler/icons-react';
 import type { TimelineEvent } from '../../../shared/types/project/timeline';
+import type { FileTab } from '@/shared/types/project/templates';
 
 const EVENT_COLORS: Record<string, string> = {
     chapter: '#4a9eff',
@@ -62,6 +63,7 @@ interface TimelineDialogProps {
     characters: Character[];
     organizations: Organization[];
     chapters: Chapter[];
+    tabs: FileTab[];
     onOpenEntity: (id: string, type: CompendiumCategory) => void;
 }
 
@@ -72,6 +74,7 @@ export default function TimelineDialog({
     characters,
     organizations,
     chapters,
+    tabs,
     onOpenEntity,
 }: TimelineDialogProps) {
     const rpc = useRPC();
@@ -493,6 +496,7 @@ export default function TimelineDialog({
                     )}
                     {overhaulToggle && (
                         <NewTimeline
+                            tabs={tabs}
                             onSwitchLayout={() =>
                                 SetOverhaulToggle(!overhaulToggle)
                             }
@@ -517,50 +521,111 @@ export default function TimelineDialog({
 }
 
 type timelineFilterBtn = {
-    cat: 'manuscript' | 'compendium';
+    cat: 'manuscript' | 'compendium' | 'opened tabs';
     subCat?: {
         key: string;
+        hasitem: boolean;
         checked: boolean;
     }[];
-    checked?: boolean;
+    hasitem: boolean;
+    checked: boolean;
 };
 
-function NewTimeline({ onSwitchLayout }: { onSwitchLayout: () => void }) {
+function NewTimeline({
+    onSwitchLayout,
+    tabs,
+}: {
+    onSwitchLayout: () => void;
+    tabs: FileTab[];
+}) {
     const [timelineEvents, setTimeLineEvents] = useState<number[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<string>('');
     const [openTabsChecked, setOpenTabsChecked] = useState(false);
 
     const [timelineFilters, setTimelineFilters] = useState<timelineFilterBtn[]>(
         [
+            { cat: 'opened tabs', hasitem: true, checked: false },
             {
                 cat: 'manuscript',
                 checked: false,
+                hasitem: false,
                 subCat: [
-                    { key: 'acts', checked: false },
-                    { key: 'plot threads', checked: false },
-                    { key: 'Story Beats', checked: false },
+                    { key: 'chapters', hasitem: true, checked: false },
+                    { key: 'acts', hasitem: true, checked: false },
+                    { key: 'plot threads', hasitem: true, checked: false },
+                    { key: 'Story Beats', hasitem: true, checked: false },
                 ],
             },
             {
                 cat: 'compendium',
+                checked: false,
+                hasitem: false,
                 subCat: [
-                    { key: 'characters', checked: false },
-                    { key: 'location', checked: false },
-                    { key: 'organizations', checked: false },
-                    { key: 'items', checked: false },
-                    { key: 'lore', checked: false },
+                    { key: 'characters', hasitem: true, checked: false },
+                    { key: 'location', hasitem: true, checked: false },
+                    { key: 'organizations', hasitem: true, checked: false },
+                    { key: 'items', hasitem: true, checked: false },
+                    { key: 'lore', hasitem: true, checked: false },
                 ],
             },
         ]
     );
     const [expandedCat, setExpandedCat] = useState<string>('');
     const [hoveredCat, setHoveredCat] = useState<string>('');
+    const [hoveredChip, setHoveredChip] = useState<string>('');
 
     const maxCol = 7;
     const maxRow = 3;
 
     const toggleExpand = (cat: string) => {
         setExpandedCat((prev) => (prev === cat ? '' : cat));
+    };
+
+    const allFilterChips = timelineFilters.flatMap((tf) => tf.subCat);
+
+    const handleChipHover = (chip: string, cat?: boolean) => {
+        if (cat) {
+            setHoveredCat(chip);
+        }
+        setHoveredChip(chip);
+    };
+
+    // Evaluates if any filter option in Opened Tabs, Manuscript, or Compendium is selected
+    const hasAnySelected =
+        openTabsChecked ||
+        timelineFilters.some(
+            (filt) =>
+                filt.checked ||
+                (filt.subCat && filt.subCat.some((sub) => sub.checked))
+        );
+
+    // Toggle behavior: when something is active, clear all; otherwise, select all
+    const handleToggleAllOrClear = () => {
+        if (hasAnySelected) {
+            setOpenTabsChecked(false);
+            setTimelineFilters((prev) =>
+                prev.map((item) => ({
+                    ...item,
+                    checked: false,
+                    subCat: item.subCat?.map((sub) => ({
+                        ...sub,
+                        checked: false,
+                    })),
+                }))
+            );
+        } else {
+            setOpenTabsChecked(true);
+            setTimelineFilters((prev) =>
+                prev.map((item) => ({
+                    ...item,
+                    checked: true,
+                    subCat: item.subCat?.map((sub) => ({
+                        ...sub,
+                        checked: true,
+                    })),
+                }))
+            );
+        }
     };
 
     return (
@@ -704,6 +769,20 @@ function NewTimeline({ onSwitchLayout }: { onSwitchLayout: () => void }) {
                 </div>
             )}
 
+            {/* Filter preview tooltip */}
+            {JSON.stringify(
+                allFilterChips.find((f) => f?.key === hoveredChip && f?.hasitem)
+            )}
+            {timelineFilters.find(
+                (f) => f?.cat === hoveredChip && f?.hasitem
+            ) && (
+                <div>
+                    {hoveredChip === 'opened tabs'
+                        ? tabs.map((t) => t.name)
+                        : hoveredChip}
+                </div>
+            )}
+
             {/* Bottom Filter Dock */}
             <div
                 className={styles.bottomFilterBar}
@@ -715,13 +794,29 @@ function NewTimeline({ onSwitchLayout }: { onSwitchLayout: () => void }) {
                 }}
             >
                 <div className={styles.primaryFilterGroup}>
-                    {/* Open Tabs */}
+                    {/* Clear / All Toggle Button (No circle/checkbox) */}
+                    <button
+                        type="button"
+                        className={`${styles.clearAllBtn} ${hasAnySelected ? styles.clearActive : ''}`}
+                        onClick={handleToggleAllOrClear}
+                    >
+                        {hasAnySelected ? 'Clear' : 'All'}
+                    </button>
+
+                    <span className={styles.filterDivider}>|</span>
+
+                    {/* Opened Tabs Pill */}
                     <div
                         className={`${styles.filterCheckboxItem} ${
                             openTabsChecked ? styles.highlightedPill : ''
                         }`}
-                        onClick={() => setOpenTabsChecked(!openTabsChecked)}
+                        onClick={() => setOpenTabsChecked((prev) => !prev)}
+                        onMouseEnter={() =>
+                            handleChipHover('opened tabs', true)
+                        }
+                        onMouseLeave={() => handleChipHover('', true)}
                     >
+                        {/* ADD THIS INDICATOR */}
                         <span
                             className={`${styles.nodeIndicator} ${
                                 openTabsChecked
@@ -735,121 +830,147 @@ function NewTimeline({ onSwitchLayout }: { onSwitchLayout: () => void }) {
                                 />
                             )}
                         </span>
-                        <span>Open Tabs</span>
+
+                        <span>Opened Tabs</span>
                     </div>
+                    {/* Filter Categories: Manuscript & Compendium */}
+                    {timelineFilters
+                        .filter((filt) => filt.cat !== 'opened tabs')
+                        .map((filt) => {
+                            const hasCheckedSubs =
+                                (
+                                    filt.subCat?.filter((sub) => sub.checked) ??
+                                    []
+                                ).length > 0;
+                            const isExpanded =
+                                expandedCat === filt.cat ||
+                                hoveredCat === filt.cat;
 
-                    {/* Filter categories: Manuscript & Compendium */}
-                    {timelineFilters.map((filt) => {
-                        const hasCheckedSubs =
-                            (filt.subCat?.filter((sub) => sub.checked) ?? [])
-                                .length > 0;
-                        const isExpanded =
-                            expandedCat === filt.cat || hoveredCat === filt.cat;
-
-                        return (
-                            <div
-                                key={filt.cat}
-                                className={styles.categoryWrapper}
-                                onMouseEnter={() => setHoveredCat(filt.cat)}
-                                onMouseLeave={() => setHoveredCat('')}
-                            >
-                                {/* Main Pill: Manuscript / Compendium */}
+                            return (
                                 <div
-                                    className={`${styles.filterCheckboxItem} ${
-                                        hasCheckedSubs
-                                            ? styles.highlightedPill
-                                            : ''
-                                    }`}
-                                    onMouseEnter={() => toggleExpand(filt.cat)}
-                                    onMouseLeave={() => toggleExpand('')}
+                                    key={filt.cat}
+                                    className={styles.categoryWrapper}
+                                    onMouseEnter={() =>
+                                        handleChipHover(filt.cat, true)
+                                    }
+                                    onMouseLeave={() =>
+                                        handleChipHover('', true)
+                                    }
                                 >
-                                    <span>{filt.cat}</span>
-
-                                    {filt.subCat &&
-                                        (isExpanded ? (
-                                            <IconChevronLeft
-                                                size={15}
-                                                className={styles.chevronIcon}
-                                            />
-                                        ) : (
-                                            <IconChevronRight
-                                                size={15}
-                                                className={styles.chevronIcon}
-                                            />
-                                        ))}
-                                </div>
-
-                                {/* Options placed horizontally BESIDE with horizontal scroll */}
-                                {filt.subCat && (
+                                    {/* Main Pill: Manuscript / Compendium */}
                                     <div
-                                        className={
-                                            styles.horizontalOptionsTrack
+                                        className={`${styles.filterCheckboxItem} ${
+                                            hasCheckedSubs
+                                                ? styles.highlightedPill
+                                                : ''
+                                        }`}
+                                        onMouseEnter={() =>
+                                            toggleExpand(filt.cat)
                                         }
+                                        onMouseLeave={() => toggleExpand('')}
                                     >
-                                        {filt.subCat
-                                            .filter(
-                                                (sub) =>
-                                                    sub.checked || isExpanded
-                                            )
-                                            .map((sub) => (
-                                                <div
-                                                    key={sub.key}
-                                                    className={`${styles.subCheckboxItem} ${
-                                                        sub.checked
-                                                            ? styles.subActive
-                                                            : ''
-                                                    }`}
-                                                    onClick={() =>
-                                                        setTimelineFilters(
-                                                            (prev) =>
-                                                                prev.map(
-                                                                    (item) =>
-                                                                        item.cat ===
-                                                                        filt.cat
-                                                                            ? {
-                                                                                  ...item,
-                                                                                  subCat: item.subCat?.map(
-                                                                                      (
-                                                                                          sc
-                                                                                      ) =>
-                                                                                          sc.key ===
-                                                                                          sub.key
-                                                                                              ? {
-                                                                                                    ...sc,
-                                                                                                    checked:
-                                                                                                        !sc.checked,
-                                                                                                }
-                                                                                              : sc
-                                                                                  ),
-                                                                              }
-                                                                            : item
-                                                                )
-                                                        )
+                                        <span>{filt.cat}</span>
+
+                                        {filt.subCat &&
+                                            (isExpanded ? (
+                                                <IconChevronLeft
+                                                    size={15}
+                                                    className={
+                                                        styles.chevronIcon
                                                     }
-                                                >
-                                                    <span
-                                                        className={`${styles.nodeIndicator} ${
-                                                            sub.checked
-                                                                ? styles.nodeIndicatorActive
-                                                                : ''
-                                                        }`}
-                                                    >
-                                                        {sub.checked && (
-                                                            <span
-                                                                className={
-                                                                    styles.nodeIndicatorActiveCheck
-                                                                }
-                                                            />
-                                                        )}
-                                                    </span>
-                                                    <span>{sub.key}</span>
-                                                </div>
+                                                />
+                                            ) : (
+                                                <IconChevronRight
+                                                    size={15}
+                                                    className={
+                                                        styles.chevronIcon
+                                                    }
+                                                />
                                             ))}
                                     </div>
-                                )}
-                            </div>
-                        );
-                    })}
+
+                                    {/* Options placed horizontally beside */}
+                                    {filt.subCat && (
+                                        <div
+                                            className={
+                                                styles.horizontalOptionsTrack
+                                            }
+                                        >
+                                            {filt.subCat
+                                                .filter(
+                                                    (sub) =>
+                                                        sub.checked ||
+                                                        isExpanded
+                                                )
+                                                .map((sub) => (
+                                                    <div
+                                                        key={sub.key}
+                                                        className={`${styles.subCheckboxItem} ${
+                                                            sub.checked
+                                                                ? styles.subActive
+                                                                : ''
+                                                        }`}
+                                                        onMouseEnter={() =>
+                                                            handleChipHover(
+                                                                sub.key
+                                                            )
+                                                        }
+                                                        onMouseLeave={() =>
+                                                            handleChipHover('')
+                                                        }
+                                                        onClick={() =>
+                                                            setTimelineFilters(
+                                                                (prev) =>
+                                                                    prev.map(
+                                                                        (
+                                                                            item
+                                                                        ) =>
+                                                                            item.cat ===
+                                                                            filt.cat
+                                                                                ? {
+                                                                                      ...item,
+                                                                                      subCat: item.subCat?.map(
+                                                                                          (
+                                                                                              sc
+                                                                                          ) =>
+                                                                                              sc.key ===
+                                                                                              sub.key
+                                                                                                  ? {
+                                                                                                        ...sc,
+                                                                                                        checked:
+                                                                                                            !sc.checked,
+                                                                                                    }
+                                                                                                  : sc
+                                                                                      ),
+                                                                                  }
+                                                                                : item
+                                                                    )
+                                                            )
+                                                        }
+                                                    >
+                                                        <span
+                                                            className={`${styles.nodeIndicator} ${
+                                                                sub.checked
+                                                                    ? styles.nodeIndicatorActive
+                                                                    : ''
+                                                            }`}
+                                                        >
+                                                            {sub.checked && (
+                                                                <span
+                                                                    className={
+                                                                        styles.nodeIndicatorActiveCheck
+                                                                    }
+                                                                />
+                                                            )}
+                                                        </span>
+                                                        <span>{sub.key}</span>
+                                                    </div>
+                                                ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                 </div>
             </div>
         </div>
