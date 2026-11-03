@@ -1,30 +1,125 @@
 .TimelineBottomDock {
 }
+
 /* --- Bottom Filter Dock (Strictly One Row) --- */
 .bottomFilterBar {
     display: flex;
     flex-direction: row;
     align-items: center;
-    padding: 12px 20px;
+    padding: 10px 16px;
     background-color: #121316;
     border-top: 1px solid #1f222a;
     margin-top: auto;
     width: 100%;
     box-sizing: border-box;
     flex-wrap: nowrap;
+    overflow: hidden;
+    position: relative;
+    gap: 12px;
+}
+
+/* Fixed section on the left: stays stationary */
+.fixedActionArea {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    z-index: 25;
+    background-color: #121316;
+}
+
+/* Relative container wrapping scroll container & floating arrow buttons */
+.scrollTrackWrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* The element that actually scrolls */
+.scrollableContent {
+    display: flex;
+    align-items: center;
+    width: 100%;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: thin;
     scrollbar-color: #2b2e38 transparent;
 }
 
-.bottomFilterBar::-webkit-scrollbar {
+.scrollableContent::-webkit-scrollbar {
     height: 4px;
 }
 
-.bottomFilterBar::-webkit-scrollbar-thumb {
+.scrollableContent::-webkit-scrollbar-thumb {
     background: #2b2e38;
     border-radius: 4px;
+}
+
+/* Circular Frosted Glass Blur Disc Behind The Arrow */
+.circleBlurContainer {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 30;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none; /* Allows pointer and wheel interactions through */
+
+    /* Frosted glass blur applied circularly */
+    background: radial-gradient(
+        circle,
+        rgba(18, 19, 22, 0.85) 0%,
+        rgba(18, 19, 22, 0.5) 65%,
+        rgba(18, 19, 22, 0) 100%
+    );
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 50%;
+    overflow: hidden;
+}
+
+.circleBlurLeft {
+    left: 2px;
+}
+
+.circleBlurRight {
+    right: 2px;
+}
+
+/* Arrow Button Inside the Circular Blur */
+.navScrollBtn {
+    pointer-events: auto; /* Restores button clickability */
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+    padding: 0;
+    border-radius: 50%;
+    background: rgba(30, 32, 39, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    transition: all 0.18s ease;
+}
+
+.navScrollBtn:hover {
+    background: rgba(45, 49, 60, 0.88);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.35);
+    transform: scale(1.08);
 }
 
 .primaryFilterGroup {
@@ -35,6 +130,7 @@
     gap: 10px;
     width: max-content;
     flex-shrink: 0;
+    padding: 2px 10px;
 }
 
 /* All / Clear Toggle Button */

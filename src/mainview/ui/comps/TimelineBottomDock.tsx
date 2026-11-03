@@ -1,9 +1,10 @@
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import styles from './TimelineBottomDock.module.css';
 import type { timelineFilterBtn } from '@/shared/types/timeline';
-
 import type { CompendiumDataType } from '@/shared/types/project/compendium';
 import type { ManuscriptDataType } from '@/shared/types/project/manuscript';
+
 type Props = {
     hasAnySelected: boolean;
     handleToggleAllOrClear: () => void;
@@ -36,19 +37,48 @@ function TimelineBottomDock({
     compendiumData,
 }: Props) {
     console.log(manuscriptData, compendiumData);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
+
+    // Check whether scroll indicators should be shown
+    const updateScrollIndicators = useCallback(() => {
+        const el = scrollContainerRef.current;
+        if (!el) return;
+
+        const { scrollLeft, scrollWidth, clientWidth } = el;
+        // 1px tolerance to handle subpixel or fractional zoom
+        setCanScrollLeft(scrollLeft > 1);
+        setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 1);
+    }, []);
+
+    useEffect(() => {
+        const el = scrollContainerRef.current;
+        if (!el) return;
+
+        updateScrollIndicators();
+
+        const observer = new ResizeObserver(() => updateScrollIndicators());
+        observer.observe(el);
+
+        return () => observer.disconnect();
+    }, [updateScrollIndicators, timelineFilters, expandedCat]);
+
+    const handleScrollBy = (offset: number) => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollBy({
+                left: offset,
+                behavior: 'smooth',
+            });
+        }
+    };
 
     return (
         <div
             className={`${styles.TimelineBottomDock} ${styles.bottomFilterBar}`}
-            onWheel={(e) => {
-                if (e.deltaY !== 0) {
-                    e.preventDefault();
-                    e.currentTarget.scrollLeft += e.deltaY;
-                }
-            }}
         >
-            <div className={styles.primaryFilterGroup}>
-                {/* Clear / All Toggle Button (No circle/checkbox) */}
+            {/* FIXED SECTION: Clear / All button stays in place */}
+            <div className={styles.fixedActionArea}>
                 <button
                     type="button"
                     className={`${styles.clearAllBtn} ${hasAnySelected ? styles.clearActive : ''}`}
@@ -56,153 +86,230 @@ function TimelineBottomDock({
                 >
                     {hasAnySelected ? 'Clear' : 'All'}
                 </button>
-
                 <span className={styles.filterDivider}>|</span>
+            </div>
 
-                {/* Opened Tabs Pill */}
-                <div
-                    className={`${styles.filterCheckboxItem} ${
-                        openTabsChecked ? styles.highlightedPill : ''
-                    }`}
-                    onClick={() => setOpenTabsChecked((prev) => !prev)}
-                    onMouseEnter={() => handleChipHover('opened tabs', true)}
-                    onMouseLeave={() => handleChipHover('', true)}
-                >
-                    {/* ADD THIS INDICATOR */}
-                    <span
-                        className={`${styles.nodeIndicator} ${
-                            openTabsChecked ? styles.nodeIndicatorActive : ''
-                        }`}
+            {/* SCROLLABLE VIEWPORT WRAPPER */}
+            <div className={styles.scrollTrackWrapper}>
+                {/* Left Floating Circular Blur & Arrow Button */}
+                {canScrollLeft && (
+                    <div
+                        className={`${styles.circleBlurContainer} ${styles.circleBlurLeft}`}
                     >
-                        {openTabsChecked && (
-                            <span className={styles.nodeIndicatorActiveCheck} />
-                        )}
-                    </span>
+                        <button
+                            type="button"
+                            aria-label="Scroll left"
+                            className={styles.navScrollBtn}
+                            onClick={() => handleScrollBy(-200)}
+                        >
+                            <IconChevronLeft size={16} />
+                        </button>
+                    </div>
+                )}
 
-                    <span>Opened Tabs</span>
-                </div>
-                {/* Filter Categories: Manuscript & Compendium */}
-                {timelineFilters
-                    .filter((filt) => filt.cat !== 'opened tabs')
-                    .map((filt) => {
-                        const hasCheckedSubs =
-                            (filt.subCat?.filter((sub) => sub.checked) ?? [])
-                                .length > 0;
-                        const isExpanded =
-                            expandedCat === filt.cat || hoveredCat === filt.cat;
-
-                        return (
-                            <div
-                                key={filt.cat}
-                                className={styles.categoryWrapper}
-                                onMouseEnter={() =>
-                                    handleChipHover(filt.cat, true)
-                                }
-                                onMouseLeave={() => handleChipHover('', true)}
+                {/* SCROLLING ITEMS */}
+                <div
+                    ref={scrollContainerRef}
+                    className={styles.scrollableContent}
+                    onScroll={updateScrollIndicators}
+                    onWheel={(e) => {
+                        if (e.deltaY !== 0) {
+                            e.preventDefault();
+                            e.currentTarget.scrollLeft += e.deltaY;
+                        }
+                    }}
+                >
+                    <div className={styles.primaryFilterGroup}>
+                        {/* Opened Tabs Pill */}
+                        <div
+                            className={`${styles.filterCheckboxItem} ${
+                                openTabsChecked ? styles.highlightedPill : ''
+                            }`}
+                            onClick={() => setOpenTabsChecked((prev) => !prev)}
+                            onMouseEnter={() =>
+                                handleChipHover('opened tabs', true)
+                            }
+                            onMouseLeave={() => handleChipHover('', true)}
+                        >
+                            <span
+                                className={`${styles.nodeIndicator} ${
+                                    openTabsChecked
+                                        ? styles.nodeIndicatorActive
+                                        : ''
+                                }`}
                             >
-                                {/* Main Pill: Manuscript / Compendium */}
-                                <div
-                                    className={`${styles.filterCheckboxItem} ${
-                                        hasCheckedSubs
-                                            ? styles.highlightedPill
-                                            : ''
-                                    }`}
-                                    onMouseEnter={() => toggleExpand(filt.cat)}
-                                    onMouseLeave={() => toggleExpand('')}
-                                >
-                                    <span>{filt.cat}</span>
-
-                                    {filt.subCat &&
-                                        (isExpanded ? (
-                                            <IconChevronLeft
-                                                size={15}
-                                                className={styles.chevronIcon}
-                                            />
-                                        ) : (
-                                            <IconChevronRight
-                                                size={15}
-                                                className={styles.chevronIcon}
-                                            />
-                                        ))}
-                                </div>
-
-                                {/* Options placed horizontally beside */}
-                                {filt.subCat && (
-                                    <div
+                                {openTabsChecked && (
+                                    <span
                                         className={
-                                            styles.horizontalOptionsTrack
+                                            styles.nodeIndicatorActiveCheck
+                                        }
+                                    />
+                                )}
+                            </span>
+                            <span>Opened Tabs</span>
+                        </div>
+
+                        {/* Filter Categories: Manuscript & Compendium */}
+                        {timelineFilters
+                            .filter((filt) => filt.cat !== 'opened tabs')
+                            .map((filt) => {
+                                const hasCheckedSubs =
+                                    (
+                                        filt.subCat?.filter(
+                                            (sub) => sub.checked
+                                        ) ?? []
+                                    ).length > 0;
+                                const isExpanded =
+                                    expandedCat === filt.cat ||
+                                    hoveredCat === filt.cat;
+
+                                return (
+                                    <div
+                                        key={filt.cat}
+                                        className={styles.categoryWrapper}
+                                        onMouseEnter={() =>
+                                            handleChipHover(filt.cat, true)
+                                        }
+                                        onMouseLeave={() =>
+                                            handleChipHover('', true)
                                         }
                                     >
-                                        {filt.subCat
-                                            .filter(
-                                                (sub) =>
-                                                    sub.checked || isExpanded
-                                            )
-                                            .map((sub) => (
-                                                <div
-                                                    key={sub.key}
-                                                    className={`${styles.subCheckboxItem} ${
-                                                        sub.checked
-                                                            ? styles.subActive
-                                                            : ''
-                                                    }`}
-                                                    onMouseEnter={() =>
-                                                        handleChipHover(sub.key)
-                                                    }
-                                                    onMouseLeave={() =>
-                                                        handleChipHover('')
-                                                    }
-                                                    onClick={() =>
-                                                        setTimelineFilters(
-                                                            (prev) =>
-                                                                prev.map(
-                                                                    (item) =>
-                                                                        item.cat ===
-                                                                        filt.cat
-                                                                            ? {
-                                                                                  ...item,
-                                                                                  subCat: item.subCat?.map(
-                                                                                      (
-                                                                                          sc
-                                                                                      ) =>
-                                                                                          sc.key ===
-                                                                                          sub.key
-                                                                                              ? {
-                                                                                                    ...sc,
-                                                                                                    checked:
-                                                                                                        !sc.checked,
-                                                                                                }
-                                                                                              : sc
-                                                                                  ),
-                                                                              }
-                                                                            : item
+                                        <div
+                                            className={`${styles.filterCheckboxItem} ${
+                                                hasCheckedSubs
+                                                    ? styles.highlightedPill
+                                                    : ''
+                                            }`}
+                                            onMouseEnter={() =>
+                                                toggleExpand(filt.cat)
+                                            }
+                                            onMouseLeave={() =>
+                                                toggleExpand('')
+                                            }
+                                        >
+                                            <span>{filt.cat}</span>
+
+                                            {filt.subCat &&
+                                                (isExpanded ? (
+                                                    <IconChevronLeft
+                                                        size={15}
+                                                        className={
+                                                            styles.chevronIcon
+                                                        }
+                                                    />
+                                                ) : (
+                                                    <IconChevronRight
+                                                        size={15}
+                                                        className={
+                                                            styles.chevronIcon
+                                                        }
+                                                    />
+                                                ))}
+                                        </div>
+
+                                        {filt.subCat && (
+                                            <div
+                                                className={
+                                                    styles.horizontalOptionsTrack
+                                                }
+                                            >
+                                                {filt.subCat
+                                                    .filter(
+                                                        (sub) =>
+                                                            sub.checked ||
+                                                            isExpanded
+                                                    )
+                                                    .map((sub) => (
+                                                        <div
+                                                            key={sub.key}
+                                                            className={`${styles.subCheckboxItem} ${
+                                                                sub.checked
+                                                                    ? styles.subActive
+                                                                    : ''
+                                                            }`}
+                                                            onMouseEnter={() =>
+                                                                handleChipHover(
+                                                                    sub.key
                                                                 )
-                                                        )
-                                                    }
-                                                >
-                                                    <span
-                                                        className={`${styles.nodeIndicator} ${
-                                                            sub.checked
-                                                                ? styles.nodeIndicatorActive
-                                                                : ''
-                                                        }`}
-                                                    >
-                                                        {sub.checked && (
+                                                            }
+                                                            onMouseLeave={() =>
+                                                                handleChipHover(
+                                                                    ''
+                                                                )
+                                                            }
+                                                            onClick={() =>
+                                                                setTimelineFilters(
+                                                                    (prev) =>
+                                                                        prev.map(
+                                                                            (
+                                                                                item
+                                                                            ) =>
+                                                                                item.cat ===
+                                                                                filt.cat
+                                                                                    ? {
+                                                                                          ...item,
+                                                                                          subCat: item.subCat?.map(
+                                                                                              (
+                                                                                                  sc
+                                                                                              ) =>
+                                                                                                  sc.key ===
+                                                                                                  sub.key
+                                                                                                      ? {
+                                                                                                            ...sc,
+                                                                                                            checked:
+                                                                                                                !sc.checked,
+                                                                                                        }
+                                                                                                      : sc
+                                                                                          ),
+                                                                                      }
+                                                                                    : item
+                                                                        )
+                                                                )
+                                                            }
+                                                        >
                                                             <span
-                                                                className={
-                                                                    styles.nodeIndicatorActiveCheck
-                                                                }
-                                                            />
-                                                        )}
-                                                    </span>
-                                                    <span>{sub.key}</span>
-                                                </div>
-                                            ))}
+                                                                className={`${styles.nodeIndicator} ${
+                                                                    sub.checked
+                                                                        ? styles.nodeIndicatorActive
+                                                                        : ''
+                                                                }`}
+                                                            >
+                                                                {sub.checked && (
+                                                                    <span
+                                                                        className={
+                                                                            styles.nodeIndicatorActiveCheck
+                                                                        }
+                                                                    />
+                                                                )}
+                                                            </span>
+                                                            <span>
+                                                                {sub.key}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-                        );
-                    })}
+                                );
+                            })}
+                    </div>
+                </div>
+
+                {/* Right Floating Circular Blur & Arrow Button */}
+                {canScrollRight && (
+                    <div
+                        className={`${styles.circleBlurContainer} ${styles.circleBlurRight}`}
+                    >
+                        <button
+                            type="button"
+                            aria-label="Scroll right"
+                            className={styles.navScrollBtn}
+                            onClick={() => handleScrollBy(200)}
+                        >
+                            <IconChevronRight size={16} />
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
