@@ -21,7 +21,7 @@ export function FileTabs({
     onNewTabClick,
     onScratchClick,
 }: FileTabsProps) {
-    const { tabRefs, containerRef, handleEleClick } = UseTabScroll();
+    const { tabRefs, containerRef } = UseTabScroll(activeTabId);
 
     return (
         <nav className="file-tabs">
@@ -45,7 +45,6 @@ export function FileTabs({
                             tab.isModified ? 'modified' : ''
                         }`}
                         onClick={() => {
-                            handleEleClick(tab.id);
                             onTabClick(tab.id);
                         }}
                         title={tab.filePath}

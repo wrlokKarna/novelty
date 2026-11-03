@@ -1,11 +1,11 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
-export function UseTabScroll() {
+export function UseTabScroll(activeTabId: string | null) {
 
   const tabRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const handleEleClick = (id: string | null) => {
+  const scrollToTab = (id: string | null) => {
     if (!id) {
       return;
     }
@@ -34,9 +34,13 @@ export function UseTabScroll() {
     });
   };
 
+  useEffect(() => {
+    scrollToTab(activeTabId);
+  }, [activeTabId])
+
   return {
     tabRefs,
     containerRef,
-    handleEleClick,
+    scrollToTab,
   }
 }

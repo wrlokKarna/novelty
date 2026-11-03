@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UseTabScroll } from '@/mainview/components/UseTabScroll';
 import {
     IconFiles,
     IconBook,
@@ -193,8 +192,6 @@ export default function LeftPanel({
         else handleNewCompendiumEntry(explorerTab as CompendiumCategory);
     };
 
-    const { tabRefs, containerRef, handleEleClick } = UseTabScroll();
-
     return (
         <>
             <aside
@@ -378,10 +375,7 @@ export default function LeftPanel({
                                                 </div>
 
                                                 {/* THE ACTUAL LIST */}
-                                                <div
-                                                    className="chapter-list"
-                                                    ref={containerRef}
-                                                >
+                                                <div className="chapter-list">
                                                     {currentData.map(
                                                         (
                                                             entry:
@@ -402,18 +396,9 @@ export default function LeftPanel({
                                                                     key={
                                                                         entry.id
                                                                     }
-                                                                    ref={(
-                                                                        ele
-                                                                    ) => {
-                                                                        tabRefs.current[
-                                                                            entry.id
-                                                                        ] = ele;
-                                                                    }}
+
                                                                     className={`chapter-item ${activeTabId === entry.id ? 'active' : ''}`}
                                                                     onClick={() => {
-                                                                        handleEleClick(
-                                                                            entry.id
-                                                                        );
                                                                         if (
                                                                             isManuscript
                                                                         ) {
