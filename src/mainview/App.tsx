@@ -3343,12 +3343,22 @@ function App() {
                     open={showTimeline}
                     onClose={() => setShowTimeline(false)}
                     projectId={currentProject.id}
-                    characters={characters}
-                    organizations={organizations}
-                    chapters={chapters}
                     tabs={openTabs}
                     onOpenEntity={(id, type) => {
                         handleOpenCompendiumEntry(id, type);
+                    }}
+                    manuscriptData={{
+                        chapters: chapters,
+                        plotThreads: plotThreads,
+                        storyBeats: storyBeats,
+                        storyActs: storyActs,
+                    }}
+                    compendiumData={{
+                        characters: characters,
+                        locations: locations,
+                        organizations: organizations,
+                        items: items,
+                        loreEntries: loreEntries,
                     }}
                 />
             )}

@@ -4,7 +4,7 @@
 /*
 /**
  * Character entity representing a character in the story world.
- 
+
  * export class Character {
  *     constructor(
  *         public id: string,
@@ -20,6 +20,8 @@
  *         public updatedAt: Date
  *     ) {}
 }*/
+
+import type { Item, Location } from '../..';
 
 export type Character = {
     id: string;
@@ -59,3 +61,11 @@ export type NewLoreEntry = Omit<LoreEntry, 'createdAt' | 'updatedAt'>;
 
 export type CompendiumCategory =
     'character' | 'location' | 'organization' | 'item' | 'lore';
+
+export type CompendiumDataType = {
+    characters: Character[];
+    locations: Location[];
+    organizations: Organization[];
+    items: Item[];
+    loreEntries: LoreEntry[];
+};

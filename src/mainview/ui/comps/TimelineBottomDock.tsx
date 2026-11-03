@@ -1,6 +1,9 @@
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import styles from './TimelineBottomDock.module.css';
 import type { timelineFilterBtn } from '@/shared/types/timeline';
+
+import type { CompendiumDataType } from '@/shared/types/project/compendium';
+import type { ManuscriptDataType } from '@/shared/types/project/manuscript';
 type Props = {
     hasAnySelected: boolean;
     handleToggleAllOrClear: () => void;
@@ -14,6 +17,8 @@ type Props = {
     expandedCat: string;
     hoveredCat: string;
     toggleExpand: (cat: string) => void;
+    manuscriptData: ManuscriptDataType;
+    compendiumData: CompendiumDataType;
 };
 
 function TimelineBottomDock({
@@ -23,11 +28,15 @@ function TimelineBottomDock({
     setOpenTabsChecked,
     handleChipHover,
     timelineFilters,
+    setTimelineFilters,
     expandedCat,
     hoveredCat,
     toggleExpand,
-    setTimelineFilters,
+    manuscriptData,
+    compendiumData,
 }: Props) {
+    console.log(manuscriptData, compendiumData);
+
     return (
         <div
             className={`${styles.TimelineBottomDock} ${styles.bottomFilterBar}`}

@@ -1,7 +1,17 @@
+import type { CompendiumCategory } from '../project/compendium';
+
+export type TimeLineChip =
+    | CompendiumCategory
+    | 'chapters'
+    | 'acts'
+    | 'plot threads'
+    | 'story beats'
+    | 'key events'
+    | 'plot points';
 export type timelineFilterBtn = {
     cat: 'manuscript' | 'compendium' | 'opened tabs';
     subCat?: {
-        key: string;
+        key: TimeLineChip;
         hasitem: boolean;
         checked: boolean;
     }[];

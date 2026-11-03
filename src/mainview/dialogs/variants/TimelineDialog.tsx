@@ -7,18 +7,21 @@ import { useRPC } from '../../contexts/RPCContext';
 import TimelineEventEditor from '../../components/TimelineEventEditor';
 import Dialog from '../Dialog';
 
-import type { Chapter } from '../../../shared/types/project';
 import type {
-    Character,
     CompendiumCategory,
-    Organization,
+    CompendiumDataType,
 } from '../../../shared/types/project/compendium';
 import styles from './TimelineDialog.module.css';
 import { IconPlus } from '@tabler/icons-react';
 import type { TimelineEvent } from '../../../shared/types/project/timeline';
 import type { FileTab } from '@/shared/types/project/templates';
 import TimelineBottomDock from '@/mainview/ui/comps/TimelineBottomDock';
-import type { PlacedEvent, timelineFilterBtn } from '@/shared/types/timeline';
+import type {
+    PlacedEvent,
+    TimeLineChip,
+    timelineFilterBtn,
+} from '@/shared/types/timeline';
+import type { ManuscriptDataType } from '@/shared/types/project/manuscript';
 
 const EVENT_COLORS: Record<string, string> = {
     chapter: '#4a9eff',
@@ -58,22 +61,21 @@ interface TimelineDialogProps {
     open: boolean;
     onClose: () => void;
     projectId: string;
-    characters: Character[];
-    organizations: Organization[];
-    chapters: Chapter[];
+
     tabs: FileTab[];
     onOpenEntity: (id: string, type: CompendiumCategory) => void;
+    manuscriptData: ManuscriptDataType;
+    compendiumData: CompendiumDataType;
 }
 
 export default function TimelineDialog({
     open,
     onClose,
     projectId,
-    characters,
-    organizations,
-    chapters,
     tabs,
     onOpenEntity,
+    manuscriptData,
+    compendiumData,
 }: TimelineDialogProps) {
     const rpc = useRPC();
     const containerRef = useRef<HTMLDivElement>(null);
@@ -93,19 +95,22 @@ export default function TimelineDialog({
     const initializedRef = useRef(false);
 
     const entityOptions = [
-        ...characters.map((c) => ({
+        ...compendiumData.characters.map((c) => ({
             id: c.id,
             name: c.name,
             type: 'character' as CompendiumCategory,
         })),
-        ...organizations.map((o) => ({
+        ...compendiumData.organizations.map((o) => ({
             id: o.id,
             name: o.name,
             type: 'organization' as CompendiumCategory,
         })),
     ];
 
-    const chapterOptions = chapters.map((c) => ({ id: c.id, title: c.title }));
+    const chapterOptions = manuscriptData.chapters.map((c) => ({
+        id: c.id,
+        title: c.title,
+    }));
 
     function buildTimeline() {
         if (!containerRef.current) return;
@@ -127,7 +132,7 @@ export default function TimelineDialog({
             },
         ];
 
-        for (const ch of characters) {
+        for (const ch of compendiumData.characters) {
             groupsData.push({
                 id: `char-${ch.id}`,
                 content: ch.name,
@@ -135,7 +140,7 @@ export default function TimelineDialog({
             });
         }
 
-        for (const org of organizations) {
+        for (const org of compendiumData.organizations) {
             groupsData.push({
                 id: `org-${org.id}`,
                 content: org.name,
@@ -260,7 +265,7 @@ export default function TimelineDialog({
                 timelineRef.current = null;
             }
         };
-    }, [open, events, characters, organizations]);
+    }, [open, events, compendiumData.characters, compendiumData.organizations]);
 
     async function handleAutoGenerate() {
         if (!projectId) return;
@@ -495,6 +500,8 @@ export default function TimelineDialog({
                     {overhaulToggle && (
                         <NewTimeline
                             tabs={tabs}
+                            manuscriptData={manuscriptData}
+                            compendiumData={compendiumData}
                             onSwitchLayout={() =>
                                 SetOverhaulToggle(!overhaulToggle)
                             }
@@ -519,11 +526,15 @@ export default function TimelineDialog({
 }
 
 export function NewTimeline({
-    onSwitchLayout,
     tabs,
+    onSwitchLayout,
+    manuscriptData,
+    compendiumData,
 }: {
-    onSwitchLayout: () => void;
     tabs: FileTab[];
+    manuscriptData: ManuscriptDataType;
+    compendiumData: CompendiumDataType;
+    onSwitchLayout: () => void;
 }) {
     // Unassigned events waiting in the bottom tray
     const [timelineEvents, setTimeLineEvents] = useState<number[]>([]);
@@ -555,7 +566,7 @@ export function NewTimeline({
                     { key: 'chapters', hasitem: true, checked: false },
                     { key: 'acts', hasitem: true, checked: false },
                     { key: 'plot threads', hasitem: true, checked: false },
-                    { key: 'Story Beats', hasitem: true, checked: false },
+                    { key: 'story beats', hasitem: true, checked: false },
                 ],
             },
             {
@@ -563,10 +574,10 @@ export function NewTimeline({
                 checked: false,
                 hasitem: false,
                 subCat: [
-                    { key: 'characters', hasitem: true, checked: false },
+                    { key: 'character', hasitem: true, checked: false },
                     { key: 'location', hasitem: true, checked: false },
-                    { key: 'organizations', hasitem: true, checked: false },
-                    { key: 'items', hasitem: true, checked: false },
+                    { key: 'organization', hasitem: true, checked: false },
+                    { key: 'item', hasitem: true, checked: false },
                     { key: 'lore', hasitem: true, checked: false },
                 ],
             },
@@ -713,6 +724,34 @@ export function NewTimeline({
         setMaxRow((prev) => prev + 1);
         consumeSelectedEvent();
     };
+
+    //chip: TimeLineChip
+    function getChipData() {
+        const chip = allFilterChips.find(
+            (f) => f?.key === hoveredChip && f?.hasitem
+        )?.key;
+        if (chip === 'character') {
+            return compendiumData.characters;
+        } else if (chip === 'location') {
+            return compendiumData.locations;
+        } else if (chip === 'organization') {
+            return compendiumData.organizations;
+        } else if (chip === 'item') {
+            return compendiumData.items;
+        } else if (chip === 'lore') {
+            return compendiumData.loreEntries;
+        } else if (chip === 'chapters') {
+            return manuscriptData.chapters;
+        } else if (chip === 'acts') {
+            return manuscriptData.storyActs;
+        } else if (chip === 'plot threads') {
+            return manuscriptData.plotThreads;
+        } else if (chip === 'story beats') {
+            return manuscriptData.storyBeats;
+        } else {
+            return [];
+        }
+    }
 
     return (
         <div className={styles.timelineGridWrapper}>
@@ -900,7 +939,7 @@ export function NewTimeline({
                 </div>
             )}
 
-            {/* Filter preview tooltip */}
+            {/* Filter preview tooltip
             {JSON.stringify(
                 allFilterChips.find((f) => f?.key === hoveredChip && f?.hasitem)
             )}
@@ -913,18 +952,18 @@ export function NewTimeline({
                         : hoveredChip}
                 </div>
             )}
+              */}
 
             {/* Filter preview tooltip */}
-            {JSON.stringify(
-                allFilterChips.find((f) => f?.key === hoveredChip && f?.hasitem)
-            )}
+            {getChipData().map((c) => c.name ?? c.title)}
+
             {timelineFilters.find(
                 (f) => f?.cat === hoveredChip && f?.hasitem
             ) && (
                 <div>
                     {hoveredChip === 'opened tabs'
                         ? tabs.map((t) => t.name)
-                        : hoveredChip}
+                        : JSON.parse(hoveredChip)}
                 </div>
             )}
             <TimelineBottomDock
@@ -938,6 +977,8 @@ export function NewTimeline({
                 expandedCat={expandedCat}
                 hoveredCat={hoveredCat}
                 toggleExpand={toggleExpand}
+                manuscriptData={manuscriptData}
+                compendiumData={compendiumData}
             />
             {/* BOTTOM FILTER DOCK */}
         </div>
