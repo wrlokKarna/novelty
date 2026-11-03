@@ -18,7 +18,7 @@ import type { FileTab } from '@/shared/types/project/templates';
 import TimelineBottomDock from '@/mainview/ui/comps/TimelineBottomDock';
 import type {
     PlacedEvent,
-    TimeLineChip,
+    //TimeLineChip,
     timelineFilterBtn,
 } from '@/shared/types/timeline';
 import type { ManuscriptDataType } from '@/shared/types/project/manuscript';
@@ -938,21 +938,6 @@ export function NewTimeline({
                     ))}
                 </div>
             )}
-
-            {/* Filter preview tooltip
-            {JSON.stringify(
-                allFilterChips.find((f) => f?.key === hoveredChip && f?.hasitem)
-            )}
-            {timelineFilters.find(
-                (f) => f?.cat === hoveredChip && f?.hasitem
-            ) && (
-                <div>
-                    {hoveredChip === 'opened tabs'
-                        ? tabs.map((t) => t.name)
-                        : hoveredChip}
-                </div>
-            )}
-              */}
 
             {/* Filter preview tooltip */}
             {getChipData().map((c) => c.name ?? c.title)}
