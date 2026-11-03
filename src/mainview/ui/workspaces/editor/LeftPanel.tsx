@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { UseTabScroll } from '@/mainview/components/UseTabScroll';
 import {
     IconFiles,
     IconBook,
@@ -192,6 +193,8 @@ export default function LeftPanel({
         else handleNewCompendiumEntry(explorerTab as CompendiumCategory);
     };
 
+    const { tabRefs, containerRef, handleEleClick } = UseTabScroll();
+
     return (
         <>
             <aside
@@ -375,7 +378,10 @@ export default function LeftPanel({
                                                 </div>
 
                                                 {/* THE ACTUAL LIST */}
-                                                <div className="chapter-list">
+                                                <div
+                                                    className="chapter-list"
+                                                    ref={containerRef}
+                                                >
                                                     {currentData.map(
                                                         (
                                                             entry:
@@ -396,17 +402,31 @@ export default function LeftPanel({
                                                                     key={
                                                                         entry.id
                                                                     }
+                                                                    ref={(
+                                                                        ele
+                                                                    ) => {
+                                                                        tabRefs.current[
+                                                                            entry.id
+                                                                        ] = ele;
+                                                                    }}
                                                                     className={`chapter-item ${activeTabId === entry.id ? 'active' : ''}`}
-                                                                    onClick={() =>
-                                                                        isManuscript
-                                                                            ? openChapter(
-                                                                                  entry as Chapter
-                                                                              )
-                                                                            : openCompendiumEntry(
-                                                                                  entry.id,
-                                                                                  explorerTab as CompendiumCategory
-                                                                              )
-                                                                    }
+                                                                    onClick={() => {
+                                                                        handleEleClick(
+                                                                            entry.id
+                                                                        );
+                                                                        if (
+                                                                            isManuscript
+                                                                        ) {
+                                                                            openChapter(
+                                                                                entry as Chapter
+                                                                            );
+                                                                        } else {
+                                                                            openCompendiumEntry(
+                                                                                entry.id,
+                                                                                explorerTab as CompendiumCategory
+                                                                            );
+                                                                        }
+                                                                    }}
                                                                 >
                                                                     <div className="left-side">
                                                                         {isManuscript && (

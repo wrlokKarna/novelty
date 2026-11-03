@@ -442,11 +442,11 @@ body {
 
 .app-panel-content .chapter-list {
     overflow-y: auto;
+    height: 480px;
 }
 
-.app-panel-content > .compendium-view {
+.app-panel-content .compendium-view {
     flex: 1;
-    overflow: hidden;
 }
 
 .chapter-list {
@@ -454,6 +454,12 @@ body {
     flex-direction: column;
     gap: 2px;
     padding: 8px 4px;
+
+    /* 1. Tell it to grow/shrink to fit the parent */
+    flex: 1;
+
+    /* 2. CRITICAL: Prevents the flex container from ignoring overflow */
+    min-height: 0;
 }
 
 .chapter-item {
@@ -1274,6 +1280,7 @@ select {
     background-color: var(--app-bg);
     padding: 0 12px;
     border-bottom: 1px solid #313233;
+    overflow: hidden;
 }
 
 .tabs-actions-left {
@@ -1288,6 +1295,10 @@ select {
     overflow-x: auto;
     gap: 4px;
     padding: 8px 0;
+    scroll-behavior: smooth;
+    white-space: nowrap;
+    position: relative; /* Crucial so offsetLeft calculates relative to this container */
+    flex: 1;
 }
 
 .file-tabs .tab {

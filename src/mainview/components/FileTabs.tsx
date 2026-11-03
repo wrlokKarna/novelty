@@ -1,5 +1,6 @@
 import { IconX, IconFileText, IconNotes } from '@tabler/icons-react';
 import type { FileTab } from '../../shared/types/project/templates';
+import { UseTabScroll } from '@/mainview/components/UseTabScroll';
 
 interface FileTabsProps {
     tabs: FileTab[];
@@ -20,6 +21,8 @@ export function FileTabs({
     onNewTabClick,
     onScratchClick,
 }: FileTabsProps) {
+    const { tabRefs, containerRef, handleEleClick } = UseTabScroll();
+
     return (
         <nav className="file-tabs">
             <div className="tabs-actions-left">
@@ -31,14 +34,20 @@ export function FileTabs({
                     <IconNotes size={16} stroke={2} />
                 </button>
             </div>
-            <div className="tabs-scroll">
+            <div className="tabs-scroll" ref={containerRef}>
                 {tabs.map((tab) => (
                     <div
                         key={tab.id}
+                        ref={(ele) => {
+                            tabRefs.current[tab.id] = ele;
+                        }}
                         className={`tab ${activeTabId === tab.id ? 'active' : ''} ${
                             tab.isModified ? 'modified' : ''
                         }`}
-                        onClick={() => onTabClick(tab.id)}
+                        onClick={() => {
+                            handleEleClick(tab.id);
+                            onTabClick(tab.id);
+                        }}
                         title={tab.filePath}
                     >
                         <IconFileText size={14} />
