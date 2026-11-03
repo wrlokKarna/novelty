@@ -1,0 +1,220 @@
+.TimelineBottomDock {
+}
+/* --- Bottom Filter Dock (Strictly One Row) --- */
+.bottomFilterBar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 12px 20px;
+    background-color: #121316;
+    border-top: 1px solid #1f222a;
+    margin-top: auto;
+    width: 100%;
+    box-sizing: border-box;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: #2b2e38 transparent;
+}
+
+.bottomFilterBar::-webkit-scrollbar {
+    height: 4px;
+}
+
+.bottomFilterBar::-webkit-scrollbar-thumb {
+    background: #2b2e38;
+    border-radius: 4px;
+}
+
+.primaryFilterGroup {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 10px;
+    width: max-content;
+    flex-shrink: 0;
+}
+
+/* All / Clear Toggle Button */
+.clearAllBtn {
+    background: #18191f;
+    border: 1px solid #272a33;
+    color: #a1a7b5;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.18s ease;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.clearAllBtn:hover {
+    color: #ffffff;
+    background: #20222a;
+    border-color: #393e4c;
+}
+
+.clearAllBtn.clearActive {
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.clearAllBtn.clearActive:hover {
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.6);
+    background: rgba(239, 68, 68, 0.22);
+}
+
+.filterDivider {
+    color: #2e3440;
+    font-size: 14px;
+    user-select: none;
+    margin: 0 2px;
+}
+
+.categoryWrapper {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+}
+
+/* Main Pill Trigger */
+.filterCheckboxItem {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #a1a7b5;
+    cursor: pointer;
+    user-select: none;
+    text-transform: capitalize;
+    padding: 6px 15px;
+    border-radius: 20px;
+    background: #18191f;
+    border: 1px solid #272a33;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: all 0.18s ease;
+}
+
+.filterCheckboxItem:hover {
+    color: #ffffff;
+    background: #20222a;
+    border-color: #393e4c;
+}
+
+/* Active Highlight Accent (Amber Theme) */
+.highlightedPill {
+    color: #f59e0b !important;
+    background: rgba(245, 158, 11, 0.1) !important;
+    border: 1px solid rgba(245, 158, 11, 0.4) !important;
+}
+
+.chevronIcon {
+    opacity: 0.6;
+    transition:
+        transform 0.2s ease,
+        opacity 0.15s ease;
+}
+
+.filterCheckboxItem:hover .chevronIcon {
+    opacity: 1;
+}
+
+/* Options Container Beside Parent Button */
+.horizontalOptionsTrack {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    max-width: 520px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 2px 2px;
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: #2b2e38 transparent;
+}
+
+.horizontalOptionsTrack::-webkit-scrollbar {
+    height: 3px;
+}
+
+.horizontalOptionsTrack::-webkit-scrollbar-thumb {
+    background: #2b2e38;
+    border-radius: 3px;
+}
+
+/* Sub-Option Pill */
+.subCheckboxItem {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #8b92a2;
+    cursor: pointer;
+    user-select: none;
+    padding: 5px 12px;
+    text-transform: capitalize;
+    border: 1px solid #232630;
+    border-radius: 18px;
+    background: #18191f;
+    white-space: nowrap;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    transition: all 0.15s ease;
+}
+
+.subCheckboxItem:hover {
+    color: #f1f5f9;
+    background: #21232c;
+    border-color: #343846;
+}
+
+/* Sub-Option Checked State */
+.subCheckboxItem.subActive {
+    color: #93c5fd;
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.35);
+}
+
+/* Radio / Check Node Indicator */
+.nodeIndicator {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1.5px solid #4a5162;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+}
+
+.nodeIndicatorActive {
+    border-color: #3b82f6;
+    background: #3b82f6;
+}
+
+.nodeIndicatorActiveCheck {
+    width: 3.5px;
+    height: 6.5px;
+    border: solid white;
+    border-width: 0 1.5px 1.5px 0;
+    transform: rotate(45deg) translate(-0.5px, -0.5px);
+}
