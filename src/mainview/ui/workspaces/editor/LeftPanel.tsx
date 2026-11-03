@@ -292,21 +292,27 @@ export default function LeftPanel({
                         {/* CONTENT AREA */}
                         <div
                             className="app-panel-content"
-                            style={{ display: 'grid', overflow: 'hidden' }}
+                            style={{ height: '100%', overflow: 'hidden' }}
                         >
                             <div
                                 style={{
-                                    gridArea: '1 / 1 / 2 / 2',
                                     position: 'relative',
+                                    height: '100%',
                                 }}
                             >
                                 <AnimatePresence mode="wait">
                                     <motion.div
                                         key={explorerTab}
+
                                         initial={{ opacity: 0, x: -5 }}
                                         animate={{ opacity: 1, x: 0 }}
                                         exit={{ opacity: 0, x: 5 }}
                                         transition={{ duration: 0.15 }}
+                                        style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            height: '-webkit-fill-available',
+                                        }}
                                     >
                                         {chaptersLoading ? (
                                             <div className="loading">
