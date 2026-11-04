@@ -26,12 +26,10 @@ export function UseTabScroll(activeTabId: string | null) {
       }
     });
   };
-
   useEffect(() => {
     scrollToTab(activeTabId);
   }, [activeTabId])
-
   return {
     tabRefs,
-  }
+  };
 }
