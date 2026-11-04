@@ -454,12 +454,10 @@ body {
     flex-direction: column;
     gap: 2px;
     padding: 8px 4px;
+    overflow-y: auto;
 
     /* 1. Tell it to grow/shrink to fit the parent */
     flex: 1;
-
-    /* 2. CRITICAL: Prevents the flex container from ignoring overflow */
-    min-height: 0;
 }
 
 .chapter-item {

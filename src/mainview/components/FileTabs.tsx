@@ -21,7 +21,7 @@ export function FileTabs({
     onNewTabClick,
     onScratchClick,
 }: FileTabsProps) {
-    const { tabRefs, containerRef } = UseTabScroll(activeTabId);
+    const { tabRefs } = UseTabScroll(activeTabId);
 
     return (
         <nav className="file-tabs">
@@ -34,7 +34,7 @@ export function FileTabs({
                     <IconNotes size={16} stroke={2} />
                 </button>
             </div>
-            <div className="tabs-scroll" ref={containerRef}>
+            <div className="tabs-scroll">
                 {tabs.map((tab) => (
                     <div
                         key={tab.id}

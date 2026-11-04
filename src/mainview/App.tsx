@@ -682,7 +682,24 @@ function App() {
             sequenceId: null,
         };
         await rpc.request['db:create-chapter'](newChapter);
-        loadChapters(currentProject.id);
+
+        const tab: FileTab = {
+            id: newChapter.id,
+            name: newChapter.title,
+            type: 'chapter' as const,
+            filePath: newChapter.filePath || '',
+            isModified: false,
+        };
+        if (currentProject.id) {
+            const result = await rpc.request['db:get-chapters'](
+                currentProject.id
+            );
+            setChapters(result);
+        } else {
+            console.log('Failed to load chapter');
+        }
+        setOpenTabs((prev) => [...prev, tab]);
+        setActiveTabId(newChapter.id);
     }
 
     async function renameChapter(id: string, title: string) {
