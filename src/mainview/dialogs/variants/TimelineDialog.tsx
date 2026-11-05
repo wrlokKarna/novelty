@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Timeline } from 'vis-timeline';
 import { DataSet } from 'vis-data';
 import 'vis-timeline/styles/vis-timeline-graph2d.css';
@@ -12,13 +12,15 @@ import type {
     CompendiumDataType,
 } from '../../../shared/types/project/compendium';
 import styles from './TimelineDialog.module.css';
-import { IconPlus } from '@tabler/icons-react';
 import type { TimelineEvent } from '../../../shared/types/project/timeline';
 import type { FileTab } from '@/shared/types/project/templates';
-import TimelineBottomDock from '@/mainview/ui/comps/TimelineBottomDock';
+import TimelineBottomDock, {
+    getCheckedSectionKeys,
+} from '@/mainview/ui/comps/TimelineBottomDock';
 import type {
     PlacedEvent,
     //TimeLineChip,
+    TimelineDataItem,
     timelineFilterBtn,
 } from '@/shared/types/timeline';
 import type { ManuscriptDataType } from '@/shared/types/project/manuscript';
@@ -267,13 +269,18 @@ export default function TimelineDialog({
         };
     }, [open, events, compendiumData.characters, compendiumData.organizations]);
 
-    async function handleAutoGenerate() {
-        if (!projectId) return;
+    async function handleAutoGenerate(): Promise<number | null> {
+        if (!projectId) return null;
         try {
-            await rpc.request['db:auto-generate-timeline-events'](projectId);
+            const created =
+                await rpc.request['db:auto-generate-timeline-events'](
+                    projectId
+                );
             await loadEvents();
+            return created;
         } catch (e) {
             console.error('Failed to auto-generate events:', e);
+            return null;
         }
     }
 
@@ -341,6 +348,48 @@ export default function TimelineDialog({
         EVENT_COLORS[type] || EVENT_COLORS.milestone;
 
     const [overhaulToggle, SetOverhaulToggle] = useState(true);
+
+    const categoryData = useMemo<Record<string, TimelineDataItem[]>>(
+        () => ({
+            chapters: manuscriptData.chapters.map((c) => ({
+                id: c.id,
+                label: c.title,
+            })),
+            acts: manuscriptData.storyActs.map((a) => ({
+                id: a.id,
+                label: a.title,
+            })),
+            'plot threads': manuscriptData.plotThreads.map((p) => ({
+                id: p.id,
+                label: p.name,
+            })),
+            'story beats': manuscriptData.storyBeats.map((b) => ({
+                id: b.id,
+                label: b.title,
+            })),
+            character: compendiumData.characters.map((c) => ({
+                id: c.id,
+                label: c.name,
+            })),
+            location: compendiumData.locations.map((l) => ({
+                id: l.id,
+                label: l.name,
+            })),
+            organization: compendiumData.organizations.map((o) => ({
+                id: o.id,
+                label: o.name,
+            })),
+            item: compendiumData.items.map((i) => ({
+                id: i.id,
+                label: i.name,
+            })),
+            lore: compendiumData.loreEntries.map((l) => ({
+                id: l.id,
+                label: l.name,
+            })),
+        }),
+        [manuscriptData, compendiumData]
+    );
 
     return (
         <>
@@ -500,11 +549,11 @@ export default function TimelineDialog({
                     {overhaulToggle && (
                         <NewTimeline
                             tabs={tabs}
-                            manuscriptData={manuscriptData}
-                            compendiumData={compendiumData}
+                            categoryData={categoryData}
                             onSwitchLayout={() =>
                                 SetOverhaulToggle(!overhaulToggle)
                             }
+                            onAutoDetect={handleAutoGenerate}
                         />
                     )}
                 </>
@@ -527,25 +576,25 @@ export default function TimelineDialog({
 
 export function NewTimeline({
     tabs,
+    categoryData,
     onSwitchLayout,
-    manuscriptData,
-    compendiumData,
+    onAutoDetect,
 }: {
     tabs: FileTab[];
-    manuscriptData: ManuscriptDataType;
-    compendiumData: CompendiumDataType;
+    categoryData: Record<string, TimelineDataItem[]>;
     onSwitchLayout: () => void;
+    onAutoDetect?: () => Promise<number | null>;
 }) {
     // Unassigned events waiting in the bottom tray
     const [timelineEvents, setTimeLineEvents] = useState<number[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<string>('');
     const [openTabsChecked, setOpenTabsChecked] = useState(false);
 
-    // Dynamic grid dimensions
-    const [maxCol, setMaxCol] = useState<number>(7);
-    const [maxRow, setMaxRow] = useState<number>(3);
+    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
-    // Grid placed cards matching your exact positions
+    const [maxCol, setMaxCol] = useState<number>(7);
+    const [maxRow, setMaxRow] = useState<number>(5);
+
     const [placedEvents, setPlacedEvents] = useState<PlacedEvent[]>([
         { id: 'ev-1', col: 1, row: 2, title: 'Event 1' },
         { id: 'ev-2', col: 2, row: 2, title: 'Event 2' },
@@ -583,27 +632,44 @@ export function NewTimeline({
             },
         ]
     );
-    const [expandedCat, setExpandedCat] = useState<string>('');
-    const [hoveredCat, setHoveredCat] = useState<string>('');
-    const [hoveredChip, setHoveredChip] = useState<string>('');
 
-    // const maxCol = 7;
-    // const maxRow = 3;
+    useEffect(() => {
+        const active = new Set(
+            getCheckedSectionKeys(timelineFilters, openTabsChecked)
+        );
 
-    const toggleExpand = (cat: string) => {
-        setExpandedCat((prev) => (prev === cat ? '' : cat));
-    };
+        setSelectedItems((prev) => {
+            let changed = false;
+            const next = new Set<string>();
 
-    const allFilterChips = timelineFilters.flatMap((tf) => tf.subCat);
+            for (const key of prev) {
+                const separator = key.indexOf('::');
+                const section =
+                    separator === -1 ? key : key.slice(0, separator);
 
-    const handleChipHover = (chip: string, cat?: boolean) => {
-        if (cat) {
-            setHoveredCat(chip);
-        }
-        setHoveredChip(chip);
-    };
+                if (active.has(section)) {
+                    next.add(key);
+                } else {
+                    changed = true;
+                }
+            }
 
-    // Evaluates if any filter option in Opened Tabs, Manuscript, or Compendium is selected
+            return changed ? next : prev;
+        });
+    }, [timelineFilters, openTabsChecked]);
+
+    const handleToggleItem = useCallback((key: string) => {
+        setSelectedItems((prev) => {
+            const next = new Set(prev);
+            if (next.has(key)) {
+                next.delete(key);
+            } else {
+                next.add(key);
+            }
+            return next;
+        });
+    }, []);
+
     const hasAnySelected =
         openTabsChecked ||
         timelineFilters.some(
@@ -725,58 +791,51 @@ export function NewTimeline({
         consumeSelectedEvent();
     };
 
-    //chip: TimeLineChip
-    function getChipData() {
-        const chip = allFilterChips.find(
-            (f) => f?.key === hoveredChip && f?.hasitem
-        )?.key;
-        if (chip === 'character') {
-            return compendiumData.characters;
-        } else if (chip === 'location') {
-            return compendiumData.locations;
-        } else if (chip === 'organization') {
-            return compendiumData.organizations;
-        } else if (chip === 'item') {
-            return compendiumData.items;
-        } else if (chip === 'lore') {
-            return compendiumData.loreEntries;
-        } else if (chip === 'chapters') {
-            return manuscriptData.chapters;
-        } else if (chip === 'acts') {
-            return manuscriptData.storyActs;
-        } else if (chip === 'plot threads') {
-            return manuscriptData.plotThreads;
-        } else if (chip === 'story beats') {
-            return manuscriptData.storyBeats;
-        } else {
-            return [];
-        }
-    }
+    const handleAddEvent = () => {
+        const allNumbers = [
+            ...timelineEvents,
+            ...placedEvents.map(
+                (ev) => parseInt(ev.title.replace(/\D/g, ''), 10) || 0
+            ),
+        ];
+        const nextId = allNumbers.length > 0 ? Math.max(...allNumbers) + 1 : 1;
+        setTimeLineEvents([...timelineEvents, nextId]);
+    };
+
+    const hasEntityFilter = selectedItems.size > 0;
+    const matchesEntityFilter = (event: PlacedEvent) =>
+        !hasEntityFilter ||
+        !event.entityKeys?.length ||
+        event.entityKeys.some((key) => selectedItems.has(key));
+    const entityMatchCount = hasEntityFilter
+        ? placedEvents.filter(
+              (event) => event.entityKeys?.length && matchesEntityFilter(event)
+          ).length
+        : 0;
 
     return (
         <div className={styles.timelineGridWrapper}>
             <div className={styles.gridControlHeader}>
-                <button
-                    className={styles.addEventBtn}
-                    onClick={() => {
-                        const allNumbers = [
-                            ...timelineEvents,
-                            ...placedEvents.map(
-                                (e) =>
-                                    parseInt(e.title.replace(/\D/g, ''), 10) ||
-                                    0
-                            ),
-                        ];
-                        const nextId =
-                            allNumbers.length > 0
-                                ? Math.max(...allNumbers) + 1
-                                : 1;
-                        setTimeLineEvents([...timelineEvents, nextId]);
-                    }}
-                >
-                    <IconPlus size={14} />
-                    <span>Add Event</span>
-                </button>
+                {hasEntityFilter && (
+                    <div className={styles.entityFilterStatus}>
+                        <span>
+                            {selectedItems.size} entity filter
+                            {selectedItems.size === 1 ? '' : 's'}
+                            <span className={styles.entityFilterCount}>
+                                {` · ${entityMatchCount} match${
+                                    entityMatchCount === 1 ? '' : 'es'
+                                }`}
+                            </span>
+                        </span>
+                        <button
+                            type="button"
+                            className={styles.entityFilterClear}
+                            onClick={() => setSelectedItems(new Set())}
+                        >
+                            Clear
+                        </button>
+                    </div>
+                )}
                 <button
                     className={styles.switchLayoutBtn}
                     onClick={onSwitchLayout}
@@ -790,8 +849,8 @@ export function NewTimeline({
                     className={`${styles.timelineGrid} ${selectedEvent ? styles.insertActive : ''}`}
                     style={{
                         display: 'grid',
-                        gridTemplateColumns: `repeat(${maxCol}, 130px)`,
-                        gridTemplateRows: `repeat(${maxRow}, 130px)`,
+                        gridTemplateColumns: `repeat(${maxCol}, 100px)`,
+                        gridTemplateRows: `repeat(${maxRow}, 100px)`,
                         position: 'relative',
                     }}
                 >
@@ -824,7 +883,12 @@ export function NewTimeline({
                     {placedEvents.map((ev) => (
                         <div
                             key={ev.id}
-                            className={styles.eventCard}
+                            className={`${styles.eventCard} ${
+                                ev.entityKeys?.length &&
+                                !matchesEntityFilter(ev)
+                                    ? styles.eventCardFilteredOut
+                                    : ''
+                            }`}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 handlePlaceOrReplace(ev.col, ev.row);
@@ -914,58 +978,23 @@ export function NewTimeline({
                 </div>
             </div>
 
-            {/* UNASSIGNED EVENTS BOTTOM BAR */}
-            {timelineEvents.length > 0 && (
-                <div className={styles.unassignedEventsBar}>
-                    {timelineEvents.map((e) => (
-                        <button
-                            key={e}
-                            className={`${styles.unassignedEventChip} ${
-                                selectedEvent === String(e)
-                                    ? styles.unassignedEventActive
-                                    : ''
-                            }`}
-                            onClick={() =>
-                                setSelectedEvent(
-                                    selectedEvent === String(e) ? '' : String(e)
-                                )
-                            }
-                        >
-                            {selectedEvent === String(e)
-                                ? 'Cancel Selection'
-                                : `Event #${e}`}
-                        </button>
-                    ))}
-                </div>
-            )}
-
-            {/* Filter preview tooltip */}
-            {getChipData().map((c) => c.name ?? c.title)}
-
-            {timelineFilters.find(
-                (f) => f?.cat === hoveredChip && f?.hasitem
-            ) && (
-                <div>
-                    {hoveredChip === 'opened tabs'
-                        ? tabs.map((t) => t.name)
-                        : JSON.parse(hoveredChip)}
-                </div>
-            )}
             <TimelineBottomDock
                 hasAnySelected={hasAnySelected}
                 handleToggleAllOrClear={handleToggleAllOrClear}
                 openTabsChecked={openTabsChecked}
                 setOpenTabsChecked={setOpenTabsChecked}
-                handleChipHover={handleChipHover}
                 timelineFilters={timelineFilters}
                 setTimelineFilters={setTimelineFilters}
-                expandedCat={expandedCat}
-                hoveredCat={hoveredCat}
-                toggleExpand={toggleExpand}
-                manuscriptData={manuscriptData}
-                compendiumData={compendiumData}
+                tabs={tabs}
+                categoryData={categoryData}
+                onAddEvent={handleAddEvent}
+                onAutoDetect={onAutoDetect}
+                unassignedEvents={timelineEvents}
+                selectedEvent={selectedEvent}
+                onSelectEvent={setSelectedEvent}
+                selectedItems={selectedItems}
+                onToggleItem={handleToggleItem}
             />
-            {/* BOTTOM FILTER DOCK */}
         </div>
     );
 }

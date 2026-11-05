@@ -156,30 +156,38 @@
 .gridControlHeader {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     padding: 12px 20px;
     border-bottom: 1px solid #1a1c22;
 }
 
-.addEventBtn {
+.entityFilterStatus {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    background: #1a1c23;
-    border: 1px solid #2c303c;
-    color: #f1f5f9;
+    gap: 10px;
+    margin-right: auto;
     font-size: 12px;
-    font-weight: 500;
-    padding: 6px 14px;
+    color: #94a3b8;
+}
+
+.entityFilterCount {
+    color: #64748b;
+}
+
+.entityFilterClear {
+    background: transparent;
+    border: 1px solid #2b2e38;
+    color: #94a3b8;
+    font-size: 11px;
+    padding: 3px 9px;
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.15s ease;
 }
 
-.addEventBtn:hover {
-    background: #232732;
-    border-color: #3b4050;
-    color: #ffffff;
+.entityFilterClear:hover {
+    color: #f1f5f9;
+    border-color: #434756;
 }
 
 .switchLayoutBtn {
@@ -255,7 +263,9 @@
     transition:
         transform 0.15s ease,
         border-color 0.15s ease,
-        box-shadow 0.15s ease;
+        box-shadow 0.15s ease,
+        opacity 0.15s ease,
+        filter 0.15s ease;
 }
 
 .eventCard:hover {
@@ -264,35 +274,7 @@
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
 }
 
-.unassignedEventsBar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 20px;
-    overflow-x: auto;
-    border-top: 1px solid #1a1c22;
-    background: #131418;
-}
-
-.unassignedEventChip {
-    background: #1a1c23;
-    border: 1px solid #2a2e3a;
-    color: #cbd5e1;
-    font-size: 12px;
-    padding: 6px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.15s ease;
-}
-
-.unassignedEventChip:hover {
-    border-color: #424859;
-    color: #ffffff;
-}
-
-.unassignedEventActive {
-    background: rgba(245, 158, 11, 0.15);
-    border-color: #f59e0b;
-    color: #fbbf24;
+.eventCardFilteredOut {
+    opacity: 0.28;
+    filter: grayscale(0.5);
 }

@@ -19,9 +19,15 @@ export type timelineFilterBtn = {
     checked: boolean;
 };
 
+export type TimelineDataItem = {
+    id: string;
+    label: string;
+};
+
 export type PlacedEvent = {
     id: string | number;
     col: number;
     row: number;
     title: string;
+    entityKeys?: string[];
 };
