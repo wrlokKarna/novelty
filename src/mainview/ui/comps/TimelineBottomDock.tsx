@@ -1,4 +1,12 @@
-import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
+import {
+    useState,
+    useRef,
+    useEffect,
+    useLayoutEffect,
+    useCallback,
+    useMemo,
+    memo,
+} from 'react';
 import { createPortal } from 'react-dom';
 import {
     IconArrowBarToLeft,
@@ -224,6 +232,9 @@ function TimelineBottomDock({
     const detectResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
         null
     );
+    const catCollapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+        null
+    );
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
     const [hoveredCat, setHoveredCat] = useState('');
@@ -231,6 +242,11 @@ function TimelineBottomDock({
     const [openTabsOpen, setOpenTabsOpen] = useState(false);
     const [popoverPos, setPopoverPos] = useState({ left: 0, top: 0 });
     const [trayExpanded, setTrayExpanded] = useState(false);
+    const [scrollRequest, setScrollRequest] = useState<{
+        key: string;
+        nonce: number;
+    } | null>(null);
+    const handledScrollRef = useRef(0);
 
     const [detectPhase, setDetectPhase] = useState<
         'idle' | 'scanning' | 'done'
@@ -246,6 +262,25 @@ function TimelineBottomDock({
         setCanScrollLeft(scrollLeft > 1);
         setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 1);
     }, []);
+
+    const cancelCatCollapse = useCallback(() => {
+        if (catCollapseTimerRef.current) {
+            clearTimeout(catCollapseTimerRef.current);
+            catCollapseTimerRef.current = null;
+        }
+    }, []);
+
+    const scheduleCatCollapse = useCallback(
+        (cat: string) => {
+            cancelCatCollapse();
+            if (!cat) return;
+            catCollapseTimerRef.current = setTimeout(() => {
+                catCollapseTimerRef.current = null;
+                setHoveredCat((prev) => (prev === cat ? '' : prev));
+            }, 180);
+        },
+        [cancelCatCollapse]
+    );
 
     useEffect(() => {
         const el = scrollContainerRef.current;
@@ -282,6 +317,9 @@ function TimelineBottomDock({
     useEffect(() => {
         return () => {
             if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+            if (catCollapseTimerRef.current) {
+                clearTimeout(catCollapseTimerRef.current);
+            }
         };
     }, []);
 
@@ -405,10 +443,39 @@ function TimelineBottomDock({
         [tabs]
     );
 
-    const sectionKeys =
-        hoveredSubKey && !checkedKeys.includes(hoveredSubKey)
-            ? [...checkedKeys, hoveredSubKey]
-            : checkedKeys;
+    const sectionOrder = useMemo(() => {
+        const keys = ['opened tabs'];
+        for (const filt of timelineFilters) {
+            if (filt.cat === 'opened tabs') continue;
+            for (const sub of filt.subCat ?? []) keys.push(sub.key);
+        }
+        return keys;
+    }, [timelineFilters]);
+
+    const sectionKeys = useMemo(() => {
+        if (!hoveredSubKey || checkedKeys.includes(hoveredSubKey)) {
+            return checkedKeys;
+        }
+
+        const orderIndex = new Map(
+            sectionOrder.map((key, index) => [key, index])
+        );
+        const hoveredIndex =
+            orderIndex.get(hoveredSubKey) ?? Number.MAX_SAFE_INTEGER;
+
+        const next = [...checkedKeys];
+        const insertAt = next.findIndex(
+            (key) =>
+                (orderIndex.get(key) ?? Number.MAX_SAFE_INTEGER) > hoveredIndex
+        );
+
+        if (insertAt === -1) next.push(hoveredSubKey);
+        else next.splice(insertAt, 0, hoveredSubKey);
+
+        return next;
+    }, [checkedKeys, hoveredSubKey, sectionOrder]);
+
+    const prevSectionKeysRef = useRef<string[]>(sectionKeys);
 
     const sectionLimit =
         checkedKeys.length > 1 ? previewLimit : Number.POSITIVE_INFINITY;
@@ -452,43 +519,55 @@ function TimelineBottomDock({
         []
     );
 
-    const scrollToSection = useCallback(
-        (key: string) => {
-            if (trayExpanded) return;
+    const sectionSignature = sectionKeys.join('|');
 
-            const container = dataScrollRef.current;
-            const target = sectionRefs.current.get(key);
-            if (!container || !target) return;
+    useLayoutEffect(() => {
+        if (
+            !scrollRequest ||
+            handledScrollRef.current === scrollRequest.nonce
+        ) {
+            return;
+        }
 
-            container.scrollTo({
-                left: Math.max(target.offsetLeft, 0),
-                behavior: 'smooth',
-            });
-        },
-        [trayExpanded]
-    );
+        if (trayExpanded) {
+            handledScrollRef.current = scrollRequest.nonce;
+            return;
+        }
 
-    const scrollRafRef = useRef<number | null>(null);
-    const queueScrollToSection = useCallback(
-        (key?: string) => {
-            if (!key) return;
-            if (scrollRafRef.current !== null) {
-                cancelAnimationFrame(scrollRafRef.current);
-            }
-            scrollRafRef.current = requestAnimationFrame(() => {
-                scrollRafRef.current = null;
-                scrollToSection(key);
-            });
-        },
-        [scrollToSection]
-    );
+        const container = dataScrollRef.current;
+        const target = sectionRefs.current.get(scrollRequest.key);
 
-    useEffect(() => {
-        return () => {
-            if (scrollRafRef.current !== null) {
-                cancelAnimationFrame(scrollRafRef.current);
-            }
-        };
+        if (!container || !target) return;
+
+        handledScrollRef.current = scrollRequest.nonce;
+
+        if (
+            !prevSectionKeysRef.current.includes(scrollRequest.key) &&
+            target.offsetLeft <= container.scrollLeft
+        ) {
+            const next = target.nextElementSibling as HTMLElement | null;
+            const advance = next
+                ? next.offsetLeft - target.offsetLeft
+                : target.offsetWidth;
+            container.scrollLeft += Math.max(advance, 0);
+        }
+
+        container.scrollTo({
+            left: Math.max(target.offsetLeft, 0),
+            behavior: 'smooth',
+        });
+    }, [scrollRequest, sectionSignature, trayExpanded]);
+
+    useLayoutEffect(() => {
+        prevSectionKeysRef.current = sectionKeys;
+    });
+
+    const queueScrollToSection = useCallback((key?: string) => {
+        if (!key) return;
+        setScrollRequest((prev) => ({
+            key,
+            nonce: (prev?.nonce ?? 0) + 1,
+        }));
     }, []);
 
     const scrollToCategory = useCallback(
@@ -682,12 +761,21 @@ function TimelineBottomDock({
                     {canScrollLeft && (
                         <div
                             className={`${styles.circleBlurContainer} ${styles.circleBlurLeft}`}
+                            onMouseEnter={cancelCatCollapse}
+                            onMouseLeave={() => {
+                                if (hoveredCat) scheduleCatCollapse(hoveredCat);
+                            }}
                         >
                             <button
                                 type="button"
                                 aria-label="Scroll left"
                                 className={styles.navScrollBtn}
                                 onClick={() => handleScrollBy(-200)}
+                                onFocus={cancelCatCollapse}
+                                onBlur={() => {
+                                    if (hoveredCat)
+                                        scheduleCatCollapse(hoveredCat);
+                                }}
                             >
                                 <IconChevronLeft size={16} />
                             </button>
@@ -704,6 +792,7 @@ function TimelineBottomDock({
                                 ref={openTabsPillRef}
                                 className={styles.categoryWrapper}
                                 onMouseEnter={() => {
+                                    cancelCatCollapse();
                                     setHoveredCat('opened tabs');
                                     setHoveredSubKey('opened tabs');
                                     showOpenTabsPopover();
@@ -769,16 +858,13 @@ function TimelineBottomDock({
                                         <div
                                             key={filt.cat}
                                             className={styles.categoryWrapper}
-                                            onMouseEnter={() =>
-                                                setHoveredCat(filt.cat)
-                                            }
+                                            onMouseEnter={() => {
+                                                cancelCatCollapse();
+                                                setHoveredCat(filt.cat);
+                                            }}
                                             onMouseLeave={() => {
-                                                setHoveredCat((prev) =>
-                                                    prev === filt.cat
-                                                        ? ''
-                                                        : prev
-                                                );
                                                 setHoveredSubKey('');
+                                                scheduleCatCollapse(filt.cat);
                                             }}
                                         >
                                             <div
@@ -833,6 +919,7 @@ function TimelineBottomDock({
                                                                         : ''
                                                                 }`}
                                                                 onMouseEnter={() => {
+                                                                    cancelCatCollapse();
                                                                     setHoveredCat(
                                                                         filt.cat
                                                                     );
@@ -913,12 +1000,21 @@ function TimelineBottomDock({
                     {canScrollRight && (
                         <div
                             className={`${styles.circleBlurContainer} ${styles.circleBlurRight}`}
+                            onMouseEnter={cancelCatCollapse}
+                            onMouseLeave={() => {
+                                if (hoveredCat) scheduleCatCollapse(hoveredCat);
+                            }}
                         >
                             <button
                                 type="button"
                                 aria-label="Scroll right"
                                 className={styles.navScrollBtn}
                                 onClick={() => handleScrollBy(200)}
+                                onFocus={cancelCatCollapse}
+                                onBlur={() => {
+                                    if (hoveredCat)
+                                        scheduleCatCollapse(hoveredCat);
+                                }}
                             >
                                 <IconChevronRight size={16} />
                             </button>
