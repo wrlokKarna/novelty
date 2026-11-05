@@ -9,7 +9,6 @@ export function useTabScroll(activeTabId: string | null) {
     if (!id) {
       return;
     }
-    // Use requestAnimationFrame to wait for the next paint frame
     const activeTabElement = tabRefs.current[id];
 
     if (activeTabElement) {
@@ -26,12 +25,14 @@ export function useTabScroll(activeTabId: string | null) {
     }
   }, []);
   useEffect(() => {
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       requestAnimationFrame(() => {
-        // Runs after the 50ms delay, right before the next paint frame
+
         scrollToTab(activeTabId);
       });
-    }, 200)
+    }, 200);
+
+    return () => clearTimeout(timer);
   });
   return {
     tabRefs,
