@@ -25,7 +25,7 @@ import type {
     Organization,
 } from '../../../../shared/types/project/compendium';
 import type { Item, Location } from '../../../../shared/types';
-import { UseTabScroll } from '@/mainview/components/UseTabScroll';
+import { useTabScroll } from '@/mainview/components/UseTabScroll';
 
 const COMPENDIUM_CONFIG = {
     character: { label: 'Characters', icon: IconUsers, dataKey: 'characters' },
@@ -192,7 +192,7 @@ export default function LeftPanel({
         if (mode === 'manuscript') handleNewChapter();
         else handleNewCompendiumEntry(explorerTab as CompendiumCategory);
     };
-    const { tabRefs } = UseTabScroll(activeTabId);
+    const { tabRefs } = useTabScroll(activeTabId);
 
     return (
         <>
