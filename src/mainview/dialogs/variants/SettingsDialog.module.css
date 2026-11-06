@@ -4,15 +4,14 @@
     flex-direction: column;
     min-height: 0;
     color: #e2e4e9;
-    background: #0d0e11;
 }
 
 .tabContent {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    padding: 6px 14px 28px 6px;
     overflow-y: auto;
+    padding-left: 7px;
 }
 
 .loading {
