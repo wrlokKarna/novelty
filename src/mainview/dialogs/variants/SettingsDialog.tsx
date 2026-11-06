@@ -531,6 +531,85 @@ function AppearanceTab() {
                     </div>
                 </>
             </SettingsCard>
+
+            {/* --- themes --- */}
+            <SettingsCard>
+                <>
+                    <div className={styles.settingsSectionLabel}>
+                        Theme Colors
+                    </div>
+                    <div className={styles.colorCardsGrid}>
+                        {[
+                            {
+                                key: 'background',
+                                label: 'Background',
+                                defaultVal: '#17181f',
+                            },
+                            {
+                                key: 'foreground',
+                                label: 'Foreground',
+                                defaultVal: '#f3f4f6',
+                            },
+                            {
+                                key: 'highlight',
+                                label: 'Highlight',
+                                defaultVal: '#5875e8',
+                            },
+                            {
+                                key: 'accent',
+                                label: 'Accent',
+                                defaultVal: '#443f5e',
+                            },
+                        ].map((item) => {
+                            const currentColor =
+                                (settings.appearance as any)?.themeColors?.[
+                                    item.key
+                                ] ?? item.defaultVal;
+
+                            return (
+                                <label
+                                    key={item.key}
+                                    className={`${styles.themeColorCard} ${isLocked ? styles.disabledCard : ''}`}
+                                >
+                                    <div className={styles.colorCircleWrapper}>
+                                        <span
+                                            className={styles.themeColorCircle}
+                                            style={{
+                                                backgroundColor: currentColor,
+                                            }}
+                                        />
+                                        <input
+                                            type="color"
+                                            value={currentColor}
+                                            disabled={isLocked}
+                                            className={styles.hiddenColorInput}
+                                            onChange={(e) => {
+                                                const existing =
+                                                    (settings.appearance as any)
+                                                        ?.themeColors ?? {};
+                                                updateAppearance(
+                                                    'themeColors' as any,
+                                                    {
+                                                        ...existing,
+                                                        [item.key]:
+                                                            e.target.value,
+                                                    }
+                                                );
+                                            }}
+                                        />
+                                    </div>
+                                    <span className={styles.colorCardLabel}>
+                                        {item.label}
+                                    </span>
+                                    <span className={styles.colorCardHex}>
+                                        {currentColor}
+                                    </span>
+                                </label>
+                            );
+                        })}
+                    </div>
+                </>
+            </SettingsCard>
         </div>
     );
 }

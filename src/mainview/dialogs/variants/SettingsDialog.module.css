@@ -9,7 +9,7 @@
 .tabContent {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 4px;
     overflow-y: auto;
     padding-left: 7px;
 }
@@ -666,4 +666,93 @@
 .projectArrow {
     font-size: 14px;
     color: #8c909c;
+}
+
+/* ===================================================
+   Theme Colors Grid (Image 1 Layout + Image 2 Palette)
+   =================================================== */
+
+.colorCardsGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    width: 100%;
+    margin-top: 4px;
+}
+
+.themeColorCard {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 18px 10px 14px;
+
+    background-color: rgba(34, 35, 36);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.themeColorCard:hover {
+    background: #1e202d;
+    border-color: rgba(229, 169, 60, 0.45);
+    transform: translateY(-1px);
+}
+
+.colorCircleWrapper {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.themeColorCircle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    transition:
+        transform 0.18s ease,
+        border-color 0.18s ease;
+}
+
+.themeColorCard:hover .themeColorCircle {
+    transform: scale(1.08);
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+.hiddenColorInput {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.colorCardLabel {
+    font-size: 13px;
+    font-weight: 500;
+    color: #e2e4e9;
+    letter-spacing: -0.01em;
+}
+
+.colorCardHex {
+    font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    color: #7d8292;
+    text-transform: uppercase;
+}
+
+.disabledCard {
+    opacity: 0.5;
+    pointer-events: none;
+    cursor: not-allowed;
 }
