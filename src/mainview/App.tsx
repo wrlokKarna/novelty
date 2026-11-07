@@ -183,6 +183,10 @@ function App() {
     const [currentProject, setCurrentProject] = useState<Project | null>(null);
     const [openTabs, setOpenTabs] = useState<FileTab[]>([]);
     const [activeTabId, setActiveTabId] = useState<string | null>(null);
+    const openTabIds = useMemo(
+        () => new Set(openTabs.map((tab) => tab.id)),
+        [openTabs]
+    );
     const [tabContents, setTabContents] = useState<Record<string, string>>({});
     const [chapters, setChapters] = useState<Chapter[]>([]);
     const [chaptersLoading, setChaptersLoading] = useState(false);
@@ -718,6 +722,18 @@ function App() {
         );
         setChapterTitleEditId((prev) => (prev === id ? null : prev));
         setChapterTitleDraft('');
+    }
+
+    async function renameExplorerEntry(
+        id: string,
+        title: string,
+        category: CompendiumCategory | 'chapters'
+    ) {
+        if (category === 'chapters') {
+            await renameChapter(id, title);
+            return;
+        }
+        await handleUpdateCompendiumEntry(id, category, 'name', title);
     }
 
     async function handleChapterTitleDraftCommit() {
@@ -2622,12 +2638,29 @@ function App() {
         };
     }, [isPreviewDragging, settings, updateAppearance]);
 
+    const setLeftCollapsed = useCallback(
+        (next: boolean) => {
+            setIsCollapsed(next);
+            if (next) {
+                if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                setIsLeftHovered(false);
+            }
+            const constraints = settings?.appearance?.sidebarConstraints;
+            if (!constraints) return;
+            updateAppearance('sidebarConstraints', {
+                ...constraints,
+                leftPanelCollapsed: next,
+            });
+        },
+        [settings, updateAppearance]
+    );
+
     return (
         <>
             <TitleBar
                 isCollapsed={isCollapsed}
                 isChatCollapsed={isChatCollapsed}
-                setIsCollapsed={setIsCollapsed}
+                setIsCollapsed={setLeftCollapsed}
                 setIsChatCollapsed={setIsChatCollapsed}
                 onProjectsClick={() => setActiveDialog('projects')}
                 onSettingsClick={() => setActiveDialog('settings')}
@@ -2676,8 +2709,10 @@ function App() {
             <main className="editor-workspace flex-container">
                 <LeftPanel
                     // Layout Props
-                    width={
-                        isCollapsed && !isLeftHovered ? 24 : leftSidebarWidth
+                    width={leftSidebarWidth}
+                    openTabIds={openTabIds}
+                    legacyBluePanel={
+                        settings?.appearance?.legacyBluePanel ?? false
                     }
                     isCollapsed={isCollapsed}
                     isLeftHovered={isLeftHovered}
@@ -2685,15 +2720,17 @@ function App() {
                         settings?.appearance?.sidebarConstraints
                             ?.enableAutoExpandLeft
                     }
-                    onCollapseToggle={() => setIsCollapsed(!isCollapsed)}
-                    onAutoExpandToggle={() =>
+                    onCollapseToggle={() => setLeftCollapsed(!isCollapsed)}
+                    onAutoExpandToggle={() => {
+                        const constraints =
+                            settings?.appearance?.sidebarConstraints;
+                        if (!constraints) return;
                         updateAppearance('sidebarConstraints', {
-                            ...settings!.appearance.sidebarConstraints,
+                            ...constraints,
                             enableAutoExpandLeft:
-                                !settings?.appearance?.sidebarConstraints
-                                    ?.enableAutoExpandLeft,
-                        })
-                    }
+                                !constraints.enableAutoExpandLeft,
+                        });
+                    }}
 
                     activeTabId={activeTabId}
 
@@ -2718,38 +2755,26 @@ function App() {
                     loreEntries={loreEntries}
                     chaptersLoading={chaptersLoading}
 
-                    // Action Callbacks (Ported from your logic)
                     handleNewChapter={handleNewChapter}
-                    handleNewCompendiumEntry={(_cat) =>
-                        handleNewCompendiumEntry(
-                            explorerTab as CompendiumCategory
-                        )
-                    }
+                    handleNewCompendiumEntry={handleNewCompendiumEntry}
                     handleEditTemplate={() => handleEditTemplate()}
                     openChapter={(c) => openChapterTab(c)}
                     openCompendiumEntry={(id, cat) =>
                         handleOpenCompendiumEntry(id, cat)
                     }
                     deleteChapter={(c) => {
-                        if (confirm(`Delete "${c.title}"?`)) {
-                            rpc.request['db:delete-chapter'](c.id).then(() => {
-                                loadChapters(currentProject!.id);
-                                if (activeTabId === c.id) {
-                                    setActiveTabId(null);
-                                    setOpenTabs((prev) =>
-                                        prev.filter((t) => t.id !== c.id)
-                                    );
-                                }
-                            });
-                        }
+                        rpc.request['db:delete-chapter'](c.id).then(() => {
+                            loadChapters(currentProject!.id);
+                            if (activeTabId === c.id) {
+                                setActiveTabId(null);
+                                setOpenTabs((prev) =>
+                                    prev.filter((t) => t.id !== c.id)
+                                );
+                            }
+                        });
                     }}
-                    renameChapter={renameChapter}
-                    deleteCompendiumEntry={(id, _cat) => {
-                        handleDeleteCompendiumEntry(
-                            id,
-                            explorerTab as CompendiumCategory
-                        );
-                    }}
+                    renameEntry={renameExplorerEntry}
+                    deleteCompendiumEntry={handleDeleteCompendiumEntry}
                     isDragging={isDragging}
                     onDragStart={(dir, x) => handleDragStart(dir, x)}
                     onMouseEnter={() => {
@@ -2757,7 +2782,6 @@ function App() {
                             settings?.appearance?.sidebarConstraints
                                 ?.enableAutoExpandLeft
                         ) {
-                            console.log('enter');
                             if (hoverTimerRef.current)
                                 clearTimeout(hoverTimerRef.current);
                             hoverTimerRef.current = setTimeout(
@@ -2773,7 +2797,6 @@ function App() {
                             settings?.appearance?.sidebarConstraints
                                 ?.enableAutoExpandLeft
                         ) {
-                            console.log('leave');
                             hoverTimerRef.current = setTimeout(
                                 () => setIsLeftHovered(false),
                                 200

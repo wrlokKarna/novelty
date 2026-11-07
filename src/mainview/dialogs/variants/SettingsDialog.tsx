@@ -336,6 +336,7 @@ function GeneralTab() {
 function AppearanceTab() {
     const { settings, updateAppearance, isLocked } = useSettings();
     if (!settings) return null;
+    const legacyBluePanel = settings.appearance.legacyBluePanel ?? false;
     const c = settings.appearance.sidebarConstraints ?? {
         enableCustomWidthCap: false,
         maxLeftWidth: 400,
@@ -607,6 +608,34 @@ function AppearanceTab() {
                                 </label>
                             );
                         })}
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={legacyBluePanel}
+                            className={`${styles.themeColorCard} ${styles.legacyBlueCard} ${
+                                legacyBluePanel
+                                    ? styles.themeColorCardActive
+                                    : ''
+                            } ${isLocked ? styles.disabledCard : ''}`}
+                            onClick={() =>
+                                updateAppearance(
+                                    'legacyBluePanel',
+                                    !legacyBluePanel
+                                )
+                            }
+                            disabled={isLocked}
+                        >
+                            <span
+                                className={styles.themeColorCircle}
+                                style={{ backgroundColor: '#3b82f6' }}
+                            />
+                            <span className={styles.colorCardLabel}>
+                                Legacy Blue Panel
+                            </span>
+                            <span className={styles.colorCardHex}>
+                                {legacyBluePanel ? 'On' : 'Off'}
+                            </span>
+                        </button>
                     </div>
                 </>
             </SettingsCard>

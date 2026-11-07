@@ -703,6 +703,19 @@
     transform: translateY(-1px);
 }
 
+.legacyBlueCard {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 12px 14px;
+    text-align: left;
+}
+
+.themeColorCardActive {
+    border-color: rgba(229, 169, 60, 0.55);
+}
+
 .colorCircleWrapper {
     position: relative;
     width: 38px;

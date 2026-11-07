@@ -1,0 +1,21 @@
+.appPanelLeft {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.float {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 100;
+    height: calc(100% - 24px);
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+}

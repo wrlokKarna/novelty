@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     IconFiles,
@@ -26,6 +26,8 @@ import type {
 } from '../../../../shared/types/project/compendium';
 import type { Item, Location } from '../../../../shared/types';
 import { useTabScroll } from '@/mainview/components/UseTabScroll';
+import styles from './LeftPanel.module.css';
+import './LeftPanel.legacy-blue.css';
 
 const COMPENDIUM_CONFIG = {
     character: { label: 'Characters', icon: IconUsers, dataKey: 'characters' },
@@ -49,18 +51,27 @@ export const EXPLORER_CONFIG = {
     ...COMPENDIUM_CONFIG,
 } as const;
 
-//const ALL_TABS = { ...MANUSCRIPT_CONFIG, ...COMPENDIUM_CONFIG };
-
 export type EditorPanelTabs = 'manuscript' | 'compendium';
 
 export type ExplorerTabCategories = keyof typeof EXPLORER_CONFIG;
+
+type ExplorerCategory = CompendiumCategory | 'chapters';
+
+type ExplorerEntry = {
+    id: string;
+    name?: string;
+    title?: string;
+};
+
+const getEntryLabel = (entry: ExplorerEntry): string =>
+    entry.title ?? entry.name ?? 'Untitled';
 
 type Props = {
     isCollapsed: boolean;
     isLeftHovered: boolean;
     enableAutoExpandLeft: boolean | undefined;
     mode: EditorPanelTabs;
-    explorerTab: CompendiumCategory | 'chapters';
+    explorerTab: ExplorerCategory;
     chapters: Chapter[];
     characters: Character[];
     locations: Location[];
@@ -69,8 +80,9 @@ type Props = {
     loreEntries: LoreEntry[];
     chaptersLoading?: boolean;
     activeTabId: string | null;
+    openTabIds: ReadonlySet<string>;
     onModeChange: (mode: EditorPanelTabs) => void;
-    onSubTabChange: (tab: CompendiumCategory | 'chapters') => void;
+    onSubTabChange: (tab: ExplorerCategory) => void;
     onCollapseToggle: () => void;
     onAutoExpandToggle: () => void;
     handleNewChapter: () => void;
@@ -79,14 +91,21 @@ type Props = {
     openChapter: (c: Chapter) => void;
     openCompendiumEntry: (id: string, cat: CompendiumCategory) => void;
     deleteChapter: (c: Chapter) => void;
-    renameChapter: (id: string, title: string) => void;
+    renameEntry: (
+        id: string,
+        title: string,
+        category: ExplorerCategory
+    ) => void;
     deleteCompendiumEntry: (id: string, cat: CompendiumCategory) => void;
     isDragging: string | null;
     onDragStart: (direction: 'left' | 'right', x: number) => void;
     onMouseEnter: () => void;
     onMouseLeave: () => void;
     width: number;
+    legacyBluePanel: boolean;
 };
+
+const COLLAPSED_RAIL_WIDTH = 24;
 
 export default function LeftPanel({
     isCollapsed,
@@ -94,6 +113,7 @@ export default function LeftPanel({
     enableAutoExpandLeft,
     mode,
     activeTabId,
+    openTabIds,
     explorerTab,
     chapters,
     characters,
@@ -112,56 +132,76 @@ export default function LeftPanel({
     openChapter,
     openCompendiumEntry,
     deleteChapter,
-    renameChapter,
+    renameEntry,
     deleteCompendiumEntry,
     isDragging,
     onDragStart,
     onMouseEnter,
     onMouseLeave,
     width,
+    legacyBluePanel,
 }: Props) {
-    const [editingChapterId, setEditingChapterId] = useState<string | null>(
-        null
-    );
+    const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
     const [editValue, setEditValue] = useState('');
     const editInputRef = useRef<HTMLInputElement>(null);
+    const skipBlurCommitRef = useRef(false);
 
     useEffect(() => {
-        if (editingChapterId && editInputRef.current) {
+        if (editingEntryId && editInputRef.current) {
             editInputRef.current.focus();
             editInputRef.current.select();
         }
-    }, [editingChapterId]);
+    }, [editingEntryId]);
+
+    useEffect(() => {
+        setEditingEntryId(null);
+        setEditValue('');
+    }, [explorerTab]);
+
+    const resetEditing = () => {
+        setEditingEntryId(null);
+        setEditValue('');
+    };
 
     const handleStartRename = (id: string, currentTitle: string) => {
-        setEditingChapterId(id);
+        skipBlurCommitRef.current = false;
+        setEditingEntryId(id);
         setEditValue(currentTitle);
     };
 
     const handleCommitRename = () => {
-        if (editingChapterId && editValue.trim()) {
-            renameChapter(editingChapterId, editValue.trim());
+        if (skipBlurCommitRef.current) {
+            skipBlurCommitRef.current = false;
+            resetEditing();
+            return;
         }
-        setEditingChapterId(null);
-        setEditValue('');
+
+        skipBlurCommitRef.current = true;
+        if (editingEntryId) {
+            const trimmed = editValue.trim();
+            if (trimmed) {
+                renameEntry(editingEntryId, trimmed, explorerTab);
+            }
+        }
+        resetEditing();
     };
 
     const handleCancelRename = () => {
-        setEditingChapterId(null);
-        setEditValue('');
+        skipBlurCommitRef.current = true;
+        resetEditing();
     };
 
-    const isHoverExpanding = isLeftHovered && enableAutoExpandLeft;
+    const isHoverExpanding = Boolean(isLeftHovered && enableAutoExpandLeft);
     const isExpanded = !isCollapsed || isHoverExpanding;
+
+    const asideWidth = isCollapsed ? COLLAPSED_RAIL_WIDTH : width;
 
     const currentLabel =
         explorerTab === 'chapters'
-            ? 'Chapters'
-            : COMPENDIUM_CONFIG[explorerTab as CompendiumCategory].label;
+            ? MANUSCRIPT_CONFIG.chapters.label
+            : COMPENDIUM_CONFIG[explorerTab].label;
 
-    //const currentTabConfig = ALL_TABS[explorerTab];
-
-    const currentData = useMemo(() => {
+    const currentData = useMemo<ExplorerEntry[]>(() => {
         switch (explorerTab) {
             case 'chapters':
                 return chapters;
@@ -188,167 +228,154 @@ export default function LeftPanel({
         loreEntries,
     ]);
 
+    const isLoading = explorerTab === 'chapters' && chaptersLoading;
+
     const handleNewAction = () => {
-        if (mode === 'manuscript') handleNewChapter();
-        else handleNewCompendiumEntry(explorerTab as CompendiumCategory);
+        if (explorerTab === 'chapters') handleNewChapter();
+        else handleNewCompendiumEntry(explorerTab);
     };
+
+    const handleOpenEntry = (entry: ExplorerEntry) => {
+        if (explorerTab === 'chapters') openChapter(entry as Chapter);
+        else openCompendiumEntry(entry.id, explorerTab);
+    };
+
+    const handleDeleteEntry = (entry: ExplorerEntry) => {
+        const label = getEntryLabel(entry);
+        if (!confirm(`Delete "${label}"?`)) return;
+        if (explorerTab === 'chapters') deleteChapter(entry as Chapter);
+        else deleteCompendiumEntry(entry.id, explorerTab);
+    };
+
     const { tabRefs } = useTabScroll(activeTabId);
 
     return (
         <>
             <aside
+                aria-label="Explorer sidebar"
                 onMouseEnter={onMouseEnter}
                 onMouseLeave={onMouseLeave}
-                // 2. Apply width style here so resizing actually moves the container
-                style={{ width: width }}
-                className={`app-panel app-panel-left ${isCollapsed ? 'collapsed' : ''} ${isCollapsed && isLeftHovered && enableAutoExpandLeft ? 'float' : ''}`}
+                style={{ width: asideWidth }}
+                className={`app-panel app-panel-left ${isCollapsed ? 'collapsed' : ''} ${legacyBluePanel ? 'left-panel--legacy-blue' : ''}`}
             >
-                {!isExpanded ? (
-                    <div
-                        className="sidebar-collapsed-pill"
-                        onClick={onCollapseToggle}
-                        style={{
-                            width: '100%',
-                            height: '100%',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            paddingBottom: '120px',
-                            cursor: 'pointer',
-                            backgroundColor: '#1e293b',
-                            color: '#94a3b8',
-                        }}
-                        onMouseEnter={onMouseEnter}
-                        onMouseLeave={onMouseLeave}
-                    >
-                        <IconChevronRight size={20} />
-                    </div>
-                ) : (
-                    <>
-                        {/* HEADER: Title + Edit Template */}
-                        <div
-                            className="app-panel-header"
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                            }}
+                <div
+                    className={`${styles.appPanelLeft} ${isCollapsed && isHoverExpanding ? styles.float : ''}`}
+                    style={
+                        isCollapsed && isHoverExpanding
+                            ? { width }
+                            : { width: '100%', height: '100%' }
+                    }
+                >
+                    {!isExpanded ? (
+                        <button
+                            type="button"
+                            className="sidebar-collapsed left"
+                            onClick={onCollapseToggle}
+                            title="Open sidebar"
+                            aria-label="Open sidebar"
                         >
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                }}
-                            >
-                                <h4 style={{ margin: 0 }}>{currentLabel}</h4>
-                                {mode === 'compendium' && (
+                            <IconChevronRight size={20} />
+                        </button>
+                    ) : (
+                        <>
+                            {/* HEADER: title, template edit, pin, collapse */}
+                            <div className="app-panel-header">
+                                <div className="panel-title-group">
+                                    <h4>{currentLabel}</h4>
+                                    {mode === 'compendium' && (
+                                        <button
+                                            type="button"
+                                            className="panel-icon-btn"
+                                            onClick={handleEditTemplate}
+                                            title={`Edit ${currentLabel.toLowerCase()} template`}
+                                            aria-label={`Edit ${currentLabel.toLowerCase()} template`}
+                                        >
+                                            <IconPencilMinus
+                                                size={18}
+                                                stroke={2}
+                                            />
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="panel-header-actions">
                                     <button
-                                        onClick={handleEditTemplate}
-                                        style={{
-                                            background: 'none',
-                                            border: 'none',
-                                            padding: 0,
-                                            cursor: 'pointer',
-                                            color: '#94a3b8',
-                                            height: '20px',
-                                        }}
-                                        title="Edit Template"
+                                        type="button"
+                                        className={`panel-icon-btn ${enableAutoExpandLeft ? 'active' : ''}`}
+                                        onClick={onAutoExpandToggle}
+                                        title={
+                                            enableAutoExpandLeft
+                                                ? 'Disable hover to expand'
+                                                : 'Expand on hover when collapsed'
+                                        }
+                                        aria-label={
+                                            enableAutoExpandLeft
+                                                ? 'Disable hover to expand'
+                                                : 'Expand on hover when collapsed'
+                                        }
+                                        aria-pressed={Boolean(
+                                            enableAutoExpandLeft
+                                        )}
                                     >
-                                        <IconPencilMinus size={20} stroke={2} />
+                                        {enableAutoExpandLeft ? (
+                                            <IconPinFilled
+                                                size={18}
+                                                stroke={2}
+                                            />
+                                        ) : (
+                                            <IconPin size={18} stroke={2} />
+                                        )}
                                     </button>
-                                )}
+                                    <button
+                                        type="button"
+                                        className="panel-icon-btn"
+                                        onClick={onCollapseToggle}
+                                        title={
+                                            isCollapsed
+                                                ? 'Open sidebar'
+                                                : 'Collapse sidebar'
+                                        }
+                                        aria-label={
+                                            isCollapsed
+                                                ? 'Open sidebar'
+                                                : 'Collapse sidebar'
+                                        }
+                                    >
+                                        {isCollapsed ? (
+                                            <IconChevronRight size={20} />
+                                        ) : (
+                                            <IconChevronLeft size={20} />
+                                        )}
+                                    </button>
+                                </div>
                             </div>
 
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    gap: '4px',
-                                    alignItems: 'center',
-                                }}
-                            >
-                                <button
-                                    className="icon-btn"
-                                    onClick={onAutoExpandToggle}
-                                >
-                                    {enableAutoExpandLeft ? (
-                                        <IconPinFilled stroke={2} />
-                                    ) : (
-                                        <IconPin stroke={2} />
-                                    )}
-                                </button>
-                                <button
-                                    className="icon-btn"
-                                    onClick={onCollapseToggle}
-                                >
-                                    {isCollapsed ? (
-                                        <IconChevronRight size={24} />
-                                    ) : (
-                                        <IconChevronLeft size={24} />
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* CONTENT AREA */}
-                        <div
-                            className="app-panel-content"
-                            style={{ height: '100%', overflow: 'hidden' }}
-                        >
-                            <div
-                                style={{
-                                    position: 'relative',
-                                    height: '100%',
-                                }}
-                            >
-                                <AnimatePresence mode="wait">
+                            {/* CONTENT AREA */}
+                            <div className="app-panel-content">
+                                <AnimatePresence mode="wait" initial={false}>
                                     <motion.div
                                         key={explorerTab}
-
+                                        className="explorer-pane"
                                         initial={{ opacity: 0, x: -5 }}
                                         animate={{ opacity: 1, x: 0 }}
                                         exit={{ opacity: 0, x: 5 }}
                                         transition={{ duration: 0.15 }}
-                                        style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            height: '-webkit-fill-available',
-                                        }}
                                     >
-                                        {chaptersLoading ? (
-                                            <div className="loading">
+                                        {isLoading ? (
+                                            <div className="panel-state">
                                                 Loading...
                                             </div>
                                         ) : currentData.length === 0 ? (
-                                            /* EMPTY STATE */
-                                            <div
-                                                style={{
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    minHeight: '200px',
-                                                    gap: '12px',
-                                                    color: '#94a3b8',
-                                                }}
-                                            >
-                                                <p style={{ fontSize: '16px' }}>
+                                            <div className="panel-empty">
+                                                <p>
                                                     No{' '}
                                                     {currentLabel.toLowerCase()}{' '}
                                                     yet
                                                 </p>
                                                 <button
+                                                    type="button"
+                                                    className="panel-empty-action"
                                                     onClick={handleNewAction}
-                                                    style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '6px',
-                                                        padding: '6px 12px',
-                                                        borderRadius: '6px',
-                                                        border: '1px solid #e2e8f0',
-                                                        cursor: 'pointer',
-                                                    }}
                                                 >
                                                     <IconPlus size={16} /> New{' '}
                                                     {currentLabel}
@@ -356,55 +383,45 @@ export default function LeftPanel({
                                             </div>
                                         ) : (
                                             <>
-                                                {/* LIST ITEM: The "New" Button */}
-                                                <div
-                                                    className="chapter-item new-item-btn"
+                                                <button
+                                                    type="button"
+                                                    className="explorer-item new-item-btn"
                                                     onClick={handleNewAction}
-                                                    style={{
-                                                        color: '#3b82f6',
-                                                        fontWeight: '500',
-                                                        cursor: 'pointer',
-                                                        height: '32px',
-                                                        border: 'dashed 1px',
-                                                        margin: '12px 14px 8px 0',
-                                                    }}
                                                 >
-                                                    <span
-                                                        style={{
-                                                            display: 'flex',
-                                                            alignItems:
-                                                                'center',
-                                                            gap: '8px',
-                                                        }}
-                                                    >
-                                                        <IconPlus size={18} />{' '}
-                                                        New {currentLabel}
+                                                    <span className="left-side">
+                                                        <IconPlus size={18} />
+                                                        <span>
+                                                            New {currentLabel}
+                                                        </span>
                                                     </span>
-                                                </div>
+                                                </button>
 
-                                                {/* THE ACTUAL LIST */}
-                                                <div className="chapter-list">
+                                                <div className="explorer-list">
                                                     {currentData.map(
-                                                        (
-                                                            entry:
-                                                                | Chapter
-                                                                | Character,
-                                                            index: number
-                                                        ) => {
+                                                        (entry, index) => {
                                                             const label =
-                                                                'title' in entry
-                                                                    ? entry.title
-                                                                    : entry.name;
+                                                                getEntryLabel(
+                                                                    entry
+                                                                );
                                                             const isManuscript =
-                                                                mode ===
-                                                                'manuscript';
+                                                                explorerTab ===
+                                                                'chapters';
+                                                            const isEditing =
+                                                                editingEntryId ===
+                                                                entry.id;
+                                                            const isActive =
+                                                                activeTabId ===
+                                                                entry.id;
+                                                            const isOpen =
+                                                                openTabIds.has(
+                                                                    entry.id
+                                                                );
 
                                                             return (
                                                                 <div
                                                                     key={
                                                                         entry.id
                                                                     }
-
                                                                     ref={(
                                                                         ele
                                                                     ) => {
@@ -412,22 +429,12 @@ export default function LeftPanel({
                                                                             entry.id
                                                                         ] = ele;
                                                                     }}
-
-                                                                    className={`chapter-item ${activeTabId === entry.id ? 'active' : ''}`}
-                                                                    onClick={() => {
-                                                                        if (
-                                                                            isManuscript
-                                                                        ) {
-                                                                            openChapter(
-                                                                                entry as Chapter
-                                                                            );
-                                                                        } else {
-                                                                            openCompendiumEntry(
-                                                                                entry.id,
-                                                                                explorerTab as CompendiumCategory
-                                                                            );
-                                                                        }
-                                                                    }}
+                                                                    className={`explorer-item ${isActive ? 'active' : ''} ${isOpen && !isActive ? 'is-open' : ''}`}
+                                                                    onClick={() =>
+                                                                        handleOpenEntry(
+                                                                            entry
+                                                                        )
+                                                                    }
                                                                 >
                                                                     <div className="left-side">
                                                                         {isManuscript && (
@@ -438,17 +445,16 @@ export default function LeftPanel({
                                                                                 .
                                                                             </span>
                                                                         )}
-                                                                        {isManuscript &&
-                                                                        editingChapterId ===
-                                                                            entry.id ? (
+                                                                        {isEditing ? (
                                                                             <input
                                                                                 ref={
                                                                                     editInputRef
                                                                                 }
-                                                                                className="chapter-rename-input"
+                                                                                className="explorer-rename-input"
                                                                                 value={
                                                                                     editValue
                                                                                 }
+                                                                                aria-label={`Rename ${label}`}
                                                                                 onChange={(
                                                                                     e
                                                                                 ) =>
@@ -464,13 +470,16 @@ export default function LeftPanel({
                                                                                     if (
                                                                                         e.key ===
                                                                                         'Enter'
-                                                                                    )
+                                                                                    ) {
+                                                                                        e.preventDefault();
                                                                                         handleCommitRename();
-                                                                                    if (
+                                                                                    } else if (
                                                                                         e.key ===
                                                                                         'Escape'
-                                                                                    )
+                                                                                    ) {
+                                                                                        e.preventDefault();
                                                                                         handleCancelRename();
+                                                                                    }
                                                                                     e.stopPropagation();
                                                                                 }}
                                                                                 onBlur={
@@ -491,12 +500,13 @@ export default function LeftPanel({
                                                                         )}
                                                                     </div>
 
-                                                                    {isManuscript &&
-                                                                        editingChapterId !==
-                                                                            entry.id && (
+                                                                    {!isEditing && (
+                                                                        <>
                                                                             <button
+                                                                                type="button"
                                                                                 className="listActionBtn edit-btn"
-                                                                                title="Rename Chapter"
+                                                                                title={`Rename ${label}`}
+                                                                                aria-label={`Rename ${label}`}
                                                                                 onClick={(
                                                                                     e
                                                                                 ) => {
@@ -513,35 +523,28 @@ export default function LeftPanel({
                                                                                     }
                                                                                 />
                                                                             </button>
-                                                                        )}
-
-                                                                    <button
-                                                                        className="listActionBtn delete-btn"
-                                                                        onClick={(
-                                                                            e
-                                                                        ) => {
-                                                                            e.stopPropagation();
-
-                                                                            if (
-                                                                                isManuscript
-                                                                            ) {
-                                                                                deleteChapter(
-                                                                                    entry as Chapter
-                                                                                );
-                                                                            } else {
-                                                                                deleteCompendiumEntry(
-                                                                                    entry.id,
-                                                                                    explorerTab as CompendiumCategory
-                                                                                );
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        <IconTrash
-                                                                            size={
-                                                                                14
-                                                                            }
-                                                                        />
-                                                                    </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                className="listActionBtn delete-btn"
+                                                                                title={`Delete ${label}`}
+                                                                                aria-label={`Delete ${label}`}
+                                                                                onClick={(
+                                                                                    e
+                                                                                ) => {
+                                                                                    e.stopPropagation();
+                                                                                    handleDeleteEntry(
+                                                                                        entry
+                                                                                    );
+                                                                                }}
+                                                                            >
+                                                                                <IconTrash
+                                                                                    size={
+                                                                                        14
+                                                                                    }
+                                                                                />
+                                                                            </button>
+                                                                        </>
+                                                                    )}
                                                                 </div>
                                                             );
                                                         }
@@ -552,104 +555,88 @@ export default function LeftPanel({
                                     </motion.div>
                                 </AnimatePresence>
                             </div>
-                        </div>
 
-                        {/* SUB-NAVIGATION (Compendium Icons) */}
-                        <AnimatePresence>
-                            {mode === 'compendium' && (
+                            {/* SUB-NAVIGATION (Compendium categories) */}
+                            <AnimatePresence initial={false}>
+                                {mode === 'compendium' && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: 10 }}
+                                        className="compendium-sub-nav"
+                                        role="tablist"
+                                        aria-label="Compendium categories"
+                                    >
+                                        {Object.entries(COMPENDIUM_CONFIG).map(
+                                            ([key, config]) => {
+                                                const Icon = config.icon;
+                                                const isActive =
+                                                    explorerTab === key;
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        key={key}
+                                                        className={`compendium-sub-nav-btn ${isActive ? 'active' : ''}`}
+                                                        onClick={() =>
+                                                            onSubTabChange(
+                                                                key as CompendiumCategory
+                                                            )
+                                                        }
+                                                        title={config.label}
+                                                        aria-label={
+                                                            config.label
+                                                        }
+                                                        role="tab"
+                                                        aria-selected={isActive}
+                                                    >
+                                                        <Icon
+                                                            size={20}
+                                                            stroke={1.8}
+                                                        />
+                                                    </button>
+                                                );
+                                            }
+                                        )}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {/* BOTTOM NAVIGATION (mode pill) */}
+                            <div className="bottom-nav-container">
                                 <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: 10 }}
-                                    className="compendium-sub-nav"
-                                    style={{
-                                        display: 'flex',
-                                        justifyContent: 'center',
-                                        gap: '8px',
+                                    className="bottom-nav-indicator"
+                                    animate={{
+                                        x: mode === 'manuscript' ? 0 : '100%',
                                     }}
+                                    transition={{
+                                        type: 'spring',
+                                        stiffness: 350,
+                                        damping: 30,
+                                    }}
+                                />
+
+                                <button
+                                    type="button"
+                                    className={`bottom-nav-btn ${mode === 'manuscript' ? 'active' : ''}`}
+                                    onClick={() => onModeChange('manuscript')}
+                                    aria-pressed={mode === 'manuscript'}
                                 >
-                                    {Object.entries(COMPENDIUM_CONFIG).map(
-                                        ([key, config]) => {
-                                            const Icon = config.icon;
-                                            return (
-                                                <button
-                                                    key={key}
-                                                    onClick={() =>
-                                                        onSubTabChange(
-                                                            key as CompendiumCategory
-                                                        )
-                                                    }
-                                                    style={{
-                                                        background: 'none',
-                                                        border: 'none',
-                                                        cursor: 'pointer',
-                                                        color:
-                                                            explorerTab === key
-                                                                ? '#3b82f6'
-                                                                : '#94a3b8',
-                                                    }}
-                                                >
-                                                    <Icon size={22} />
-                                                </button>
-                                            );
-                                        }
-                                    )}
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        {/* BOTTOM NAVIGATION (The Pill) */}
-                        <div
-                            className="bottom-nav-container"
-                            style={{
-                                position: 'relative',
-                                padding: '4px',
-                                display: 'flex',
-                                backgroundColor: 'transparent',
-                                borderRadius: '10px',
-                                margin: '0px 20px 10px 10px',
-                            }}
-                        >
-                            <motion.div
-                                animate={{
-                                    x: mode === 'manuscript' ? 0 : '100%',
-                                }}
-                                transition={{
-                                    type: 'spring',
-                                    stiffness: 350,
-                                    damping: 30,
-                                }}
-                                style={{
-                                    position: 'absolute',
-                                    top: '4px',
-                                    left: '4px',
-                                    width: 'calc(50% - 4px)',
-                                    height: 'calc(100% - 8px)',
-                                    backgroundColor: 'var(--accent-subtle)',
-                                    borderRadius: '6px',
-                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                                    zIndex: 0,
-                                    border: '1px solid var(--accent-focus)',
-                                }}
-                            />
-
-                            <button
-                                onClick={() => onModeChange('manuscript')}
-                                style={tabBtnStyle(mode === 'manuscript')}
-                            >
-                                Manuscript
-                            </button>
-                            <button
-                                onClick={() => onModeChange('compendium')}
-                                style={tabBtnStyle(mode === 'compendium')}
-                            >
-                                Compendium
-                            </button>
-                        </div>
-                    </>
-                )}
+                                    Manuscript
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`bottom-nav-btn ${mode === 'compendium' ? 'active' : ''}`}
+                                    onClick={() => onModeChange('compendium')}
+                                    aria-pressed={mode === 'compendium'}
+                                >
+                                    Compendium
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
             </aside>
-            {/* DRAG HANDLE: Only visible when permanently expanded */}
+            {/* DRAG HANDLE: only visible when permanently expanded */}
             {!isCollapsed && (
                 <div
                     className={`drag-handle ${isDragging === 'left' ? 'active' : ''}`}
@@ -662,15 +649,3 @@ export default function LeftPanel({
         </>
     );
 }
-
-const tabBtnStyle = (isActive: boolean): React.CSSProperties => ({
-    flex: 1,
-    padding: '8px',
-    border: 'none',
-    background: 'transparent',
-    cursor: 'pointer',
-    zIndex: 1,
-    fontWeight: isActive ? 'bold' : 'normal',
-    color: isActive ? 'var(--text-accent)' : '#64748b',
-    fontSize: '14px',
-});

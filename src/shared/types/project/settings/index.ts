@@ -85,6 +85,7 @@ export type AppearanceSettings = {
     editorMaxWidth: number;
     previewWidth: number;
     previewPosition: 'left' | 'right';
+    legacyBluePanel: boolean;
 };
 
 export type Settings = {
