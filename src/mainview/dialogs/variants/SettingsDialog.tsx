@@ -8,7 +8,7 @@ import {
     SETTINGS_DIALOG_TABS_ICONS,
     type SettingsDialogActiveTab,
 } from '../../constants/layout_tabs';
-import { IconFolder } from '@tabler/icons-react';
+import { IconFolder, IconChevronDown } from '@tabler/icons-react';
 import IconTextSideBar from '../../ui/layout/IconTextSideBar';
 import SettingsCard from '../../components/cards/SettingsCard';
 
@@ -40,14 +40,16 @@ function Toggle({
     disabled?: boolean;
 }) {
     return (
-        <>
-            <input
-                type="checkbox"
-                checked={checked}
-                onChange={(e) => onChange(e.target.checked)}
-                disabled={disabled}
-            />
-        </>
+        <button
+            type="button"
+            role="switch"
+            aria-checked={checked}
+            className={`${styles.toggleSwitch} ${checked ? styles.toggleActive : ''}`}
+            onClick={() => onChange(!checked)}
+            disabled={disabled}
+        >
+            <span className={styles.toggleThumb} />
+        </button>
     );
 }
 
@@ -88,6 +90,7 @@ function GeneralTab() {
         <div className={styles.tabContent}>
             <SettingsCard>
                 <>
+                    <div className={styles.settingsSectionLabel}>General</div>
                     <div className={styles.settingRow}>
                         <span>Enable Auto Save</span>
                         <Toggle
@@ -186,30 +189,34 @@ function GeneralTab() {
                     </div>
                 </>
             </SettingsCard>
-            <div className={styles.settingSectionDivider} />
 
             <SettingsCard>
                 <>
                     <div className={styles.settingsSectionLabel}>Chat</div>
-
                     <div className={styles.settingRow}>
                         <span>Chat View</span>
-                        <select
-                            value={settings.general.chatViewMode}
-                            onChange={(e) =>
-                                updateGeneral(
-                                    'chatViewMode',
-                                    e.target.value as
-                                        'full' | 'truncate' | 'accordion'
-                                )
-                            }
-                            disabled={isLocked}
-                            className={styles.select}
-                        >
-                            <option value="full">Full</option>
-                            <option value="truncate">Truncate</option>
-                            <option value="accordion">Accordion</option>
-                        </select>
+                        <div className={styles.selectWrapper}>
+                            <select
+                                value={settings.general.chatViewMode}
+                                onChange={(e) =>
+                                    updateGeneral(
+                                        'chatViewMode',
+                                        e.target.value as
+                                            'full' | 'truncate' | 'accordion'
+                                    )
+                                }
+                                disabled={isLocked}
+                                className={styles.select}
+                            >
+                                <option value="full">Full</option>
+                                <option value="truncate">Truncate</option>
+                                <option value="accordion">Accordion</option>
+                            </select>
+                            <IconChevronDown
+                                size={14}
+                                className={styles.selectIcon}
+                            />
+                        </div>
                     </div>
                     <div className={styles.settingRow}>
                         <span>Ask me before deleting sessions</span>
@@ -223,36 +230,40 @@ function GeneralTab() {
                     </div>
                     <div className={styles.settingRow}>
                         <span>Auto-naming method</span>
-                        <select
-                            value={settings.general.autoNamingMethod}
-                            onChange={(e) =>
-                                updateGeneral(
-                                    'autoNamingMethod',
-                                    e.target.value as
-                                        'ai-summarizer' | 'smart-truncation'
-                                )
-                            }
-                            disabled={isLocked}
-                            className={styles.select}
-                        >
-                            <option value="ai-summarizer">
-                                AI Summarizer (Smart)
-                            </option>
-                            <option value="smart-truncation">
-                                Smart Truncation (Local)
-                            </option>
-                        </select>
+                        <div className={styles.selectWrapper}>
+                            <select
+                                value={settings.general.autoNamingMethod}
+                                onChange={(e) =>
+                                    updateGeneral(
+                                        'autoNamingMethod',
+                                        e.target.value as
+                                            'ai-summarizer' | 'smart-truncation'
+                                    )
+                                }
+                                disabled={isLocked}
+                                className={styles.select}
+                            >
+                                <option value="ai-summarizer">
+                                    AI Summarizer (Smart)
+                                </option>
+                                <option value="smart-truncation">
+                                    Smart Truncation (Local)
+                                </option>
+                            </select>
+                            <IconChevronDown
+                                size={14}
+                                className={styles.selectIcon}
+                            />
+                        </div>
                     </div>
                 </>
             </SettingsCard>
-            <div className={styles.settingSectionDivider} />
 
             <SettingsCard>
                 <>
                     <div className={styles.settingsSectionLabel}>
                         AI Context
                     </div>
-
                     <div className={styles.settingRow}>
                         <span>Max Context Tokens</span>
                         <NumberInput
@@ -268,41 +279,53 @@ function GeneralTab() {
                     </div>
                     <div className={styles.settingRow}>
                         <span>Chapter Context Mode</span>
-                        <select
-                            value={settings.general.chapterContextMode}
-                            onChange={(e) =>
-                                updateGeneral(
-                                    'chapterContextMode',
-                                    e.target.value as 'brief' | 'full'
-                                )
-                            }
-                            disabled={isLocked}
-                            className={styles.select}
-                        >
-                            <option value="brief">
-                                Brief (first ~800 chars)
-                            </option>
-                            <option value="full">Full Chapter</option>
-                        </select>
+                        <div className={styles.selectWrapper}>
+                            <select
+                                value={settings.general.chapterContextMode}
+                                onChange={(e) =>
+                                    updateGeneral(
+                                        'chapterContextMode',
+                                        e.target.value as 'brief' | 'full'
+                                    )
+                                }
+                                disabled={isLocked}
+                                className={styles.select}
+                            >
+                                <option value="brief">
+                                    Brief (first ~800 chars)
+                                </option>
+                                <option value="full">Full Chapter</option>
+                            </select>
+                            <IconChevronDown
+                                size={14}
+                                className={styles.selectIcon}
+                            />
+                        </div>
                     </div>
                     <div className={styles.settingRow}>
                         <span>Theme</span>
-                        <select
-                            value={settings.general.theme}
-                            onChange={(e) =>
-                                updateGeneral(
-                                    'theme',
-                                    e.target.value as
-                                        'light' | 'dark' | 'system'
-                                )
-                            }
-                            disabled={isLocked}
-                            className={styles.select}
-                        >
-                            <option value="system">System</option>
-                            <option value="light">Light</option>
-                            <option value="dark">Dark</option>
-                        </select>
+                        <div className={styles.selectWrapper}>
+                            <select
+                                value={settings.general.theme}
+                                onChange={(e) =>
+                                    updateGeneral(
+                                        'theme',
+                                        e.target.value as
+                                            'light' | 'dark' | 'system'
+                                    )
+                                }
+                                disabled={isLocked}
+                                className={styles.select}
+                            >
+                                <option value="system">System</option>
+                                <option value="light">Light</option>
+                                <option value="dark">Dark</option>
+                            </select>
+                            <IconChevronDown
+                                size={14}
+                                className={styles.selectIcon}
+                            />
+                        </div>
                     </div>
                 </>
             </SettingsCard>
@@ -313,6 +336,7 @@ function GeneralTab() {
 function AppearanceTab() {
     const { settings, updateAppearance, isLocked } = useSettings();
     if (!settings) return null;
+    const legacyBluePanel = settings.appearance.legacyBluePanel ?? false;
     const c = settings.appearance.sidebarConstraints ?? {
         enableCustomWidthCap: false,
         maxLeftWidth: 400,
@@ -410,8 +434,6 @@ function AppearanceTab() {
                 </>
             </SettingsCard>
 
-            <div className={styles.settingSectionDivider} />
-
             <SettingsCard>
                 <>
                     <div className={styles.settingsSectionLabel}>
@@ -419,15 +441,13 @@ function AppearanceTab() {
                     </div>
                     <div className={styles.settingRow}>
                         <span>Editor Width Mode</span>
-                        <div
-                            className={styles.periodToggle}
-                            style={{ marginBottom: 0 }}
-                        >
+                        <div className={styles.segmentedToggle}>
                             <button
+                                type="button"
                                 className={
                                     settings.appearance.editorWidthMode !==
                                     'fixed'
-                                        ? styles.activePeriod
+                                        ? styles.activeSegment
                                         : ''
                                 }
                                 onClick={() =>
@@ -438,10 +458,11 @@ function AppearanceTab() {
                                 Full Width (100%)
                             </button>
                             <button
+                                type="button"
                                 className={
                                     settings.appearance.editorWidthMode ===
                                     'fixed'
-                                        ? styles.activePeriod
+                                        ? styles.activeSegment
                                         : ''
                                 }
                                 onClick={() =>
@@ -471,22 +492,18 @@ function AppearanceTab() {
                 </>
             </SettingsCard>
 
-            <div className={styles.settingSectionDivider} />
-
             <SettingsCard>
                 <>
                     <div className={styles.settingsSectionLabel}>Preview</div>
                     <div className={styles.settingRow}>
                         <span>Preview Position</span>
-                        <div
-                            className={styles.periodToggle}
-                            style={{ marginBottom: 0 }}
-                        >
+                        <div className={styles.segmentedToggle}>
                             <button
+                                type="button"
                                 className={
                                     settings.appearance.previewPosition !==
                                     'left'
-                                        ? styles.activePeriod
+                                        ? styles.activeSegment
                                         : ''
                                 }
                                 onClick={() =>
@@ -497,10 +514,11 @@ function AppearanceTab() {
                                 Right
                             </button>
                             <button
+                                type="button"
                                 className={
                                     settings.appearance.previewPosition ===
                                     'left'
-                                        ? styles.activePeriod
+                                        ? styles.activeSegment
                                         : ''
                                 }
                                 onClick={() =>
@@ -511,6 +529,113 @@ function AppearanceTab() {
                                 Left
                             </button>
                         </div>
+                    </div>
+                </>
+            </SettingsCard>
+
+            {/* --- themes --- */}
+            <SettingsCard>
+                <>
+                    <div className={styles.settingsSectionLabel}>
+                        Theme Colors
+                    </div>
+                    <div className={styles.colorCardsGrid}>
+                        {[
+                            {
+                                key: 'background',
+                                label: 'Background',
+                                defaultVal: '#17181f',
+                            },
+                            {
+                                key: 'foreground',
+                                label: 'Foreground',
+                                defaultVal: '#f3f4f6',
+                            },
+                            {
+                                key: 'highlight',
+                                label: 'Highlight',
+                                defaultVal: '#5875e8',
+                            },
+                            {
+                                key: 'accent',
+                                label: 'Accent',
+                                defaultVal: '#443f5e',
+                            },
+                        ].map((item) => {
+                            const currentColor =
+                                (settings.appearance as any)?.themeColors?.[
+                                    item.key
+                                ] ?? item.defaultVal;
+
+                            return (
+                                <label
+                                    key={item.key}
+                                    className={`${styles.themeColorCard} ${isLocked ? styles.disabledCard : ''}`}
+                                >
+                                    <div className={styles.colorCircleWrapper}>
+                                        <span
+                                            className={styles.themeColorCircle}
+                                            style={{
+                                                backgroundColor: currentColor,
+                                            }}
+                                        />
+                                        <input
+                                            type="color"
+                                            value={currentColor}
+                                            disabled={isLocked}
+                                            className={styles.hiddenColorInput}
+                                            onChange={(e) => {
+                                                const existing =
+                                                    (settings.appearance as any)
+                                                        ?.themeColors ?? {};
+                                                updateAppearance(
+                                                    'themeColors' as any,
+                                                    {
+                                                        ...existing,
+                                                        [item.key]:
+                                                            e.target.value,
+                                                    }
+                                                );
+                                            }}
+                                        />
+                                    </div>
+                                    <span className={styles.colorCardLabel}>
+                                        {item.label}
+                                    </span>
+                                    <span className={styles.colorCardHex}>
+                                        {currentColor}
+                                    </span>
+                                </label>
+                            );
+                        })}
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={legacyBluePanel}
+                            className={`${styles.themeColorCard} ${styles.legacyBlueCard} ${
+                                legacyBluePanel
+                                    ? styles.themeColorCardActive
+                                    : ''
+                            } ${isLocked ? styles.disabledCard : ''}`}
+                            onClick={() =>
+                                updateAppearance(
+                                    'legacyBluePanel',
+                                    !legacyBluePanel
+                                )
+                            }
+                            disabled={isLocked}
+                        >
+                            <span
+                                className={styles.themeColorCircle}
+                                style={{ backgroundColor: '#3b82f6' }}
+                            />
+                            <span className={styles.colorCardLabel}>
+                                Legacy Blue Panel
+                            </span>
+                            <span className={styles.colorCardHex}>
+                                {legacyBluePanel ? 'On' : 'Off'}
+                            </span>
+                        </button>
                     </div>
                 </>
             </SettingsCard>
@@ -555,8 +680,13 @@ function ProjectsTab() {
         <div className={styles.tabContent}>
             <SettingsCard>
                 <>
-                    <div className={styles.settingRow}>
-                        <span>Default Projects Directory</span>
+                    <div className={styles.settingsSectionLabel}>
+                        Project Directory
+                    </div>
+                    <div className={styles.settingRowStacked}>
+                        <div className={styles.labelMuted}>
+                            Default Projects Directory
+                        </div>
                         <div className={styles.pathRow}>
                             <input
                                 type="text"
@@ -568,29 +698,32 @@ function ProjectsTab() {
                                 className={styles.textInput}
                             />
                             <button
+                                type="button"
                                 onClick={handleSelectPath}
                                 disabled={isLocked}
-                                className={styles.btn}
+                                className={styles.btnSecondary}
                             >
                                 Browse
                             </button>
                         </div>
                     </div>
-                    <div className={styles.pathRow}>
+                    <div className={styles.buttonRow}>
                         <button
+                            type="button"
                             onClick={handleOpenProjects}
                             disabled={isLocked}
-                            className={styles.btn}
+                            className={styles.btnSecondary}
                         >
                             Open Projects
                         </button>
                         <button
+                            type="button"
                             onClick={handleOpenProjectFolder}
                             disabled={
                                 isLocked ||
                                 !settings.projects.defaultProjectsDir
                             }
-                            className={styles.btn}
+                            className={styles.btnSecondary}
                         >
                             Open Projects Folder
                         </button>
@@ -613,35 +746,43 @@ function ProjectsTab() {
             <SettingsCard>
                 <>
                     <div className={styles.settingsSectionLabel}>
-                        <span>Recent Projects </span>
-                        <span>
-                            ( {settings.projects.recentProjects.length} )
+                        <span>Recent Projects</span>
+                        <span className={styles.counterBadge}>
+                            {settings.projects.recentProjects.length}
                         </span>
                     </div>
-                    {settings.projects.recentProjects.length > 0 && (
+                    {settings.projects.recentProjects.length > 0 ? (
                         <div className={styles.listSection}>
                             {settings.projects.recentProjects.map((id) => (
                                 <div key={id} className={styles.listItem}>
-                                    <span>{id}</span>
+                                    <span className={styles.monoId}>{id}</span>
                                     <button
+                                        type="button"
                                         onClick={() => handleOpenProject(id)}
                                         disabled={isLocked}
-                                        className={styles.btnSmall}
+                                        className={styles.btnIcon}
                                         title="Open project folder"
                                     >
-                                        <IconFolder size={16} />
+                                        <IconFolder size={15} />
                                     </button>
                                 </div>
                             ))}
-                            <button
-                                onClick={() =>
-                                    updateProjects('recentProjects', [])
-                                }
-                                disabled={isLocked}
-                                className={styles.btnDanger}
-                            >
-                                Clear Recent
-                            </button>
+                            <div className={styles.listFooter}>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        updateProjects('recentProjects', [])
+                                    }
+                                    disabled={isLocked}
+                                    className={styles.btnDanger}
+                                >
+                                    Clear Recent
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className={styles.emptyState}>
+                            No recent projects found.
                         </div>
                     )}
                 </>
@@ -666,8 +807,11 @@ function AssetLibraryTab() {
         <div className={styles.tabContent}>
             <SettingsCard>
                 <>
-                    <div className={styles.settingRow}>
-                        <span>Storage Path</span>
+                    <div className={styles.settingsSectionLabel}>
+                        Storage Configuration
+                    </div>
+                    <div className={styles.settingRowStacked}>
+                        <div className={styles.labelMuted}>Storage Path</div>
                         <div className={styles.pathRow}>
                             <input
                                 type="text"
@@ -677,9 +821,10 @@ function AssetLibraryTab() {
                                 className={styles.textInput}
                             />
                             <button
+                                type="button"
                                 onClick={handleSelectPath}
                                 disabled={isLocked}
-                                className={styles.btn}
+                                className={styles.btnSecondary}
                             >
                                 Browse
                             </button>
@@ -723,55 +868,63 @@ function ProvidersTab() {
 
     return (
         <div className={styles.tabContent} id="settings-section-providers-list">
-            <div className={styles.settingRow}>
-                <label htmlFor="modelDisplayMode">Model Labeling</label>
-                <select
-                    id="modelDisplayMode"
-                    style={{ marginLeft: 'auto' }}
-                    value={settings?.providers?.modelDisplayMode || 'label'}
-                    onChange={(e) =>
-                        updateProviders(
-                            'modelDisplayMode',
-                            e.target.value as 'label' | 'alias' | 'both'
-                        )
+            <SettingsCard>
+                <div className={styles.settingRow}>
+                    <label
+                        htmlFor="modelDisplayMode"
+                        className={styles.rowLabel}
+                    >
+                        Model Labeling
+                    </label>
+                    <div className={styles.selectWrapper}>
+                        <select
+                            id="modelDisplayMode"
+                            value={
+                                settings?.providers?.modelDisplayMode || 'label'
+                            }
+                            onChange={(e) =>
+                                updateProviders(
+                                    'modelDisplayMode',
+                                    e.target.value as 'label' | 'alias' | 'both'
+                                )
+                            }
+                            className={styles.select}
+                        >
+                            <option value="label">Label</option>
+                            <option value="alias">Alias</option>
+                            <option value="both">Both</option>
+                        </select>
+                        <IconChevronDown
+                            size={14}
+                            className={styles.selectIcon}
+                        />
+                    </div>
+                </div>
+            </SettingsCard>
+
+            <div className={styles.providerSectionHeader}>
+                <h3 className={styles.sectionHeaderTitle}>
+                    Configured Providers
+                </h3>
+                <button
+                    type="button"
+                    onClick={() => setShowNewProvider(!showNewProvider)}
+                    disabled={isLocked}
+                    className={
+                        showNewProvider ? styles.btnSecondary : styles.btnAccent
                     }
                 >
-                    <option value="label">Label</option>
-                    <option value="alias">Alias</option>
-                    <option value="both">Both</option>
-                </select>
+                    {showNewProvider ? 'Cancel' : '+ Add Provider'}
+                </button>
             </div>
 
-            <div className={styles.providerSection}>
-                <div className={styles.providerSectionHeader}>
-                    <h3>Providers</h3>
-                    <button
-                        onClick={() => setShowNewProvider(!showNewProvider)}
-                        disabled={isLocked}
-                    >
-                        {showNewProvider ? 'Cancel' : 'Add Provider'}
-                    </button>
-                </div>
-
-                {showNewProvider && (
-                    <>
-                        <ProviderCard
-                            cardType="add"
-                            setShowNewProvider={setShowNewProvider}
-                        />
-                    </>
-                )}
-                <ProvidersList arr={[...(settings?.providers.configs ?? [])]} />
-                {/*
-                {[...(settings?.providers.configs ?? [])]
-                    .reverse()
-                    .map((config, index) => (
-                        <>
-                            <ProviderCard cardData={{ index, config }} />
-                        </>
-                    ))}
-                    */}
-            </div>
+            {showNewProvider && (
+                <ProviderCard
+                    cardType="add"
+                    setShowNewProvider={setShowNewProvider}
+                />
+            )}
+            <ProvidersList arr={[...(settings?.providers.configs ?? [])]} />
         </div>
     );
 }
@@ -795,7 +948,6 @@ function EmbeddingsTab() {
 
     useEffect(() => {
         if (settings?.embeddings?.enabled) {
-            // Load index status for current project if available
             rpc.request['settings:get-all']()
                 .then((s) => {
                     const recentProjects = s.projects?.recentProjects;
@@ -868,15 +1020,7 @@ function EmbeddingsTab() {
                     </div>
 
                     {vecAvailable === false && (
-                        <div
-                            style={{
-                                padding: '12px',
-                                background: '#fff3cd',
-                                borderRadius: '8px',
-                                marginBottom: '16px',
-                                color: '#856404',
-                            }}
-                        >
+                        <div className={styles.alertWarning}>
                             <strong>sqlite-vec not available.</strong> Vector
                             features are disabled. On macOS, install Homebrew
                             SQLite and restart the app.
@@ -884,13 +1028,11 @@ function EmbeddingsTab() {
                     )}
 
                     <div className={styles.settingRow}>
-                        <label>Enable Context Engine</label>
-                        <input
-                            type="checkbox"
+                        <span>Enable Context Engine</span>
+                        <Toggle
                             checked={emb.enabled}
                             disabled={isLocked || vecAvailable === false}
-                            onChange={async (e) => {
-                                const enabled = e.target.checked;
+                            onChange={async (enabled) => {
                                 await updateEmbeddings('enabled', enabled);
                                 if (enabled) {
                                     const recentProjects =
@@ -944,71 +1086,39 @@ function EmbeddingsTab() {
                     </div>
 
                     <div className={styles.settingRow}>
-                        <label>Server</label>
-                        <div
-                            style={{
-                                display: 'flex',
-                                gap: '8px',
-                                width: '50%',
-                            }}
-                        >
+                        <span>Server Preset</span>
+                        <div className={styles.segmentedToggle}>
                             <button
+                                type="button"
                                 disabled={isLocked || !emb.enabled}
+                                className={
+                                    emb.endpoint.includes(':1234')
+                                        ? styles.activeSegment
+                                        : ''
+                                }
                                 onClick={() =>
                                     updateEmbeddings(
                                         'endpoint',
                                         'http://localhost:1234/v1'
                                     )
                                 }
-                                style={{
-                                    flex: 1,
-                                    padding: '6px 12px',
-                                    borderRadius: '6px',
-                                    border: emb.endpoint.includes(':1234')
-                                        ? '1px solid #8b5cf6'
-                                        : '1px solid #333',
-                                    background: emb.endpoint.includes(':1234')
-                                        ? 'rgba(139,92,246,0.15)'
-                                        : 'transparent',
-                                    color: emb.endpoint.includes(':1234')
-                                        ? '#8b5cf6'
-                                        : '#999',
-                                    cursor: 'pointer',
-                                    fontWeight: emb.endpoint.includes(':1234')
-                                        ? '600'
-                                        : '400',
-                                    minWidth: 'max-content',
-                                }}
                             >
                                 LM Studio
                             </button>
                             <button
+                                type="button"
                                 disabled={isLocked || !emb.enabled}
+                                className={
+                                    emb.endpoint.includes(':11434')
+                                        ? styles.activeSegment
+                                        : ''
+                                }
                                 onClick={() =>
                                     updateEmbeddings(
                                         'endpoint',
                                         'http://localhost:11434'
                                     )
                                 }
-                                style={{
-                                    flex: 1,
-                                    padding: '6px 12px',
-                                    borderRadius: '6px',
-                                    border: emb.endpoint.includes(':11434')
-                                        ? '1px solid #8b5cf6'
-                                        : '1px solid #333',
-                                    background: emb.endpoint.includes(':11434')
-                                        ? 'rgba(139,92,246,0.15)'
-                                        : 'transparent',
-                                    color: emb.endpoint.includes(':11434')
-                                        ? '#8b5cf6'
-                                        : '#999',
-                                    cursor: 'pointer',
-                                    fontWeight: emb.endpoint.includes(':11434')
-                                        ? '600'
-                                        : '400',
-                                    minWidth: 'max-content',
-                                }}
                             >
                                 Ollama
                             </button>
@@ -1016,20 +1126,21 @@ function EmbeddingsTab() {
                     </div>
 
                     <div className={styles.settingRow}>
-                        <label>Endpoint URL</label>
+                        <span>Endpoint URL</span>
                         <input
                             type="text"
                             value={emb.endpoint}
                             disabled={isLocked || !emb.enabled}
-                            placeholder="LM Studio: http://localhost:1234/v1 | Ollama: http://localhost:11434"
+                            placeholder="http://localhost:1234/v1"
                             onChange={(e) =>
                                 updateEmbeddings('endpoint', e.target.value)
                             }
+                            className={styles.textInputFull}
                         />
                     </div>
 
                     <div className={styles.settingRow}>
-                        <label>Embedding Model</label>
+                        <span>Embedding Model</span>
                         <input
                             type="text"
                             value={emb.model}
@@ -1038,69 +1149,57 @@ function EmbeddingsTab() {
                             onChange={(e) =>
                                 updateEmbeddings('model', e.target.value)
                             }
+                            className={styles.textInputFull}
                         />
                     </div>
 
                     <div className={styles.settingRow}>
-                        <label>Vector Dimension</label>
-                        <input
-                            type="number"
+                        <span>Vector Dimension</span>
+                        <NumberInput
+                            id="dimension"
                             value={emb.dimension}
                             disabled={isLocked || !emb.enabled}
-                            onChange={(e) =>
-                                updateEmbeddings(
-                                    'dimension',
-                                    parseInt(e.target.value) || 768
-                                )
+                            onChange={(v) =>
+                                updateEmbeddings('dimension', v || 768)
                             }
                         />
                     </div>
 
                     <div className={styles.settingRow}>
-                        <label>Chunk Size (tokens)</label>
-                        <input
-                            type="number"
+                        <span>Chunk Size (tokens)</span>
+                        <NumberInput
+                            id="chunkSize"
                             value={emb.chunkSize}
                             disabled={isLocked || !emb.enabled}
                             min={128}
                             max={2048}
-                            onChange={(e) =>
-                                updateEmbeddings(
-                                    'chunkSize',
-                                    parseInt(e.target.value) || 500
-                                )
+                            onChange={(v) =>
+                                updateEmbeddings('chunkSize', v || 500)
                             }
                         />
                     </div>
 
                     <div className={styles.settingRow}>
-                        <label>Chunk Overlap (tokens)</label>
-                        <input
-                            type="number"
+                        <span>Chunk Overlap (tokens)</span>
+                        <NumberInput
+                            id="chunkOverlap"
                             value={emb.chunkOverlap}
                             disabled={isLocked || !emb.enabled}
                             min={0}
                             max={200}
-                            onChange={(e) =>
-                                updateEmbeddings(
-                                    'chunkOverlap',
-                                    parseInt(e.target.value) || 50
-                                )
+                            onChange={(v) =>
+                                updateEmbeddings('chunkOverlap', v || 50)
                             }
                         />
                     </div>
 
                     <div className={styles.settingRow}>
-                        <label>Auto-index on chapter save</label>
-                        <input
-                            type="checkbox"
+                        <span>Auto-index on chapter save</span>
+                        <Toggle
                             checked={emb.autoIndexOnSave}
                             disabled={isLocked || !emb.enabled}
-                            onChange={(e) =>
-                                updateEmbeddings(
-                                    'autoIndexOnSave',
-                                    e.target.checked
-                                )
+                            onChange={(v) =>
+                                updateEmbeddings('autoIndexOnSave', v)
                             }
                         />
                     </div>
@@ -1109,87 +1208,55 @@ function EmbeddingsTab() {
 
             <SettingsCard>
                 <>
-                    <div style={{ marginTop: '24px' }}>
-                        <div className={styles.settingsSectionLabel}>
-                            Index Status
-                        </div>
-
-                        <div
-                            style={{
-                                display: 'flex',
-                                gap: '8px',
-                                marginBottom: '12px',
-                            }}
+                    <div className={styles.settingsSectionLabel}>
+                        Index Status
+                    </div>
+                    <div className={styles.buttonRow}>
+                        <button
+                            type="button"
+                            onClick={handleTestConnection}
+                            disabled={isLocked || !emb.enabled}
+                            className={styles.btnSecondary}
                         >
-                            <button
-                                onClick={handleTestConnection}
-                                disabled={isLocked || !emb.enabled}
-                                style={{
-                                    padding: '8px 16px',
-                                    borderRadius: '8px',
-                                    border: '1px solid #555',
-                                    background: '#333',
-                                    color: '#fff',
-                                    cursor: 'pointer',
-                                }}
-                            >
-                                Test Connection
-                            </button>
-                            <button
-                                onClick={handleRebuildIndex}
-                                disabled={
-                                    isLocked || !emb.enabled || isIndexing
-                                }
-                                style={{
-                                    padding: '8px 16px',
-                                    borderRadius: '8px',
-                                    border: '1px solid #555',
-                                    background: '#333',
-                                    color: '#fff',
-                                    cursor: isIndexing
-                                        ? 'not-allowed'
-                                        : 'pointer',
-                                    opacity: isIndexing ? 0.5 : 1,
-                                }}
-                            >
-                                {isIndexing ? 'Indexing...' : 'Rebuild Index'}
-                            </button>
-                        </div>
+                            Test Connection
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleRebuildIndex}
+                            disabled={isLocked || !emb.enabled || isIndexing}
+                            className={styles.btnSecondary}
+                        >
+                            {isIndexing ? 'Indexing...' : 'Rebuild Index'}
+                        </button>
+                    </div>
 
-                        {indexStatus && (
-                            <div
-                                style={{
-                                    marginBottom: '12px',
-                                    fontSize: '13px',
-                                    color: '#888',
-                                }}
-                            >
-                                Total indexed: {indexStatus.total} chunks
+                    {indexStatus && (
+                        <div className={styles.statusBox}>
+                            <div className={styles.statusBoxTotal}>
+                                Total indexed:{' '}
+                                <strong>{indexStatus.total}</strong> chunks
+                            </div>
+                            <div className={styles.statusBreakdown}>
                                 {Object.entries(indexStatus.byType).map(
                                     ([type, count]) => (
                                         <div
                                             key={type}
-                                            style={{ marginLeft: '12px' }}
+                                            className={styles.statusItem}
                                         >
-                                            {type}: {count}
+                                            <span>{type}</span>
+                                            <span>{count}</span>
                                         </div>
                                     )
                                 )}
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        {isIndexing && indexProgress && (
-                            <div
-                                style={{
-                                    marginBottom: '12px',
-                                    fontSize: '13px',
-                                    color: '#30d158',
-                                }}
-                            >
-                                {indexProgress}
-                            </div>
-                        )}
-                    </div>
+                    {isIndexing && indexProgress && (
+                        <div className={styles.progressNotification}>
+                            {indexProgress}
+                        </div>
+                    )}
                 </>
             </SettingsCard>
         </div>
@@ -1238,70 +1305,88 @@ function QuotaTab() {
         requestLimit > 0 ? Math.min((requests / requestLimit) * 100, 100) : 0;
 
     const progressColor = (pct: number) => {
-        if (pct > 95) return '#ff453a';
-        if (pct > 80) return '#ff9f0a';
-        if (pct > 50) return '#ffd60a';
-        return '#30d158';
+        if (pct > 95) return '#f43f5e';
+        if (pct > 80) return '#f97316';
+        if (pct > 50) return '#eab308';
+        return '#10b981';
     };
 
     return (
         <div className={styles.tabContent}>
-            <div className={styles.settingsSectionLabel}>
-                Quota & Usage Control
-            </div>
-
-            <div className={styles.periodToggle}>
-                <button
-                    className={period === 'today' ? styles.activePeriod : ''}
-                    onClick={() => setPeriod('today')}
+            <div className={styles.quotaHeader}>
+                <div
+                    className={styles.settingsSectionLabel}
+                    style={{ marginBottom: 0 }}
                 >
-                    Today
-                </button>
-                <button
-                    className={period === 'month' ? styles.activePeriod : ''}
-                    onClick={() => setPeriod('month')}
-                >
-                    Month
-                </button>
-            </div>
-
-            <div className={styles.usageCard}>
-                <div className={styles.usageLabel}>Tokens Consumed</div>
-                <div className={styles.usageValue}>
-                    {tokens.toLocaleString()} / {tokenLimit.toLocaleString()}
+                    Quota & Usage Control
                 </div>
-                <div className={styles.progressBar}>
-                    <div
-                        className={styles.progressFill}
-                        style={{
-                            width: `${tokenPct}%`,
-                            backgroundColor: progressColor(tokenPct),
-                        }}
-                    />
+                <div className={styles.segmentedToggle}>
+                    <button
+                        type="button"
+                        className={
+                            period === 'today' ? styles.activeSegment : ''
+                        }
+                        onClick={() => setPeriod('today')}
+                    >
+                        Today
+                    </button>
+                    <button
+                        type="button"
+                        className={
+                            period === 'month' ? styles.activeSegment : ''
+                        }
+                        onClick={() => setPeriod('month')}
+                    >
+                        Month
+                    </button>
                 </div>
             </div>
 
-            <div className={styles.usageCard}>
-                <div className={styles.usageLabel}>Requests (API Calls)</div>
-                <div className={styles.usageValue}>
-                    {requests.toLocaleString()} /{' '}
-                    {requestLimit.toLocaleString()}
+            <div className={styles.usageGrid}>
+                <div className={styles.usageCard}>
+                    <div className={styles.usageLabel}>Tokens Consumed</div>
+                    <div className={styles.usageValue}>
+                        <span>{tokens.toLocaleString()}</span>
+                        <span className={styles.usageMax}>
+                            / {tokenLimit.toLocaleString()}
+                        </span>
+                    </div>
+                    <div className={styles.progressBar}>
+                        <div
+                            className={styles.progressFill}
+                            style={{
+                                width: `${tokenPct}%`,
+                                backgroundColor: progressColor(tokenPct),
+                            }}
+                        />
+                    </div>
                 </div>
-                <div className={styles.progressBar}>
-                    <div
-                        className={styles.progressFill}
-                        style={{
-                            width: `${requestPct}%`,
-                            backgroundColor: progressColor(requestPct),
-                        }}
-                    />
+
+                <div className={styles.usageCard}>
+                    <div className={styles.usageLabel}>API Requests</div>
+                    <div className={styles.usageValue}>
+                        <span>{requests.toLocaleString()}</span>
+                        <span className={styles.usageMax}>
+                            / {requestLimit.toLocaleString()}
+                        </span>
+                    </div>
+                    <div className={styles.progressBar}>
+                        <div
+                            className={styles.progressFill}
+                            style={{
+                                width: `${requestPct}%`,
+                                backgroundColor: progressColor(requestPct),
+                            }}
+                        />
+                    </div>
                 </div>
             </div>
 
-            <div className={styles.settingSectionDivider} />
             <SettingsCard>
                 <>
-                    <div className={styles.settingsSectionLabel}>Limits</div>
+                    <div className={styles.settingsSectionLabel}>
+                        Limits Configuration
+                    </div>
 
                     <div className={styles.settingRow}>
                         <span>Daily Token Limit</span>
@@ -1345,8 +1430,8 @@ function QuotaTab() {
                     <div className={styles.settingRow}>
                         <span>Monthly Request Limit</span>
                         <NumberInput
-                            id="dailyRequestLimit"
-                            value={settings.general.dailyRequestLimit}
+                            id="monthlyRequestLimit"
+                            value={settings.general.monthlyRequestLimit}
                             onChange={(v) =>
                                 updateGeneral('monthlyRequestLimit', v)
                             }
@@ -1408,7 +1493,7 @@ function StorageTab() {
     const handleUnlock = async () => {
         const success = await unlock(unlockPassword);
         if (!success) {
-            setUnlockError('Incorrect password');
+            setUnlockError('Incorrect master password');
         } else {
             setUnlockPassword('');
             setUnlockError('');
@@ -1420,23 +1505,33 @@ function StorageTab() {
     if (isLocked) {
         return (
             <div className={styles.tabContent}>
-                <div className={styles.lockedMessage}>
-                    <span>Settings are locked</span>
-                    <div className={styles.unlockSection}>
+                <div className={styles.lockedContainer}>
+                    <div className={styles.lockedTitle}>
+                        Settings are Locked
+                    </div>
+                    <p className={styles.lockedDesc}>
+                        Enter your master encryption password to modify
+                        settings.
+                    </p>
+                    <div className={styles.unlockForm}>
                         <input
                             type="password"
                             value={unlockPassword}
                             onChange={(e) => setUnlockPassword(e.target.value)}
                             placeholder="Enter master password"
-                            className={styles.textInput}
+                            className={styles.textInputFull}
                         />
-                        <button onClick={handleUnlock} className={styles.btn}>
+                        <button
+                            type="button"
+                            onClick={handleUnlock}
+                            className={styles.btnAccent}
+                        >
                             Unlock
                         </button>
-                        {unlockError && (
-                            <span className={styles.error}>{unlockError}</span>
-                        )}
                     </div>
+                    {unlockError && (
+                        <div className={styles.errorMessage}>{unlockError}</div>
+                    )}
                 </div>
             </div>
         );
@@ -1444,75 +1539,127 @@ function StorageTab() {
 
     return (
         <div className={styles.tabContent}>
-            <div className={styles.settingRow}>
-                <span>Encryption Mode</span>
-                <div className={styles.encryptionButtons}>
-                    <button
-                        onClick={() => handleSetEncryption('machine')}
-                        disabled={encryptionMode === 'machine'}
-                        className={styles.btnSmall}
-                    >
-                        Machine Key
-                    </button>
-                    <button
-                        onClick={() => handleSetEncryption('password')}
-                        disabled={encryptionMode === 'password'}
-                        className={styles.btnSmall}
-                    >
-                        Password
-                    </button>
-                </div>
-            </div>
-            {encryptionMode === 'password' && (
-                <div className={styles.settingRow}>
-                    <span>Set New Password</span>
-                    <div className={styles.pathRow}>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="New password"
-                            className={styles.textInput}
-                        />
-                        <button
-                            onClick={() => handleSetEncryption('password')}
-                            disabled={!password}
-                            className={styles.btn}
-                        >
-                            Set
-                        </button>
+            <SettingsCard>
+                <>
+                    <div className={styles.settingsSectionLabel}>
+                        Security & Storage
                     </div>
-                </div>
-            )}
+                    <div className={styles.settingRow}>
+                        <span>Encryption Mode</span>
+                        <div className={styles.segmentedToggle}>
+                            <button
+                                type="button"
+                                onClick={() => handleSetEncryption('machine')}
+                                className={
+                                    encryptionMode === 'machine'
+                                        ? styles.activeSegment
+                                        : ''
+                                }
+                            >
+                                Machine Key
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleSetEncryption('password')}
+                                className={
+                                    encryptionMode === 'password'
+                                        ? styles.activeSegment
+                                        : ''
+                                }
+                            >
+                                Password
+                            </button>
+                        </div>
+                    </div>
 
-            <div className={styles.settingRow}>
-                <span>Data Location</span>
-                <span className={styles.pathDisplay}>
-                    {settings.storage.dataLocation}
-                </span>
-            </div>
-            <div className={styles.settingRow}>
-                <span>Cache Size</span>
-                <span>{formatBytes(cacheSize)}</span>
-            </div>
-            <div className={styles.settingRow}>
-                <button onClick={handleClearCache} className={styles.btnDanger}>
-                    Clear Cache
-                </button>
-            </div>
+                    {encryptionMode === 'password' && (
+                        <div className={styles.settingRow}>
+                            <span>Set Master Password</span>
+                            <div className={styles.pathRow}>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) =>
+                                        setPassword(e.target.value)
+                                    }
+                                    placeholder="Enter new password"
+                                    className={styles.textInput}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        handleSetEncryption('password')
+                                    }
+                                    disabled={!password}
+                                    className={styles.btnSecondary}
+                                >
+                                    Update
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className={styles.settingRow}>
+                        <span>Data Location</span>
+                        <span className={styles.pathBadge}>
+                            {settings.storage.dataLocation}
+                        </span>
+                    </div>
+
+                    <div className={styles.settingRow}>
+                        <span>Cache Size</span>
+                        <div className={styles.inlineAction}>
+                            <span className={styles.monoValue}>
+                                {formatBytes(cacheSize)}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={handleClearCache}
+                                className={styles.btnSecondary}
+                            >
+                                Clear Cache
+                            </button>
+                        </div>
+                    </div>
+                </>
+            </SettingsCard>
 
             <div className={styles.dangerZone}>
-                <h3>Danger Zone</h3>
-                <div className={styles.settingRow}>
-                    <span>Lock Settings</span>
-                    <button onClick={lock} className={styles.btnWarning}>
+                <div className={styles.dangerHeader}>Danger Zone</div>
+                <div className={styles.dangerRow}>
+                    <div>
+                        <div className={styles.dangerLabel}>
+                            Lock Configuration
+                        </div>
+                        <div className={styles.dangerDesc}>
+                            Lock the settings panel requiring your password to
+                            open again.
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={lock}
+                        className={styles.btnWarning}
+                    >
                         Lock
                     </button>
                 </div>
-                <div className={styles.settingRow}>
-                    <span>Reset All Settings</span>
-                    <button onClick={reset} className={styles.btnDanger}>
-                        Reset
+                <div className={styles.dangerRow}>
+                    <div>
+                        <div className={styles.dangerLabel}>
+                            Reset All Settings
+                        </div>
+                        <div className={styles.dangerDesc}>
+                            Revert all user preferences and paths back to
+                            default.
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={reset}
+                        className={styles.btnDanger}
+                    >
+                        Reset All
                     </button>
                 </div>
             </div>
@@ -1522,63 +1669,73 @@ function StorageTab() {
 
 function AboutTab() {
     const PROJECTS = [
-        {
-            label: 'Novelty',
-            link: '',
-        },
-        {
-            label: 'Kotatsu',
-            link: '',
-        },
-        {
-            label: 'Booknmarks Curator',
-            link: '',
-        },
-        {
-            label: 'Project Registry',
-            link: '',
-        },
-        {
-            label: 'Ai Studio',
-            link: '',
-        },
-        {
-            label: 'Universal Downloader',
-            link: '',
-        },
+        { label: 'Novelty', link: 'https://github.com/wrlokKarna/novelty' },
+        { label: 'Kotatsu', link: '#' },
+        { label: 'Bookmarks Curator', link: '#' },
+        { label: 'Project Registry', link: '#' },
+        { label: 'AI Studio', link: '#' },
+        { label: 'Universal Downloader', link: '#' },
     ];
+
     return (
-        <>
-            <div className={styles.settingsSectionLabel}>
-                Application Information
-            </div>
-            <p>Version: 0.0.1</p>
-            <p>License: MIT</p>
-            <p>Author: Eon</p>
-            <p>
-                Website:{' '}
-                <a href="https://github.com/wrlokKarna/novelty">Github</a>
-            </p>
-            <p>License: MIT</p>
-            <div className={styles.settingsSectionLabel}>
-                More from NullSoft
-            </div>
-            <ol
-                style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'auto 1fr',
-                    gap: '20px',
-                }}
-            >
-                {PROJECTS.map((proj) => (
-                    <li>
-                        <a href={proj.link !== '' ? proj.link : '#'}>
-                            {proj.label}
-                        </a>
-                    </li>
-                ))}
-            </ol>
-        </>
+        <div className={styles.tabContent}>
+            <SettingsCard>
+                <>
+                    <div className={styles.settingsSectionLabel}>
+                        Application Information
+                    </div>
+                    <div className={styles.aboutMetaGrid}>
+                        <div className={styles.metaRow}>
+                            <span className={styles.metaKey}>Version</span>
+                            <span className={styles.metaVal}>0.0.1</span>
+                        </div>
+                        <div className={styles.metaRow}>
+                            <span className={styles.metaKey}>License</span>
+                            <span className={styles.metaVal}>MIT</span>
+                        </div>
+                        <div className={styles.metaRow}>
+                            <span className={styles.metaKey}>Author</span>
+                            <span className={styles.metaVal}>Eon</span>
+                        </div>
+                        <div className={styles.metaRow}>
+                            <span className={styles.metaKey}>Website</span>
+                            <a
+                                href="https://github.com/wrlokKarna/novelty"
+                                target="_blank"
+                                rel="noreferrer"
+                                className={styles.linkAccent}
+                            >
+                                GitHub Repository
+                            </a>
+                        </div>
+                    </div>
+                </>
+            </SettingsCard>
+
+            <SettingsCard>
+                <>
+                    <div className={styles.settingsSectionLabel}>
+                        More from NullSoft
+                    </div>
+                    <div className={styles.projectGrid}>
+                        {PROJECTS.map((proj) => (
+                            <a
+                                key={proj.label}
+                                href={proj.link}
+                                className={styles.projectCard}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                <span className={styles.projectName}>
+                                    {proj.label}
+                                </span>
+                                <span className={styles.projectArrow}>↗</span>
+                            </a>
+                        ))}
+                    </div>
+                </>
+            </SettingsCard>
+        </div>
     );
 }
 
@@ -1638,27 +1795,18 @@ export default function SettingsDialog({
             search={{
                 value: settingsSearch,
                 onChange: setSettingsSearch,
-                placeholder: 'Find in Settings',
+                placeholder: 'Find in Settings...',
             }}
         >
             <SplitDialogLayout>
                 <>
-                    {/*
-						<div className="sideBar-header">
-							<h2>Settings</h2>
-						</div>
-					
-                    sideBarContent
-                    */}
                     <IconTextSideBar
                         activeTab={activeTab}
                         setActiveTab={setActiveTab}
                         tabsArray={SETTINGS_DIALOG_TABS}
                         iconsArray={SETTINGS_DIALOG_TABS_ICONS}
                     />
-
                     <div className={localStyles.tabPanel}>
-
                         {activeTab === 'general' && <GeneralTab />}
                         {activeTab === 'appearance' && <AppearanceTab />}
                         {activeTab === 'projects' && <ProjectsTab />}
@@ -1671,7 +1819,6 @@ export default function SettingsDialog({
                     </div>
                 </>
             </SplitDialogLayout>
-            <div className={styles.dialogContent}></div>
         </Dialog>
     );
 }

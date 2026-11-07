@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Timeline } from 'vis-timeline';
 import { DataSet } from 'vis-data';
 import 'vis-timeline/styles/vis-timeline-graph2d.css';
@@ -6,14 +6,24 @@ import { useRPC } from '../../contexts/RPCContext';
 
 import TimelineEventEditor from '../../components/TimelineEventEditor';
 import Dialog from '../Dialog';
-import './../../ui/timeline.css';
-import type { Chapter } from '../../../shared/types/project';
+
 import type {
-    Character,
     CompendiumCategory,
-    Organization,
+    CompendiumDataType,
 } from '../../../shared/types/project/compendium';
+import styles from './TimelineDialog.module.css';
 import type { TimelineEvent } from '../../../shared/types/project/timeline';
+import type { FileTab } from '@/shared/types/project/templates';
+import TimelineBottomDock, {
+    getCheckedSectionKeys,
+} from '@/mainview/ui/comps/TimelineBottomDock';
+import type {
+    PlacedEvent,
+    //TimeLineChip,
+    TimelineDataItem,
+    timelineFilterBtn,
+} from '@/shared/types/timeline';
+import type { ManuscriptDataType } from '@/shared/types/project/manuscript';
 
 const EVENT_COLORS: Record<string, string> = {
     chapter: '#4a9eff',
@@ -53,20 +63,21 @@ interface TimelineDialogProps {
     open: boolean;
     onClose: () => void;
     projectId: string;
-    characters: Character[];
-    organizations: Organization[];
-    chapters: Chapter[];
+
+    tabs: FileTab[];
     onOpenEntity: (id: string, type: CompendiumCategory) => void;
+    manuscriptData: ManuscriptDataType;
+    compendiumData: CompendiumDataType;
 }
 
 export default function TimelineDialog({
     open,
     onClose,
     projectId,
-    characters,
-    organizations,
-    chapters,
+    tabs,
     onOpenEntity,
+    manuscriptData,
+    compendiumData,
 }: TimelineDialogProps) {
     const rpc = useRPC();
     const containerRef = useRef<HTMLDivElement>(null);
@@ -86,19 +97,22 @@ export default function TimelineDialog({
     const initializedRef = useRef(false);
 
     const entityOptions = [
-        ...characters.map((c) => ({
+        ...compendiumData.characters.map((c) => ({
             id: c.id,
             name: c.name,
             type: 'character' as CompendiumCategory,
         })),
-        ...organizations.map((o) => ({
+        ...compendiumData.organizations.map((o) => ({
             id: o.id,
             name: o.name,
             type: 'organization' as CompendiumCategory,
         })),
     ];
 
-    const chapterOptions = chapters.map((c) => ({ id: c.id, title: c.title }));
+    const chapterOptions = manuscriptData.chapters.map((c) => ({
+        id: c.id,
+        title: c.title,
+    }));
 
     function buildTimeline() {
         if (!containerRef.current) return;
@@ -120,7 +134,7 @@ export default function TimelineDialog({
             },
         ];
 
-        for (const ch of characters) {
+        for (const ch of compendiumData.characters) {
             groupsData.push({
                 id: `char-${ch.id}`,
                 content: ch.name,
@@ -128,7 +142,7 @@ export default function TimelineDialog({
             });
         }
 
-        for (const org of organizations) {
+        for (const org of compendiumData.organizations) {
             groupsData.push({
                 id: `org-${org.id}`,
                 content: org.name,
@@ -253,15 +267,20 @@ export default function TimelineDialog({
                 timelineRef.current = null;
             }
         };
-    }, [open, events, characters, organizations]);
+    }, [open, events, compendiumData.characters, compendiumData.organizations]);
 
-    async function handleAutoGenerate() {
-        if (!projectId) return;
+    async function handleAutoGenerate(): Promise<number | null> {
+        if (!projectId) return null;
         try {
-            await rpc.request['db:auto-generate-timeline-events'](projectId);
+            const created =
+                await rpc.request['db:auto-generate-timeline-events'](
+                    projectId
+                );
             await loadEvents();
+            return created;
         } catch (e) {
             console.error('Failed to auto-generate events:', e);
+            return null;
         }
     }
 
@@ -328,119 +347,216 @@ export default function TimelineDialog({
     const eventTypeColor = (type: string) =>
         EVENT_COLORS[type] || EVENT_COLORS.milestone;
 
+    const [overhaulToggle, SetOverhaulToggle] = useState(true);
+
+    const categoryData = useMemo<Record<string, TimelineDataItem[]>>(
+        () => ({
+            chapters: manuscriptData.chapters.map((c) => ({
+                id: c.id,
+                label: c.title,
+            })),
+            acts: manuscriptData.storyActs.map((a) => ({
+                id: a.id,
+                label: a.title,
+            })),
+            'plot threads': manuscriptData.plotThreads.map((p) => ({
+                id: p.id,
+                label: p.name,
+            })),
+            'story beats': manuscriptData.storyBeats.map((b) => ({
+                id: b.id,
+                label: b.title,
+            })),
+            character: compendiumData.characters.map((c) => ({
+                id: c.id,
+                label: c.name,
+            })),
+            location: compendiumData.locations.map((l) => ({
+                id: l.id,
+                label: l.name,
+            })),
+            organization: compendiumData.organizations.map((o) => ({
+                id: o.id,
+                label: o.name,
+            })),
+            item: compendiumData.items.map((i) => ({
+                id: i.id,
+                label: i.name,
+            })),
+            lore: compendiumData.loreEntries.map((l) => ({
+                id: l.id,
+                label: l.name,
+            })),
+        }),
+        [manuscriptData, compendiumData]
+    );
+
     return (
         <>
             <Dialog open={open} onClose={onClose} title="Timeline" large={true}>
-                <div
-                    style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        height: '100%',
-                    }}
-                >
-                    <div className="timelineToolbar">
-                        <h3>
-                            {loading ? 'Loading...' : `${events.length} events`}
-                        </h3>
-                        <button className="primaryBtn" onClick={handleAddEvent}>
-                            + Add Event
-                        </button>
-                        <button onClick={handleAutoGenerate}>
-                            Auto-Detect
-                        </button>
-                        {selectedEvent && (
-                            <>
+                <>
+                    {!overhaulToggle && (
+                        <div
+                            style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                height: '100%',
+                            }}
+                        >
+                            <div className={styles.timelineToolbar}>
+                                <h3>
+                                    {loading
+                                        ? 'Loading...'
+                                        : `${events.length} events`}
+                                </h3>
                                 <button
+                                    className={styles.primaryBtn}
+                                    onClick={handleAddEvent}
+                                >
+                                    + Add Event
+                                </button>
+                                <button onClick={handleAutoGenerate}>
+                                    Auto-Detect
+                                </button>
+                                {selectedEvent && (
+                                    <>
+                                        <button
+                                            onClick={() =>
+                                                handleEditEvent(selectedEvent)
+                                            }
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            className={styles.dangerBtn}
+                                            onClick={handleDeleteEvent}
+                                        >
+                                            Delete
+                                        </button>
+                                    </>
+                                )}
+                                <button
+                                    className={styles.switchLayoutBtn}
+                                    style={{ marginLeft: 'auto' }}
                                     onClick={() =>
-                                        handleEditEvent(selectedEvent)
+                                        SetOverhaulToggle(!overhaulToggle)
                                     }
                                 >
-                                    Edit
+                                    Switch Layout
                                 </button>
-                                <button
-                                    className="dangerBtn"
-                                    onClick={handleDeleteEvent}
-                                >
-                                    Delete
-                                </button>
-                            </>
-                        )}
-                    </div>
-                    <div ref={containerRef} className="timelineContainer" />
-
-                    {selectedEvent && (
-                        <div className="eventDetail">
-                            <h3>{selectedEvent.title}</h3>
+                            </div>
                             <div
-                                style={{
-                                    display: 'flex',
-                                    gap: '16px',
-                                    flexWrap: 'wrap',
-                                }}
-                            >
-                                <div>
-                                    <span className="label">Type</span>
-                                    <p>
-                                        {EVENT_LABELS[
-                                            selectedEvent.eventType
-                                        ] || selectedEvent.eventType}
-                                    </p>
-                                </div>
-                                {selectedEvent.inStoryDate && (
-                                    <div>
-                                        <span className="label">Date</span>
-                                        <p>{selectedEvent.inStoryDate}</p>
-                                    </div>
-                                )}
-                                {selectedEvent.description && (
-                                    <div>
-                                        <span className="label">
-                                            Description
-                                        </span>
-                                        <p>{selectedEvent.description}</p>
-                                    </div>
-                                )}
-                                {selectedEvent.entityId && (
-                                    <div>
-                                        <span className="label">Entity</span>
-                                        <p>
-                                            <button
-                                                onClick={handleOpenEntity}
-                                                style={{
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    color: '#4a9eff',
-                                                    cursor: 'pointer',
-                                                    padding: 0,
-                                                    fontSize: '13px',
-                                                }}
+                                ref={containerRef}
+                                className={styles.timelineContainer}
+                            />
+
+                            {selectedEvent && (
+                                <div className={styles.eventDetail}>
+                                    <h3>{selectedEvent.title}</h3>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            gap: '16px',
+                                            flexWrap: 'wrap',
+                                        }}
+                                    >
+                                        <div>
+                                            <span className={styles.label}>
+                                                Type
+                                            </span>
+                                            <p>
+                                                {EVENT_LABELS[
+                                                    selectedEvent.eventType
+                                                ] || selectedEvent.eventType}
+                                            </p>
+                                        </div>
+                                        {selectedEvent.inStoryDate && (
+                                            <div>
+                                                <span className={styles.label}>
+                                                    Date
+                                                </span>
+                                                <p>
+                                                    {selectedEvent.inStoryDate}
+                                                </p>
+                                            </div>
+                                        )}
+                                        {selectedEvent.description && (
+                                            <div>
+                                                <span className={styles.label}>
+                                                    Description
+                                                </span>
+                                                <p>
+                                                    {selectedEvent.description}
+                                                </p>
+                                            </div>
+                                        )}
+                                        {selectedEvent.entityId && (
+                                            <div>
+                                                <span className={styles.label}>
+                                                    Entity
+                                                </span>
+                                                <p>
+                                                    <button
+                                                        onClick={
+                                                            handleOpenEntity
+                                                        }
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: '#4a9eff',
+                                                            cursor: 'pointer',
+                                                            padding: 0,
+                                                            fontSize: '13px',
+                                                        }}
+                                                    >
+                                                        Open in editor
+                                                    </button>
+                                                </p>
+                                            </div>
+                                        )}
+                                        {selectedEvent.autoGenerated && (
+                                            <div
+                                                className={styles.autoGenNotice}
                                             >
-                                                Open in editor
-                                            </button>
-                                        </p>
+                                                Auto-generated
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                                {selectedEvent.autoGenerated && (
-                                    <div className="autoGenNotice">
-                                        Auto-generated
-                                    </div>
+                                </div>
+                            )}
+
+                            <div className={styles.timelineLegend}>
+                                {Object.entries(EVENT_LABELS).map(
+                                    ([type, label]) => (
+                                        <div
+                                            key={type}
+                                            className={styles.legendItem}
+                                        >
+                                            <span
+                                                className={styles.legendDot}
+                                                style={{
+                                                    background:
+                                                        eventTypeColor(type),
+                                                }}
+                                            />
+                                            <span>{label}</span>
+                                        </div>
+                                    )
                                 )}
                             </div>
                         </div>
                     )}
-
-                    <div className="timelineLegend">
-                        {Object.entries(EVENT_LABELS).map(([type, label]) => (
-                            <div key={type} className="legendItem">
-                                <span
-                                    className="legendDot"
-                                    style={{ background: eventTypeColor(type) }}
-                                />
-                                <span>{label}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                    {overhaulToggle && (
+                        <NewTimeline
+                            tabs={tabs}
+                            categoryData={categoryData}
+                            onSwitchLayout={() =>
+                                SetOverhaulToggle(!overhaulToggle)
+                            }
+                            onAutoDetect={handleAutoGenerate}
+                        />
+                    )}
+                </>
             </Dialog>
 
             <TimelineEventEditor
@@ -455,5 +571,430 @@ export default function TimelineDialog({
                 chapterOptions={chapterOptions}
             />
         </>
+    );
+}
+
+export function NewTimeline({
+    tabs,
+    categoryData,
+    onSwitchLayout,
+    onAutoDetect,
+}: {
+    tabs: FileTab[];
+    categoryData: Record<string, TimelineDataItem[]>;
+    onSwitchLayout: () => void;
+    onAutoDetect?: () => Promise<number | null>;
+}) {
+    // Unassigned events waiting in the bottom tray
+    const [timelineEvents, setTimeLineEvents] = useState<number[]>([]);
+    const [selectedEvent, setSelectedEvent] = useState<string>('');
+    const [openTabsChecked, setOpenTabsChecked] = useState(false);
+
+    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+
+    const [maxCol, setMaxCol] = useState<number>(7);
+    const [maxRow, setMaxRow] = useState<number>(5);
+
+    const [placedEvents, setPlacedEvents] = useState<PlacedEvent[]>([
+        { id: 'ev-1', col: 1, row: 2, title: 'Event 1' },
+        { id: 'ev-2', col: 2, row: 2, title: 'Event 2' },
+        { id: 'ev-3', col: 3, row: 1, title: 'Event 3' },
+        { id: 'ev-4', col: 3, row: 3, title: 'Event 4' },
+        { id: 'ev-5', col: 4, row: 2, title: 'Event 5' },
+        { id: 'ev-6', col: 7, row: 2, title: 'Event 6' },
+    ]);
+
+    const [timelineFilters, setTimelineFilters] = useState<timelineFilterBtn[]>(
+        [
+            { cat: 'opened tabs', hasitem: true, checked: false },
+            {
+                cat: 'manuscript',
+                checked: false,
+                hasitem: false,
+                subCat: [
+                    { key: 'chapters', hasitem: true, checked: false },
+                    { key: 'acts', hasitem: true, checked: false },
+                    { key: 'plot threads', hasitem: true, checked: false },
+                    { key: 'story beats', hasitem: true, checked: false },
+                ],
+            },
+            {
+                cat: 'compendium',
+                checked: false,
+                hasitem: false,
+                subCat: [
+                    { key: 'character', hasitem: true, checked: false },
+                    { key: 'location', hasitem: true, checked: false },
+                    { key: 'organization', hasitem: true, checked: false },
+                    { key: 'item', hasitem: true, checked: false },
+                    { key: 'lore', hasitem: true, checked: false },
+                ],
+            },
+        ]
+    );
+
+    useEffect(() => {
+        const active = new Set(
+            getCheckedSectionKeys(timelineFilters, openTabsChecked)
+        );
+
+        setSelectedItems((prev) => {
+            let changed = false;
+            const next = new Set<string>();
+
+            for (const key of prev) {
+                const separator = key.indexOf('::');
+                const section =
+                    separator === -1 ? key : key.slice(0, separator);
+
+                if (active.has(section)) {
+                    next.add(key);
+                } else {
+                    changed = true;
+                }
+            }
+
+            return changed ? next : prev;
+        });
+    }, [timelineFilters, openTabsChecked]);
+
+    const handleToggleItem = useCallback((key: string) => {
+        setSelectedItems((prev) => {
+            const next = new Set(prev);
+            if (next.has(key)) {
+                next.delete(key);
+            } else {
+                next.add(key);
+            }
+            return next;
+        });
+    }, []);
+
+    const hasAnySelected =
+        openTabsChecked ||
+        timelineFilters.some(
+            (filt) =>
+                filt.checked ||
+                (filt.subCat && filt.subCat.some((sub) => sub.checked))
+        );
+
+    // Toggle behavior: when something is active, clear all; otherwise, select all
+    const handleToggleAllOrClear = () => {
+        if (hasAnySelected) {
+            setOpenTabsChecked(false);
+            setTimelineFilters((prev) =>
+                prev.map((item) => ({
+                    ...item,
+                    checked: false,
+                    subCat: item.subCat?.map((sub) => ({
+                        ...sub,
+                        checked: false,
+                    })),
+                }))
+            );
+        } else {
+            setOpenTabsChecked(true);
+            setTimelineFilters((prev) =>
+                prev.map((item) => ({
+                    ...item,
+                    checked: true,
+                    subCat: item.subCat?.map((sub) => ({
+                        ...sub,
+                        checked: true,
+                    })),
+                }))
+            );
+        }
+    };
+
+    // Helper: remove the placed number from the unassigned bottom bar
+    const consumeSelectedEvent = (replacedCardTitle?: string) => {
+        const placedNum = Number(selectedEvent);
+        setTimeLineEvents((prev) => {
+            const next = prev.filter((e) => e !== placedNum);
+            // If replacing an existing card, send the replaced event back to the tray
+            if (replacedCardTitle) {
+                const replacedNum = parseInt(
+                    replacedCardTitle.replace(/\D/g, ''),
+                    10
+                );
+                if (!isNaN(replacedNum) && !next.includes(replacedNum)) {
+                    next.push(replacedNum);
+                }
+            }
+            return next;
+        });
+        setSelectedEvent('');
+    };
+
+    // 1. ADD TO EMPTY CELL OR REPLACE EXISTING CARD
+    const handlePlaceOrReplace = (col: number, row: number) => {
+        if (!selectedEvent) return;
+
+        const existingEvent = placedEvents.find(
+            (ev) => ev.col === col && ev.row === row
+        );
+
+        // Put the new event into (col, row), replacing existing if present
+        setPlacedEvents((prev) => [
+            ...prev.filter((ev) => !(ev.col === col && ev.row === row)),
+            {
+                id: `placed-${Date.now()}`,
+                col,
+                row,
+                title: `Event #${selectedEvent}`,
+            },
+        ]);
+
+        consumeSelectedEvent(existingEvent?.title);
+    };
+
+    // 2. INSERT NEW COLUMN BETWEEN TWO COLUMNS (e.g. between 1 and 2 => insertAtCol = 2)
+    const handleInsertColumn = (insertAtCol: number) => {
+        if (!selectedEvent) return;
+
+        // Shift everything rightward by 1
+        setPlacedEvents((prev) => [
+            ...prev.map((ev) =>
+                ev.col >= insertAtCol ? { ...ev, col: ev.col + 1 } : ev
+            ),
+            {
+                id: `placed-${Date.now()}`,
+                col: insertAtCol,
+                row: 2, // Default middle row
+                title: `Event #${selectedEvent}`,
+            },
+        ]);
+
+        setMaxCol((prev) => prev + 1);
+        consumeSelectedEvent();
+    };
+
+    // 3. INSERT NEW ROW BETWEEN TWO ROWS (e.g. between 1 and 2 => insertAtRow = 2)
+    const handleInsertRow = (insertAtRow: number) => {
+        if (!selectedEvent) return;
+
+        // Shift everything downward by 1
+        setPlacedEvents((prev) => [
+            ...prev.map((ev) =>
+                ev.row >= insertAtRow ? { ...ev, row: ev.row + 1 } : ev
+            ),
+            {
+                id: `placed-${Date.now()}`,
+                col: 2, // Default column
+                row: insertAtRow,
+                title: `Event #${selectedEvent}`,
+            },
+        ]);
+
+        setMaxRow((prev) => prev + 1);
+        consumeSelectedEvent();
+    };
+
+    const handleAddEvent = () => {
+        const allNumbers = [
+            ...timelineEvents,
+            ...placedEvents.map(
+                (ev) => parseInt(ev.title.replace(/\D/g, ''), 10) || 0
+            ),
+        ];
+        const nextId = allNumbers.length > 0 ? Math.max(...allNumbers) + 1 : 1;
+        setTimeLineEvents([...timelineEvents, nextId]);
+    };
+
+    const hasEntityFilter = selectedItems.size > 0;
+    const matchesEntityFilter = (event: PlacedEvent) =>
+        !hasEntityFilter ||
+        !event.entityKeys?.length ||
+        event.entityKeys.some((key) => selectedItems.has(key));
+    const entityMatchCount = hasEntityFilter
+        ? placedEvents.filter(
+              (event) => event.entityKeys?.length && matchesEntityFilter(event)
+          ).length
+        : 0;
+
+    return (
+        <div className={styles.timelineGridWrapper}>
+            <div className={styles.gridControlHeader}>
+                {hasEntityFilter && (
+                    <div className={styles.entityFilterStatus}>
+                        <span>
+                            {selectedItems.size} entity filter
+                            {selectedItems.size === 1 ? '' : 's'}
+                            <span className={styles.entityFilterCount}>
+                                {` · ${entityMatchCount} match${
+                                    entityMatchCount === 1 ? '' : 'es'
+                                }`}
+                            </span>
+                        </span>
+                        <button
+                            type="button"
+                            className={styles.entityFilterClear}
+                            onClick={() => setSelectedItems(new Set())}
+                        >
+                            Clear
+                        </button>
+                    </div>
+                )}
+                <button
+                    className={styles.switchLayoutBtn}
+                    onClick={onSwitchLayout}
+                >
+                    Switch Layout
+                </button>
+            </div>
+
+            <div className={styles.gridScrollCanvas}>
+                <div
+                    className={`${styles.timelineGrid} ${selectedEvent ? styles.insertActive : ''}`}
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${maxCol}, 100px)`,
+                        gridTemplateRows: `repeat(${maxRow}, 100px)`,
+                        position: 'relative',
+                    }}
+                >
+                    {/* BACKGROUND GRID CELLS (Empty clicks target these) */}
+                    {Array.from({ length: maxCol * maxRow }, (_, index) => {
+                        const col = (index % maxCol) + 1;
+                        const row = Math.floor(index / maxCol) + 1;
+                        return (
+                            <div
+                                key={`cell-${col}-${row}`}
+                                onClick={() => handlePlaceOrReplace(col, row)}
+                                style={{
+                                    gridColumn: col,
+                                    gridRow: row,
+                                    borderRight:
+                                        '1px solid rgba(255, 255, 255, 0.05)',
+                                    borderBottom:
+                                        '1px solid rgba(255, 255, 255, 0.05)',
+                                    cursor: selectedEvent
+                                        ? 'pointer'
+                                        : 'default',
+                                    zIndex: 1,
+                                    boxSizing: 'border-box',
+                                }}
+                            />
+                        );
+                    })}
+
+                    {/* PLACED EVENT CARDS (Clicking replaces the card) */}
+                    {placedEvents.map((ev) => (
+                        <div
+                            key={ev.id}
+                            className={`${styles.eventCard} ${
+                                ev.entityKeys?.length &&
+                                !matchesEntityFilter(ev)
+                                    ? styles.eventCardFilteredOut
+                                    : ''
+                            }`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handlePlaceOrReplace(ev.col, ev.row);
+                            }}
+                            style={{
+                                gridColumn: `${ev.col}`,
+                                gridRow: `${ev.row}`,
+                                zIndex: 2,
+                                cursor: selectedEvent ? 'pointer' : 'default',
+                            }}
+                        >
+                            <span>{ev.title}</span>
+                        </div>
+                    ))}
+
+                    {/* VERTICAL COLUMN INSERTION STRIPS (Between columns) */}
+                    {selectedEvent &&
+                        Array.from({ length: maxCol - 1 }, (_, i) => {
+                            const insertColIndex = i + 2; // Clicking between col 1 & 2 inserts at col 2
+                            return (
+                                <div
+                                    key={`col-split-${i}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleInsertColumn(insertColIndex);
+                                    }}
+                                    title={`Insert column between ${i + 1} and ${i + 2}`}
+                                    style={{
+                                        gridColumn: i + 1,
+                                        gridRow: `1 / span ${maxRow}`,
+                                        position: 'relative',
+                                        zIndex: 3,
+                                        pointerEvents: 'none',
+                                    }}
+                                >
+                                    <div
+                                        className={`${styles.insertLine} ${styles.insertCol}`}
+                                        style={{
+                                            position: 'absolute',
+                                            top: 0,
+                                            right: -7,
+                                            width: 14,
+                                            height: '100%',
+                                            cursor: 'col-resize',
+                                            pointerEvents: 'auto',
+                                        }}
+                                    />
+                                </div>
+                            );
+                        })}
+
+                    {/* HORIZONTAL ROW INSERTION STRIPS (Between rows) */}
+                    {selectedEvent &&
+                        Array.from({ length: maxRow - 1 }, (_, i) => {
+                            const insertRowIndex = i + 2; // Clicking between row 1 & 2 inserts at row 2
+                            return (
+                                <div
+                                    key={`row-split-${i}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleInsertRow(insertRowIndex);
+                                    }}
+                                    title={`Insert row between ${i + 1} and ${i + 2}`}
+                                    style={{
+                                        gridColumn: `1 / span ${maxCol}`,
+                                        gridRow: i + 1,
+                                        position: 'relative',
+                                        zIndex: 3,
+                                        pointerEvents: 'none',
+                                    }}
+                                >
+                                    <div
+                                        className={`${styles.insertLine} ${styles.insertRow}`}
+                                        style={{
+                                            position: 'absolute',
+                                            left: 0,
+                                            bottom: -7,
+                                            width: '100%',
+                                            height: 14,
+                                            cursor: 'row-resize',
+                                            pointerEvents: 'auto',
+                                        }}
+                                    />
+                                </div>
+                            );
+                        })}
+                </div>
+            </div>
+
+            <TimelineBottomDock
+                hasAnySelected={hasAnySelected}
+                handleToggleAllOrClear={handleToggleAllOrClear}
+                openTabsChecked={openTabsChecked}
+                setOpenTabsChecked={setOpenTabsChecked}
+                timelineFilters={timelineFilters}
+                setTimelineFilters={setTimelineFilters}
+                tabs={tabs}
+                categoryData={categoryData}
+                onAddEvent={handleAddEvent}
+                onAutoDetect={onAutoDetect}
+                unassignedEvents={timelineEvents}
+                selectedEvent={selectedEvent}
+                onSelectEvent={setSelectedEvent}
+                selectedItems={selectedItems}
+                onToggleItem={handleToggleItem}
+            />
+        </div>
     );
 }

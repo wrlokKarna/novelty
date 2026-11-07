@@ -1,0 +1,280 @@
+.timelineDialog {
+    width: 95vw;
+    height: 90vh;
+    max-width: 1400px;
+}
+
+.timelineDialog :global(.dialogWrapper) {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: #111215;
+    border: 1px solid #23262f;
+    border-radius: 10px;
+}
+
+.timelineDialog :global(.body) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+}
+
+/* --- Top Header & Controls --- */
+.timelineToolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    border-bottom: 1px solid #1f222b;
+    background: #14161b;
+    flex-shrink: 0;
+}
+
+.timelineToolbar h3 {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #e2e8f0;
+    letter-spacing: -0.01em;
+    flex: 1;
+}
+
+.timelineToolbar button {
+    background: #1e2129;
+    border: 1px solid #2d313c;
+    color: #cbd5e1;
+    padding: 5px 13px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+.timelineToolbar button:hover {
+    background: #272a35;
+    border-color: #3f4554;
+    color: #ffffff;
+}
+
+.timelineToolbar button.primaryBtn {
+    background: #2563eb;
+    border-color: #3b82f6;
+    color: #ffffff;
+}
+
+.timelineToolbar button.primaryBtn:hover {
+    background: #1d4ed8;
+    border-color: #60a5fa;
+}
+
+.timelineToolbar button.dangerBtn {
+    background: #7f1d1d;
+    border-color: #991b1b;
+    color: #fecaca;
+}
+
+.timelineToolbar button.dangerBtn:hover {
+    background: #991b1b;
+    border-color: #b91c1c;
+}
+
+.timelineContainer {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+.timelineLegend {
+    display: flex;
+    gap: 14px;
+    padding: 8px 20px;
+    border-top: 1px solid #1f222b;
+    background: #131418;
+    flex-shrink: 0;
+    font-size: 11.5px;
+    color: #717786;
+}
+
+.legendItem {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.legendDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.eventDetail {
+    padding: 16px 20px;
+    background-color: #14161b;
+    border-top: 1px solid #1f222b;
+}
+
+.eventDetail h3 {
+    margin: 0 0 8px 0;
+    font-size: 15px;
+    color: #fff;
+}
+
+.eventDetail p {
+    margin: 4px 0;
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+.eventDetail .label {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.autoGenNotice {
+    font-size: 11px;
+    color: #64748b;
+    font-style: italic;
+}
+
+/* --- Timeline Grid Work area --- */
+.timelineGridWrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    background-color: #121316;
+}
+
+.gridControlHeader {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 12px 20px;
+    border-bottom: 1px solid #1a1c22;
+}
+
+.entityFilterStatus {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-right: auto;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.entityFilterCount {
+    color: #64748b;
+}
+
+.entityFilterClear {
+    background: transparent;
+    border: 1px solid #2b2e38;
+    color: #94a3b8;
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.entityFilterClear:hover {
+    color: #f1f5f9;
+    border-color: #434756;
+}
+
+.switchLayoutBtn {
+    background: transparent;
+    border: 1px solid #2b2e38;
+    color: #94a3b8;
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.switchLayoutBtn:hover {
+    color: #f1f5f9;
+    border-color: #434756;
+}
+
+.gridScrollCanvas {
+    flex: 1;
+    overflow: auto;
+    padding: 20px;
+}
+
+.timelineGrid {
+    position: relative;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.timelineGrid.insertActive .insertLine {
+    display: block;
+}
+
+.insertLine {
+    display: none;
+    background-color: rgba(245, 158, 11, 0.15);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.insertLine:hover {
+    background-color: #f59e0b;
+}
+
+.insertCol {
+    width: 3px;
+    height: 100%;
+}
+
+.insertRow {
+    width: 100%;
+    height: 3px;
+}
+
+/* Event Node Cards */
+.eventCard {
+    background: #17181d;
+    border: 1px solid #282a32;
+    border-radius: 8px;
+    margin: 10px;
+    padding: 12px 14px;
+    color: #e2e8f0;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+    user-select: none;
+    transition:
+        transform 0.15s ease,
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        opacity 0.15s ease,
+        filter 0.15s ease;
+}
+
+.eventCard:hover {
+    transform: translateY(-2px);
+    border-color: #3f4454;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+
+.eventCardFilteredOut {
+    opacity: 0.28;
+    filter: grayscale(0.5);
+}

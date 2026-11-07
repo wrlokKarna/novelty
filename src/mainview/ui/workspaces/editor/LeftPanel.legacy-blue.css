@@ -1,0 +1,161 @@
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue {
+    --accent: #3b82f6;
+    --accent-subtle: rgba(59, 130, 246, 0.1);
+    --accent-active: rgba(59, 130, 246, 0.2);
+    --accent-focus: rgba(59, 130, 246, 0.45);
+    --text-accent: #3b82f6;
+    --text-secondary: #94a3b8;
+    --text-muted: #94a3b8;
+    --border: #313233;
+
+    border-right: 1px solid #313233;
+}
+
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue.collapsed {
+    border-right: none;
+}
+
+/* Header */
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue h4 {
+    color: #ffffff;
+    text-transform: capitalize;
+}
+
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue .panel-icon-btn,
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .panel-icon-btn:hover {
+    background: transparent;
+    color: #94a3b8;
+}
+
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .panel-icon-btn:hover
+    svg,
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .panel-icon-btn.active {
+    color: #3b82f6;
+}
+
+/* Explorer list */
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue .explorer-item {
+    height: 28px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    color: #94a3b8;
+    transition: background 0.2s ease;
+}
+
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .explorer-item:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+    color: #ffffff;
+}
+
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .explorer-item.active {
+    background-color: var(--accent-active);
+    border-color: var(--accent-focus);
+    color: #3b82f6;
+}
+
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .explorer-item
+    .item-index,
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .explorer-item
+    .listActionBtn {
+    color: #94a3b8;
+}
+
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .explorer-item
+    .listActionBtn.edit-btn:hover {
+    color: #3b82f6;
+    background: transparent;
+}
+
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .explorer-item
+    .listActionBtn.delete-btn:hover {
+    color: #ff6b6b;
+    background: transparent;
+}
+
+/* New entry button */
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue .new-item-btn {
+    border-color: #3b82f6;
+    color: #3b82f6;
+    background: transparent;
+}
+
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .new-item-btn:hover {
+    border-color: rgba(59, 130, 246, 0.6);
+    border-style: solid;
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+}
+
+/* Collapsed rail (left panel only; right rail keeps the theme look) */
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .sidebar-collapsed.left {
+    background: #1e293b;
+    color: #94a3b8;
+}
+
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .sidebar-collapsed.left:hover {
+    background: #3a3a3c;
+    color: #ffffff;
+}
+
+/* Compendium category nav */
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .compendium-sub-nav {
+    border-top-color: #313233;
+}
+
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .compendium-sub-nav-btn:hover {
+    background: transparent;
+    color: #ffffff;
+}
+
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .compendium-sub-nav-btn.active {
+    background: transparent;
+    box-shadow: none;
+    color: #3b82f6;
+}
+
+/* Bottom manuscript/compendium switcher */
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .bottom-nav-container {
+    background: transparent;
+    border-color: transparent;
+    margin: 0 20px 10px 10px;
+}
+
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .bottom-nav-indicator {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.45);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .bottom-nav-btn {
+    color: #64748b;
+}
+
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .bottom-nav-btn:hover {
+    background: transparent;
+    color: #3b82f6;
+}
+
+.app-panel-left.left-panel--legacy-blue.left-panel--legacy-blue
+    .bottom-nav-btn.active {
+    color: #3b82f6;
+    font-weight: 500;
+}

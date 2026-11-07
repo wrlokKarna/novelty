@@ -1,4 +1,5 @@
-import type { ChapterStatus } from '../..';
+import type { Chapter } from '..';
+import type { ChapterStatus, StoryAct } from '../..';
 
 export type PlotThreadType =
     'main' | 'subplot' | 'character-arc' | 'mystery' | 'romance' | 'thematic';
@@ -94,4 +95,11 @@ export type ChapterOutlineData = {
     scenes: SceneOutline[];
     keyEvents: string[];
     notes: string;
+};
+
+export type ManuscriptDataType = {
+    chapters: Chapter[];
+    storyActs: StoryAct[];
+    plotThreads: PlotThread[];
+    storyBeats: StoryBeat[];
 };

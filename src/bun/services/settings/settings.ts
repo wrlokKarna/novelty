@@ -76,6 +76,7 @@ const defaultSettings: Settings = {
         editorMaxWidth: 800,
         previewWidth: 420,
         previewPosition: 'right',
+        legacyBluePanel: false,
     },
     projects: {
         defaultProjectsDir: join(Utils.paths.userData, 'projects'),
@@ -256,6 +257,7 @@ function migrateSidebarConstraints(settings: Settings): void {
             editorMaxWidth: 800,
             previewWidth: 420,
             previewPosition: 'right',
+            legacyBluePanel: false,
         };
     } else if (!settings.appearance.sidebarConstraints) {
         settings.appearance.sidebarConstraints = {
@@ -300,6 +302,7 @@ function migrateEditorWidth(settings: Settings): void {
             editorMaxWidth: 800,
             previewWidth: 420,
             previewPosition: 'right',
+            legacyBluePanel: false,
         };
     } else {
         if (settings.appearance.editorWidthMode === undefined) {
@@ -313,6 +316,9 @@ function migrateEditorWidth(settings: Settings): void {
         }
         if (settings.appearance.previewPosition === undefined) {
             settings.appearance.previewPosition = 'right';
+        }
+        if (settings.appearance.legacyBluePanel === undefined) {
+            settings.appearance.legacyBluePanel = false;
         }
     }
 }
