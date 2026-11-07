@@ -58,7 +58,7 @@ import { useSettings } from './contexts/SettingsContext';
 import LeftPanel from './ui/workspaces/editor/LeftPanel';
 import RightPanel from './ui/workspaces/editor/RightPanel';
 import { type ProjectDialogActiveTab } from './constants/layout_tabs';
-import AiChatDialog from './dialogs/variants/AiChatDialog';
+
 import type {
     Item,
     Project,
@@ -175,7 +175,6 @@ function App() {
         | 'ui'
         | 'openFileDialog'
         | 'projectManager'
-        | 'AiChatDialog'
         | null
     >(null);
     const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
@@ -2704,7 +2703,6 @@ function App() {
                     )
                 }
             />
-            <button onClick={() => setActiveDialog('AiChatDialog')}>x</button>
 
             <main className="editor-workspace flex-container">
                 <LeftPanel
@@ -3454,12 +3452,6 @@ function App() {
                     templateFields={pendingCreateEntry.templateFields}
                     category={pendingCreateEntry.category}
                     entryName={pendingCreateEntry.name}
-                />
-            )}
-            {activeDialog === 'AiChatDialog' && (
-                <AiChatDialog
-                    open={true}
-                    onClose={() => setActiveDialog(null)}
                 />
             )}
         </>
