@@ -8,7 +8,12 @@ import {
     SETTINGS_DIALOG_TABS_ICONS,
     type SettingsDialogActiveTab,
 } from '../../constants/layout_tabs';
-import { IconFolder, IconChevronDown } from '@tabler/icons-react';
+import {
+    IconFolder,
+    IconChevronDown,
+    IconPlus,
+    IconCheck,
+} from '@tabler/icons-react';
 import IconTextSideBar from '../../ui/layout/IconTextSideBar';
 import SettingsCard from '../../components/cards/SettingsCard';
 
@@ -18,6 +23,66 @@ import SplitDialogLayout from '../../ui/layout/SplitDialogLayout';
 import ProviderCard from '../../components/cards/ProviderCard';
 import ProvidersList from '../../components/lists/ProvidersList';
 
+// ADD THIS RIGHT BEFORE: interface SettingsRoute {
+interface CustomThemePreset {
+    id: string;
+    name: string;
+    colors: {
+        background: string;
+        foreground: string;
+        highlight: string;
+        accent: string;
+    };
+}
+
+const BUILT_IN_THEMES: CustomThemePreset[] = [
+    {
+        id: 'sapphire-slate',
+        name: 'Sapphire Slate',
+        colors: {
+            background: '#0f172a',
+            foreground: '#e2e8f0',
+            highlight: '#38bdf8',
+            accent: '#1e293b',
+        },
+    },
+    {
+        id: 'midnight-gold',
+        name: 'Midnight Gold',
+        colors: {
+            background: '#17181f',
+            foreground: '#f3f4f6',
+            highlight: '#e5a93c',
+            accent: '#443f5e',
+        },
+    },
+    {
+        id: 'emerald-noir',
+        name: 'Emerald Noir',
+        colors: {
+            background: '#0d1912',
+            foreground: '#e6f4ea',
+            highlight: '#10b981',
+            accent: '#1f3527',
+        },
+    },
+    {
+        id: 'crimson-dusk',
+        name: 'Crimson Dusk',
+        colors: {
+            background: '#1a1114',
+            foreground: '#fae8eb',
+            highlight: '#f43f5e',
+            accent: '#392129',
+        },
+    },
+];
+
+interface SettingsRoute {
+    tab: SettingsDialogActiveTab;
+    section?: string;
+    focus?: string;
+}
 interface SettingsRoute {
     tab: SettingsDialogActiveTab;
     section?: string;
@@ -335,6 +400,26 @@ function GeneralTab() {
 
 function AppearanceTab() {
     const { settings, updateAppearance, isLocked } = useSettings();
+    const [customThemes, setCustomThemes] = useState<CustomThemePreset[]>(
+        () => {
+            try {
+                const saved = localStorage.getItem('novelty_custom_themes');
+                return saved ? JSON.parse(saved) : [];
+            } catch {
+                return [];
+            }
+        }
+    );
+
+    const [isCreatingTheme, setIsCreatingTheme] = useState(false);
+    const [newThemeName, setNewThemeName] = useState('');
+    const [newThemeColors, setNewThemeColors] = useState({
+        background: '#17181f',
+        foreground: '#f3f4f6',
+        highlight: '#38bdf8',
+        accent: '#1e293b',
+    });
+
     if (!settings) return null;
     const legacyBluePanel = settings.appearance.legacyBluePanel ?? false;
     const c = settings.appearance.sidebarConstraints ?? {
@@ -347,8 +432,61 @@ function AppearanceTab() {
         enableAutoSwitchPanel: true,
     };
 
+    const currentThemeColors = (settings.appearance as any)?.themeColors ?? {
+        background: '#17181f',
+        foreground: '#f3f4f6',
+        highlight: '#e5a93c',
+        accent: '#443f5e',
+    };
+
+    const allThemes = [...BUILT_IN_THEMES, ...customThemes];
+
+    // Check which theme matches the active colors so its name stays selected in the box
+    const matchedTheme = allThemes.find(
+        (t) =>
+            t.colors.background.toLowerCase() ===
+                currentThemeColors.background?.toLowerCase() &&
+            t.colors.foreground.toLowerCase() ===
+                currentThemeColors.foreground?.toLowerCase() &&
+            t.colors.highlight.toLowerCase() ===
+                currentThemeColors.highlight?.toLowerCase() &&
+            t.colors.accent.toLowerCase() ===
+                currentThemeColors.accent?.toLowerCase()
+    );
+    const activeThemeId = matchedTheme ? matchedTheme.id : '__custom__';
+
+    const handleSelectPreset = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const val = e.target.value;
+        if (val === '__add_new__') {
+            setNewThemeName('');
+            setIsCreatingTheme(true);
+            return;
+        }
+
+        const found = allThemes.find((t) => t.id === val);
+        if (found) {
+            updateAppearance('themeColors' as any, { ...found.colors });
+        }
+    };
+
+    const handleSaveCustomTheme = () => {
+        if (!newThemeName.trim()) return;
+        const newPreset: CustomThemePreset = {
+            id: `custom-${Date.now()}`,
+            name: newThemeName.trim(),
+            colors: { ...newThemeColors },
+        };
+        const updated = [...customThemes, newPreset];
+        setCustomThemes(updated);
+        localStorage.setItem('novelty_custom_themes', JSON.stringify(updated));
+
+        updateAppearance('themeColors' as any, { ...newThemeColors });
+        setIsCreatingTheme(false);
+    };
+
     return (
         <div className={styles.tabContent}>
+            {/* Sidebar Constraints Card */}
             <SettingsCard>
                 <>
                     <div className={styles.settingsSectionLabel}>
@@ -434,6 +572,7 @@ function AppearanceTab() {
                 </>
             </SettingsCard>
 
+            {/* Editor Width Card */}
             <SettingsCard>
                 <>
                     <div className={styles.settingsSectionLabel}>
@@ -492,6 +631,7 @@ function AppearanceTab() {
                 </>
             </SettingsCard>
 
+            {/* Preview Position Card */}
             <SettingsCard>
                 <>
                     <div className={styles.settingsSectionLabel}>Preview</div>
@@ -533,12 +673,121 @@ function AppearanceTab() {
                 </>
             </SettingsCard>
 
-            {/* --- themes --- */}
+            {/* --- Theme Colors --- */}
             <SettingsCard>
                 <>
-                    <div className={styles.settingsSectionLabel}>
-                        Theme Colors
+                    <div className={styles.themeSectionHeader}>
+                        <div
+                            className={styles.settingsSectionLabel}
+                            style={{ marginBottom: 0 }}
+                        >
+                            Theme Colors
+                        </div>
+                        <div className={styles.selectWrapper}>
+                            <select
+                                className={styles.select}
+                                onChange={handleSelectPreset}
+                                disabled={isLocked}
+                                value={activeThemeId}
+                            >
+                                {activeThemeId === '__custom__' && (
+                                    <option value="__custom__" disabled>
+                                        Custom
+                                    </option>
+                                )}
+                                {allThemes.map((theme) => (
+                                    <option key={theme.id} value={theme.id}>
+                                        {theme.name}
+                                    </option>
+                                ))}
+                                <option value="__add_new__">
+                                    + Add Theme...
+                                </option>
+                            </select>
+                            <IconChevronDown
+                                size={14}
+                                className={styles.selectIcon}
+                            />
+                        </div>
                     </div>
+
+                    {/* Custom Theme Creation Panel */}
+                    {isCreatingTheme && (
+                        <div className={styles.customThemeModal}>
+                            <div className={styles.customThemeTitle}>
+                                Create New Theme Preset
+                            </div>
+                            <div className={styles.customThemeBody}>
+                                <input
+                                    type="text"
+                                    placeholder="Theme Name (e.g. Cyberpunk Teal)"
+                                    value={newThemeName}
+                                    onChange={(e) =>
+                                        setNewThemeName(e.target.value)
+                                    }
+                                    className={styles.textInputFull}
+                                    style={{ width: '100%' }}
+                                />
+                                <div className={styles.customColorPickersRow}>
+                                    {(
+                                        [
+                                            'background',
+                                            'foreground',
+                                            'highlight',
+                                            'accent',
+                                        ] as const
+                                    ).map((slot) => (
+                                        <label
+                                            key={slot}
+                                            className={styles.customPickerItem}
+                                        >
+                                            <span
+                                                className={
+                                                    styles.customPickerLabel
+                                                }
+                                            >
+                                                {slot}
+                                            </span>
+                                            <input
+                                                type="color"
+                                                value={newThemeColors[slot]}
+                                                onChange={(e) =>
+                                                    setNewThemeColors(
+                                                        (prev) => ({
+                                                            ...prev,
+                                                            [slot]: e.target
+                                                                .value,
+                                                        })
+                                                    )
+                                                }
+                                                className={
+                                                    styles.customPickerInput
+                                                }
+                                            />
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className={styles.customThemeActions}>
+                                <button
+                                    type="button"
+                                    className={styles.btnSecondary}
+                                    onClick={() => setIsCreatingTheme(false)}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    className={styles.btnAccent}
+                                    onClick={handleSaveCustomTheme}
+                                    disabled={!newThemeName.trim()}
+                                >
+                                    Save & Apply
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     <div className={styles.colorCardsGrid}>
                         {[
                             {
@@ -554,7 +803,7 @@ function AppearanceTab() {
                             {
                                 key: 'highlight',
                                 label: 'Highlight',
-                                defaultVal: '#5875e8',
+                                defaultVal: '#e5a93c',
                             },
                             {
                                 key: 'accent',
@@ -563,14 +812,15 @@ function AppearanceTab() {
                             },
                         ].map((item) => {
                             const currentColor =
-                                (settings.appearance as any)?.themeColors?.[
-                                    item.key
-                                ] ?? item.defaultVal;
+                                currentThemeColors?.[item.key] ??
+                                item.defaultVal;
 
                             return (
                                 <label
                                     key={item.key}
-                                    className={`${styles.themeColorCard} ${isLocked ? styles.disabledCard : ''}`}
+                                    className={`${styles.themeColorCard} ${
+                                        isLocked ? styles.disabledCard : ''
+                                    }`}
                                 >
                                     <div className={styles.colorCircleWrapper}>
                                         <span
@@ -585,13 +835,10 @@ function AppearanceTab() {
                                             disabled={isLocked}
                                             className={styles.hiddenColorInput}
                                             onChange={(e) => {
-                                                const existing =
-                                                    (settings.appearance as any)
-                                                        ?.themeColors ?? {};
                                                 updateAppearance(
                                                     'themeColors' as any,
                                                     {
-                                                        ...existing,
+                                                        ...currentThemeColors,
                                                         [item.key]:
                                                             e.target.value,
                                                     }
@@ -608,6 +855,7 @@ function AppearanceTab() {
                                 </label>
                             );
                         })}
+
                         <button
                             type="button"
                             role="switch"

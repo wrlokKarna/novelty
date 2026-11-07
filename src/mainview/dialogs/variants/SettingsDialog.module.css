@@ -769,3 +769,84 @@
     pointer-events: none;
     cursor: not-allowed;
 }
+
+/* Theme Header with Dropdown in the Red Boxed Area */
+.themeSectionHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+/* Custom Theme Creation Sub-card */
+.customThemeModal {
+    background: #14161c;
+    border: 1px solid rgba(229, 169, 60, 0.35);
+    border-radius: 9px;
+    padding: 14px;
+    margin-bottom: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.customThemeTitle {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e5a93c;
+}
+
+.customThemeBody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.customColorPickersRow {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+.customPickerItem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    background: #1c1d25;
+    padding: 8px 6px;
+    border-radius: 7px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.customPickerLabel {
+    font-size: 11px;
+    text-transform: capitalize;
+    color: #9ca3af;
+}
+
+.customPickerInput {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    background: transparent;
+}
+
+.customPickerInput::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.customPickerInput::-webkit-color-swatch {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+}
+
+.customThemeActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
