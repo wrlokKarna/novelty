@@ -478,6 +478,17 @@ body {
         background 0.15s ease,
         color 0.15s ease;
 }
+.panel-icon-btn {
+    &.panel-float-btn {
+        color: var(--accent);
+        &:hover {
+            color: var(--text-secondary);
+        }
+        &.active {
+            color: var(--text-secondary);
+        }
+    }
+}
 
 .panel-icon-btn:hover {
     background: var(--accent-subtle);

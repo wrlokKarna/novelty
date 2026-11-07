@@ -267,15 +267,17 @@ export default function LeftPanel({
                     }
                 >
                     {!isExpanded ? (
-                        <button
-                            type="button"
-                            className="sidebar-collapsed left"
-                            onClick={onCollapseToggle}
-                            title="Open sidebar"
-                            aria-label="Open sidebar"
-                        >
-                            <IconChevronRight size={20} />
-                        </button>
+                        <>
+                            <button
+                                type="button"
+                                className="sidebar-collapsed left"
+                                onClick={onCollapseToggle}
+                                title="Open sidebar"
+                                aria-label="Open sidebar"
+                            >
+                                <IconChevronRight size={20} />
+                            </button>
+                        </>
                     ) : (
                         <>
                             {/* HEADER: title, template edit, pin, collapse */}
@@ -301,7 +303,7 @@ export default function LeftPanel({
                                 <div className="panel-header-actions">
                                     <button
                                         type="button"
-                                        className={`panel-icon-btn ${enableAutoExpandLeft ? 'active' : ''}`}
+                                        className={`panel-icon-btn ${'panel-float-btn'} ${enableAutoExpandLeft ? '' : 'active'}`}
                                         onClick={onAutoExpandToggle}
                                         title={
                                             enableAutoExpandLeft
@@ -318,12 +320,12 @@ export default function LeftPanel({
                                         )}
                                     >
                                         {enableAutoExpandLeft ? (
+                                            <IconPin size={18} stroke={2} />
+                                        ) : (
                                             <IconPinFilled
                                                 size={18}
                                                 stroke={2}
                                             />
-                                        ) : (
-                                            <IconPin size={18} stroke={2} />
                                         )}
                                     </button>
                                     <button
