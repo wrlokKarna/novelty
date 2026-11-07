@@ -574,6 +574,117 @@ export default function TimelineDialog({
     );
 }
 
+export type TimeGranularity = 'year' | 'month' | 'week' | 'day';
+
+interface ColumnPeriod {
+    key: string;
+    label: string;
+    subLabel?: string;
+    startDate: Date;
+    endDate: Date;
+}
+
+// ----------------- DATE UTILITIES -----------------
+
+function addUnits(
+    date: Date,
+    granularity: TimeGranularity,
+    count: number
+): Date {
+    const d = new Date(date);
+    switch (granularity) {
+        case 'year':
+            d.setFullYear(d.getFullYear() + count);
+            break;
+        case 'month':
+            d.setMonth(d.getMonth() + count);
+            break;
+        case 'week':
+            d.setDate(d.getDate() + count * 7);
+            break;
+        case 'day':
+            d.setDate(d.getDate() + count);
+            break;
+    }
+    return d;
+}
+
+function startOfUnit(date: Date, granularity: TimeGranularity): Date {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    switch (granularity) {
+        case 'year':
+            d.setMonth(0, 1);
+            break;
+        case 'month':
+            d.setDate(1);
+            break;
+        case 'week': {
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            d.setDate(diff);
+            break;
+        }
+        case 'day':
+            break;
+    }
+    return d;
+}
+
+function createPeriod(
+    startDate: Date,
+    granularity: TimeGranularity
+): ColumnPeriod {
+    const start = startOfUnit(startDate, granularity);
+    const end = addUnits(start, granularity, 1);
+
+    let label = '';
+    let subLabel: string | undefined = undefined;
+
+    switch (granularity) {
+        case 'year':
+            label = `${start.getFullYear()}`;
+            break;
+        case 'month':
+            label = start.toLocaleString('default', { month: 'short' });
+            subLabel = `${start.getFullYear()}`;
+            break;
+        case 'week': {
+            const firstJan = new Date(start.getFullYear(), 0, 1);
+            const weekNum = Math.ceil(
+                ((start.getTime() - firstJan.getTime()) / 86400000 +
+                    firstJan.getDay() +
+                    1) /
+                    7
+            );
+            label = `W${weekNum}`;
+            subLabel = start.toLocaleString('default', {
+                month: 'short',
+                day: 'numeric',
+            });
+            break;
+        }
+        case 'day':
+            label = `${start.getDate()}`;
+            subLabel = start.toLocaleString('default', { weekday: 'short' });
+            break;
+    }
+
+    return {
+        key: `${granularity}-${start.toISOString()}`,
+        label,
+        subLabel,
+        startDate: start,
+        endDate: end,
+    };
+}
+
+const COLUMN_WIDTH = 100;
+const ROW_HEIGHT = 100;
+const BUFFER_SIZE = 10;
+
+// ----------------- COMPONENT -----------------
+
 export function NewTimeline({
     tabs,
     categoryData,
@@ -594,6 +705,14 @@ export function NewTimeline({
 
     const [maxCol, setMaxCol] = useState<number>(7);
     const [maxRow, setMaxRow] = useState<number>(5);
+
+    // Timeline granularity & anchor date states
+    const [granularity, setGranularity] = useState<TimeGranularity>('year');
+    const [anchorDate, setAnchorDate] = useState<Date>(new Date());
+    const [periods, setPeriods] = useState<ColumnPeriod[]>([]);
+
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const isPrependingRef = useRef(false);
 
     const [placedEvents, setPlacedEvents] = useState<PlacedEvent[]>([
         { id: 'ev-1', col: 1, row: 2, title: 'Event 1' },
@@ -632,6 +751,139 @@ export function NewTimeline({
             },
         ]
     );
+
+    // Build timeline column units around anchorDate
+    const initializePeriods = useCallback(
+        (center: Date, level: TimeGranularity) => {
+            const list: ColumnPeriod[] = [];
+            for (let i = -BUFFER_SIZE; i <= BUFFER_SIZE; i++) {
+                list.push(createPeriod(addUnits(center, level, i), level));
+            }
+            setPeriods(list);
+            setMaxCol(list.length);
+
+            requestAnimationFrame(() => {
+                if (scrollContainerRef.current) {
+                    const targetLeft =
+                        BUFFER_SIZE * COLUMN_WIDTH -
+                        scrollContainerRef.current.clientWidth / 2 +
+                        COLUMN_WIDTH / 2;
+                    scrollContainerRef.current.scrollLeft = Math.max(
+                        0,
+                        targetLeft
+                    );
+                }
+            });
+        },
+        []
+    );
+
+    useEffect(() => {
+        initializePeriods(anchorDate, granularity);
+    }, [granularity, anchorDate, initializePeriods]);
+
+    // Invert scrolling: standard wheel = horizontal, Shift + wheel = vertical
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+
+        const handleWheel = (e: WheelEvent) => {
+            if (e.shiftKey) {
+                // Shift key is held: scroll vertically
+                container.scrollTop += e.deltaY !== 0 ? e.deltaY : e.deltaX;
+            } else {
+                // Normal wheel: scroll horizontally
+                container.scrollLeft += e.deltaY !== 0 ? e.deltaY : e.deltaX;
+            }
+            e.preventDefault();
+        };
+
+        container.addEventListener('wheel', handleWheel, { passive: false });
+        return () => {
+            container.removeEventListener('wheel', handleWheel);
+        };
+    }, []);
+
+    // Infinite horizontal scroll: prepends previous periods on the left, appends feature periods on the right
+    const handleScroll = useCallback(() => {
+        const container = scrollContainerRef.current;
+        if (!container || periods.length === 0 || isPrependingRef.current)
+            return;
+
+        const { scrollLeft, scrollWidth, clientWidth } = container;
+        const THRESHOLD = 250;
+
+        // SCROLL LEFT: add previous periods without jumping
+        if (scrollLeft < THRESHOLD) {
+            isPrependingRef.current = true;
+            const first = periods[0].startDate;
+            const additions: ColumnPeriod[] = [];
+            const BATCH = 6;
+
+            for (let i = BATCH; i >= 1; i--) {
+                additions.push(
+                    createPeriod(addUnits(first, granularity, -i), granularity)
+                );
+            }
+
+            const addedWidth = BATCH * COLUMN_WIDTH;
+            setPeriods((prev) => [...additions, ...prev]);
+            setMaxCol((prev) => prev + BATCH);
+
+            // Shift event col indices so they keep their timeline positions
+            setPlacedEvents((prev) =>
+                prev.map((ev) => ({ ...ev, col: ev.col + BATCH }))
+            );
+
+            requestAnimationFrame(() => {
+                container.scrollLeft += addedWidth;
+                isPrependingRef.current = false;
+            });
+        }
+        // SCROLL RIGHT: add future periods
+        else if (scrollWidth - (scrollLeft + clientWidth) < THRESHOLD) {
+            const last = periods[periods.length - 1].startDate;
+            const additions: ColumnPeriod[] = [];
+            const BATCH = 6;
+
+            for (let i = 1; i <= BATCH; i++) {
+                additions.push(
+                    createPeriod(addUnits(last, granularity, i), granularity)
+                );
+            }
+
+            setPeriods((prev) => [...prev, ...additions]);
+            setMaxCol((prev) => prev + BATCH);
+        }
+    }, [periods, granularity]);
+
+    // Hierarchy zoom: year -> month -> week -> day
+    const handleZoomIn = (period: ColumnPeriod) => {
+        const zoomOrder: Record<TimeGranularity, TimeGranularity | null> = {
+            year: 'month',
+            month: 'week',
+            week: 'day',
+            day: null,
+        };
+        const next = zoomOrder[granularity];
+        if (next) {
+            setAnchorDate(period.startDate);
+            setGranularity(next);
+        }
+    };
+
+    const handleZoomOut = () => {
+        const zoomBack: Record<TimeGranularity, TimeGranularity | null> = {
+            day: 'week',
+            week: 'month',
+            month: 'year',
+            year: null,
+        };
+        const prev = zoomBack[granularity];
+        if (prev) {
+            setGranularity(prev);
+        }
+    };
 
     useEffect(() => {
         const active = new Set(
@@ -678,7 +930,6 @@ export function NewTimeline({
                 (filt.subCat && filt.subCat.some((sub) => sub.checked))
         );
 
-    // Toggle behavior: when something is active, clear all; otherwise, select all
     const handleToggleAllOrClear = () => {
         if (hasAnySelected) {
             setOpenTabsChecked(false);
@@ -707,12 +958,10 @@ export function NewTimeline({
         }
     };
 
-    // Helper: remove the placed number from the unassigned bottom bar
     const consumeSelectedEvent = (replacedCardTitle?: string) => {
         const placedNum = Number(selectedEvent);
         setTimeLineEvents((prev) => {
             const next = prev.filter((e) => e !== placedNum);
-            // If replacing an existing card, send the replaced event back to the tray
             if (replacedCardTitle) {
                 const replacedNum = parseInt(
                     replacedCardTitle.replace(/\D/g, ''),
@@ -735,7 +984,6 @@ export function NewTimeline({
             (ev) => ev.col === col && ev.row === row
         );
 
-        // Put the new event into (col, row), replacing existing if present
         setPlacedEvents((prev) => [
             ...prev.filter((ev) => !(ev.col === col && ev.row === row)),
             {
@@ -749,11 +997,10 @@ export function NewTimeline({
         consumeSelectedEvent(existingEvent?.title);
     };
 
-    // 2. INSERT NEW COLUMN BETWEEN TWO COLUMNS (e.g. between 1 and 2 => insertAtCol = 2)
+    // 2. INSERT NEW COLUMN BETWEEN TWO COLUMNS
     const handleInsertColumn = (insertAtCol: number) => {
         if (!selectedEvent) return;
 
-        // Shift everything rightward by 1
         setPlacedEvents((prev) => [
             ...prev.map((ev) =>
                 ev.col >= insertAtCol ? { ...ev, col: ev.col + 1 } : ev
@@ -761,7 +1008,7 @@ export function NewTimeline({
             {
                 id: `placed-${Date.now()}`,
                 col: insertAtCol,
-                row: 2, // Default middle row
+                row: 2,
                 title: `Event #${selectedEvent}`,
             },
         ]);
@@ -770,18 +1017,17 @@ export function NewTimeline({
         consumeSelectedEvent();
     };
 
-    // 3. INSERT NEW ROW BETWEEN TWO ROWS (e.g. between 1 and 2 => insertAtRow = 2)
+    // 3. INSERT NEW ROW BETWEEN TWO ROWS
     const handleInsertRow = (insertAtRow: number) => {
         if (!selectedEvent) return;
 
-        // Shift everything downward by 1
         setPlacedEvents((prev) => [
             ...prev.map((ev) =>
                 ev.row >= insertAtRow ? { ...ev, row: ev.row + 1 } : ev
             ),
             {
                 id: `placed-${Date.now()}`,
-                col: 2, // Default column
+                col: 2,
                 row: insertAtRow,
                 title: `Event #${selectedEvent}`,
             },
@@ -836,6 +1082,37 @@ export function NewTimeline({
                         </button>
                     </div>
                 )}
+
+                {/* Granularity & Zoom Out indicator */}
+                <div
+                    style={{
+                        display: 'flex',
+                        gap: 8,
+                        alignItems: 'center',
+                        marginRight: 'auto',
+                        marginLeft: 12,
+                    }}
+                >
+                    <span
+                        style={{
+                            fontSize: 13,
+                            textTransform: 'uppercase',
+                            opacity: 0.8,
+                        }}
+                    >
+                        Scale: <strong>{granularity}</strong>
+                    </span>
+                    {granularity !== 'year' && (
+                        <button
+                            type="button"
+                            className={styles.entityFilterClear}
+                            onClick={handleZoomOut}
+                        >
+                            &larr; Zoom Out
+                        </button>
+                    )}
+                </div>
+
                 <button
                     className={styles.switchLayoutBtn}
                     onClick={onSwitchLayout}
@@ -844,17 +1121,82 @@ export function NewTimeline({
                 </button>
             </div>
 
-            <div className={styles.gridScrollCanvas}>
+            {/* TIMELINE COLUMN HEADER STRIP (Positioned above the grid canvas) */}
+            <div
+                className={styles.gridScrollCanvas}
+                ref={scrollContainerRef}
+                onScroll={handleScroll}
+                style={{
+                    overflowX: 'auto',
+                    overflowY: 'auto',
+                    position: 'relative',
+                }}
+            >
+                <div
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${maxCol}, ${COLUMN_WIDTH}px)`,
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 10,
+                        backgroundColor: '#1b1d24',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                        width: 'max-content',
+                    }}
+                >
+                    {periods.map((period) => (
+                        <div
+                            key={period.key}
+                            onClick={() => handleZoomIn(period)}
+                            title={
+                                granularity !== 'day'
+                                    ? `Click to zoom into ${period.label}`
+                                    : undefined
+                            }
+                            style={{
+                                width: COLUMN_WIDTH,
+                                height: 42,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRight:
+                                    '1px solid rgba(255, 255, 255, 0.08)',
+                                cursor:
+                                    granularity !== 'day'
+                                        ? 'pointer'
+                                        : 'default',
+                                userSelect: 'none',
+                                background:
+                                    granularity !== 'day'
+                                        ? 'rgba(255, 255, 255, 0.03)'
+                                        : 'transparent',
+                                boxSizing: 'border-box',
+                            }}
+                        >
+                            <span style={{ fontWeight: 600, fontSize: 12 }}>
+                                {period.label}
+                            </span>
+                            {period.subLabel && (
+                                <span style={{ fontSize: 10, opacity: 0.5 }}>
+                                    {period.subLabel}
+                                </span>
+                            )}
+                        </div>
+                    ))}
+                </div>
+
                 <div
                     className={`${styles.timelineGrid} ${selectedEvent ? styles.insertActive : ''}`}
                     style={{
                         display: 'grid',
-                        gridTemplateColumns: `repeat(${maxCol}, 100px)`,
-                        gridTemplateRows: `repeat(${maxRow}, 100px)`,
+                        gridTemplateColumns: `repeat(${maxCol}, ${COLUMN_WIDTH}px)`,
+                        gridTemplateRows: `repeat(${maxRow}, ${ROW_HEIGHT}px)`,
                         position: 'relative',
+                        width: 'max-content',
                     }}
                 >
-                    {/* BACKGROUND GRID CELLS (Empty clicks target these) */}
+                    {/* BACKGROUND GRID CELLS */}
                     {Array.from({ length: maxCol * maxRow }, (_, index) => {
                         const col = (index % maxCol) + 1;
                         const row = Math.floor(index / maxCol) + 1;
@@ -879,7 +1221,7 @@ export function NewTimeline({
                         );
                     })}
 
-                    {/* PLACED EVENT CARDS (Clicking replaces the card) */}
+                    {/* PLACED EVENT CARDS */}
                     {placedEvents.map((ev) => (
                         <div
                             key={ev.id}
@@ -904,77 +1246,85 @@ export function NewTimeline({
                         </div>
                     ))}
 
-                    {/* VERTICAL COLUMN INSERTION STRIPS (Between columns) */}
+                    {/* VERTICAL COLUMN INSERTION STRIPS */}
                     {selectedEvent &&
-                        Array.from({ length: maxCol - 1 }, (_, i) => {
-                            const insertColIndex = i + 2; // Clicking between col 1 & 2 inserts at col 2
-                            return (
-                                <div
-                                    key={`col-split-${i}`}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleInsertColumn(insertColIndex);
-                                    }}
-                                    title={`Insert column between ${i + 1} and ${i + 2}`}
-                                    style={{
-                                        gridColumn: i + 1,
-                                        gridRow: `1 / span ${maxRow}`,
-                                        position: 'relative',
-                                        zIndex: 3,
-                                        pointerEvents: 'none',
-                                    }}
-                                >
+                        Array.from(
+                            { length: Math.max(0, maxCol - 1) },
+                            (_, i) => {
+                                const insertColIndex = i + 2;
+                                return (
                                     <div
-                                        className={`${styles.insertLine} ${styles.insertCol}`}
-                                        style={{
-                                            position: 'absolute',
-                                            top: 0,
-                                            right: -7,
-                                            width: 14,
-                                            height: '100%',
-                                            cursor: 'col-resize',
-                                            pointerEvents: 'auto',
+                                        key={`col-split-${i}`}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleInsertColumn(insertColIndex);
                                         }}
-                                    />
-                                </div>
-                            );
-                        })}
+                                        title={`Insert column between ${i + 1} and ${i + 2}`}
+                                        style={{
+                                            gridColumn: i + 1,
+                                            gridRow: `1 / span ${maxRow}`,
+                                            position: 'relative',
+                                            zIndex: 4,
+                                            pointerEvents: 'none',
+                                        }}
+                                    >
+                                        <div
+                                            className={`${styles.insertLine} ${styles.insertCol}`}
+                                            style={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                right: -7,
+                                                width: 14,
+                                                height: '100%',
+                                                cursor: 'col-resize',
+                                                pointerEvents: 'auto',
+                                                zIndex: 5,
+                                            }}
+                                        />
+                                    </div>
+                                );
+                            }
+                        )}
 
-                    {/* HORIZONTAL ROW INSERTION STRIPS (Between rows) */}
+                    {/* HORIZONTAL ROW INSERTION STRIPS */}
                     {selectedEvent &&
-                        Array.from({ length: maxRow - 1 }, (_, i) => {
-                            const insertRowIndex = i + 2; // Clicking between row 1 & 2 inserts at row 2
-                            return (
-                                <div
-                                    key={`row-split-${i}`}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleInsertRow(insertRowIndex);
-                                    }}
-                                    title={`Insert row between ${i + 1} and ${i + 2}`}
-                                    style={{
-                                        gridColumn: `1 / span ${maxCol}`,
-                                        gridRow: i + 1,
-                                        position: 'relative',
-                                        zIndex: 3,
-                                        pointerEvents: 'none',
-                                    }}
-                                >
+                        Array.from(
+                            { length: Math.max(0, maxRow - 1) },
+                            (_, i) => {
+                                const insertRowIndex = i + 2;
+                                return (
                                     <div
-                                        className={`${styles.insertLine} ${styles.insertRow}`}
-                                        style={{
-                                            position: 'absolute',
-                                            left: 0,
-                                            bottom: -7,
-                                            width: '100%',
-                                            height: 14,
-                                            cursor: 'row-resize',
-                                            pointerEvents: 'auto',
+                                        key={`row-split-${i}`}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleInsertRow(insertRowIndex);
                                         }}
-                                    />
-                                </div>
-                            );
-                        })}
+                                        title={`Insert row between ${i + 1} and ${i + 2}`}
+                                        style={{
+                                            gridColumn: `1 / span ${maxCol}`,
+                                            gridRow: i + 1,
+                                            position: 'relative',
+                                            zIndex: 4,
+                                            pointerEvents: 'none',
+                                        }}
+                                    >
+                                        <div
+                                            className={`${styles.insertLine} ${styles.insertRow}`}
+                                            style={{
+                                                position: 'absolute',
+                                                left: 0,
+                                                bottom: -7,
+                                                width: '100%',
+                                                height: 14,
+                                                cursor: 'row-resize',
+                                                pointerEvents: 'auto',
+                                                zIndex: 5,
+                                            }}
+                                        />
+                                    </div>
+                                );
+                            }
+                        )}
                 </div>
             </div>
 

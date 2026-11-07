@@ -278,3 +278,87 @@
     opacity: 0.28;
     filter: grayscale(0.5);
 }
+
+/* Experimental: Timeline Grid Layouts */
+
+.addYearContainer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.addYearContainer input {
+    width: 180px;
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    outline: none;
+}
+
+.addYearContainer input:focus {
+    border-color: #648cff;
+}
+
+.addYearContainer button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.addYearContainer button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.timelineBreadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+}
+
+.timelineBreadcrumb button {
+    border: none;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.65;
+}
+
+.timelineBreadcrumb button:hover,
+.timelineBreadcrumb .activeScale {
+    opacity: 1;
+    font-weight: 600;
+}
+
+.timelineDateHeader {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    padding: 8px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.timelineDateHeader:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.gridScrollCanvas {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: auto;
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: contain;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    position: relative;
+    touch-action: pan-x pan-y;
+}
