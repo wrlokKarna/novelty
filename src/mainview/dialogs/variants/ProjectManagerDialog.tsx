@@ -17,11 +17,10 @@ import {
 } from '@tabler/icons-react';
 import TemplateManagerTab from '../../components/template/TemplateManagerTab';
 import IconTextSideBar from '../../ui/layout/IconTextSideBar';
-import type {
-    ProjectDialogActiveTab} from '../../constants/layout_tabs';
+import type { ProjectDialogActiveTab } from '../../constants/layout_tabs';
 import {
     PROJECT_DIALOG_TABS,
-    PROJECT_DIALOG_TABS_ICONS
+    PROJECT_DIALOG_TABS_ICONS,
 } from '../../constants/layout_tabs';
 
 import SplitDialogLayout from '../../ui/layout/SplitDialogLayout';
@@ -56,10 +55,9 @@ import type {
     Inspiration,
     NewInspiration,
     Tag,
-    Theme} from '../../../shared/types/project';
-import {
-    PREDEFINED_ASPECTS
+    Theme,
 } from '../../../shared/types/project';
+import { PREDEFINED_ASPECTS } from '../../../shared/types/project';
 import type {
     Series,
     SeriesArchitecture,
@@ -178,7 +176,9 @@ export default function ProjectManager({
                 try {
                     const meta = JSON.parse(project.metadata);
                     setDescription(meta.description ?? '');
-                } catch {}
+                } catch (err) {
+                    console.error(err);
+                }
             }
             loadCoverImage(project);
             loadGenresAndTags();

@@ -23,6 +23,7 @@ export default defineConfig(
             'node_modules/**',
             '.cottontail-tmp/**',
             '.vscode/**',
+            '.zed/**',
             '.hutch/**',
         ],
     },
