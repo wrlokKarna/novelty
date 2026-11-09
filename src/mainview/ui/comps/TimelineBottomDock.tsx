@@ -1,11 +1,11 @@
 import {
-    useState,
-    useRef,
+    memo,
+    useCallback,
     useEffect,
     useLayoutEffect,
-    useCallback,
     useMemo,
-    memo,
+    useRef,
+    useState,
 } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -17,13 +17,15 @@ import {
     IconChevronRight,
     IconObjectScan,
     IconPlus,
+    IconX,
 } from '@tabler/icons-react';
-import styles from './TimelineBottomDock.module.css';
+import type { FileTab } from '@/shared/types/project/templates';
 import type {
     TimelineDataItem,
     timelineFilterBtn,
+    TimelineTrayItem,
 } from '@/shared/types/timeline';
-import type { FileTab } from '@/shared/types/project/templates';
+import styles from './TimelineBottomDock.module.css';
 
 type Props = {
     hasAnySelected: boolean;
@@ -38,9 +40,10 @@ type Props = {
     categoryData: Record<string, TimelineDataItem[]>;
     onAddEvent: () => void;
     onAutoDetect?: () => Promise<number | null> | number | null;
-    unassignedEvents: number[];
-    selectedEvent: string;
-    onSelectEvent: React.Dispatch<React.SetStateAction<string>>;
+    unassignedEvents?: TimelineTrayItem[];
+    selectedEvent?: string;
+    onSelectEvent?: (id: string) => void;
+    onDiscardEvent?: (id: string) => void;
     previewLimit?: number;
     selectedItems: Set<string>;
     onToggleItem: (key: string) => void;
@@ -216,9 +219,10 @@ function TimelineBottomDock({
     categoryData,
     onAddEvent,
     onAutoDetect,
-    unassignedEvents,
-    selectedEvent,
+    unassignedEvents = [],
+    selectedEvent = '',
     onSelectEvent,
+    onDiscardEvent,
     previewLimit = DEFAULT_PREVIEW_LIMIT,
     selectedItems,
     onToggleItem,
@@ -226,6 +230,8 @@ function TimelineBottomDock({
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const dataScrollRef = useRef<HTMLDivElement>(null);
     const trayRef = useRef<HTMLDivElement>(null);
+    const trayChipRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+    const prevTrayIdsRef = useRef<string[] | null>(null);
     const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
     const openTabsPillRef = useRef<HTMLDivElement>(null);
     const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -403,6 +409,28 @@ function TimelineBottomDock({
     useEffect(() => {
         if (unassignedEvents.length === 0) setTrayExpanded(false);
     }, [unassignedEvents.length]);
+
+    // Keep the tray scrolled to a newly added draft.
+    const traySignature = unassignedEvents.map((item) => item.id).join('|');
+
+    useEffect(() => {
+        const ids = traySignature ? traySignature.split('|') : [];
+        const previous = prevTrayIdsRef.current;
+        prevTrayIdsRef.current = ids;
+
+        // Skip the initial render so restored drafts don't grab the tray.
+        if (!previous) return;
+
+        const added = ids.filter((id) => !previous.includes(id));
+        if (added.length === 0) return;
+
+        const target = trayChipRefs.current.get(added[added.length - 1]);
+        target?.scrollIntoView({
+            block: 'nearest',
+            inline: 'center',
+            behavior: 'smooth',
+        });
+    }, [traySignature]);
 
     useEffect(() => {
         const el = trayRef.current;
@@ -617,29 +645,61 @@ function TimelineBottomDock({
                                 className={styles.unassignedTray}
                                 ref={trayRef}
                             >
-                                {unassignedEvents.map((eventNumber) => {
-                                    const value = String(eventNumber);
+                                {unassignedEvents.map((item) => {
+                                    const value = item.id;
                                     const isActive = selectedEvent === value;
 
                                     return (
-                                        <button
-                                            key={eventNumber}
-                                            type="button"
+                                        <div
+                                            key={item.id}
+                                            ref={(el) => {
+                                                if (el) {
+                                                    trayChipRefs.current.set(
+                                                        item.id,
+                                                        el
+                                                    );
+                                                } else {
+                                                    trayChipRefs.current.delete(
+                                                        item.id
+                                                    );
+                                                }
+                                            }}
                                             className={`${styles.unassignedEventChip} ${
                                                 isActive
                                                     ? styles.unassignedEventActive
                                                     : ''
                                             }`}
-                                            onClick={() =>
-                                                onSelectEvent(
-                                                    isActive ? '' : value
-                                                )
-                                            }
                                         >
-                                            {isActive
-                                                ? 'Cancel Selection'
-                                                : `Event #${eventNumber}`}
-                                        </button>
+                                            <button
+                                                type="button"
+                                                className={
+                                                    styles.unassignedEventChipLabel
+                                                }
+                                                title={item.label}
+                                                aria-pressed={isActive}
+                                                onClick={() =>
+                                                    onSelectEvent?.(value)
+                                                }
+                                            >
+                                                {item.label}
+                                            </button>
+                                            {onDiscardEvent && (
+                                                <button
+                                                    type="button"
+                                                    className={
+                                                        styles.unassignedEventDiscard
+                                                    }
+                                                    aria-label={`Discard ${item.label}`}
+                                                    title="Discard draft"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onDiscardEvent(value);
+                                                    }}
+                                                >
+                                                    <IconX size={11} />
+                                                </button>
+                                            )}
+                                        </div>
                                     );
                                 })}
                             </div>

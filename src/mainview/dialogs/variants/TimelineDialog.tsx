@@ -1,57 +1,47 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { Timeline } from 'vis-timeline';
+import {
+    Fragment,
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import { DataSet } from 'vis-data';
+import { Timeline } from 'vis-timeline';
 import 'vis-timeline/styles/vis-timeline-graph2d.css';
-import { useRPC } from '../../contexts/RPCContext';
-
-import TimelineEventEditor from '../../components/TimelineEventEditor';
-import Dialog from '../Dialog';
-
+import OldTimeLine from '@/mainview/components/timeline/OldTimeLine';
+import TimelineBottomDock, {
+    getCheckedSectionKeys,
+} from '@/mainview/ui/comps/TimelineBottomDock';
+import {
+    BASE_ORDER_MS,
+    BUFFER_SIZE,
+    COLUMN_WIDTH,
+    DAY_MS,
+    ENTITY_SECTIONS,
+    EVENT_COLORS,
+    EVENT_LABELS,
+    ROW_HEIGHT,
+} from '@/shared/constants/template';
+import type { ManuscriptDataType } from '@/shared/types/project/manuscript';
+import type { FileTab } from '@/shared/types/project/templates';
+import type {
+    TimelineDataItem,
+    TimelineEventDraft,
+    timelineFilterBtn,
+    TimelineLane,
+} from '@/shared/types/timeline';
 import type {
     CompendiumCategory,
     CompendiumDataType,
 } from '../../../shared/types/project/compendium';
-import styles from './TimelineDialog.module.css';
 import type { TimelineEvent } from '../../../shared/types/project/timeline';
-import type { FileTab } from '@/shared/types/project/templates';
-import TimelineBottomDock, {
-    getCheckedSectionKeys,
-} from '@/mainview/ui/comps/TimelineBottomDock';
-import type {
-    PlacedEvent,
-    //TimeLineChip,
-    TimelineDataItem,
-    timelineFilterBtn,
-} from '@/shared/types/timeline';
-import type { ManuscriptDataType } from '@/shared/types/project/manuscript';
-
-const EVENT_COLORS: Record<string, string> = {
-    chapter: '#4a9eff',
-    character_introduction: '#4ae04a',
-    character_death: '#e04a4a',
-    character_transformation: '#e0a04a',
-    organization_founding: '#d4a853',
-    organization_dissolution: '#8b0000',
-    battle: '#e04ae0',
-    relationship: '#4ae0e0',
-    travel: '#a0a0a0',
-    milestone: '#e0e04a',
-    custom: '#888888',
-};
-
-const EVENT_LABELS: Record<string, string> = {
-    chapter: 'Chapter',
-    character_introduction: 'Intro',
-    character_death: 'Death',
-    character_transformation: 'Transform',
-    organization_founding: 'Founded',
-    organization_dissolution: 'Dissolved',
-    battle: 'Battle',
-    relationship: 'Relationship',
-    travel: 'Travel',
-    milestone: 'Milestone',
-    custom: 'Custom',
-};
+import TimelineEventEditor from '../../components/TimelineEventEditor';
+import TimelineEventPanel from '../../components/TimelineEventPanel';
+import { useRPC } from '../../contexts/RPCContext';
+import Dialog from '../Dialog';
+import styles from './TimelineDialog.module.css';
 
 function dateFromOrder(order: number): Date {
     const base = new Date('2000-01-01T00:00:00Z');
@@ -294,54 +284,71 @@ export default function TimelineDialog({
         setShowEditor(true);
     }
 
-    async function handleSaveEvent(data: Partial<TimelineEvent>) {
-        try {
-            if (editingEvent) {
-                await rpc.request['db:update-timeline-event']({
-                    id: editingEvent.id,
-                    data: data as any,
-                });
-            } else {
-                await rpc.request['db:create-timeline-event']({
-                    id: crypto.randomUUID(),
-                    projectId,
-                    title: data.title || 'Untitled Event',
-                    description: data.description || null,
-                    inStoryDate: data.inStoryDate || null,
-                    dateOrder: data.dateOrder ?? 0,
-                    entityType: data.entityType || null,
-                    entityId: data.entityId || null,
-                    eventType: data.eventType || 'milestone',
-                    chapterId: data.chapterId || null,
-                    metadata: null,
-                });
+    const persistTimelineEvent = useCallback(
+        async (
+            data: Partial<TimelineEvent>,
+            id?: string
+        ): Promise<TimelineEvent | undefined> => {
+            try {
+                const saved = id
+                    ? await rpc.request['db:update-timeline-event']({
+                          id,
+                          data: data as any,
+                      })
+                    : await rpc.request['db:create-timeline-event']({
+                          id: crypto.randomUUID(),
+                          projectId,
+                          title: data.title || 'Untitled Event',
+                          description: data.description || null,
+                          inStoryDate: data.inStoryDate || null,
+                          dateOrder: data.dateOrder ?? 0,
+                          entityType: data.entityType || null,
+                          entityId: data.entityId || null,
+                          eventType: data.eventType || 'milestone',
+                          chapterId: data.chapterId || null,
+                          metadata: null,
+                      });
+                await loadEvents();
+                return saved;
+            } catch (e) {
+                console.error('Failed to save event:', e);
+                return undefined;
             }
-            await loadEvents();
-        } catch (e) {
-            console.error('Failed to save event:', e);
-        }
+        },
+        [rpc, projectId, loadEvents]
+    );
+
+    async function handleSaveEvent(data: Partial<TimelineEvent>) {
+        await persistTimelineEvent(data, editingEvent?.id);
     }
+
+    const deleteTimelineEvent = useCallback(
+        async (id: string) => {
+            try {
+                await rpc.request['db:delete-timeline-event'](id);
+                await loadEvents();
+            } catch (e) {
+                console.error('Failed to delete event:', e);
+            }
+        },
+        [rpc, loadEvents]
+    );
 
     async function handleDeleteEvent() {
         if (!selectedEvent) return;
-        try {
-            await rpc.request['db:delete-timeline-event'](selectedEvent.id);
-            setSelectedEvent(null);
-            await loadEvents();
-        } catch (e) {
-            console.error('Failed to delete event:', e);
+        await deleteTimelineEvent(selectedEvent.id);
+        setSelectedEvent(null);
+    }
+
+    function openEntityForEvent(ev: TimelineEvent) {
+        if (ev.entityType && ev.entityId) {
+            onOpenEntity(ev.entityId, ev.entityType as CompendiumCategory);
+            onClose();
         }
     }
 
     function handleOpenEntity() {
-        if (!selectedEvent) return;
-        if (selectedEvent.entityType && selectedEvent.entityId) {
-            onOpenEntity(
-                selectedEvent.entityId,
-                selectedEvent.entityType as CompendiumCategory
-            );
-            onClose();
-        }
+        if (selectedEvent) openEntityForEvent(selectedEvent);
     }
 
     const eventTypeColor = (type: string) =>
@@ -396,164 +403,36 @@ export default function TimelineDialog({
             <Dialog open={open} onClose={onClose} title="Timeline" large={true}>
                 <>
                     {!overhaulToggle && (
-                        <div
-                            style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                height: '100%',
-                            }}
-                        >
-                            <div className={styles.timelineToolbar}>
-                                <h3>
-                                    {loading
-                                        ? 'Loading...'
-                                        : `${events.length} events`}
-                                </h3>
-                                <button
-                                    className={styles.primaryBtn}
-                                    onClick={handleAddEvent}
-                                >
-                                    + Add Event
-                                </button>
-                                <button onClick={handleAutoGenerate}>
-                                    Auto-Detect
-                                </button>
-                                {selectedEvent && (
-                                    <>
-                                        <button
-                                            onClick={() =>
-                                                handleEditEvent(selectedEvent)
-                                            }
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            className={styles.dangerBtn}
-                                            onClick={handleDeleteEvent}
-                                        >
-                                            Delete
-                                        </button>
-                                    </>
-                                )}
-                                <button
-                                    className={styles.switchLayoutBtn}
-                                    style={{ marginLeft: 'auto' }}
-                                    onClick={() =>
-                                        SetOverhaulToggle(!overhaulToggle)
-                                    }
-                                >
-                                    Switch Layout
-                                </button>
-                            </div>
-                            <div
-                                ref={containerRef}
-                                className={styles.timelineContainer}
-                            />
-
-                            {selectedEvent && (
-                                <div className={styles.eventDetail}>
-                                    <h3>{selectedEvent.title}</h3>
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            gap: '16px',
-                                            flexWrap: 'wrap',
-                                        }}
-                                    >
-                                        <div>
-                                            <span className={styles.label}>
-                                                Type
-                                            </span>
-                                            <p>
-                                                {EVENT_LABELS[
-                                                    selectedEvent.eventType
-                                                ] || selectedEvent.eventType}
-                                            </p>
-                                        </div>
-                                        {selectedEvent.inStoryDate && (
-                                            <div>
-                                                <span className={styles.label}>
-                                                    Date
-                                                </span>
-                                                <p>
-                                                    {selectedEvent.inStoryDate}
-                                                </p>
-                                            </div>
-                                        )}
-                                        {selectedEvent.description && (
-                                            <div>
-                                                <span className={styles.label}>
-                                                    Description
-                                                </span>
-                                                <p>
-                                                    {selectedEvent.description}
-                                                </p>
-                                            </div>
-                                        )}
-                                        {selectedEvent.entityId && (
-                                            <div>
-                                                <span className={styles.label}>
-                                                    Entity
-                                                </span>
-                                                <p>
-                                                    <button
-                                                        onClick={
-                                                            handleOpenEntity
-                                                        }
-                                                        style={{
-                                                            background: 'none',
-                                                            border: 'none',
-                                                            color: '#4a9eff',
-                                                            cursor: 'pointer',
-                                                            padding: 0,
-                                                            fontSize: '13px',
-                                                        }}
-                                                    >
-                                                        Open in editor
-                                                    </button>
-                                                </p>
-                                            </div>
-                                        )}
-                                        {selectedEvent.autoGenerated && (
-                                            <div
-                                                className={styles.autoGenNotice}
-                                            >
-                                                Auto-generated
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className={styles.timelineLegend}>
-                                {Object.entries(EVENT_LABELS).map(
-                                    ([type, label]) => (
-                                        <div
-                                            key={type}
-                                            className={styles.legendItem}
-                                        >
-                                            <span
-                                                className={styles.legendDot}
-                                                style={{
-                                                    background:
-                                                        eventTypeColor(type),
-                                                }}
-                                            />
-                                            <span>{label}</span>
-                                        </div>
-                                    )
-                                )}
-                            </div>
-                        </div>
+                        <OldTimeLine
+                            loading={loading}
+                            events={events}
+                            handleAddEvent={handleAddEvent}
+                            handleEditEvent={handleEditEvent}
+                            handleDeleteEvent={handleDeleteEvent}
+                            handleAutoGenerate={handleAutoGenerate}
+                            overhaulToggle={overhaulToggle}
+                            SetOverhaulToggle={SetOverhaulToggle}
+                            containerRef={containerRef}
+                            handleOpenEntity={handleOpenEntity}
+                            selectedEvent={selectedEvent}
+                            eventTypeColor={eventTypeColor}
+                        />
                     )}
                     {overhaulToggle && (
                         <NewTimeline
+                            projectId={projectId}
                             tabs={tabs}
                             categoryData={categoryData}
+                            events={events}
+                            entityOptions={entityOptions}
+                            chapterOptions={chapterOptions}
                             onSwitchLayout={() =>
                                 SetOverhaulToggle(!overhaulToggle)
                             }
                             onAutoDetect={handleAutoGenerate}
+                            onSaveEvent={persistTimelineEvent}
+                            onDeleteEvent={deleteTimelineEvent}
+                            onOpenEntityForEvent={openEntityForEvent}
                         />
                     )}
                 </>
@@ -679,78 +558,337 @@ function createPeriod(
     };
 }
 
-const COLUMN_WIDTH = 100;
-const ROW_HEIGHT = 100;
-const BUFFER_SIZE = 10;
+// Converts a date period into a [startOrder, endOrder) range of dateOrder days.
+function periodOrderRange(period: ColumnPeriod): {
+    startOrder: number;
+    endOrder: number;
+} {
+    const start = period.startDate;
+    const end = period.endDate;
+    const startOrder = Math.round(
+        (Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()) -
+            BASE_ORDER_MS) /
+            DAY_MS
+    );
+    const endOrder = Math.round(
+        (Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) -
+            BASE_ORDER_MS) /
+            DAY_MS
+    );
+    return { startOrder, endOrder };
+}
+
+// When empty columns are hidden the timeline becomes a compact, event-only
+// axis. The scope keeps zooming intuitive: a year shows every event year,
+// zooming into a year shows only that year's event months, and so on.
+function compactScopeRange(
+    granularity: TimeGranularity,
+    anchor: Date
+): { start: Date; end: Date } | null {
+    const anchorStart = startOfUnit(anchor, granularity);
+
+    switch (granularity) {
+        case 'year':
+            return null;
+        case 'month': {
+            const start = new Date(anchorStart.getFullYear(), 0, 1);
+            const end = new Date(anchorStart.getFullYear() + 1, 0, 1);
+            return { start, end };
+        }
+        case 'week': {
+            const start = new Date(
+                anchorStart.getFullYear(),
+                anchorStart.getMonth(),
+                1
+            );
+            const end = new Date(
+                anchorStart.getFullYear(),
+                anchorStart.getMonth() + 1,
+                1
+            );
+            return { start, end };
+        }
+        case 'day': {
+            const start = startOfUnit(anchorStart, 'week');
+            const end = addUnits(start, 'week', 1);
+            return { start, end };
+        }
+    }
+}
+
+// ---- TIMELINE UI PERSISTENCE ----
+
+const TIMELINE_PREFS_VERSION = 1;
+
+function timelineStorageKey(projectId: string) {
+    return `novelty:timeline:${projectId}`;
+}
+
+function defaultTimelineFilters(): timelineFilterBtn[] {
+    return [
+        { cat: 'opened tabs', hasitem: true, checked: false },
+        {
+            cat: 'manuscript',
+            checked: false,
+            hasitem: false,
+            subCat: [
+                { key: 'chapters', hasitem: true, checked: false },
+                { key: 'acts', hasitem: true, checked: false },
+                { key: 'plot threads', hasitem: true, checked: false },
+                { key: 'story beats', hasitem: true, checked: false },
+            ],
+        },
+        {
+            cat: 'compendium',
+            checked: false,
+            hasitem: false,
+            subCat: [
+                { key: 'character', hasitem: true, checked: false },
+                { key: 'location', hasitem: true, checked: false },
+                { key: 'organization', hasitem: true, checked: false },
+                { key: 'item', hasitem: true, checked: false },
+                { key: 'lore', hasitem: true, checked: false },
+            ],
+        },
+    ];
+}
+
+// Merge stored filters into the current defaults so new categories still
+// appear while checked (nodeIndicator) state is preserved.
+function mergeStoredFilters(stored: unknown): timelineFilterBtn[] {
+    const base = defaultTimelineFilters();
+    if (!Array.isArray(stored)) return base;
+
+    return base.map((cat) => {
+        const savedCat = stored.find((item) => item && item.cat === cat.cat) as
+            timelineFilterBtn | undefined;
+        return {
+            ...cat,
+            checked:
+                typeof savedCat?.checked === 'boolean'
+                    ? savedCat.checked
+                    : cat.checked,
+            subCat: cat.subCat?.map((sub) => {
+                const savedSub = savedCat?.subCat?.find(
+                    (item) => item.key === sub.key
+                );
+                return {
+                    ...sub,
+                    checked:
+                        typeof savedSub?.checked === 'boolean'
+                            ? savedSub.checked
+                            : sub.checked,
+                };
+            }),
+        };
+    });
+}
+
+function isEventDraft(value: unknown): value is TimelineEventDraft {
+    if (!value || typeof value !== 'object') return false;
+    const draft = value as Partial<TimelineEventDraft>;
+    return typeof draft.id === 'string' && typeof draft.title === 'string';
+}
+
+type TimelinePrefs = {
+    openTabsChecked: boolean;
+    timelineFilters: timelineFilterBtn[];
+    selectedItems: string[];
+    drafts: TimelineEventDraft[];
+};
+
+function loadTimelinePrefs(projectId: string): TimelinePrefs {
+    const fallback = (): TimelinePrefs => ({
+        openTabsChecked: false,
+        timelineFilters: defaultTimelineFilters(),
+        selectedItems: [],
+        drafts: [],
+    });
+
+    try {
+        const raw = localStorage.getItem(timelineStorageKey(projectId));
+        if (!raw) return fallback();
+        const parsed = JSON.parse(raw);
+        return {
+            openTabsChecked: parsed?.openTabsChecked === true,
+            timelineFilters: mergeStoredFilters(parsed?.timelineFilters),
+            selectedItems: Array.isArray(parsed?.selectedItems)
+                ? parsed.selectedItems.filter(
+                      (key: unknown): key is string => typeof key === 'string'
+                  )
+                : [],
+            drafts: Array.isArray(parsed?.drafts)
+                ? parsed.drafts.filter(isEventDraft)
+                : [],
+        };
+    } catch {
+        return fallback();
+    }
+}
+
+function createEventDraft(): TimelineEventDraft {
+    return {
+        id: crypto.randomUUID(),
+        title: 'Untitled Event',
+        description: null,
+        inStoryDate: null,
+        dateOrder: 0,
+        eventType: 'milestone',
+        entityType: null,
+        entityId: null,
+        chapterId: null,
+    };
+}
+
+function draftToPartial(draft: TimelineEventDraft): Partial<TimelineEvent> {
+    return {
+        title: draft.title,
+        description: draft.description,
+        inStoryDate: draft.inStoryDate,
+        dateOrder: draft.dateOrder,
+        eventType: draft.eventType,
+        entityType: draft.entityType,
+        entityId: draft.entityId,
+        chapterId: draft.chapterId,
+    };
+}
+
+type EventPanelTarget =
+    | { kind: 'event'; eventId: string; startEditing: boolean }
+    | { kind: 'draft'; draftId: string }
+    | { kind: 'create'; values: Partial<TimelineEvent> };
 
 // ----------------- COMPONENT -----------------
 
 export function NewTimeline({
+    projectId,
     tabs,
     categoryData,
+    events,
+    entityOptions,
+    chapterOptions,
     onSwitchLayout,
     onAutoDetect,
+    onSaveEvent,
+    onDeleteEvent,
+    onOpenEntityForEvent,
 }: {
+    projectId: string;
     tabs: FileTab[];
     categoryData: Record<string, TimelineDataItem[]>;
+    events: TimelineEvent[];
+    entityOptions: { id: string; name: string; type: CompendiumCategory }[];
+    chapterOptions: { id: string; title: string }[];
     onSwitchLayout: () => void;
     onAutoDetect?: () => Promise<number | null>;
+    onSaveEvent: (
+        data: Partial<TimelineEvent>,
+        id?: string
+    ) => Promise<TimelineEvent | undefined>;
+    onDeleteEvent: (id: string) => Promise<void>;
+    onOpenEntityForEvent: (ev: TimelineEvent) => void;
 }) {
-    // Unassigned events waiting in the bottom tray
-    const [timelineEvents, setTimeLineEvents] = useState<number[]>([]);
-    const [selectedEvent, setSelectedEvent] = useState<string>('');
-    const [openTabsChecked, setOpenTabsChecked] = useState(false);
+    const [openTabsChecked, setOpenTabsChecked] = useState<boolean>(
+        () => loadTimelinePrefs(projectId).openTabsChecked
+    );
 
-    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+    // Lane selection — each key is `${section}::${id}`; one lane per key.
+    // Restored from localStorage (active categoryDataChips).
+    const [selectedItems, setSelectedItems] = useState<Set<string>>(
+        () => new Set(loadTimelinePrefs(projectId).selectedItems)
+    );
 
-    const [maxCol, setMaxCol] = useState<number>(7);
-    const [maxRow, setMaxRow] = useState<number>(5);
+    // Unassigned tray events (persisted per project)
+    const [drafts, setDrafts] = useState<TimelineEventDraft[]>(
+        () => loadTimelinePrefs(projectId).drafts
+    );
+    const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
+
+    // Floating event panel
+    const [panelTarget, setPanelTarget] = useState<EventPanelTarget | null>(
+        null
+    );
+    const [panelKey, setPanelKey] = useState(0);
+    const [focusedEventId, setFocusedEventId] = useState<string | null>(null);
 
     // Timeline granularity & anchor date states
     const [granularity, setGranularity] = useState<TimeGranularity>('year');
     const [anchorDate, setAnchorDate] = useState<Date>(new Date());
     const [periods, setPeriods] = useState<ColumnPeriod[]>([]);
 
+    // Grid view toggles
+    const [hideEmptyCellVisuals, setHideEmptyCellVisuals] = useState(false);
+    const [skipEmptyCells, setSkipEmptyCells] = useState(false);
+    const [hideEmptyColumns, setHideEmptyColumns] = useState(false);
+    const [hideEmptyLanes, setHideEmptyLanes] = useState(false);
+
+    // Row focus requested by clicking a categoryDataChip
+    const [pendingRowFocus, setPendingRowFocus] = useState<{
+        key: string;
+        nonce: number;
+    } | null>(null);
+    const [focusedRowKey, setFocusedRowKey] = useState<string | null>(null);
+
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const colLabelsPaneRef = useRef<HTMLDivElement>(null);
+    const rowLabelsPaneRef = useRef<HTMLDivElement>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
+    const focusTimerRef = useRef<number | null>(null);
+    const rowFocusTimerRef = useRef<number | null>(null);
+    const rowLabelRefs = useRef<Map<string, HTMLDivElement>>(new Map());
     const isPrependingRef = useRef(false);
 
-    const [placedEvents, setPlacedEvents] = useState<PlacedEvent[]>([
-        { id: 'ev-1', col: 1, row: 2, title: 'Event 1' },
-        { id: 'ev-2', col: 2, row: 2, title: 'Event 2' },
-        { id: 'ev-3', col: 3, row: 1, title: 'Event 3' },
-        { id: 'ev-4', col: 3, row: 3, title: 'Event 4' },
-        { id: 'ev-5', col: 4, row: 2, title: 'Event 5' },
-        { id: 'ev-6', col: 7, row: 2, title: 'Event 6' },
-    ]);
+    // Anchor the timeline on the earliest real event the first time events load,
+    // so the grid opens showing content instead of an arbitrary "today".
+    const autoAnchoredRef = useRef(false);
 
+    // Restored from localStorage (nodeIndicator / checked filter state).
     const [timelineFilters, setTimelineFilters] = useState<timelineFilterBtn[]>(
-        [
-            { cat: 'opened tabs', hasitem: true, checked: false },
-            {
-                cat: 'manuscript',
-                checked: false,
-                hasitem: false,
-                subCat: [
-                    { key: 'chapters', hasitem: true, checked: false },
-                    { key: 'acts', hasitem: true, checked: false },
-                    { key: 'plot threads', hasitem: true, checked: false },
-                    { key: 'story beats', hasitem: true, checked: false },
-                ],
-            },
-            {
-                cat: 'compendium',
-                checked: false,
-                hasitem: false,
-                subCat: [
-                    { key: 'character', hasitem: true, checked: false },
-                    { key: 'location', hasitem: true, checked: false },
-                    { key: 'organization', hasitem: true, checked: false },
-                    { key: 'item', hasitem: true, checked: false },
-                    { key: 'lore', hasitem: true, checked: false },
-                ],
-            },
-        ]
+        () => loadTimelinePrefs(projectId).timelineFilters
     );
+
+    // Persist chips, filter checks and unassigned drafts per project.
+    const stateProjectIdRef = useRef(projectId);
+    useEffect(() => {
+        stateProjectIdRef.current = projectId;
+        const prefs = loadTimelinePrefs(projectId);
+        setOpenTabsChecked(prefs.openTabsChecked);
+        setTimelineFilters(prefs.timelineFilters);
+        setSelectedItems(new Set(prefs.selectedItems));
+        setDrafts(prefs.drafts);
+        setActiveDraftId(null);
+        setPanelTarget(null);
+    }, [projectId]);
+
+    useEffect(() => {
+        if (stateProjectIdRef.current !== projectId) return;
+        try {
+            localStorage.setItem(
+                timelineStorageKey(projectId),
+                JSON.stringify({
+                    version: TIMELINE_PREFS_VERSION,
+                    openTabsChecked,
+                    timelineFilters,
+                    selectedItems: [...selectedItems],
+                    drafts,
+                })
+            );
+        } catch {
+            // ignore storage failures
+        }
+    }, [projectId, openTabsChecked, timelineFilters, selectedItems, drafts]);
+
+    // Keep the detached label panes aligned with the grid's scroll position.
+    const syncLabelPanes = useCallback(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+        if (colLabelsPaneRef.current) {
+            colLabelsPaneRef.current.scrollLeft = container.scrollLeft;
+        }
+        if (rowLabelsPaneRef.current) {
+            rowLabelsPaneRef.current.scrollTop = container.scrollTop;
+        }
+    }, []);
 
     // Build timeline column units around anchorDate
     const initializePeriods = useCallback(
@@ -760,7 +898,6 @@ export function NewTimeline({
                 list.push(createPeriod(addUnits(center, level, i), level));
             }
             setPeriods(list);
-            setMaxCol(list.length);
 
             requestAnimationFrame(() => {
                 if (scrollContainerRef.current) {
@@ -772,15 +909,37 @@ export function NewTimeline({
                         0,
                         targetLeft
                     );
+                    syncLabelPanes();
                 }
             });
         },
-        []
+        [syncLabelPanes]
     );
 
     useEffect(() => {
         initializePeriods(anchorDate, granularity);
     }, [granularity, anchorDate, initializePeriods]);
+
+    // Compact columns start at the first event instead of the buffer centre.
+    useEffect(() => {
+        if (!hideEmptyColumns) return;
+        const id = requestAnimationFrame(() => {
+            const container = scrollContainerRef.current;
+            if (container) {
+                container.scrollLeft = 0;
+                syncLabelPanes();
+            }
+        });
+        return () => cancelAnimationFrame(id);
+    }, [hideEmptyColumns, granularity, anchorDate, syncLabelPanes]);
+
+    // Anchor on the first real event once it arrives (per mount)
+    useEffect(() => {
+        if (events.length === 0 || autoAnchoredRef.current) return;
+        autoAnchoredRef.current = true;
+        const minOrder = Math.min(...events.map((e) => e.dateOrder));
+        setAnchorDate(dateFromOrder(minOrder));
+    }, [events]);
 
     // Invert scrolling: standard wheel = horizontal, Shift + wheel = vertical
     useEffect(() => {
@@ -804,10 +963,41 @@ export function NewTimeline({
         };
     }, []);
 
+    // Wheel over the row labels should scroll the grid vertically (the labels
+    // are a detached mirror of the grid's vertical scroll position).
+    useEffect(() => {
+        const labels = rowLabelsPaneRef.current;
+        if (!labels) return;
+
+        const handleWheel = (e: WheelEvent) => {
+            const container = scrollContainerRef.current;
+            if (!container) return;
+            const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+            if (delta === 0) return;
+            e.preventDefault();
+            container.scrollTop += delta;
+            syncLabelPanes();
+        };
+
+        labels.addEventListener('wheel', handleWheel, { passive: false });
+        return () => {
+            labels.removeEventListener('wheel', handleWheel);
+        };
+    }, [syncLabelPanes]);
+
     // Infinite horizontal scroll: prepends previous periods on the left, appends feature periods on the right
     const handleScroll = useCallback(() => {
+        // Keep labels aligned even while a prepend is in flight.
+        syncLabelPanes();
+
         const container = scrollContainerRef.current;
-        if (!container || periods.length === 0 || isPrependingRef.current)
+
+        if (
+            !container ||
+            hideEmptyColumns ||
+            periods.length === 0 ||
+            isPrependingRef.current
+        )
             return;
 
         const { scrollLeft, scrollWidth, clientWidth } = container;
@@ -828,15 +1018,10 @@ export function NewTimeline({
 
             const addedWidth = BATCH * COLUMN_WIDTH;
             setPeriods((prev) => [...additions, ...prev]);
-            setMaxCol((prev) => prev + BATCH);
-
-            // Shift event col indices so they keep their timeline positions
-            setPlacedEvents((prev) =>
-                prev.map((ev) => ({ ...ev, col: ev.col + BATCH }))
-            );
 
             requestAnimationFrame(() => {
                 container.scrollLeft += addedWidth;
+                syncLabelPanes();
                 isPrependingRef.current = false;
             });
         }
@@ -853,9 +1038,8 @@ export function NewTimeline({
             }
 
             setPeriods((prev) => [...prev, ...additions]);
-            setMaxCol((prev) => prev + BATCH);
         }
-    }, [periods, granularity]);
+    }, [periods, granularity, syncLabelPanes, hideEmptyColumns]);
 
     // Hierarchy zoom: year -> month -> week -> day
     const handleZoomIn = (period: ColumnPeriod) => {
@@ -910,17 +1094,29 @@ export function NewTimeline({
         });
     }, [timelineFilters, openTabsChecked]);
 
-    const handleToggleItem = useCallback((key: string) => {
-        setSelectedItems((prev) => {
-            const next = new Set(prev);
-            if (next.has(key)) {
-                next.delete(key);
-            } else {
-                next.add(key);
+    const handleToggleItem = useCallback(
+        (key: string) => {
+            const isAdding = !selectedItems.has(key);
+            setSelectedItems((prev) => {
+                const next = new Set(prev);
+                if (next.has(key)) {
+                    next.delete(key);
+                } else {
+                    next.add(key);
+                }
+                return next;
+            });
+
+            // A chip click that creates a lane should reveal its row label.
+            if (isAdding) {
+                setPendingRowFocus((prev) => ({
+                    key,
+                    nonce: (prev?.nonce ?? 0) + 1,
+                }));
             }
-            return next;
-        });
-    }, []);
+        },
+        [selectedItems]
+    );
 
     const hasAnySelected =
         openTabsChecked ||
@@ -958,106 +1154,498 @@ export function NewTimeline({
         }
     };
 
-    const consumeSelectedEvent = (replacedCardTitle?: string) => {
-        const placedNum = Number(selectedEvent);
-        setTimeLineEvents((prev) => {
-            const next = prev.filter((e) => e !== placedNum);
-            if (replacedCardTitle) {
-                const replacedNum = parseInt(
-                    replacedCardTitle.replace(/\D/g, ''),
-                    10
-                );
-                if (!isNaN(replacedNum) && !next.includes(replacedNum)) {
-                    next.push(replacedNum);
-                }
+    // ---- LANES (rows) & EVENT-TO-CELL RESOLUTION ----
+
+    // One lane per selected dock item. Rows are "the data", columns are dates.
+    // Opened tabs are a convenience lane, so skip one when the same underlying
+    // chapter/entity already has its own lane selected (and dedupe tabs).
+    const visibleRows = useMemo<TimelineLane[]>(() => {
+        const nonTabIds = new Set<string>();
+        for (const key of selectedItems) {
+            const sep = key.indexOf('::');
+            if (sep === -1) continue;
+            const section = key.slice(0, sep);
+            if (section === 'opened tabs') continue;
+            const id = key.slice(sep + 2);
+            if ((categoryData[section] ?? []).some((i) => i.id === id)) {
+                nonTabIds.add(id);
             }
-            return next;
-        });
-        setSelectedEvent('');
-    };
+        }
 
-    // 1. ADD TO EMPTY CELL OR REPLACE EXISTING CARD
-    const handlePlaceOrReplace = (col: number, row: number) => {
-        if (!selectedEvent) return;
+        const rows: TimelineLane[] = [];
+        const seenTabIds = new Set<string>();
+        for (const key of selectedItems) {
+            const sep = key.indexOf('::');
+            if (sep === -1) continue;
+            const section = key.slice(0, sep);
+            const id = key.slice(sep + 2);
 
-        const existingEvent = placedEvents.find(
-            (ev) => ev.col === col && ev.row === row
+            if (section === 'opened tabs') {
+                if (nonTabIds.has(id) || seenTabIds.has(id)) continue;
+                const tab = tabs.find((t) => t.id === id);
+                if (tab) {
+                    seenTabIds.add(id);
+                    rows.push({ key, section, id, label: tab.name });
+                }
+                continue;
+            }
+
+            const item = (categoryData[section] ?? []).find((i) => i.id === id);
+            if (item) rows.push({ key, section, id, label: item.label });
+        }
+        return rows;
+    }, [selectedItems, categoryData, tabs]);
+
+    // Raw ids referenced by events, used to evaluate whether a lane has events.
+    const eventReferencedIds = useMemo(() => {
+        const ids = new Set<string>();
+        for (const ev of events) {
+            if (ev.chapterId) ids.add(ev.chapterId);
+            if (ev.entityId) ids.add(ev.entityId);
+        }
+        return ids;
+    }, [events]);
+
+    const lanesWithEvents = useMemo(() => {
+        const keys = new Set<string>();
+        for (const ev of events) {
+            if (ev.chapterId) keys.add(`chapters::${ev.chapterId}`);
+            if (ev.entityType && ev.entityId) {
+                keys.add(`${ev.entityType}::${ev.entityId}`);
+            }
+        }
+        return keys;
+    }, [events]);
+
+    // "Hide empty lanes" removes lanes that have no events at all.
+    const displayRows = useMemo<TimelineLane[]>(() => {
+        if (!hideEmptyLanes) return visibleRows;
+        return visibleRows.filter(
+            (row) =>
+                lanesWithEvents.has(row.key) ||
+                (row.section === 'opened tabs' &&
+                    eventReferencedIds.has(row.id))
+        );
+    }, [visibleRows, hideEmptyLanes, lanesWithEvents, eventReferencedIds]);
+
+    // Compact, event-only periods used while "hide empty columns" is active.
+    const compactPeriods = useMemo<ColumnPeriod[]>(() => {
+        if (!hideEmptyColumns) return [];
+        const scope = compactScopeRange(granularity, anchorDate);
+        const byKey = new Map<string, ColumnPeriod>();
+
+        for (const ev of events) {
+            const date = dateFromOrder(ev.dateOrder);
+            if (scope && (date < scope.start || date >= scope.end)) continue;
+            const period = createPeriod(date, granularity);
+            if (!byKey.has(period.key)) byKey.set(period.key, period);
+        }
+
+        return [...byKey.values()].sort(
+            (a, b) => a.startDate.getTime() - b.startDate.getTime()
+        );
+    }, [hideEmptyColumns, events, granularity, anchorDate]);
+
+    // The periods actually drawn in the grid.
+    const gridPeriods = hideEmptyColumns ? compactPeriods : periods;
+
+    // Each column maps to a [startOrder, endOrder) range of dateOrder values so
+    // events can be resolved to a column by their real date.
+    const gridPeriodOrders = useMemo(
+        () => gridPeriods.map((period) => periodOrderRange(period)),
+        [gridPeriods]
+    );
+
+    // Group visible events into cells keyed `${colIndex}|${laneKey}`.
+    // An event renders in the lane of its entity and/or its chapter.
+    const eventsByCell = useMemo(() => {
+        const map = new Map<string, TimelineEvent[]>();
+        const rowIndexByKey = new Map(
+            displayRows.map((row, index) => [row.key, index])
         );
 
-        setPlacedEvents((prev) => [
-            ...prev.filter((ev) => !(ev.col === col && ev.row === row)),
-            {
-                id: `placed-${Date.now()}`,
-                col,
-                row,
-                title: `Event #${selectedEvent}`,
-            },
-        ]);
+        for (const ev of events) {
+            const colIndex = gridPeriodOrders.findIndex(
+                (range) =>
+                    ev.dateOrder >= range.startOrder &&
+                    ev.dateOrder < range.endOrder
+            );
+            if (colIndex === -1) continue;
 
-        consumeSelectedEvent(existingEvent?.title);
-    };
+            const addTo = (laneKey: string) => {
+                const cellKey = `${colIndex}|${laneKey}`;
+                const list = map.get(cellKey);
+                if (list) list.push(ev);
+                else map.set(cellKey, [ev]);
+            };
 
-    // 2. INSERT NEW COLUMN BETWEEN TWO COLUMNS
-    const handleInsertColumn = (insertAtCol: number) => {
-        if (!selectedEvent) return;
+            if (rowIndexByKey.has(`chapters::${ev.chapterId}`)) {
+                addTo(`chapters::${ev.chapterId}`);
+            }
+            if (ev.entityType && ev.entityId) {
+                const laneKey = `${ev.entityType}::${ev.entityId}`;
+                if (rowIndexByKey.has(laneKey)) addTo(laneKey);
+            }
+        }
+        return map;
+    }, [events, displayRows, gridPeriodOrders]);
 
-        setPlacedEvents((prev) => [
-            ...prev.map((ev) =>
-                ev.col >= insertAtCol ? { ...ev, col: ev.col + 1 } : ev
-            ),
-            {
-                id: `placed-${Date.now()}`,
-                col: insertAtCol,
-                row: 2,
-                title: `Event #${selectedEvent}`,
-            },
-        ]);
+    // Which grid columns survive the "hide empty columns" filter.
+    const displayColIndexes = useMemo(() => {
+        const all = gridPeriods.map((_, index) => index);
+        if (!hideEmptyColumns) return all;
+        return all.filter((index) =>
+            displayRows.some(
+                (row) =>
+                    (eventsByCell.get(`${index}|${row.key}`)?.length ?? 0) > 0
+            )
+        );
+    }, [gridPeriods, hideEmptyColumns, displayRows, eventsByCell]);
 
-        setMaxCol((prev) => prev + 1);
-        consumeSelectedEvent();
-    };
-
-    // 3. INSERT NEW ROW BETWEEN TWO ROWS
-    const handleInsertRow = (insertAtRow: number) => {
-        if (!selectedEvent) return;
-
-        setPlacedEvents((prev) => [
-            ...prev.map((ev) =>
-                ev.row >= insertAtRow ? { ...ev, row: ev.row + 1 } : ev
-            ),
-            {
-                id: `placed-${Date.now()}`,
-                col: 2,
-                row: insertAtRow,
-                title: `Event #${selectedEvent}`,
-            },
-        ]);
-
-        setMaxRow((prev) => prev + 1);
-        consumeSelectedEvent();
-    };
-
-    const handleAddEvent = () => {
-        const allNumbers = [
-            ...timelineEvents,
-            ...placedEvents.map(
-                (ev) => parseInt(ev.title.replace(/\D/g, ''), 10) || 0
-            ),
-        ];
-        const nextId = allNumbers.length > 0 ? Math.max(...allNumbers) + 1 : 1;
-        setTimeLineEvents([...timelineEvents, nextId]);
-    };
+    // ---- ENTITY FILTER STATUS ----
 
     const hasEntityFilter = selectedItems.size > 0;
-    const matchesEntityFilter = (event: PlacedEvent) =>
-        !hasEntityFilter ||
-        !event.entityKeys?.length ||
-        event.entityKeys.some((key) => selectedItems.has(key));
-    const entityMatchCount = hasEntityFilter
-        ? placedEvents.filter(
-              (event) => event.entityKeys?.length && matchesEntityFilter(event)
-          ).length
-        : 0;
+
+    // Distinct real events that belong to at least one selected lane. The old
+    // status bar counted dummy PlacedEvent.entityKeys; this mirrors the intent.
+    const entityMatchCount = useMemo(() => {
+        if (!hasEntityFilter) return 0;
+        const matches = new Set<string>();
+        for (const ev of events) {
+            if (
+                ev.chapterId &&
+                selectedItems.has(`chapters::${ev.chapterId}`)
+            ) {
+                matches.add(ev.id);
+            }
+            if (
+                ev.entityType &&
+                ev.entityId &&
+                selectedItems.has(`${ev.entityType}::${ev.entityId}`)
+            ) {
+                matches.add(ev.id);
+            }
+        }
+        return matches.size;
+    }, [events, selectedItems, hasEntityFilter]);
+
+    // ---- UNASSIGNED DRAFTS, FLOATING PANEL & LANE NAVIGATION ----
+
+    // The tray draft currently armed for placement (if any).
+    const activeDraft = useMemo(
+        () =>
+            activeDraftId
+                ? (drafts.find((d) => d.id === activeDraftId) ?? null)
+                : null,
+        [activeDraftId, drafts]
+    );
+
+    // Belt-and-suspenders: clear the arm if its draft disappears.
+    useEffect(() => {
+        if (activeDraftId && !drafts.some((d) => d.id === activeDraftId)) {
+            setActiveDraftId(null);
+        }
+    }, [activeDraftId, drafts]);
+
+    function openPanel(target: EventPanelTarget) {
+        setPanelTarget(target);
+        // Remount the panel so its form state resets for the new target.
+        setPanelKey((key) => key + 1);
+    }
+
+    function closePanel() {
+        setPanelTarget(null);
+    }
+
+    function handleAddDraft() {
+        const draft = createEventDraft();
+        setDrafts((prev) => [...prev, draft]);
+        setActiveDraftId(draft.id);
+        openPanel({ kind: 'draft', draftId: draft.id });
+    }
+
+    function handleSelectDraft(id: string) {
+        if (!id) {
+            setActiveDraftId(null);
+            setPanelTarget(null);
+            return;
+        }
+        if (!drafts.some((d) => d.id === id)) return;
+        setActiveDraftId(id);
+        openPanel({ kind: 'draft', draftId: id });
+    }
+
+    function updateDraft(id: string, patch: Partial<TimelineEvent>) {
+        setDrafts((prev) =>
+            prev.map((draft) => {
+                if (draft.id !== id) return draft;
+                return {
+                    ...draft,
+                    title: patch.title ?? draft.title,
+                    description:
+                        patch.description !== undefined
+                            ? patch.description
+                            : draft.description,
+                    inStoryDate:
+                        patch.inStoryDate !== undefined
+                            ? patch.inStoryDate
+                            : draft.inStoryDate,
+                    dateOrder: patch.dateOrder ?? draft.dateOrder,
+                    eventType: patch.eventType ?? draft.eventType,
+                    entityType:
+                        patch.entityType !== undefined
+                            ? patch.entityType
+                            : draft.entityType,
+                    entityId:
+                        patch.entityId !== undefined
+                            ? patch.entityId
+                            : draft.entityId,
+                    chapterId:
+                        patch.chapterId !== undefined
+                            ? patch.chapterId
+                            : draft.chapterId,
+                };
+            })
+        );
+    }
+
+    function discardDraft(id: string) {
+        setDrafts((prev) => prev.filter((d) => d.id !== id));
+        if (activeDraftId === id) setActiveDraftId(null);
+        if (panelTarget?.kind === 'draft' && panelTarget.draftId === id) {
+            setPanelTarget(null);
+        }
+    }
+
+    // Place an armed draft into a cell: the cell's lane wins for chapter/entity,
+    // the cell's column start wins for the date.
+    async function placeDraft(
+        draft: TimelineEventDraft,
+        row: TimelineLane,
+        colIndex: number
+    ) {
+        const values: Partial<TimelineEvent> = {
+            ...draftToPartial(draft),
+            title: draft.title.trim() || 'Untitled Event',
+            dateOrder: gridPeriodOrders[colIndex].startOrder,
+        };
+        if (row.section === 'chapters') {
+            values.chapterId = row.id;
+        } else if (ENTITY_SECTIONS.includes(row.section)) {
+            values.entityType = row.section;
+            values.entityId = row.id;
+        }
+
+        const saved = await onSaveEvent(values);
+        setDrafts((prev) => prev.filter((d) => d.id !== draft.id));
+        setActiveDraftId(null);
+
+        if (saved) {
+            openPanel({
+                kind: 'event',
+                eventId: saved.id,
+                startEditing: false,
+            });
+        } else {
+            setPanelTarget(null);
+        }
+    }
+
+    // Clicking a cell: armed draft → place it; occupied → open its first event;
+    // empty → open a create panel prefilled with the cell's date + lane.
+    function handleCellClick(colIndex: number, row: TimelineLane) {
+        if (activeDraft) {
+            void placeDraft(activeDraft, row, colIndex);
+            return;
+        }
+
+        const cellEvents = eventsByCell.get(`${colIndex}|${row.key}`);
+        if (cellEvents && cellEvents.length > 0) {
+            openPanel({
+                kind: 'event',
+                eventId: cellEvents[0].id,
+                startEditing: false,
+            });
+            return;
+        }
+
+        const values: Partial<TimelineEvent> = {
+            title: '',
+            dateOrder: gridPeriodOrders[colIndex].startOrder,
+            eventType: 'milestone',
+        };
+        if (row.section === 'chapters') {
+            values.chapterId = row.id;
+        } else if (ENTITY_SECTIONS.includes(row.section)) {
+            values.entityType = row.section;
+            values.entityId = row.id;
+        }
+        openPanel({ kind: 'create', values });
+    }
+
+    // First event (leftmost rendered column) in each lane, for row-label jumps.
+    const firstEventByLane = useMemo(() => {
+        const map = new Map<
+            string,
+            { event: TimelineEvent; colIndex: number }
+        >();
+        for (const colIndex of displayColIndexes) {
+            for (const row of displayRows) {
+                if (map.has(row.key)) continue;
+                const cell = eventsByCell.get(`${colIndex}|${row.key}`);
+                if (cell && cell.length > 0) {
+                    map.set(row.key, { event: cell[0], colIndex });
+                }
+            }
+        }
+        return map;
+    }, [displayColIndexes, displayRows, eventsByCell]);
+
+    function handleRowLabelClick(row: TimelineLane) {
+        const hit = firstEventByLane.get(row.key);
+        if (!hit) return;
+
+        const container = scrollContainerRef.current;
+        if (container) {
+            const renderCol = displayColIndexes.indexOf(hit.colIndex);
+            if (renderCol !== -1) {
+                const targetLeft =
+                    renderCol * COLUMN_WIDTH -
+                    container.clientWidth / 2 +
+                    COLUMN_WIDTH / 2;
+                container.scrollTo({
+                    left: Math.max(0, targetLeft),
+                    behavior: 'smooth',
+                });
+            }
+        }
+
+        setFocusedEventId(hit.event.id);
+        if (focusTimerRef.current !== null) {
+            window.clearTimeout(focusTimerRef.current);
+        }
+        focusTimerRef.current = window.setTimeout(() => {
+            setFocusedEventId(null);
+            focusTimerRef.current = null;
+        }, 1600);
+    }
+
+    // Reveal a lane's row label after its dock chip was clicked.
+    useLayoutEffect(() => {
+        if (!pendingRowFocus) return;
+
+        const rowIndex = displayRows.findIndex(
+            (row) => row.key === pendingRowFocus.key
+        );
+        if (rowIndex === -1) {
+            setPendingRowFocus(null);
+            return;
+        }
+
+        const container = scrollContainerRef.current;
+        if (container) {
+            const targetTop =
+                rowIndex * ROW_HEIGHT -
+                container.clientHeight / 2 +
+                ROW_HEIGHT / 2;
+            container.scrollTo({
+                top: Math.max(0, targetTop),
+                behavior: 'smooth',
+            });
+            syncLabelPanes();
+        }
+
+        rowLabelRefs.current
+            .get(pendingRowFocus.key)
+            ?.focus({ preventScroll: true });
+
+        setFocusedRowKey(pendingRowFocus.key);
+        if (rowFocusTimerRef.current !== null) {
+            window.clearTimeout(rowFocusTimerRef.current);
+        }
+        rowFocusTimerRef.current = window.setTimeout(() => {
+            setFocusedRowKey(null);
+            rowFocusTimerRef.current = null;
+        }, 1600);
+
+        setPendingRowFocus(null);
+    }, [pendingRowFocus, displayRows, syncLabelPanes]);
+
+    useEffect(
+        () => () => {
+            if (focusTimerRef.current !== null) {
+                window.clearTimeout(focusTimerRef.current);
+            }
+            if (rowFocusTimerRef.current !== null) {
+                window.clearTimeout(rowFocusTimerRef.current);
+            }
+        },
+        []
+    );
+
+    // Esc / outside click closes event/create panels. A draft panel stays put
+    // until the draft is discarded, its ✕ is pressed, or another chip is picked.
+    useEffect(() => {
+        if (!panelTarget) return;
+        if (panelTarget.kind === 'draft') return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setPanelTarget(null);
+        };
+        const handleMouseDown = (e: MouseEvent) => {
+            const el = panelRef.current;
+            if (el && e.target instanceof Node && el.contains(e.target)) return;
+            setPanelTarget(null);
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('mousedown', handleMouseDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('mousedown', handleMouseDown);
+        };
+    }, [panelTarget]);
+
+    // Resolve the current panel target to real data. Falls back to null when
+    // the referenced event/draft has vanished.
+    const panelEvent =
+        panelTarget?.kind === 'event'
+            ? (events.find((ev) => ev.id === panelTarget.eventId) ?? null)
+            : null;
+    const panelDraft =
+        panelTarget?.kind === 'draft'
+            ? (drafts.find((d) => d.id === panelTarget.draftId) ?? null)
+            : null;
+    const panelCreate =
+        panelTarget?.kind === 'create' ? panelTarget.values : null;
+    const panelOpen =
+        !!panelTarget && !!(panelEvent || panelDraft || panelCreate);
+
+    async function handlePanelSave(values: Partial<TimelineEvent>) {
+        if (!panelTarget || panelTarget.kind === 'draft') return;
+        const id =
+            panelTarget.kind === 'event' ? panelTarget.eventId : undefined;
+        const saved = await onSaveEvent(values, id);
+        if (saved) {
+            openPanel({
+                kind: 'event',
+                eventId: saved.id,
+                startEditing: false,
+            });
+        } else {
+            setPanelTarget(null);
+        }
+    }
+
+    async function handlePanelDelete() {
+        if (panelTarget?.kind !== 'event') return;
+        await onDeleteEvent(panelTarget.eventId);
+        setPanelTarget(null);
+    }
+
+    function handlePanelOpenEntity() {
+        if (panelEvent) onOpenEntityForEvent(panelEvent);
+    }
 
     return (
         <div className={styles.timelineGridWrapper}>
@@ -1113,6 +1701,60 @@ export function NewTimeline({
                     )}
                 </div>
 
+                <div
+                    className={styles.gridViewControls}
+                    role="group"
+                    aria-label="Grid view"
+                >
+                    <span className={styles.gridViewLabel}>Grid</span>
+                    <button
+                        type="button"
+                        className={`${styles.gridToggleBtn} ${
+                            hideEmptyCellVisuals ? styles.gridToggleActive : ''
+                        }`}
+                        aria-pressed={hideEmptyCellVisuals}
+                        title="Hide borders and backgrounds on empty cells (they stay clickable)"
+                        onClick={() =>
+                            setHideEmptyCellVisuals((value) => !value)
+                        }
+                    >
+                        Hide cell visuals
+                    </button>
+                    <button
+                        type="button"
+                        className={`${styles.gridToggleBtn} ${
+                            skipEmptyCells ? styles.gridToggleActive : ''
+                        }`}
+                        aria-pressed={skipEmptyCells}
+                        title="Don't render empty cells at all"
+                        onClick={() => setSkipEmptyCells((value) => !value)}
+                    >
+                        Hide empty cells
+                    </button>
+                    <button
+                        type="button"
+                        className={`${styles.gridToggleBtn} ${
+                            hideEmptyColumns ? styles.gridToggleActive : ''
+                        }`}
+                        aria-pressed={hideEmptyColumns}
+                        title="Only show date columns that contain events"
+                        onClick={() => setHideEmptyColumns((value) => !value)}
+                    >
+                        Hide empty columns
+                    </button>
+                    <button
+                        type="button"
+                        className={`${styles.gridToggleBtn} ${
+                            hideEmptyLanes ? styles.gridToggleActive : ''
+                        }`}
+                        aria-pressed={hideEmptyLanes}
+                        title="Only show lanes that contain events"
+                        onClick={() => setHideEmptyLanes((value) => !value)}
+                    >
+                        Hide empty lanes
+                    </button>
+                </div>
+
                 <button
                     className={styles.switchLayoutBtn}
                     onClick={onSwitchLayout}
@@ -1121,211 +1763,323 @@ export function NewTimeline({
                 </button>
             </div>
 
-            {/* TIMELINE COLUMN HEADER STRIP (Positioned above the grid canvas) */}
-            <div
-                className={styles.gridScrollCanvas}
-                ref={scrollContainerRef}
-                onScroll={handleScroll}
-                style={{
-                    overflowX: 'auto',
-                    overflowY: 'auto',
-                    position: 'relative',
-                }}
-            >
-                <div
-                    style={{
-                        display: 'grid',
-                        gridTemplateColumns: `repeat(${maxCol}, ${COLUMN_WIDTH}px)`,
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 10,
-                        backgroundColor: '#1b1d24',
-                        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                        width: 'max-content',
-                    }}
-                >
-                    {periods.map((period) => (
+            {/* TIMELINE CANVAS — labels live outside the scrolling grid */}
+            <div className={styles.gridBody}>
+                {/* COLUMN LABELS (detached from the grid) */}
+                <div className={styles.gridHeaderRow}>
+                    <div className={styles.gridCorner}>Data lanes</div>
+                    <div
+                        className={styles.colLabelsPane}
+                        ref={colLabelsPaneRef}
+                    >
                         <div
-                            key={period.key}
-                            onClick={() => handleZoomIn(period)}
-                            title={
-                                granularity !== 'day'
-                                    ? `Click to zoom into ${period.label}`
-                                    : undefined
-                            }
+                            className={styles.colLabelsInner}
                             style={{
-                                width: COLUMN_WIDTH,
-                                height: 42,
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                borderRight:
-                                    '1px solid rgba(255, 255, 255, 0.08)',
-                                cursor:
-                                    granularity !== 'day'
-                                        ? 'pointer'
-                                        : 'default',
-                                userSelect: 'none',
-                                background:
-                                    granularity !== 'day'
-                                        ? 'rgba(255, 255, 255, 0.03)'
-                                        : 'transparent',
-                                boxSizing: 'border-box',
+                                width: displayColIndexes.length * COLUMN_WIDTH,
                             }}
                         >
-                            <span style={{ fontWeight: 600, fontSize: 12 }}>
-                                {period.label}
+                            {displayColIndexes.map((colIndex) => {
+                                const period = gridPeriods[colIndex];
+                                return (
+                                    <div
+                                        key={period.key}
+                                        onClick={() => handleZoomIn(period)}
+                                        title={
+                                            granularity !== 'day'
+                                                ? `Click to zoom into ${period.label}`
+                                                : undefined
+                                        }
+                                        className={styles.colLabel}
+                                        style={{
+                                            width: COLUMN_WIDTH,
+                                            cursor:
+                                                granularity !== 'day'
+                                                    ? 'pointer'
+                                                    : 'default',
+                                            background:
+                                                granularity !== 'day'
+                                                    ? '#1f2230'
+                                                    : '#1b1d24',
+                                        }}
+                                    >
+                                        <span
+                                            style={{
+                                                fontWeight: 600,
+                                                fontSize: 12,
+                                            }}
+                                        >
+                                            {period.label}
+                                        </span>
+                                        {period.subLabel && (
+                                            <span
+                                                style={{
+                                                    fontSize: 10,
+                                                    opacity: 0.5,
+                                                }}
+                                            >
+                                                {period.subLabel}
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+
+                {/* ROW LABELS + GRID */}
+                <div className={styles.gridBodyRow}>
+                    <div
+                        className={styles.rowLabelsPane}
+                        ref={rowLabelsPaneRef}
+                    >
+                        <div className={styles.rowLabelsInner}>
+                            {displayRows.map((row) => {
+                                const firstEvent = firstEventByLane.get(
+                                    row.key
+                                );
+                                return (
+                                    <div
+                                        key={row.key}
+                                        ref={(el) => {
+                                            if (el) {
+                                                rowLabelRefs.current.set(
+                                                    row.key,
+                                                    el
+                                                );
+                                            } else {
+                                                rowLabelRefs.current.delete(
+                                                    row.key
+                                                );
+                                            }
+                                        }}
+                                        tabIndex={-1}
+                                        className={`${styles.rowLabel} ${
+                                            focusedRowKey === row.key
+                                                ? styles.rowLabelFocused
+                                                : ''
+                                        }`}
+                                        onClick={() => handleRowLabelClick(row)}
+                                        title={
+                                            firstEvent
+                                                ? `Jump to first event: ${firstEvent.event.title}`
+                                                : `${row.label} — no events yet`
+                                        }
+                                    >
+                                        <span title={row.label}>
+                                            {row.label}
+                                        </span>
+                                        <small>{row.section}</small>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div
+                        className={styles.gridScrollCanvas}
+                        ref={scrollContainerRef}
+                        onScroll={handleScroll}
+                    >
+                        <div
+                            className={styles.timelineGrid}
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns:
+                                    displayColIndexes.length > 0
+                                        ? `repeat(${displayColIndexes.length}, ${COLUMN_WIDTH}px)`
+                                        : undefined,
+                                gridTemplateRows:
+                                    displayRows.length > 0
+                                        ? `repeat(${displayRows.length}, ${ROW_HEIGHT}px)`
+                                        : undefined,
+                                gridAutoRows: ROW_HEIGHT,
+                                width: 'max-content',
+                            }}
+                        >
+                            {/* DATE CELLS — one row per displayed data lane */}
+                            {displayRows.map((row, rowIndex) => (
+                                <Fragment key={row.key}>
+                                    {displayColIndexes.map(
+                                        (colIndex, renderCol) => {
+                                            const cellKey = `${colIndex}|${row.key}`;
+                                            const cellEvents =
+                                                eventsByCell.get(cellKey) ?? [];
+                                            const isEmptyCell =
+                                                cellEvents.length === 0;
+
+                                            if (skipEmptyCells && isEmptyCell) {
+                                                return null;
+                                            }
+
+                                            const hideCellChrome =
+                                                hideEmptyCellVisuals &&
+                                                isEmptyCell;
+
+                                            return (
+                                                <div
+                                                    key={cellKey}
+                                                    onClick={() =>
+                                                        handleCellClick(
+                                                            colIndex,
+                                                            row
+                                                        )
+                                                    }
+                                                    title="Click to add event here"
+                                                    style={{
+                                                        gridColumn:
+                                                            renderCol + 1,
+                                                        gridRow: rowIndex + 1,
+                                                        width: COLUMN_WIDTH,
+                                                        height: ROW_HEIGHT,
+                                                        position: 'relative',
+                                                        borderRight:
+                                                            hideCellChrome
+                                                                ? '1px solid transparent'
+                                                                : '1px solid rgba(255, 255, 255, 0.05)',
+                                                        borderBottom:
+                                                            hideCellChrome
+                                                                ? '1px solid transparent'
+                                                                : '1px solid rgba(255, 255, 255, 0.05)',
+                                                        cursor: 'pointer',
+                                                        boxSizing: 'border-box',
+                                                        overflow: 'hidden',
+                                                    }}
+                                                >
+                                                    {cellEvents.map((ev) => {
+                                                        const color =
+                                                            EVENT_COLORS[
+                                                                ev.eventType
+                                                            ] ||
+                                                            EVENT_COLORS.milestone;
+                                                        return (
+                                                            <button
+                                                                key={ev.id}
+                                                                className={`${styles.eventCard} ${styles.eventCardMini} ${
+                                                                    focusedEventId ===
+                                                                    ev.id
+                                                                        ? styles.eventCardFocused
+                                                                        : ''
+                                                                }`}
+                                                                title={`${
+                                                                    ev.title
+                                                                }${
+                                                                    ev.inStoryDate
+                                                                        ? ` (${ev.inStoryDate})`
+                                                                        : ''
+                                                                } — ${
+                                                                    EVENT_LABELS[
+                                                                        ev
+                                                                            .eventType
+                                                                    ] ||
+                                                                    ev.eventType
+                                                                }`}
+                                                                onClick={(
+                                                                    e
+                                                                ) => {
+                                                                    e.stopPropagation();
+                                                                    openPanel({
+                                                                        kind: 'event',
+                                                                        eventId:
+                                                                            ev.id,
+                                                                        startEditing: false,
+                                                                    });
+                                                                }}
+                                                                onDoubleClick={(
+                                                                    e
+                                                                ) => {
+                                                                    e.stopPropagation();
+                                                                    openPanel({
+                                                                        kind: 'event',
+                                                                        eventId:
+                                                                            ev.id,
+                                                                        startEditing: true,
+                                                                    });
+                                                                }}
+                                                                style={{
+                                                                    borderLeft: `3px solid ${color}`,
+                                                                }}
+                                                            >
+                                                                <span>
+                                                                    {ev.title}
+                                                                </span>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            );
+                                        }
+                                    )}
+                                </Fragment>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* EMPTY STATES */}
+                    {visibleRows.length === 0 ? (
+                        <div className={styles.gridEmptyState}>
+                            <p>No data selected</p>
+                            <span>
+                                Pick entities in the timeline dock below to
+                                build data lanes.
                             </span>
-                            {period.subLabel && (
-                                <span style={{ fontSize: 10, opacity: 0.5 }}>
-                                    {period.subLabel}
-                                </span>
-                            )}
                         </div>
-                    ))}
+                    ) : displayRows.length === 0 ? (
+                        <div className={styles.gridEmptyState}>
+                            <p>No lanes with events</p>
+                            <span>
+                                Turn off “Hide empty lanes” or add events to the
+                                selected data.
+                            </span>
+                        </div>
+                    ) : hideEmptyColumns && displayColIndexes.length === 0 ? (
+                        <div className={styles.gridEmptyState}>
+                            <p>No event columns</p>
+                            <span>
+                                Turn off “Hide empty columns” to show the full
+                                date range.
+                            </span>
+                        </div>
+                    ) : null}
                 </div>
 
-                <div
-                    className={`${styles.timelineGrid} ${selectedEvent ? styles.insertActive : ''}`}
-                    style={{
-                        display: 'grid',
-                        gridTemplateColumns: `repeat(${maxCol}, ${COLUMN_WIDTH}px)`,
-                        gridTemplateRows: `repeat(${maxRow}, ${ROW_HEIGHT}px)`,
-                        position: 'relative',
-                        width: 'max-content',
-                    }}
-                >
-                    {/* BACKGROUND GRID CELLS */}
-                    {Array.from({ length: maxCol * maxRow }, (_, index) => {
-                        const col = (index % maxCol) + 1;
-                        const row = Math.floor(index / maxCol) + 1;
-                        return (
-                            <div
-                                key={`cell-${col}-${row}`}
-                                onClick={() => handlePlaceOrReplace(col, row)}
-                                style={{
-                                    gridColumn: col,
-                                    gridRow: row,
-                                    borderRight:
-                                        '1px solid rgba(255, 255, 255, 0.05)',
-                                    borderBottom:
-                                        '1px solid rgba(255, 255, 255, 0.05)',
-                                    cursor: selectedEvent
-                                        ? 'pointer'
-                                        : 'default',
-                                    zIndex: 1,
-                                    boxSizing: 'border-box',
-                                }}
-                            />
-                        );
-                    })}
-
-                    {/* PLACED EVENT CARDS */}
-                    {placedEvents.map((ev) => (
-                        <div
-                            key={ev.id}
-                            className={`${styles.eventCard} ${
-                                ev.entityKeys?.length &&
-                                !matchesEntityFilter(ev)
-                                    ? styles.eventCardFilteredOut
-                                    : ''
-                            }`}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handlePlaceOrReplace(ev.col, ev.row);
-                            }}
-                            style={{
-                                gridColumn: `${ev.col}`,
-                                gridRow: `${ev.row}`,
-                                zIndex: 2,
-                                cursor: selectedEvent ? 'pointer' : 'default',
-                            }}
-                        >
-                            <span>{ev.title}</span>
-                        </div>
-                    ))}
-
-                    {/* VERTICAL COLUMN INSERTION STRIPS */}
-                    {selectedEvent &&
-                        Array.from(
-                            { length: Math.max(0, maxCol - 1) },
-                            (_, i) => {
-                                const insertColIndex = i + 2;
-                                return (
-                                    <div
-                                        key={`col-split-${i}`}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleInsertColumn(insertColIndex);
-                                        }}
-                                        title={`Insert column between ${i + 1} and ${i + 2}`}
-                                        style={{
-                                            gridColumn: i + 1,
-                                            gridRow: `1 / span ${maxRow}`,
-                                            position: 'relative',
-                                            zIndex: 4,
-                                            pointerEvents: 'none',
-                                        }}
-                                    >
-                                        <div
-                                            className={`${styles.insertLine} ${styles.insertCol}`}
-                                            style={{
-                                                position: 'absolute',
-                                                top: 0,
-                                                right: -7,
-                                                width: 14,
-                                                height: '100%',
-                                                cursor: 'col-resize',
-                                                pointerEvents: 'auto',
-                                                zIndex: 5,
-                                            }}
-                                        />
-                                    </div>
-                                );
+                {/* FLOATING EVENT PANEL — view/edit a card, edit a tray draft,
+                    or create a new event at a clicked cell */}
+                {panelOpen && (
+                    <div ref={panelRef} style={{ display: 'contents' }}>
+                        <TimelineEventPanel
+                            key={panelKey}
+                            event={panelEvent}
+                            draft={panelDraft}
+                            createValues={panelCreate}
+                            startEditing={
+                                panelTarget?.kind === 'event'
+                                    ? panelTarget.startEditing
+                                    : false
                             }
-                        )}
-
-                    {/* HORIZONTAL ROW INSERTION STRIPS */}
-                    {selectedEvent &&
-                        Array.from(
-                            { length: Math.max(0, maxRow - 1) },
-                            (_, i) => {
-                                const insertRowIndex = i + 2;
-                                return (
-                                    <div
-                                        key={`row-split-${i}`}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleInsertRow(insertRowIndex);
-                                        }}
-                                        title={`Insert row between ${i + 1} and ${i + 2}`}
-                                        style={{
-                                            gridColumn: `1 / span ${maxCol}`,
-                                            gridRow: i + 1,
-                                            position: 'relative',
-                                            zIndex: 4,
-                                            pointerEvents: 'none',
-                                        }}
-                                    >
-                                        <div
-                                            className={`${styles.insertLine} ${styles.insertRow}`}
-                                            style={{
-                                                position: 'absolute',
-                                                left: 0,
-                                                bottom: -7,
-                                                width: '100%',
-                                                height: 14,
-                                                cursor: 'row-resize',
-                                                pointerEvents: 'auto',
-                                                zIndex: 5,
-                                            }}
-                                        />
-                                    </div>
-                                );
+                            placementHint={
+                                panelDraft
+                                    ? panelDraft.title.trim() ||
+                                      'Untitled Event'
+                                    : null
                             }
-                        )}
-                </div>
+                            entityOptions={entityOptions}
+                            chapterOptions={chapterOptions}
+                            onClose={closePanel}
+                            onSave={handlePanelSave}
+                            onDraftChange={(patch) => {
+                                if (panelDraft) {
+                                    updateDraft(panelDraft.id, patch);
+                                }
+                            }}
+                            onDiscardDraft={() => {
+                                if (panelDraft) discardDraft(panelDraft.id);
+                            }}
+                            onDelete={handlePanelDelete}
+                            onOpenEntity={handlePanelOpenEntity}
+                        />
+                    </div>
+                )}
             </div>
 
             <TimelineBottomDock
@@ -1337,11 +2091,15 @@ export function NewTimeline({
                 setTimelineFilters={setTimelineFilters}
                 tabs={tabs}
                 categoryData={categoryData}
-                onAddEvent={handleAddEvent}
+                onAddEvent={handleAddDraft}
                 onAutoDetect={onAutoDetect}
-                unassignedEvents={timelineEvents}
-                selectedEvent={selectedEvent}
-                onSelectEvent={setSelectedEvent}
+                unassignedEvents={drafts.map((draft) => ({
+                    id: draft.id,
+                    label: draft.title.trim() || 'Untitled Event',
+                }))}
+                selectedEvent={activeDraftId ?? ''}
+                onSelectEvent={handleSelectDraft}
+                onDiscardEvent={discardDraft}
                 selectedItems={selectedItems}
                 onToggleItem={handleToggleItem}
             />
