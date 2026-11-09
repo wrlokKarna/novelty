@@ -1,4 +1,14 @@
 {
+    "plugins": ["@ianvs/prettier-plugin-sort-imports"],
+    "importOrder": [
+        "^react",
+        "<THIRD_PARTY_MODULES>",
+        "^@/(.*)$",
+        "^[./]",
+        "\\.(css|scss|less|styled)$"
+    ],
+    "importOrderBuiltinModulesToTop": true,
+    "importOrderParserPlugins": ["typescript", "jsx"],
     "semi": true,
     "trailingComma": "es5",
     "singleQuote": true,
