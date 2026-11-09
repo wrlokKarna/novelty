@@ -242,7 +242,7 @@ export default function LeftPanel({
 
     const handleDeleteEntry = (entry: ExplorerEntry) => {
         const label = getEntryLabel(entry);
-        if (!confirm(`Delete "${label}"?`)) return;
+        /*if (!confirm(`Delete "${label}"?`)) return;*/
         if (explorerTab === 'chapters') deleteChapter(entry as Chapter);
         else deleteCompendiumEntry(entry.id, explorerTab);
     };

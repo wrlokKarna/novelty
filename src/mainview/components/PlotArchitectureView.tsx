@@ -1,7 +1,8 @@
-import {
+import React, {
     useState,
     useEffect,
     useCallback,
+    useRef,
     type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useRPC } from '../contexts/RPCContext';
@@ -24,12 +25,814 @@ import type {
     StoryScene,
 } from '../../shared/types/project/manuscript';
 
+interface EntityItem {
+    id: string;
+    name: string;
+    category?: string;
+}
+
 interface Props {
     projectId: string;
     chapters: Chapter[];
     characters: Character[];
+    locations?: EntityItem[];
+    organizations?: EntityItem[];
+    items?: EntityItem[];
+    lore?: EntityItem[];
     onNavigateChapter: (chapterId: string) => void;
+    onSelectCharacter?: (characterId: string) => void;
+    onSelectLocation?: (locationName: string) => void;
+    onSelectCategory?: (category: string) => void;
+    onSelectSidebarChapter?: (chapterId: string) => void;
+    onSelectSidebarEntity?: (entityName: string, category: string) => void;
     onDataChange?: () => void;
+}
+
+interface MentionOption {
+    id: string;
+    name: string;
+    category?: string;
+    type?: 'category' | 'entity' | 'chapter';
+}
+
+interface BeatDescriptionMentionInputProps {
+    value: string;
+    onChange: (newValue: string) => void;
+    chapters: Chapter[];
+    characters: Character[];
+    locations: EntityItem[];
+    organizations: EntityItem[];
+    items: EntityItem[];
+    lore: EntityItem[];
+    onNavigateChapter?: (id: string) => void;
+    onSelectCharacter?: (id: string) => void;
+    onSelectLocation?: (name: string) => void;
+    onSelectCategory?: (category: string) => void;
+    onSelectSidebarChapter?: (id: string) => void;
+    onSelectSidebarEntity?: (name: string, category: string) => void;
+    placeholder?: string;
+}
+
+// Helper to normalize any DB record into { id, name }
+function normalizeEntities(rawList: any[], categoryLabel: string): EntityItem[] {
+    if (!Array.isArray(rawList)) return [];
+    return rawList
+        .map((item, idx) => ({
+            id: String(item?.id || `${categoryLabel}-${idx}`),
+            name: String(item?.name || item?.title || '').trim(),
+            category: categoryLabel,
+        }))
+        .filter((item) => item.name.length > 0);
+}
+
+// Helper to switch the left sidebar and select the target item in the sidebar list when explicitly clicked
+function openInLeftSidebar(
+    targetCategory: 'Chapter' | 'Character' | 'Location' | 'Organization' | 'Item' | 'Lore',
+    specificItemName?: string,
+    specificItemId?: string
+) {
+    window.dispatchEvent(
+        new CustomEvent('novelty:open-sidebar', {
+            detail: { category: targetCategory, itemName: specificItemName, itemId: specificItemId },
+        })
+    );
+
+    const allClickable = Array.from(
+        document.querySelectorAll('button, [role="tab"], [role="button"], a, li, div, span')
+    ) as HTMLElement[];
+
+    if (targetCategory === 'Chapter') {
+        const manuscriptBtn = allClickable.find(
+            (el) =>
+                el.children.length === 0 &&
+                el.textContent?.trim().toLowerCase() === 'manuscript'
+        );
+        if (manuscriptBtn) manuscriptBtn.click();
+
+        setTimeout(() => {
+            const refreshed = Array.from(
+                document.querySelectorAll('button, a, li, div, span')
+            ) as HTMLElement[];
+            const chapEl = refreshed.find((el) => {
+                if (el.closest('.plot-architecture-view')) return false;
+                const rect = el.getBoundingClientRect();
+                return (
+                    rect.left < 350 &&
+                    el.children.length === 0 &&
+                    specificItemName &&
+                    el.textContent?.trim().toLowerCase() ===
+                        specificItemName.toLowerCase()
+                );
+            });
+            if (chapEl) chapEl.click();
+        }, 60);
+        return;
+    }
+
+    const compendiumBtn = allClickable.find(
+        (el) =>
+            el.children.length === 0 &&
+            el.textContent?.trim().toLowerCase() === 'compendium'
+    );
+    if (compendiumBtn) compendiumBtn.click();
+
+    setTimeout(() => {
+        const toolbarButtons = Array.from(
+            document.querySelectorAll(
+                '.plot-architecture-view ~ * button, .plot-architecture-view ~ * [role="button"], button, [role="button"]'
+            )
+        ) as HTMLElement[];
+
+        const bottomToolbarButtons = toolbarButtons.filter((btn) => {
+            const rect = btn.getBoundingClientRect();
+            return rect.left < 300 && rect.top > window.innerHeight - 150;
+        });
+
+        const categoryMap: Record<string, number> = {
+            character: 0,
+            location: 1,
+            organization: 2,
+            item: 3,
+            lore: 4,
+        };
+
+        const targetIndex = categoryMap[targetCategory.toLowerCase()];
+        if (targetIndex !== undefined && bottomToolbarButtons[targetIndex]) {
+            bottomToolbarButtons[targetIndex].click();
+        } else {
+            const allIcons = Array.from(
+                document.querySelectorAll('svg, button')
+            ) as HTMLElement[];
+            const matchingIcon = allIcons.find((el) => {
+                const label = (
+                    el.getAttribute('title') ||
+                    el.getAttribute('aria-label') ||
+                    el.textContent ||
+                    ''
+                ).toLowerCase();
+                return label.includes(targetCategory.toLowerCase());
+            });
+            if (matchingIcon) {
+                const clickableParent = matchingIcon.closest('button, [role="button"]') || matchingIcon;
+                (clickableParent as HTMLElement).click();
+            }
+        }
+
+        if (specificItemName && specificItemName.toLowerCase() !== targetCategory.toLowerCase()) {
+            setTimeout(() => {
+                const itemElements = Array.from(
+                    document.querySelectorAll('button, a, li, div, span')
+                ) as HTMLElement[];
+                const targetItemEl = itemElements.find((el) => {
+                    if (el.closest('.plot-architecture-view')) return false;
+                    const rect = el.getBoundingClientRect();
+                    return (
+                        rect.left < 350 &&
+                        el.children.length === 0 &&
+                        el.textContent?.trim().toLowerCase() ===
+                            specificItemName.toLowerCase()
+                    );
+                });
+                if (targetItemEl) targetItemEl.click();
+            }, 80);
+        }
+    }, 60);
+}
+
+function BeatDescriptionMentionInput({
+    value,
+    onChange,
+    chapters,
+    characters,
+    locations,
+    organizations,
+    items,
+    lore,
+    onNavigateChapter,
+    onSelectCharacter,
+    onSelectLocation,
+    onSelectCategory,
+    onSelectSidebarChapter,
+    onSelectSidebarEntity,
+    placeholder = 'Description... (Type @ to mention)',
+}: BeatDescriptionMentionInputProps) {
+    const [text, setText] = useState<string>(value || '');
+    const [showOptions, setShowOptions] = useState<boolean>(false);
+    const [query, setQuery] = useState<string>('');
+    const [mentionIndex, setMentionIndex] = useState<number | null>(null);
+    const [selectedIndex, setSelectedIndex] = useState<number>(0);
+    const [dropdownCoords, setDropdownCoords] = useState<{
+        top: number;
+        left: number;
+    }>({
+        top: 28,
+        left: 8,
+    });
+
+    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+    const backdropRef = useRef<HTMLDivElement | null>(null);
+    const atMarkerRef = useRef<HTMLSpanElement | null>(null);
+
+    useEffect(() => {
+        setText(value || '');
+    }, [value]);
+
+    const getDynamicOptions = (): MentionOption[] => {
+        const lowerQuery = query.toLowerCase();
+
+        const filterAfterColon = (
+            prefix: string,
+            list: { id: string; name: string }[],
+            badge: string,
+            type: 'chapter' | 'entity'
+        ): MentionOption[] => {
+            const searchTerm = lowerQuery.slice(prefix.length).trim();
+            return list
+                .filter((entry) =>
+                    !searchTerm || entry.name.toLowerCase().includes(searchTerm)
+                )
+                .map((entry) => ({
+                    id: entry.id,
+                    name: entry.name,
+                    category: badge,
+                    type,
+                }));
+        };
+
+        if (lowerQuery.startsWith('chapter:')) {
+            return filterAfterColon(
+                'chapter:',
+                (chapters || []).map((c) => ({ id: c.id, name: c.title })),
+                'CHAPTER',
+                'chapter'
+            );
+        }
+
+        if (lowerQuery.startsWith('character:')) {
+            return filterAfterColon(
+                'character:',
+                (characters || []).map((ch) => ({ id: ch.id, name: ch.name })),
+                'CHARACTER',
+                'entity'
+            );
+        }
+
+        if (lowerQuery.startsWith('location:')) {
+            return filterAfterColon(
+                'location:',
+                locations || [],
+                'LOCATION',
+                'entity'
+            );
+        }
+
+        if (lowerQuery.startsWith('organization:')) {
+            return filterAfterColon(
+                'organization:',
+                organizations || [],
+                'ORGANIZATION',
+                'entity'
+            );
+        }
+
+        if (lowerQuery.startsWith('item:')) {
+            return filterAfterColon(
+                'item:',
+                items || [],
+                'ITEM',
+                'entity'
+            );
+        }
+
+        if (lowerQuery.startsWith('lore:')) {
+            return filterAfterColon(
+                'lore:',
+                lore || [],
+                'LORE',
+                'entity'
+            );
+        }
+
+        const allEntities: MentionOption[] = [
+            ...(chapters || []).map((c) => ({
+                id: c.id,
+                name: c.title,
+                category: 'CHAPTER',
+                type: 'chapter' as const,
+            })),
+            ...(characters || []).map((ch) => ({
+                id: ch.id,
+                name: ch.name,
+                category: 'CHARACTER',
+                type: 'entity' as const,
+            })),
+            ...(locations || []).map((l) => ({
+                id: l.id,
+                name: l.name,
+                category: 'LOCATION',
+                type: 'entity' as const,
+            })),
+            ...(organizations || []).map((o) => ({
+                id: o.id,
+                name: o.name,
+                category: 'ORGANIZATION',
+                type: 'entity' as const,
+            })),
+            ...(items || []).map((i) => ({
+                id: i.id,
+                name: i.name,
+                category: 'ITEM',
+                type: 'entity' as const,
+            })),
+            ...(lore || []).map((lr) => ({
+                id: lr.id,
+                name: lr.name,
+                category: 'LORE',
+                type: 'entity' as const,
+            })),
+        ];
+
+        if (!lowerQuery) return allEntities;
+
+        return allEntities.filter((item) =>
+            item.name.toLowerCase().includes(lowerQuery)
+        );
+    };
+
+    const filteredOptions = getDynamicOptions();
+
+    useEffect(() => {
+        setSelectedIndex(0);
+    }, [query]);
+
+    const updateDropdownPosition = () => {
+        if (atMarkerRef.current && backdropRef.current) {
+            const top =
+                atMarkerRef.current.offsetTop -
+                backdropRef.current.scrollTop +
+                atMarkerRef.current.offsetHeight +
+                4;
+            const left =
+                atMarkerRef.current.offsetLeft - backdropRef.current.scrollLeft;
+
+            setDropdownCoords({ top, left });
+        }
+    };
+
+    useEffect(() => {
+        if (showOptions) {
+            updateDropdownPosition();
+        }
+    }, [text, showOptions, mentionIndex, query]);
+
+    const handleScroll = () => {
+        if (textareaRef.current && backdropRef.current) {
+            backdropRef.current.scrollTop = textareaRef.current.scrollTop;
+            backdropRef.current.scrollLeft = textareaRef.current.scrollLeft;
+            if (showOptions) {
+                updateDropdownPosition();
+            }
+        }
+    };
+
+    const checkTrigger = (val: string, cursorPos: number) => {
+        const textBeforeCursor = val.slice(0, cursorPos);
+        const lastAtPos = textBeforeCursor.lastIndexOf('@');
+
+        if (lastAtPos !== -1) {
+            const currentQuery = textBeforeCursor.slice(lastAtPos + 1);
+
+            if (!currentQuery.includes('\n')) {
+                setShowOptions(true);
+                setQuery(currentQuery);
+                setMentionIndex(lastAtPos);
+                return;
+            }
+        }
+
+        setShowOptions(false);
+        setQuery('');
+        setMentionIndex(null);
+    };
+
+    const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const val = e.target.value;
+        const cursorPos = e.target.selectionStart ?? val.length;
+        setText(val);
+        onChange(val);
+        checkTrigger(val, cursorPos);
+    };
+
+    const triggerSidebarOpen = (
+        category: 'Chapter' | 'Character' | 'Location' | 'Organization' | 'Item' | 'Lore',
+        itemName?: string,
+        itemId?: string
+    ) => {
+        openInLeftSidebar(category, itemName, itemId);
+
+        if (category === 'Chapter') {
+            if (itemId) {
+                onSelectSidebarChapter?.(itemId);
+            }
+            return;
+        }
+
+        if (!itemName || itemName === category) {
+            onSelectCategory?.(category);
+            onSelectSidebarEntity?.(category, category);
+            return;
+        }
+
+        if (category === 'Character' && itemId) {
+            onSelectCharacter?.(itemId);
+        } else if (category === 'Location') {
+            onSelectLocation?.(itemName);
+        }
+
+        onSelectCategory?.(category);
+        onSelectSidebarEntity?.(itemName, category);
+    };
+
+    const selectOption = (option: MentionOption) => {
+        if (mentionIndex === null || !textareaRef.current) return;
+
+        if (option.category === 'COMMAND') {
+            const cursorPos = textareaRef.current.selectionStart ?? text.length;
+            const beforeMention = text.slice(0, mentionIndex);
+            const afterMention = text.slice(cursorPos);
+            const updatedText = `${beforeMention}@${option.name}${afterMention}`;
+            setText(updatedText);
+            onChange(updatedText);
+            setQuery(option.name);
+            setShowOptions(true);
+
+            setTimeout(() => {
+                if (textareaRef.current) {
+                    textareaRef.current.focus();
+                    const newPos = beforeMention.length + option.name.length + 1;
+                    textareaRef.current.setSelectionRange(newPos, newPos);
+                }
+            }, 0);
+            return;
+        }
+
+        // Inserting the mention into the text box DOES NOT open the sidebar automatically; it only types the name.
+        const cursorPos = textareaRef.current.selectionStart ?? text.length;
+        const beforeMention = text.slice(0, mentionIndex);
+        const afterMention = text.slice(cursorPos);
+
+        const insertName = option.name;
+        const updatedText = `${beforeMention}${insertName} ${afterMention}`;
+        setText(updatedText);
+        onChange(updatedText);
+        setShowOptions(false);
+        setQuery('');
+        setMentionIndex(null);
+
+        setTimeout(() => {
+            if (textareaRef.current) {
+                textareaRef.current.focus();
+                const newPos = beforeMention.length + insertName.length + 1;
+                textareaRef.current.setSelectionRange(newPos, newPos);
+            }
+        }, 0);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === 'Backspace' && textareaRef.current && !showOptions) {
+            const cursorPos = textareaRef.current.selectionStart;
+            const allKnownNames = [
+                'Character',
+                'Location',
+                'Organization',
+                'Item',
+                'Lore',
+                'Chapter',
+                ...(characters || []).map((c) => c.name),
+                ...(chapters || []).map((c) => c.title),
+                ...(locations || []).map((l) => l.name),
+                ...(organizations || []).map((o) => o.name),
+                ...(items || []).map((i) => i.name),
+                ...(lore || []).map((lr) => lr.name),
+            ];
+
+            for (const name of allKnownNames) {
+                const nameIndex = text.lastIndexOf(name, cursorPos);
+                if (
+                    nameIndex !== -1 &&
+                    cursorPos >= nameIndex &&
+                    cursorPos <= nameIndex + name.length + 1
+                ) {
+                    e.preventDefault();
+                    const updatedText =
+                        text.slice(0, nameIndex) +
+                        text.slice(nameIndex + name.length);
+                    setText(updatedText);
+                    onChange(updatedText);
+                    setTimeout(() => {
+                        if (textareaRef.current) {
+                            textareaRef.current.setSelectionRange(
+                                nameIndex,
+                                nameIndex
+                            );
+                        }
+                    }, 0);
+                    return;
+                }
+            }
+        }
+
+        if (!showOptions || filteredOptions.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setSelectedIndex((prev) => (prev + 1) % filteredOptions.length);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setSelectedIndex(
+                (prev) =>
+                    (prev - 1 + filteredOptions.length) % filteredOptions.length
+            );
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            selectOption(filteredOptions[selectedIndex]);
+        } else if (e.key === 'Escape') {
+            setShowOptions(false);
+        }
+    };
+
+    // ONLY when the user explicitly clicks an already-inserted orange mention link does it open in the sidebar
+    const handleMentionClick = (part: string) => {
+        const lowerPart = part.toLowerCase();
+
+        const matchedChapter = (chapters || []).find(
+            (c) => c.title.toLowerCase() === lowerPart
+        );
+        if (matchedChapter) {
+            triggerSidebarOpen('Chapter', matchedChapter.title, matchedChapter.id);
+            return;
+        }
+
+        const matchedCharacter = (characters || []).find(
+            (ch) => ch.name.toLowerCase() === lowerPart
+        );
+        if (matchedCharacter) {
+            triggerSidebarOpen('Character', matchedCharacter.name, matchedCharacter.id);
+            return;
+        }
+
+        const matchedLore = (lore || []).find(
+            (lr) => lr.name.toLowerCase() === lowerPart
+        );
+        if (matchedLore) {
+            triggerSidebarOpen('Lore', matchedLore.name, matchedLore.id);
+            return;
+        }
+
+        const matchedLocation = (locations || []).find(
+            (l) => l.name.toLowerCase() === lowerPart
+        );
+        if (matchedLocation) {
+            triggerSidebarOpen('Location', matchedLocation.name, matchedLocation.id);
+            return;
+        }
+
+        const matchedOrg = (organizations || []).find(
+            (o) => o.name.toLowerCase() === lowerPart
+        );
+        if (matchedOrg) {
+            triggerSidebarOpen('Organization', matchedOrg.name, matchedOrg.id);
+            return;
+        }
+
+        const matchedItem = (items || []).find(
+            (i) => i.name.toLowerCase() === lowerPart
+        );
+        if (matchedItem) {
+            triggerSidebarOpen('Item', matchedItem.name, matchedItem.id);
+            return;
+        }
+
+        onSelectSidebarEntity?.(part, 'Entity');
+    };
+
+    const highlightSegment = (segment: string, keyPrefix: string) => {
+        if (!segment) return null;
+
+        const allKnownNames = [
+            'Character',
+            'Location',
+            'Organization',
+            'Item',
+            'Lore',
+            'Chapter',
+            ...(characters || []).map((c) => c.name),
+            ...(chapters || []).map((c) => c.title),
+            ...(locations || []).map((l) => l.name),
+            ...(organizations || []).map((o) => o.name),
+            ...(items || []).map((i) => i.name),
+            ...(lore || []).map((lr) => lr.name),
+        ];
+
+        const escapedNames = Array.from(new Set(allKnownNames))
+            .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+            .filter(Boolean)
+            .sort((a, b) => b.length - a.length);
+
+        if (escapedNames.length === 0) {
+            return <span key={keyPrefix}>{segment}</span>;
+        }
+
+        const regex = new RegExp(`(${escapedNames.join('|')})`, 'g');
+        const parts = segment.split(regex);
+
+        return parts.map((part, index) => {
+            const isKnown = allKnownNames.includes(part);
+            if (isKnown) {
+                return (
+                    <span
+                        key={`${keyPrefix}-${index}`}
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleMentionClick(part);
+                        }}
+                        style={{
+                            color: '#ff8c00',
+                            textDecoration: 'underline',
+                            textDecorationColor: '#ff8c00',
+                            textUnderlineOffset: '3px',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            pointerEvents: 'auto',
+                            position: 'relative',
+                            zIndex: 4,
+                        }}
+                        title={`Open ${part} in sidebar`}
+                    >
+                        {part}
+                    </span>
+                );
+            }
+            return <span key={`${keyPrefix}-${index}`}>{part}</span>;
+        });
+    };
+
+    const renderBackdropContent = () => {
+        if (!text) return null;
+
+        if (
+            showOptions &&
+            mentionIndex !== null &&
+            text[mentionIndex] === '@'
+        ) {
+            const beforeAt = text.slice(0, mentionIndex);
+            const atSymbol = text[mentionIndex];
+            const afterAt = text.slice(mentionIndex + 1);
+
+            return (
+                <>
+                    {highlightSegment(beforeAt, 'before')}
+                    <span ref={atMarkerRef}>{atSymbol}</span>
+                    {highlightSegment(afterAt, 'after')}
+                </>
+            );
+        }
+
+        return highlightSegment(text, 'full');
+    };
+
+    const sharedTextStyles: React.CSSProperties = {
+        width: '100%',
+        minHeight: '34px',
+        height: '100%',
+        padding: '6px 8px',
+        fontSize: '13px',
+        fontFamily: 'inherit',
+        lineHeight: '1.5',
+        boxSizing: 'border-box',
+        whiteSpace: 'pre-wrap',
+        wordWrap: 'break-word',
+        margin: 0,
+    };
+
+    return (
+        <div
+            className="beat-desc-mention-wrapper"
+            style={{
+                position: 'relative',
+                width: '100%',
+                minHeight: '34px',
+            }}
+        >
+            <div
+                ref={backdropRef}
+                style={{
+                    ...sharedTextStyles,
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    color: 'inherit',
+                    pointerEvents: 'none',
+                    overflowY: 'auto',
+                    zIndex: 3,
+                }}
+            >
+                {renderBackdropContent()}
+            </div>
+
+            <textarea
+                ref={textareaRef}
+                className="beat-desc-input"
+                value={text}
+                onChange={handleTextChange}
+                onKeyDown={handleKeyDown}
+                onScroll={handleScroll}
+                onBlur={() => setTimeout(() => setShowOptions(false), 150)}
+                onClick={(e) =>
+                    checkTrigger(
+                        e.currentTarget.value,
+                        e.currentTarget.selectionStart ?? 0
+                    )
+                }
+                placeholder={placeholder}
+                rows={1}
+                style={{
+                    ...sharedTextStyles,
+                    position: 'relative',
+                    backgroundColor: 'transparent',
+                    color: 'transparent',
+                    caretColor: '#ffffff',
+                    resize: 'none',
+                    overflowY: 'auto',
+                    zIndex: 2,
+                    display: 'block',
+                }}
+            />
+
+            {showOptions && filteredOptions.length > 0 && (
+                <ul
+                    style={{
+                        position: 'absolute',
+                        top: `${dropdownCoords.top}px`,
+                        left: `${dropdownCoords.left}px`,
+                        margin: 0,
+                        width: '240px',
+                        maxHeight: '220px',
+                        overflowY: 'auto',
+                        backgroundColor: '#222222',
+                        border: '1px solid #383838',
+                        borderRadius: '8px',
+                        padding: '4px',
+                        listStyle: 'none',
+                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)',
+                        zIndex: 9999,
+                    }}
+                >
+                    {filteredOptions.map((item, index) => (
+                        <li
+                            key={item.id}
+                            onMouseDown={(e) => {
+                                e.preventDefault();
+                                selectOption(item);
+                            }}
+                            onMouseEnter={() => setSelectedIndex(index)}
+                            style={{
+                                padding: '7px 10px',
+                                fontSize: '13px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                color:
+                                    index === selectedIndex
+                                        ? '#ffffff'
+                                        : '#d4d4d4',
+                                backgroundColor:
+                                    index === selectedIndex
+                                        ? '#3a3a3a'
+                                        : 'transparent',
+                                borderRadius: '5px',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            <span>{item.name}</span>
+                            {item.category && (
+                                <span
+                                    style={{
+                                        fontSize: '10px',
+                                        color: '#888',
+                                        textTransform: 'uppercase',
+                                    }}
+                                >
+                                    {item.category}
+                                </span>
+                            )}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
 }
 
 const THREAD_COLORS = [
@@ -81,7 +884,16 @@ export default function PlotArchitectureView({
     projectId,
     chapters,
     characters,
+    locations = [],
+    organizations = [],
+    items = [],
+    lore = [],
     onNavigateChapter,
+    onSelectCharacter,
+    onSelectLocation,
+    onSelectCategory,
+    onSelectSidebarChapter,
+    onSelectSidebarEntity,
     onDataChange,
 }: Props) {
     const rpc = useRPC();
@@ -91,6 +903,12 @@ export default function PlotArchitectureView({
     const [scenes, setScenes] = useState<StoryScene[]>([]);
     const [plotThreads, setPlotThreads] = useState<PlotThread[]>([]);
     const [storyBeats, setStoryBeats] = useState<StoryBeat[]>([]);
+
+    const [dbLocations, setDbLocations] = useState<EntityItem[]>([]);
+    const [dbOrganizations, setDbOrganizations] = useState<EntityItem[]>([]);
+    const [dbItems, setDbItems] = useState<EntityItem[]>([]);
+    const [dbLore, setDbLore] = useState<EntityItem[]>([]);
+
     const { collapsed, toggle, isCollapsed } = useCollapseState(projectId);
     const [activeTab, setActiveTab] = useState<'acts' | 'threads' | 'beats'>(
         'acts'
@@ -104,23 +922,144 @@ export default function PlotArchitectureView({
     const [resizingActId, setResizingActId] = useState<string | null>(null);
 
     const loadData = useCallback(async () => {
-        const [a, s, sc, t, b] = await Promise.all([
+        const req = rpc.request as Record<string, any>;
+
+        const tryRpc = async (keys: string[]) => {
+            for (const key of keys) {
+                if (typeof req[key] === 'function') {
+                    try {
+                        const res = await req[key](projectId);
+                        if (Array.isArray(res) && res.length > 0) return res;
+                    } catch {}
+                }
+            }
+            return [];
+        };
+
+        const [
+            a,
+            s,
+            sc,
+            t,
+            b,
+            fetchedLocs,
+            fetchedOrgs,
+            fetchedItems,
+            fetchedLore,
+            allCompendium,
+        ] = await Promise.all([
             rpc.request['db:get-story-acts'](projectId),
             rpc.request['db:get-story-sequences'](projectId),
             rpc.request['db:get-story-scenes'](projectId),
             rpc.request['db:get-plot-threads'](projectId),
             rpc.request['db:get-story-beats'](projectId),
+            tryRpc([
+                'db:get-locations',
+                'db:get-story-locations',
+                'db:get-compendium-locations',
+                'db:get-world-locations',
+            ]),
+            tryRpc([
+                'db:get-organizations',
+                'db:get-factions',
+                'db:get-compendium-organizations',
+                'db:get-groups',
+            ]),
+            tryRpc([
+                'db:get-items',
+                'db:get-compendium-items',
+                'db:get-artifacts',
+                'db:get-objects',
+            ]),
+            tryRpc([
+                'db:get-lore',
+                'db:get-lores',
+                'db:get-lore-entries',
+                'db:get-world-lore',
+                'db:get-compendium-lore',
+            ]),
+            tryRpc([
+                'db:get-compendium-entries',
+                'db:get-compendium',
+                'db:get-world-entries',
+                'db:get-entities',
+            ]),
         ]);
+
         setActs(a || []);
         setSequences(s || []);
         setScenes(sc || []);
         setPlotThreads(t || []);
         setStoryBeats(b || []);
+
+        const filterUnified = (types: string[]) =>
+            Array.isArray(allCompendium)
+                ? allCompendium.filter((entry: any) =>
+                      types.includes(
+                          String(
+                              entry?.type ||
+                                  entry?.category ||
+                                  entry?.entryType ||
+                                  ''
+                          ).toLowerCase()
+                      )
+                  )
+                : [];
+
+        setDbLocations(
+            normalizeEntities(
+                fetchedLocs.length
+                    ? fetchedLocs
+                    : filterUnified(['location', 'locations', 'place']),
+                'LOCATION'
+            )
+        );
+        setDbOrganizations(
+            normalizeEntities(
+                fetchedOrgs.length
+                    ? fetchedOrgs
+                    : filterUnified([
+                          'organization',
+                          'organizations',
+                          'faction',
+                          'group',
+                      ]),
+                'ORGANIZATION'
+            )
+        );
+        setDbItems(
+            normalizeEntities(
+                fetchedItems.length
+                    ? fetchedItems
+                    : filterUnified(['item', 'items', 'artifact', 'object']),
+                'ITEM'
+            )
+        );
+        setDbLore(
+            normalizeEntities(
+                fetchedLore.length
+                    ? fetchedLore
+                    : filterUnified([
+                          'lore',
+                          'lores',
+                          'myth',
+                          'history',
+                          'world',
+                      ]),
+                'LORE'
+            )
+        );
     }, [projectId, rpc]);
 
     useEffect(() => {
         loadData();
     }, [loadData]);
+
+    const effectiveLocations = locations.length > 0 ? locations : dbLocations;
+    const effectiveOrganizations =
+        organizations.length > 0 ? organizations : dbOrganizations;
+    const effectiveItems = items.length > 0 ? items : dbItems;
+    const effectiveLore = lore.length > 0 ? lore : dbLore;
 
     const sortedActs = [...acts].sort((a, b) => a.orderIndex - b.orderIndex);
     const sortedChapters = [...chapters].sort(
@@ -394,11 +1333,15 @@ export default function PlotArchitectureView({
     }
 
     async function handleUpdateBeat(id: string, field: string, value: string) {
+        setStoryBeats((prev) =>
+            prev.map((b) =>
+                b.id === id ? ({ ...b, [field]: value } as StoryBeat) : b
+            )
+        );
         await rpc.request['db:update-story-beat']({
             id,
             data: { [field]: value } as any,
         });
-        await loadData();
     }
 
     function toggleAct(id: string) {
@@ -1426,7 +2369,11 @@ export default function PlotArchitectureView({
                         </div>
                     )}
                     {storyBeats.map((beat) => (
-                        <div key={beat.id} className="beat-card">
+                        <div
+                            key={beat.id}
+                            className="beat-card"
+                            style={{ overflow: 'visible' }}
+                        >
                             <div className="beat-header">
                                 <select
                                     value={beat.beatType}
@@ -1463,18 +2410,31 @@ export default function PlotArchitectureView({
                                     <IconTrash size={14} />
                                 </button>
                             </div>
-                            <input
-                                className="beat-desc-input"
-                                placeholder="Description..."
+
+                            <BeatDescriptionMentionInput
                                 value={beat.description || ''}
-                                onChange={(e) =>
+                                onChange={(newVal) =>
                                     handleUpdateBeat(
                                         beat.id,
                                         'description',
-                                        e.target.value
+                                        newVal
                                     )
                                 }
+                                chapters={chapters}
+                                characters={characters}
+                                locations={effectiveLocations}
+                                organizations={effectiveOrganizations}
+                                items={effectiveItems}
+                                lore={effectiveLore}
+                                onNavigateChapter={onNavigateChapter}
+                                onSelectCharacter={onSelectCharacter}
+                                onSelectLocation={onSelectLocation}
+                                onSelectCategory={onSelectCategory}
+                                onSelectSidebarChapter={onSelectSidebarChapter}
+                                onSelectSidebarEntity={onSelectSidebarEntity}
+                                placeholder="Description... (Type @ to mention)"
                             />
+
                             <div className="beat-chapter">
                                 {beat.chapterId ? (
                                     <span>
