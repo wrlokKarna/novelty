@@ -26,11 +26,18 @@ function Mentions({}: Props) {
     const [query, setQuery] = useState<string>('');
     const [mentionIndex, setMentionIndex] = useState<number | null>(null);
     const [selectedIndex, setSelectedIndex] = useState<number>(0);
+    const [dropdownCoords, setDropdownCoords] = useState<{
+        top: number;
+        left: number;
+    }>({
+        top: 32,
+        left: 12,
+    });
 
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const backdropRef = useRef<HTMLDivElement | null>(null);
+    const atMarkerRef = useRef<HTMLSpanElement | null>(null);
 
-    // Filter options based on text typed after '@'
     const filteredOptions = MENTION_OPTIONS.filter((item) =>
         item.name.toLowerCase().includes(query.toLowerCase())
     );
@@ -39,11 +46,34 @@ function Mentions({}: Props) {
         setSelectedIndex(0);
     }, [query]);
 
-    // Sync scroll between textarea and styled backdrop
+    // Calculate the exact (top, left) position directly below the '@' character
+    const updateDropdownPosition = () => {
+        if (atMarkerRef.current && backdropRef.current) {
+            const top =
+                atMarkerRef.current.offsetTop -
+                backdropRef.current.scrollTop +
+                atMarkerRef.current.offsetHeight +
+                4;
+            const left =
+                atMarkerRef.current.offsetLeft - backdropRef.current.scrollLeft;
+
+            setDropdownCoords({ top, left });
+        }
+    };
+
+    useEffect(() => {
+        if (showOptions) {
+            updateDropdownPosition();
+        }
+    }, [text, showOptions, mentionIndex]);
+
     const handleScroll = () => {
         if (textareaRef.current && backdropRef.current) {
             backdropRef.current.scrollTop = textareaRef.current.scrollTop;
             backdropRef.current.scrollLeft = textareaRef.current.scrollLeft;
+            if (showOptions) {
+                updateDropdownPosition();
+            }
         }
     };
 
@@ -54,7 +84,6 @@ function Mentions({}: Props) {
         if (lastAtPos !== -1) {
             const currentQuery = textBeforeCursor.slice(lastAtPos + 1);
 
-            // Show options as long as there is no line break after '@'
             if (!currentQuery.includes('\n')) {
                 setShowOptions(true);
                 setQuery(currentQuery);
@@ -82,7 +111,7 @@ function Mentions({}: Props) {
         const beforeMention = text.slice(0, mentionIndex);
         const afterMention = text.slice(cursorPos);
 
-        // Insert ONLY the name (removes the '@' symbol)
+        // Removes '@' and inserts the selected name
         const updatedText = `${beforeMention}${option.name} ${afterMention}`;
         setText(updatedText);
         setShowOptions(false);
@@ -92,7 +121,6 @@ function Mentions({}: Props) {
         setTimeout(() => {
             if (textareaRef.current) {
                 textareaRef.current.focus();
-                // +1 is for the trailing space after the name
                 const newPos = beforeMention.length + option.name.length + 1;
                 textareaRef.current.setSelectionRange(newPos, newPos);
             }
@@ -120,26 +148,25 @@ function Mentions({}: Props) {
     };
 
     // Highlights matched names in orange with an underline
-    const renderHighlightedText = () => {
-        if (!text) return null;
+    const highlightSegment = (segment: string, keyPrefix: string) => {
+        if (!segment) return null;
 
-        // Sort names by length descending so longer names match completely first
         const escapedNames = MENTION_OPTIONS.map((opt) =>
             opt.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
         ).sort((a, b) => b.length - a.length);
 
         const regex = new RegExp(`(${escapedNames.join('|')})`, 'g');
-        const parts = text.split(regex);
+        const parts = segment.split(regex);
 
         return parts.map((part, index) => {
             const isMention = MENTION_OPTIONS.some((opt) => opt.name === part);
             if (isMention) {
                 return (
                     <span
-                        key={index}
+                        key={`${keyPrefix}-${index}`}
                         style={{
-                            color: '#ff8c00', // Orange text
-                            textDecoration: 'underline', // Underscore whole name
+                            color: '#ff8c00',
+                            textDecoration: 'underline',
                             textDecorationColor: '#ff8c00',
                             textUnderlineOffset: '3px',
                             fontWeight: 500,
@@ -149,8 +176,33 @@ function Mentions({}: Props) {
                     </span>
                 );
             }
-            return <span key={index}>{part}</span>;
+            return <span key={`${keyPrefix}-${index}`}>{part}</span>;
         });
+    };
+
+    // Splits text at the active '@' symbol so we can attach a ref to measure its position
+    const renderBackdropContent = () => {
+        if (!text) return null;
+
+        if (
+            showOptions &&
+            mentionIndex !== null &&
+            text[mentionIndex] === '@'
+        ) {
+            const beforeAt = text.slice(0, mentionIndex);
+            const atSymbol = text[mentionIndex];
+            const afterAt = text.slice(mentionIndex + 1);
+
+            return (
+                <>
+                    {highlightSegment(beforeAt, 'before')}
+                    <span ref={atMarkerRef}>{atSymbol}</span>
+                    {highlightSegment(afterAt, 'after')}
+                </>
+            );
+        }
+
+        return highlightSegment(text, 'full');
     };
 
     const sharedTextStyles: React.CSSProperties = {
@@ -170,7 +222,7 @@ function Mentions({}: Props) {
         <div
             style={{
                 position: 'relative',
-                width: '420px',
+                width: '480px',
                 margin: '40px auto',
                 fontFamily: 'sans-serif',
             }}
@@ -186,7 +238,7 @@ function Mentions({}: Props) {
                 Mentions
             </div>
 
-            {/* Editor Wrapper with Highlight Backdrop + Transparent Textarea */}
+            {/* Editor Wrapper */}
             <div
                 style={{
                     position: 'relative',
@@ -197,7 +249,7 @@ function Mentions({}: Props) {
                     borderRadius: '6px',
                 }}
             >
-                {/* 1. Backdrop Layer (Renders Orange + Underlined Mentions) */}
+                {/* 1. Backdrop Layer (Renders Orange Mentions + Tracks '@' Coordinates) */}
                 <div
                     ref={backdropRef}
                     style={{
@@ -211,10 +263,10 @@ function Mentions({}: Props) {
                         zIndex: 1,
                     }}
                 >
-                    {renderHighlightedText()}
+                    {renderBackdropContent()}
                 </div>
 
-                {/* 2. Interactive Textarea Layer (Transparent text, visible caret) */}
+                {/* 2. Interactive Textarea Layer */}
                 <textarea
                     ref={textareaRef}
                     name="mentions"
@@ -237,7 +289,7 @@ function Mentions({}: Props) {
                         left: 0,
                         backgroundColor: 'transparent',
                         color: 'transparent',
-                        caretColor: '#ffffff', // Keeps the blinking cursor visible
+                        caretColor: '#ffffff',
                         border: 'none',
                         outline: 'none',
                         resize: 'none',
@@ -245,56 +297,56 @@ function Mentions({}: Props) {
                         zIndex: 2,
                     }}
                 />
-            </div>
 
-            {/* @ Mention Options Dropdown */}
-            {showOptions && filteredOptions.length > 0 && (
-                <ul
-                    style={{
-                        position: 'absolute',
-                        top: '100%', // Displays directly below the input so it never gets cut off
-                        left: 0,
-                        marginTop: '6px',
-                        width: '250px',
-                        maxHeight: '240px',
-                        overflowY: 'auto',
-                        backgroundColor: '#222222',
-                        border: '1px solid #383838',
-                        borderRadius: '8px',
-                        padding: '4px',
-                        listStyle: 'none',
-                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)',
-                        zIndex: 9999,
-                    }}
-                >
-                    {filteredOptions.map((item, index) => (
-                        <li
-                            key={item.id}
-                            onMouseDown={(e) => {
-                                e.preventDefault(); // Prevents losing focus before click finishes
-                                selectOption(item);
-                            }}
-                            onMouseEnter={() => setSelectedIndex(index)}
-                            style={{
-                                padding: '7px 10px',
-                                fontSize: '13px',
-                                color:
-                                    index === selectedIndex
-                                        ? '#ffffff'
-                                        : '#d4d4d4',
-                                backgroundColor:
-                                    index === selectedIndex
-                                        ? '#3a3a3a'
-                                        : 'transparent',
-                                borderRadius: '5px',
-                                cursor: 'pointer',
-                            }}
-                        >
-                            {item.name}
-                        </li>
-                    ))}
-                </ul>
-            )}
+                {/* 3. Dropdown Anchored Directly Below the '@' Symbol */}
+                {showOptions && filteredOptions.length > 0 && (
+                    <ul
+                        style={{
+                            position: 'absolute',
+                            top: `${dropdownCoords.top}px`,
+                            left: `${dropdownCoords.left}px`,
+                            margin: 0,
+                            width: '240px',
+                            maxHeight: '240px',
+                            overflowY: 'auto',
+                            backgroundColor: '#222222',
+                            border: '1px solid #383838',
+                            borderRadius: '8px',
+                            padding: '4px',
+                            listStyle: 'none',
+                            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)',
+                            zIndex: 9999,
+                        }}
+                    >
+                        {filteredOptions.map((item, index) => (
+                            <li
+                                key={item.id}
+                                onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    selectOption(item);
+                                }}
+                                onMouseEnter={() => setSelectedIndex(index)}
+                                style={{
+                                    padding: '7px 10px',
+                                    fontSize: '13px',
+                                    color:
+                                        index === selectedIndex
+                                            ? '#ffffff'
+                                            : '#d4d4d4',
+                                    backgroundColor:
+                                        index === selectedIndex
+                                            ? '#3a3a3a'
+                                            : 'transparent',
+                                    borderRadius: '5px',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                {item.name}
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
         </div>
     );
 }
