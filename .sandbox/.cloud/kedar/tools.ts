@@ -6,6 +6,9 @@ import { mcpServer } from './../../../src/bun/services/mcp/server.js';
 //import { drizzle } from 'drizzle-orm/bun-sqlite';
 //import { eq } from 'drizzle-orm';
 import * as charactersDB from '../../../src/bun/database/tables/characters.js';
+import * as storybeatDB from '../../../src/bun/database/tables/storyBeats.js'
+import type { StoryBeatType } from '@/shared/types/project/manuscript/index.js';
+import { db } from './McpIndex.js';
 
 const compendiumCategoryEnum = z.enum([
     'character',
@@ -242,6 +245,44 @@ mcpServer.registerTool(
         };
     }
 );
+
+mcpServer.registerTool(
+    'create_story_beat',
+    {
+        title: 'Story Beat',
+        description: 'Create new story beat based on project ID,beat type, title and description',
+        inputSchema: z.object({
+            title: z.string().describe('The title of the story beat'),
+            beatType: z.string().optional().describe('The beat type of the story beat'),
+            description: z.string().optional().describe('The description type of the story beat'),
+        }),
+    },
+    async ({ title, beatType, description }) => {
+        console.log(`[calling create_story_beat] Name: ${title}`);
+
+        const newStoryBeat = {
+            id: '1',
+            projectId: '12',
+            chapterId: '123',
+            orderIndex: 1,
+            title: title,
+            beatType: beatType ?? 'custom' as StoryBeatType,
+            description: description ?? null,
+        };
+
+        const result = await storybeatDB.createBeat(db, newStoryBeat)
+
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `Successfully created with ${result} storybeat`,
+                },
+            ],
+        }
+    }
+);
+
 /*
 
 mcpServer.registerTool(

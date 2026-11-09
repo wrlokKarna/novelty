@@ -4,9 +4,10 @@ import { mkdirSync } from 'fs';
 import { join } from 'path';
 import { Database } from 'bun:sqlite';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
-import * as schema from './McpSchema';
+import * as schema from '@/shared/schema';
 
-const dbDir = join(import.meta.dir, '../../.tmp');
+
+const dbDir = join(import.meta.dir, '../.tmp');
 mkdirSync(dbDir, { recursive: true });
 
 export const sqlite = new Database(join(dbDir, 'novelty_test.db'));

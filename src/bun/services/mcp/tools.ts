@@ -12,6 +12,8 @@ import * as organizationDB from '../../database/tables/organizations.js';
 import * as itemDB from '../../database/tables/items.js';
 import * as loreDB from '../../database/tables/lore.js';
 import type { CompendiumCategory } from '../../../shared/types/project/compendium/index.js';
+import * as storybeatDB from '../../database/tables/storyBeats.js';
+import type { StoryBeatType } from '@/shared/types/project/manuscript/index.js';
 
 const compendiumCategoryEnum = z.enum([
     'character',
@@ -386,6 +388,131 @@ export default function registerAllTools() {
                     {
                         type: 'text',
                         text: `Successfully deleted entity ${entityId}.`,
+                    },
+                ],
+            };
+        }
+    );
+
+    mcpServer.registerTool(
+        'get_story_beat',
+        {
+            title: 'Retrieve story_beat',
+            description: 'Retrieves story_beat for a specific manuscript chapter and compendium category within a project',
+            inputSchema: z.object({
+                projectId: z.string().describe('The ID of the project'),
+                baseType: compendiumCategoryEnum.describe(
+                    'The category/base type of the entity'
+                ),
+            }),
+        },
+        async ({ projectId, baseType }) => {
+            console.log(`[Calling get_template] for Project: ${projectId}, Type: ${baseType}`);
+            const storyBeat = await storybeatDB.getBeatsByProject(db, projectId);
+            console.log('[Get Story Beat:', storyBeat);
+
+            if (!storyBeat) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Error: project with ID ${projectId} was not found`,
+                        },
+                    ],
+                };
+            }
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(storyBeat),
+                    }
+                ]
+            }
+        }
+    )
+
+    mcpServer.registerTool(
+        'create_story_beat',
+        {
+            title: 'Story Beat',
+            description: 'Create new story beat based on project ID,beat type, title and description',
+            inputSchema: z.object({
+                title: z.string().describe('The title of the story beat'),
+                beatType: z.string().optional().describe('The beat type of the story beat'),
+                description: z.string().optional().describe('The description type of the story beat'),
+            }),
+        },
+        async ({ title, beatType, description }) => {
+            console.log(`[calling create_story_beat] Name: ${name}`);
+
+            const newStoryBeat = {
+                id: '1',
+                projectId: '12',
+                chapterId: '123',
+                orderIndex: 1,
+                title: title,
+                beatType: beatType as StoryBeatType,
+                description: description ?? null,
+            };
+
+            const result = await storybeatDB.createBeat(db, newStoryBeat)
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Successfully created with ${result} storybeat`,
+                    },
+                ],
+            }
+        }
+    );
+
+    mcpServer.registerTool(
+        'update_story_beat',
+        {
+            title: 'Update Story beat',
+            description: "Update an existing story beat's title",
+            inputSchema: z.object({
+                id: z.string().describe('The unique ID of the story beat to update'),
+                name: z.string().optional().describe('New title if updating'),
+            }),
+        },
+
+        async ({ id, name }) => {
+            console.log(`[story beat update with] ${id} and ${name}`);
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Successfully updated entity ${id}`,
+                    },
+                ],
+            };
+        }
+    );
+
+    mcpServer.registerTool(
+        'delete_story_beat',
+        {
+            title: 'Delete Entity',
+            description: 'Delete story beat from the story_beats table in novelty db',
+            inputSchema: z.object({
+                id: z.string().describe('The unique ID of the story beat to delete'),
+            }),
+        },
+
+        async ({ id }) => {
+            console.log(`storybeat id delete with: ${id}`);
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Successfully deleted story beat ${id}`,
                     },
                 ],
             };

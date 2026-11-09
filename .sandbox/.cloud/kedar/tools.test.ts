@@ -8,8 +8,8 @@ import { mock } from 'bun:test';
 
 mock.module('../core/BrowserWindow', () => ({
     BrowserWindow: class MockBrowserWindow {
-        constructor() {}
-        close() {}
+        constructor() { }
+        close() { }
     },
 }));
 
@@ -24,6 +24,17 @@ async function runTest() {
             filepath TEXT,
             templatedata TEXT
             );`);
+        sqlite.run(`CREATE TABLE IF NOT EXISTS story_beats (
+			id TEXT PRIMARY KEY,
+			project_id TEXT REFERENCES projects(id),
+			chapter_id TEXT REFERENCES chapters(id),
+			beat_type TEXT NOT NULL,
+			title TEXT NOT NULL,
+			description TEXT,
+			order_index INTEGER NOT NULL DEFAULT 0,
+			created_at INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL
+		);`);
         const [clientTransport, serverTransport] =
             InMemoryTransport.createLinkedPair();
 
@@ -42,6 +53,18 @@ async function runTest() {
             '📦 Registered Tools:',
             toolsList.tools.map((t) => t.name)
         );
+
+        const createStoryBeat = await client.callTool({
+            name: 'create_story_beat',
+            arguments: {
+                title: 'Investigation',
+                description: 'theif caught in the bank',
+            },
+        })
+
+        console.log('Result', createStoryBeat)
+
+        /*
         console.log();
         console.log('🚀 Invoking "create_entry"...');
         const result = await client.callTool({
@@ -95,7 +118,6 @@ async function runTest() {
         });
         console.log('character deleted with id', deleteToolCall);
         process.exit(0);
-        /*
  
 */
     } catch (error) {
