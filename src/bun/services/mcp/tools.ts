@@ -401,18 +401,19 @@ export default function registerAllTools() {
             title: 'Create Story Beat',
             description: 'Create new story beat based on project ID,beat type, title and description',
             inputSchema: z.object({
+                projectId: z.string().describe('The Project ID'),
                 title: z.string().describe('The title of the story beat'),
                 beatType: z.string().optional().describe('The beat type of the story beat'),
                 description: z.string().optional().describe('The description of the story beat'),
             }),
         },
-        async ({ title, beatType, description }) => {
+        async ({ title, projectId, beatType, description }) => {
             console.log(`[calling create_story_beat] Name: ${title}`);
 
             const newStoryBeat = {
-                id: '1',
-                projectId: '12',
-                chapterId: '123',
+                id: crypto.randomUUID(),
+                projectId: projectId,
+                chapterId: 'null',
                 orderIndex: 1,
                 title: title,
                 beatType: (beatType ?? 'custom') as StoryBeatType,
