@@ -7,8 +7,9 @@ import { mcpServer } from './../../../src/bun/services/mcp/server.js';
 //import { eq } from 'drizzle-orm';
 import * as charactersDB from '../../../src/bun/database/tables/characters.js';
 import * as storybeatDB from '../../../src/bun/database/tables/storyBeats.js'
-import type { StoryBeatType } from '@/shared/types/project/manuscript/index.js';
+import type { PlotThreadType, StoryBeatType } from '@/shared/types/project/manuscript/index.js';
 import { db } from './McpIndex.js';
+import * as plotthreadDB from '../../../src/bun/database/tables/plotThreads.js'
 
 const compendiumCategoryEnum = z.enum([
     'character',
@@ -249,12 +250,12 @@ mcpServer.registerTool(
 mcpServer.registerTool(
     'create_story_beat',
     {
-        title: 'Story Beat',
+        title: 'Create Story Beat',
         description: 'Create new story beat based on project ID,beat type, title and description',
         inputSchema: z.object({
             title: z.string().describe('The title of the story beat'),
             beatType: z.string().optional().describe('The beat type of the story beat'),
-            description: z.string().optional().describe('The description type of the story beat'),
+            description: z.string().optional().describe('The description of the story beat'),
         }),
     },
     async ({ title, beatType, description }) => {
@@ -277,6 +278,315 @@ mcpServer.registerTool(
                 {
                     type: 'text',
                     text: `Successfully created with ${result} storybeat`,
+                },
+            ],
+        }
+    }
+);
+
+mcpServer.registerTool(
+    'get_story_beat',
+    {
+        title: 'Retrieve story_beat',
+        description: 'Retrieves story_beat for a specific manuscript chapter and compendium category within a project',
+        inputSchema: z.object({
+            projectId: z.string().describe('The ID of the project'),
+        }),
+    },
+    async ({ projectId }) => {
+        console.log(`[Calling get_story_beat] for Project: ${projectId}`);
+        const storyBeat = await storybeatDB.getBeatsByProject(db, projectId);
+        console.log('[Get Story Beat:', storyBeat);
+
+        if (!storyBeat) {
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Error: project with ID ${projectId} was not found`,
+                    },
+                ],
+            };
+        }
+
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: JSON.stringify(storyBeat),
+                }
+            ]
+        }
+    }
+)
+
+mcpServer.registerTool(
+    'update_story_beat',
+    {
+        title: 'Update Story beat',
+        description: "Update an existing story beat's title",
+        inputSchema: z.object({
+            id: z.string().describe('The unique ID of the story beat to update'),
+            name: z.string().describe('New title if updating'),
+        }),
+    },
+
+    async ({ id, name }) => {
+
+        const newStoryBeat = {
+            id: '1',
+            projectId: '12',
+            chapterId: '123',
+            orderIndex: 1,
+            title: name,
+            beatType: 'custom' as StoryBeatType,
+            description: null,
+        };
+        console.log(`[story beat update with] ${id} and ${name}`);
+        const UpdateBeat = await storybeatDB.updateBeat(db, id, newStoryBeat)
+
+        if (!UpdateBeat) {
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Error: ID ${id} was not found`,
+                    },
+                ],
+            };
+        }
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `Successfully updated entity ${id}`,
+                },
+            ],
+        };
+    }
+);
+
+mcpServer.registerTool(
+    'delete_story_beat',
+    {
+        title: 'Delete Story beat',
+        description: 'Delete story beat from the story_beats table in novelty db',
+        inputSchema: z.object({
+            id: z.string().describe('The unique ID of the story beat to delete'),
+        }),
+    },
+
+    async ({ id }) => {
+
+        const deleteBeat = await storybeatDB.deleteBeat(db, id)
+
+        if (!deleteBeat) {
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Error: ID ${id} was not found`,
+                    },
+                ],
+            };
+        }
+
+        console.log(`storybeat id delete with: ${id}`);
+
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `Successfully deleted story beat ${id}`,
+                },
+            ],
+        };
+    }
+);
+
+mcpServer.registerTool(
+    'create_plot_thread',
+    {
+        title: 'Create Plot Thread',
+        description: 'Create new plot thread based on project ID,thread type, title and description',
+        inputSchema: z.object({
+            name: z.string().describe('The title of the plot thread'),
+            threadType: z.string().optional().describe('The thread type of the plot thread'),
+            description: z.string().optional().describe('The description of the plot thread'),
+        }),
+    },
+    async ({ name, threadType, description }) => {
+        console.log(`[calling create_plot_thread] Name: ${name}`);
+
+        const newPlotThread = {
+            id: '1',
+            projectId: '12',
+            color: 'blue',
+            name: name,
+            threadType: threadType ?? 'subplot' as PlotThreadType,
+            description: description ?? null,
+        };
+
+        const result = await plotthreadDB.createThread(db, newPlotThread)
+
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `Successfully created with ${result} plot thread`,
+                },
+            ],
+        }
+    }
+);
+
+mcpServer.registerTool(
+    'get_plot_thread_by_id',
+    {
+        title: 'Retreive Plot Thread',
+        description: 'Retreive plot thread based on ID',
+        inputSchema: z.object({
+            id: z.string().describe('The id of the plot thread'),
+        }),
+    },
+    async ({ id }) => {
+
+        const result = await plotthreadDB.getThreadById(db, id);
+
+        if (!result) {
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `ERROR: ID ${id} was not found`
+                    }
+                ]
+            }
+        }
+
+        console.log(`[calling get_story_beat] ID: ${id}`);
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: JSON.stringify(result),
+                },
+            ],
+        }
+    }
+);
+
+mcpServer.registerTool(
+    'get_plot_thread_by_proj_id',
+    {
+        title: 'Retreive Plot Thread',
+        description: 'Retreive plot thread based on Project ID',
+        inputSchema: z.object({
+            projectId: z.string().describe('The id of the project'),
+        }),
+    },
+    async ({ projectId }) => {
+
+        const result = await plotthreadDB.getThreadsByProject(db, projectId);
+
+        if (!result) {
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `ERROR: Project ID ${projectId} was not found`
+                    }
+                ]
+            }
+        }
+
+        console.log(`[calling get_story_beat] ID: ${projectId}`);
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: JSON.stringify(result),
+                },
+            ],
+        }
+    }
+);
+
+mcpServer.registerTool(
+    'update_plot_thread',
+    {
+        title: 'Update Plot Thread',
+        description: 'Update existing plot thread based on ID',
+        inputSchema: z.object({
+            name: z.string().describe('The title of the plot thread'),
+            description: z.string().optional().describe('The description of the plot thread'),
+            id: z.string().describe('The id of the plot thread')
+        }),
+    },
+    async ({ name, description, id }) => {
+
+        const newPlotThread = {
+            id: id,
+            projectId: '12',
+            color: 'blue',
+            name: name,
+            threadType: 'subplot' as PlotThreadType,
+            description: description ?? null,
+        };
+
+        const result = await plotthreadDB.updateThread(db, id, newPlotThread)
+
+        if (!result) {
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `ERROR: ID ${id} was not found`
+                    }
+                ]
+            }
+        }
+        console.log(`[calling update_plot_thread] id: ${id}`);
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `Successfully updated ${result} plot thread`,
+                },
+            ],
+        }
+    }
+);
+
+mcpServer.registerTool(
+    'delete_plot_thread',
+    {
+        title: 'Delete Plot Thread',
+        description: 'Delete plot thread based on ID',
+        inputSchema: z.object({
+            id: z.string().describe('The id of the plot thread')
+        }),
+    },
+    async ({ id }) => {
+
+        const result = await plotthreadDB.deleteThread(db, id)
+
+        if (!result) {
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `ERROR: ID ${id} was not found`
+                    }
+                ]
+            }
+        }
+        console.log(`[calling delete_plot_thread] id: ${id}`);
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `Successfully deleted ${result} plot thread`,
                 },
             ],
         }

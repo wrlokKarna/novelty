@@ -35,6 +35,16 @@ async function runTest() {
 			created_at INTEGER NOT NULL,
 			updated_at INTEGER NOT NULL
 		);`);
+        sqlite.run(`CREATE TABLE IF NOT EXISTS plot_threads (
+			id TEXT PRIMARY KEY,
+			project_id TEXT REFERENCES projects(id),
+			name TEXT NOT NULL,
+			description TEXT,
+			thread_type TEXT NOT NULL DEFAULT 'subplot',
+			color TEXT NOT NULL DEFAULT '#6366f1',
+			created_at INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL
+		);`);
         const [clientTransport, serverTransport] =
             InMemoryTransport.createLinkedPair();
 
@@ -54,6 +64,62 @@ async function runTest() {
             toolsList.tools.map((t) => t.name)
         );
 
+        const deletePlotThread = await client.callTool({
+            name: 'delete_plot_thread',
+            arguments: {
+                id: '1'
+            },
+        })
+
+        console.log('delete plot thread', deletePlotThread)
+
+        /*
+        const updatePlotThread = await client.callTool({
+            name: 'update_plot_thread',
+            arguments: {
+                name: 'Introducing villian',
+                id: '1'
+            },
+        })
+
+        console.log('update plot thread', updatePlotThread)
+
+        const getPlotThreadByProjId = await client.callTool({
+            name: 'get_plot_thread_by_proj_id',
+            arguments: {
+                projectId: '12'
+            },
+        })
+
+        console.log('get plot thread by proj id', getPlotThreadByProjId)
+
+        const getPlotThread = await client.callTool({
+            name: 'get_plot_thread_by_id',
+            arguments: {
+                id: '1'
+            },
+        })
+
+        console.log('get plot thread', getPlotThread)
+
+        const createPlotThread = await client.callTool({
+            name: 'create_plot_thread',
+            arguments: {
+                name: 'Revealing character',
+                description: 'Revealing character of the hero',
+            },
+        })
+
+        console.log('create plot thread', createPlotThread)
+
+        const deleteStoryBeat = await client.callTool({
+            name: 'delete_story_beat',
+            arguments: {
+                id: '1',
+            }
+        })
+        console.log('delete story beat', deleteStoryBeat);
+        
         const createStoryBeat = await client.callTool({
             name: 'create_story_beat',
             arguments: {
@@ -62,9 +128,32 @@ async function runTest() {
             },
         })
 
+        console.log('create story beat', createStoryBeat)
+
+
+
+        const updateStoryBeat = await client.callTool({
+            name: 'update_story_beat',
+            arguments: {
+                id: '1',
+                name: 'Caught'
+            }
+        })
+
+        console.log('update story beat', updateStoryBeat);
+
+        const getStoryBeat = await client.callTool({
+            name: 'get_story_beat',
+            arguments: {
+                projectId: '12'
+            }
+        })
+
+        console.log('get story beat', getStoryBeat);
+
+
         console.log('Result', createStoryBeat)
 
-        /*
         console.log();
         console.log('🚀 Invoking "create_entry"...');
         const result = await client.callTool({
