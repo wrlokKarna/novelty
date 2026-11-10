@@ -476,20 +476,23 @@ export default function registerAllTools() {
             description: "Update an existing story beat's title",
             inputSchema: z.object({
                 id: z.string().describe('The unique ID of the story beat to update'),
-                name: z.string().describe('New title if updating'),
+                name: z.string().optional().describe('New title if updating'),
+                description: z.string().optional().describe('The description of the story beat'),
+                projectId: z.string().optional().describe('The projectId of the story beat'),
+                beatType: z.string().optional().describe('Beat type of the story beat'),
             }),
         },
 
-        async ({ id, name }) => {
+        async ({ id, projectId, description, name, beatType }) => {
 
             const newStoryBeat = {
-                id: '1',
-                projectId: '12',
-                chapterId: '123',
+                id: crypto.randomUUID(),
+                projectId: projectId,
+                chapterId: 'null',
                 orderIndex: 1,
                 title: name,
-                beatType: 'custom' as StoryBeatType,
-                description: null,
+                beatType: (beatType ?? 'custom') as StoryBeatType,
+                description: description,
             };
             console.log(`[story beat update with] ${id} and ${name}`);
             const UpdateBeat = await storybeatDB.updateBeat(db, id, newStoryBeat)
@@ -562,19 +565,21 @@ export default function registerAllTools() {
             title: 'Create Plot Thread',
             description: 'Create new plot thread based on project ID,thread type, title and description',
             inputSchema: z.object({
-                name: z.string().describe('The title of the plot thread'),
+                title: z.string().describe('The title of the plot thread'),
                 threadType: z.string().optional().describe('The thread type of the plot thread'),
                 description: z.string().optional().describe('The description of the plot thread'),
+                projectId: z.string().optional().describe('The Project ID'),
+                color: z.string().optional().describe("Color of the plot thread")
             }),
         },
-        async ({ name, threadType, description }) => {
-            console.log(`[calling create_plot_thread] Name: ${name}`);
+        async ({ title, threadType, description, projectId, color }) => {
+            console.log(`[calling create_plot_thread] Name: ${title}`);
 
             const newPlotThread = {
-                id: '1',
-                projectId: '12',
-                color: 'blue',
-                name: name,
+                id: crypto.randomUUID(),
+                projectId: projectId ?? 'null',
+                color: color ?? 'blue',
+                name: title,
                 threadType: (threadType ?? 'subplot') as PlotThreadType,
                 description: description ?? null,
             };
@@ -670,19 +675,22 @@ export default function registerAllTools() {
             title: 'Update Plot Thread',
             description: 'Update existing plot thread based on ID',
             inputSchema: z.object({
-                name: z.string().describe('The title of the plot thread'),
+                title: z.string().optional().describe('The title of the plot thread'),
                 description: z.string().optional().describe('The description of the plot thread'),
-                id: z.string().describe('The id of the plot thread')
+                id: z.string().describe('The id of the plot thread'),
+                projectId: z.string().optional().describe('Project Id of the plot thread'),
+                color: z.string().optional().describe('Color of the plot thread'),
+                threadType: z.string().optional().describe('Thread type of the plot thread')
             }),
         },
-        async ({ name, description, id }) => {
+        async ({ title, description, id, projectId, color, threadType }) => {
 
             const newPlotThread = {
-                id: id,
-                projectId: '12',
-                color: 'blue',
-                name: name,
-                threadType: 'subplot' as PlotThreadType,
+                id: crypto.randomUUID(),
+                projectId: projectId,
+                color: color ?? 'blue',
+                name: title,
+                threadType: (threadType ?? 'subplot') as PlotThreadType,
                 description: description ?? null,
             };
 
