@@ -56,6 +56,7 @@ interface TimelineDialogProps {
 
     tabs: FileTab[];
     onOpenEntity: (id: string, type: CompendiumCategory) => void;
+    onOpenChapter: (chapterId: string) => void;
     manuscriptData: ManuscriptDataType;
     compendiumData: CompendiumDataType;
 }
@@ -66,6 +67,7 @@ export default function TimelineDialog({
     projectId,
     tabs,
     onOpenEntity,
+    onOpenChapter,
     manuscriptData,
     compendiumData,
 }: TimelineDialogProps) {
@@ -347,6 +349,13 @@ export default function TimelineDialog({
         }
     }
 
+    function openChapterForEvent(ev: TimelineEvent) {
+        if (ev.chapterId) {
+            onOpenChapter(ev.chapterId);
+            onClose();
+        }
+    }
+
     function handleOpenEntity() {
         if (selectedEvent) openEntityForEvent(selectedEvent);
     }
@@ -433,6 +442,7 @@ export default function TimelineDialog({
                             onSaveEvent={persistTimelineEvent}
                             onDeleteEvent={deleteTimelineEvent}
                             onOpenEntityForEvent={openEntityForEvent}
+                            onOpenChapterForEvent={openChapterForEvent}
                         />
                     )}
                 </>
@@ -772,6 +782,7 @@ export function NewTimeline({
     onSaveEvent,
     onDeleteEvent,
     onOpenEntityForEvent,
+    onOpenChapterForEvent,
 }: {
     projectId: string;
     tabs: FileTab[];
@@ -787,6 +798,7 @@ export function NewTimeline({
     ) => Promise<TimelineEvent | undefined>;
     onDeleteEvent: (id: string) => Promise<void>;
     onOpenEntityForEvent: (ev: TimelineEvent) => void;
+    onOpenChapterForEvent: (ev: TimelineEvent) => void;
 }) {
     const [openTabsChecked, setOpenTabsChecked] = useState<boolean>(
         () => loadTimelinePrefs(projectId).openTabsChecked
@@ -828,6 +840,11 @@ export function NewTimeline({
         nonce: number;
     } | null>(null);
     const [focusedRowKey, setFocusedRowKey] = useState<string | null>(null);
+
+    const [pendingEventJump, setPendingEventJump] = useState<{
+        eventId: string;
+        dateOrder: number;
+    } | null>(null);
 
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const colLabelsPaneRef = useRef<HTMLDivElement>(null);
@@ -963,28 +980,6 @@ export function NewTimeline({
         };
     }, []);
 
-    // Wheel over the row labels should scroll the grid vertically (the labels
-    // are a detached mirror of the grid's vertical scroll position).
-    useEffect(() => {
-        const labels = rowLabelsPaneRef.current;
-        if (!labels) return;
-
-        const handleWheel = (e: WheelEvent) => {
-            const container = scrollContainerRef.current;
-            if (!container) return;
-            const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
-            if (delta === 0) return;
-            e.preventDefault();
-            container.scrollTop += delta;
-            syncLabelPanes();
-        };
-
-        labels.addEventListener('wheel', handleWheel, { passive: false });
-        return () => {
-            labels.removeEventListener('wheel', handleWheel);
-        };
-    }, [syncLabelPanes]);
-
     // Infinite horizontal scroll: prepends previous periods on the left, appends feature periods on the right
     const handleScroll = useCallback(() => {
         // Keep labels aligned even while a prepend is in flight.
@@ -1114,6 +1109,56 @@ export function NewTimeline({
                     nonce: (prev?.nonce ?? 0) + 1,
                 }));
             }
+        },
+        [selectedItems]
+    );
+
+    const handleToggleSectionItems = useCallback(
+        (sectionKey: string, itemIds: string[]) => {
+            const keys = itemIds.map((id) => `${sectionKey}::${id}`);
+            if (keys.length === 0) return;
+
+            const allSelected = keys.every((key) => selectedItems.has(key));
+
+            if (allSelected) {
+                setSelectedItems((prev) => {
+                    const next = new Set(prev);
+                    for (const key of keys) next.delete(key);
+                    return next;
+                });
+                return;
+            }
+
+            if (sectionKey === 'opened tabs') {
+                setOpenTabsChecked(true);
+            } else {
+                setTimelineFilters((prev) =>
+                    prev.map((cat) =>
+                        cat.subCat?.some((sub) => sub.key === sectionKey)
+                            ? {
+                                  ...cat,
+                                  subCat: cat.subCat.map((sub) =>
+                                      sub.key === sectionKey
+                                          ? { ...sub, checked: true }
+                                          : sub
+                                  ),
+                              }
+                            : cat
+                    )
+                );
+            }
+
+            setSelectedItems((prev) => {
+                const next = new Set(prev);
+                for (const key of keys) next.add(key);
+                return next;
+            });
+
+            const lastKey = keys[keys.length - 1];
+            setPendingRowFocus((prev) => ({
+                key: lastKey,
+                nonce: (prev?.nonce ?? 0) + 1,
+            }));
         },
         [selectedItems]
     );
@@ -1302,6 +1347,28 @@ export function NewTimeline({
         );
     }, [gridPeriods, hideEmptyColumns, displayRows, eventsByCell]);
 
+    const hasGridRows = displayRows.length > 0;
+
+    useEffect(() => {
+        const labels = rowLabelsPaneRef.current;
+        if (!labels) return;
+
+        const handleWheel = (e: WheelEvent) => {
+            const container = scrollContainerRef.current;
+            if (!container) return;
+            const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+            if (delta === 0) return;
+            e.preventDefault();
+            container.scrollTop += delta;
+            syncLabelPanes();
+        };
+
+        labels.addEventListener('wheel', handleWheel, { passive: false });
+        return () => {
+            labels.removeEventListener('wheel', handleWheel);
+        };
+    }, [hasGridRows, syncLabelPanes]);
+
     // ---- ENTITY FILTER STATUS ----
 
     const hasEntityFilter = selectedItems.size > 0;
@@ -1483,44 +1550,32 @@ export function NewTimeline({
         openPanel({ kind: 'create', values });
     }
 
-    // First event (leftmost rendered column) in each lane, for row-label jumps.
     const firstEventByLane = useMemo(() => {
-        const map = new Map<
-            string,
-            { event: TimelineEvent; colIndex: number }
-        >();
-        for (const colIndex of displayColIndexes) {
-            for (const row of displayRows) {
-                if (map.has(row.key)) continue;
-                const cell = eventsByCell.get(`${colIndex}|${row.key}`);
-                if (cell && cell.length > 0) {
-                    map.set(row.key, { event: cell[0], colIndex });
-                }
+        const map = new Map<string, TimelineEvent>();
+        const laneKeys = new Set(displayRows.map((row) => row.key));
+
+        const consider = (laneKey: string, ev: TimelineEvent) => {
+            if (!laneKeys.has(laneKey)) return;
+            const current = map.get(laneKey);
+            if (!current || ev.dateOrder < current.dateOrder) {
+                map.set(laneKey, ev);
+            }
+        };
+
+        for (const ev of events) {
+            if (ev.chapterId) {
+                consider(`chapters::${ev.chapterId}`, ev);
+            }
+            if (ev.entityType && ev.entityId) {
+                consider(`${ev.entityType}::${ev.entityId}`, ev);
             }
         }
+
         return map;
-    }, [displayColIndexes, displayRows, eventsByCell]);
+    }, [events, displayRows]);
 
-    function handleRowLabelClick(row: TimelineLane) {
-        const hit = firstEventByLane.get(row.key);
-        if (!hit) return;
-
-        const container = scrollContainerRef.current;
-        if (container) {
-            const renderCol = displayColIndexes.indexOf(hit.colIndex);
-            if (renderCol !== -1) {
-                const targetLeft =
-                    renderCol * COLUMN_WIDTH -
-                    container.clientWidth / 2 +
-                    COLUMN_WIDTH / 2;
-                container.scrollTo({
-                    left: Math.max(0, targetLeft),
-                    behavior: 'smooth',
-                });
-            }
-        }
-
-        setFocusedEventId(hit.event.id);
+    const flashEvent = useCallback((eventId: string) => {
+        setFocusedEventId(eventId);
         if (focusTimerRef.current !== null) {
             window.clearTimeout(focusTimerRef.current);
         }
@@ -1528,6 +1583,41 @@ export function NewTimeline({
             setFocusedEventId(null);
             focusTimerRef.current = null;
         }, 1600);
+    }, []);
+
+    function handleRowLabelClick(row: TimelineLane) {
+        const firstEvent = firstEventByLane.get(row.key);
+        if (!firstEvent) return;
+
+        const colIndex = gridPeriodOrders.findIndex(
+            (range) =>
+                firstEvent.dateOrder >= range.startOrder &&
+                firstEvent.dateOrder < range.endOrder
+        );
+
+        if (colIndex === -1) {
+            setPendingEventJump({
+                eventId: firstEvent.id,
+                dateOrder: firstEvent.dateOrder,
+            });
+            setAnchorDate(dateFromOrder(firstEvent.dateOrder));
+            return;
+        }
+
+        const container = scrollContainerRef.current;
+        const renderCol = displayColIndexes.indexOf(colIndex);
+        if (container && renderCol !== -1) {
+            const targetLeft =
+                renderCol * COLUMN_WIDTH -
+                container.clientWidth / 2 +
+                COLUMN_WIDTH / 2;
+            container.scrollTo({
+                left: Math.max(0, targetLeft),
+                behavior: 'smooth',
+            });
+        }
+
+        flashEvent(firstEvent.id);
     }
 
     // Reveal a lane's row label after its dock chip was clicked.
@@ -1570,6 +1660,47 @@ export function NewTimeline({
 
         setPendingRowFocus(null);
     }, [pendingRowFocus, displayRows, syncLabelPanes]);
+
+    useLayoutEffect(() => {
+        if (!pendingEventJump) return;
+
+        const colIndex = gridPeriodOrders.findIndex(
+            (range) =>
+                pendingEventJump.dateOrder >= range.startOrder &&
+                pendingEventJump.dateOrder < range.endOrder
+        );
+        if (colIndex === -1) return;
+
+        const renderCol = displayColIndexes.indexOf(colIndex);
+        if (renderCol === -1) return;
+
+        const { eventId } = pendingEventJump;
+
+        const frame = requestAnimationFrame(() => {
+            const container = scrollContainerRef.current;
+            if (container) {
+                const targetLeft =
+                    renderCol * COLUMN_WIDTH -
+                    container.clientWidth / 2 +
+                    COLUMN_WIDTH / 2;
+                container.scrollTo({
+                    left: Math.max(0, targetLeft),
+                    behavior: 'smooth',
+                });
+                syncLabelPanes();
+            }
+            flashEvent(eventId);
+            setPendingEventJump(null);
+        });
+
+        return () => cancelAnimationFrame(frame);
+    }, [
+        pendingEventJump,
+        gridPeriodOrders,
+        displayColIndexes,
+        flashEvent,
+        syncLabelPanes,
+    ]);
 
     useEffect(
         () => () => {
@@ -1645,6 +1776,10 @@ export function NewTimeline({
 
     function handlePanelOpenEntity() {
         if (panelEvent) onOpenEntityForEvent(panelEvent);
+    }
+
+    function handlePanelOpenChapter() {
+        if (panelEvent) onOpenChapterForEvent(panelEvent);
     }
 
     return (
@@ -1767,7 +1902,9 @@ export function NewTimeline({
             <div className={styles.gridBody}>
                 {/* COLUMN LABELS (detached from the grid) */}
                 <div className={styles.gridHeaderRow}>
-                    <div className={styles.gridCorner}>Data lanes</div>
+                    {hasGridRows && (
+                        <div className={styles.gridCorner}>Data lanes</div>
+                    )}
                     <div
                         className={styles.colLabelsPane}
                         ref={colLabelsPaneRef}
@@ -1829,52 +1966,56 @@ export function NewTimeline({
 
                 {/* ROW LABELS + GRID */}
                 <div className={styles.gridBodyRow}>
-                    <div
-                        className={styles.rowLabelsPane}
-                        ref={rowLabelsPaneRef}
-                    >
-                        <div className={styles.rowLabelsInner}>
-                            {displayRows.map((row) => {
-                                const firstEvent = firstEventByLane.get(
-                                    row.key
-                                );
-                                return (
-                                    <div
-                                        key={row.key}
-                                        ref={(el) => {
-                                            if (el) {
-                                                rowLabelRefs.current.set(
-                                                    row.key,
-                                                    el
-                                                );
-                                            } else {
-                                                rowLabelRefs.current.delete(
-                                                    row.key
-                                                );
+                    {hasGridRows && (
+                        <div
+                            className={styles.rowLabelsPane}
+                            ref={rowLabelsPaneRef}
+                        >
+                            <div className={styles.rowLabelsInner}>
+                                {displayRows.map((row) => {
+                                    const firstEvent = firstEventByLane.get(
+                                        row.key
+                                    );
+                                    return (
+                                        <div
+                                            key={row.key}
+                                            ref={(el) => {
+                                                if (el) {
+                                                    rowLabelRefs.current.set(
+                                                        row.key,
+                                                        el
+                                                    );
+                                                } else {
+                                                    rowLabelRefs.current.delete(
+                                                        row.key
+                                                    );
+                                                }
+                                            }}
+                                            tabIndex={-1}
+                                            className={`${styles.rowLabel} ${
+                                                focusedRowKey === row.key
+                                                    ? styles.rowLabelFocused
+                                                    : ''
+                                            }`}
+                                            onClick={() =>
+                                                handleRowLabelClick(row)
                                             }
-                                        }}
-                                        tabIndex={-1}
-                                        className={`${styles.rowLabel} ${
-                                            focusedRowKey === row.key
-                                                ? styles.rowLabelFocused
-                                                : ''
-                                        }`}
-                                        onClick={() => handleRowLabelClick(row)}
-                                        title={
-                                            firstEvent
-                                                ? `Jump to first event: ${firstEvent.event.title}`
-                                                : `${row.label} — no events yet`
-                                        }
-                                    >
-                                        <span title={row.label}>
-                                            {row.label}
-                                        </span>
-                                        <small>{row.section}</small>
-                                    </div>
-                                );
-                            })}
+                                            title={
+                                                firstEvent
+                                                    ? `Jump to first event: ${firstEvent.title}`
+                                                    : `${row.label} — no events yet`
+                                            }
+                                        >
+                                            <span title={row.label}>
+                                                {row.label}
+                                            </span>
+                                            <small>{row.section}</small>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div
                         className={styles.gridScrollCanvas}
@@ -2077,6 +2218,7 @@ export function NewTimeline({
                             }}
                             onDelete={handlePanelDelete}
                             onOpenEntity={handlePanelOpenEntity}
+                            onOpenChapter={handlePanelOpenChapter}
                         />
                     </div>
                 )}
@@ -2102,6 +2244,7 @@ export function NewTimeline({
                 onDiscardEvent={discardDraft}
                 selectedItems={selectedItems}
                 onToggleItem={handleToggleItem}
+                onToggleSectionItems={handleToggleSectionItems}
             />
         </div>
     );

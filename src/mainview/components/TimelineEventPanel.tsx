@@ -6,10 +6,9 @@ import {
     IconTrash,
     IconX,
 } from '@tabler/icons-react';
-
+import type { CompendiumCategory } from '../../shared/types/project/compendium';
 import type { TimelineEvent } from '../../shared/types/project/timeline';
 import type { TimelineEventDraft } from '../../shared/types/timeline';
-import type { CompendiumCategory } from '../../shared/types/project/compendium';
 import TimelineEventFormFields, {
     EMPTY_EVENT_FORM,
     formValuesFromEvent,
@@ -64,6 +63,7 @@ export interface TimelineEventPanelProps {
     onDiscardDraft: () => void;
     onDelete: () => void;
     onOpenEntity: () => void;
+    onOpenChapter: () => void;
 }
 
 export default function TimelineEventPanel({
@@ -80,6 +80,7 @@ export default function TimelineEventPanel({
     onDiscardDraft,
     onDelete,
     onOpenEntity,
+    onOpenChapter,
 }: TimelineEventPanelProps) {
     const isDraft = !!draft;
     const isCreate = !event && !draft && !!createValues;
@@ -293,10 +294,24 @@ export default function TimelineEventPanel({
                                 <IconTrash size={13} />
                                 Delete
                             </button>
+                            {event.chapterId && (
+                                <button
+                                    type="button"
+                                    className={styles.btn}
+                                    title="Open chapter in tab"
+                                    aria-label="Open chapter in tab"
+                                    onClick={onOpenChapter}
+                                >
+                                    <IconExternalLink size={13} />
+                                    Open chapter
+                                </button>
+                            )}
                             {event.entityId && event.entityType && (
                                 <button
                                     type="button"
                                     className={styles.btn}
+                                    title="Open entity in tab"
+                                    aria-label="Open entity in tab"
                                     onClick={onOpenEntity}
                                 >
                                     <IconExternalLink size={13} />

@@ -205,15 +205,36 @@
     border-right: none;
 }
 
+.dataSectionHeaderCombo {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: stretch;
+    margin-left: -6px;
+    border: 1px solid #232630;
+    border-radius: 6px;
+    background: #18191f;
+    overflow: hidden;
+    transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.dataSectionHeaderCombo:hover {
+    border-color: #343846;
+}
+
+.dataSectionHeaderCombo:focus-within {
+    border-color: #3b4050;
+}
+
 .dataSectionHeader {
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    margin-left: -6px;
-    padding: 2px 6px;
-    border: 1px solid transparent;
-    border-radius: 6px;
+    padding: 2px 4px 2px 6px;
+    border: none;
+    border-radius: 0;
     background: transparent;
     color: #f59e0b;
     font-family: inherit;
@@ -227,19 +248,50 @@
     appearance: none;
     transition:
         background-color 0.15s ease,
-        border-color 0.15s ease,
         color 0.15s ease;
 }
 
-.dataSectionHeader:hover {
-    background: rgba(245, 158, 11, 0.08);
-    border-color: rgba(245, 158, 11, 0.25);
+.dataSectionHeader:not(:disabled):hover {
+    background: #21232c;
     color: #fbbf24;
+}
+
+.dataSectionHeader:disabled {
+    color: #8b92a2;
+    cursor: default;
 }
 
 .dataSectionHeader:focus-visible {
     outline: 1px solid rgba(245, 158, 11, 0.6);
-    outline-offset: 1px;
+    outline-offset: -1px;
+}
+
+.dataSectionToggleBtn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 4px;
+    border: none;
+    border-left: 1px solid #2c303c;
+    border-radius: 0;
+    background: transparent;
+    color: #8b92a2;
+    cursor: pointer;
+    appearance: none;
+    transition:
+        background-color 0.15s ease,
+        color 0.15s ease;
+}
+
+.dataSectionToggleBtn:hover {
+    background: #262a35;
+    color: #fbbf24;
+}
+
+.dataSectionToggleBtn:focus-visible {
+    outline: 1px solid rgba(245, 158, 11, 0.6);
+    outline-offset: -1px;
 }
 
 .dataSectionCount {
@@ -250,7 +302,7 @@
     transition: color 0.15s ease;
 }
 
-.dataSectionHeader:hover .dataSectionCount {
+.dataSectionHeader:not(:disabled):hover .dataSectionCount {
     color: #9ca3af;
 }
 

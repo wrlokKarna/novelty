@@ -47,6 +47,7 @@ type Props = {
     previewLimit?: number;
     selectedItems: Set<string>;
     onToggleItem: (key: string) => void;
+    onToggleSectionItems: (sectionKey: string, itemIds: string[]) => void;
 };
 
 const EMPTY_ITEMS: TimelineDataItem[] = [];
@@ -75,6 +76,7 @@ type DataSectionProps = {
     limit: number;
     selectedItems: Set<string>;
     onToggleItem: (key: string) => void;
+    onToggleSectionItems: (sectionKey: string, itemIds: string[]) => void;
     selectable: boolean;
     registerRef: (key: string, el: HTMLDivElement | null) => void;
 };
@@ -86,6 +88,7 @@ const DataSection = memo(function DataSection({
     limit,
     selectedItems,
     onToggleItem,
+    onToggleSectionItems,
     selectable,
     registerRef,
 }: DataSectionProps) {
@@ -107,7 +110,20 @@ const DataSection = memo(function DataSection({
     }, [items, selectedItems, sectionKey]);
 
     const activeCount = selectedEntries.length;
+    const allSelected = items.length > 0 && activeCount === items.length;
     const renderItems = expanded ? visibleItems : selectedEntries;
+
+    const handleToggleSection = () => {
+        if (items.length === 0) return;
+        if (!allSelected) {
+            setPinned(true);
+            setShowAllPinned(true);
+        }
+        onToggleSectionItems(
+            sectionKey,
+            items.map((item) => item.id)
+        );
+    };
 
     return (
         <div
@@ -121,25 +137,54 @@ const DataSection = memo(function DataSection({
                 setShowAllHover(false);
             }}
         >
-            <button
-                type="button"
-                className={styles.dataSectionHeader}
-                title={pinned ? `Collapse ${label}` : `Expand ${label}`}
-                aria-expanded={expanded}
-                onClick={() => setPinned((prev) => !prev)}
-            >
-                <span>{label}</span>
-                {items.length > 0 && (
-                    <span className={styles.dataSectionCount}>
-                        {activeCount}/{items.length}
-                    </span>
-                )}
-                {pinned ? (
-                    <IconChevronLeft size={12} />
-                ) : (
-                    <IconChevronRight size={12} />
-                )}
-            </button>
+            <div className={styles.dataSectionHeaderCombo}>
+                <button
+                    type="button"
+                    className={styles.dataSectionHeader}
+                    disabled={items.length === 0}
+                    title={
+                        items.length === 0
+                            ? `${label} — no entries yet`
+                            : allSelected
+                              ? `Remove all ${items.length} ${label} chip${
+                                    items.length === 1 ? '' : 's'
+                                } from rows`
+                              : `Add all ${items.length} ${label} chip${
+                                    items.length === 1 ? '' : 's'
+                                } to rows`
+                    }
+                    aria-label={
+                        allSelected
+                            ? `Remove all ${label} chips from rows`
+                            : `Add all ${label} chips to rows`
+                    }
+                    aria-pressed={allSelected}
+                    onClick={handleToggleSection}
+                >
+                    <span>{label}</span>
+                    {items.length > 0 && (
+                        <span className={styles.dataSectionCount}>
+                            {activeCount}/{items.length}
+                        </span>
+                    )}
+                </button>
+                <button
+                    type="button"
+                    className={styles.dataSectionToggleBtn}
+                    title={pinned ? `Collapse ${label}` : `Expand ${label}`}
+                    aria-label={
+                        pinned ? `Collapse ${label}` : `Expand ${label}`
+                    }
+                    aria-expanded={expanded}
+                    onClick={() => setPinned((prev) => !prev)}
+                >
+                    {pinned ? (
+                        <IconChevronLeft size={12} />
+                    ) : (
+                        <IconChevronRight size={12} />
+                    )}
+                </button>
+            </div>
 
             {items.length === 0 ? (
                 <span className={styles.categoryDataEmpty}>No entries</span>
@@ -226,6 +271,7 @@ function TimelineBottomDock({
     previewLimit = DEFAULT_PREVIEW_LIMIT,
     selectedItems,
     onToggleItem,
+    onToggleSectionItems,
 }: Props) {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const dataScrollRef = useRef<HTMLDivElement>(null);
@@ -424,10 +470,18 @@ function TimelineBottomDock({
         const added = ids.filter((id) => !previous.includes(id));
         if (added.length === 0) return;
 
+        const tray = trayRef.current;
         const target = trayChipRefs.current.get(added[added.length - 1]);
-        target?.scrollIntoView({
-            block: 'nearest',
-            inline: 'center',
+        if (!tray || !target) return;
+
+        const trayRect = tray.getBoundingClientRect();
+        const chipRect = target.getBoundingClientRect();
+        const delta =
+            chipRect.left -
+            trayRect.left -
+            (tray.clientWidth - chipRect.width) / 2;
+        tray.scrollTo({
+            left: Math.max(0, tray.scrollLeft + delta),
             behavior: 'smooth',
         });
     }, [traySignature]);
@@ -745,6 +799,7 @@ function TimelineBottomDock({
                                     limit={sectionLimit}
                                     selectedItems={selectedItems}
                                     onToggleItem={onToggleItem}
+                                    onToggleSectionItems={onToggleSectionItems}
                                     selectable={checkedKeys.includes(
                                         section.key
                                     )}

@@ -3387,6 +3387,12 @@ function App() {
                     onOpenEntity={(id, type) => {
                         handleOpenCompendiumEntry(id, type);
                     }}
+                    onOpenChapter={(chapterId) => {
+                        const chapter = chapters.find(
+                            (c) => c.id === chapterId
+                        );
+                        if (chapter) void openChapterTab(chapter);
+                    }}
                     manuscriptData={{
                         chapters: chapters,
                         plotThreads: plotThreads,
