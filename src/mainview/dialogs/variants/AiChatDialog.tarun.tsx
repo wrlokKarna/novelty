@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import DottedSpinner from '@/mainview/components/DottedSpinner';
 import type { chatSeqType } from './AiChatDialog.common';
 import styles from './AiChatDialog.tarun.module.css';
 
@@ -54,6 +55,37 @@ export default function AiChatDialogTarun({
         <div
             className={`${styles.tarun} ${activeView === 'tarun' ? styles.active : ''}`}
         >
+            {'asdads'}
+            <DottedSpinner
+                size={72}
+                dotSize={8}
+                spinSpeed={2}
+                radialSpeed={1.2}
+                minRadiusFactor={0}
+                maxRadiusFactor={0.75}
+                color="#06b6d4"
+                glowIntensity="md"
+            />
+            <DottedSpinner
+                size={80}
+                dotSize={8}
+                spinSpeed={1.5}
+                radialSpeed={1.2}
+                minRadiusFactor={0.4}
+                maxRadiusFactor={0.75}
+                color="#06b6d4"
+                glowIntensity="md"
+            />
+            <DottedSpinner
+                size={80}
+                dotSize={8}
+                spinSpeed={4}
+                radialSpeed={1.2}
+                minRadiusFactor={0.4}
+                maxRadiusFactor={0.75}
+                color="#06b6d4"
+                glowIntensity="md"
+            />
             <div>
                 <div
                     className={`${styles.tarun} ${activeView === 'tarun' ? styles.active : ''}`}
