@@ -1,8 +1,3 @@
-.tarun {
-    &:not(.active) {
-        display: none;
-    }
-}
 :root {
     --theme-bg: #111215;
     --theme-card-bg: #18191d;
@@ -23,7 +18,6 @@
 }
 
 .thinkingheader {
-    font-size: 0.85rem;
     font-size: 1rem;
     font-weight: 400;
     display: inline-flex;
@@ -67,29 +61,22 @@
 .seqwrapper {
     margin-bottom: 12px;
 }
-.seqwrapper:hover .seqbodyCollapsed {
-    max-height: 500px;
-    opacity: 1;
-    visibility: visible;
-    transition:
-        max-height 0.3s ease,
-        opacity 0.2s ease;
-}
 
 .seqbody {
     display: grid;
     grid-template-rows: 1fr;
-    transition:
-        grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-        opacity 0.2s ease,
-        margin-top 0.3s ease;
+    max-height: 500px;
     opacity: 1;
+    overflow: hidden;
     margin-top: 8px;
+    transition:
+        max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.2s ease-in-out,
+        margin-top 0.3s ease;
 }
 
 .seqbodyCollapsed {
-    display: none;
-    grid-template-rows: 0fr;
+    max-height: 0;
     opacity: 0;
     margin-top: 0;
     pointer-events: none;
@@ -152,7 +139,7 @@
         transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
         opacity 0.2s ease;
     margin-top: -2px;
-    opacity: 0;
+    opacity: var(--after-opacity, 0);
 }
 
 .seqheader.collapsed h5::after {
@@ -163,7 +150,9 @@
 .seqheader:hover h5::after {
     opacity: 1;
 }
-.completionBadge {
+
+button.completionBadge {
+    width: max-content;
     background: none;
     border: none;
     cursor: pointer;
@@ -171,15 +160,19 @@
     align-items: center;
     gap: 6px;
     font-size: 0.8rem;
-    color: var(--theme-text-muted, #888);
+    color: var(--theme-text-muted);
     margin-bottom: 8px;
     padding: 2px 0;
     font-weight: 400;
     letter-spacing: -0.01em;
+
+    &:hover {
+        background-color: none;
+    }
 }
 
 .completionBadge:hover {
-    color: var(--theme-text-step, #333);
+    color: var(--theme-text-step);
 }
 
 .badgeArrow {
@@ -224,7 +217,7 @@
     padding: 2px 8px;
     border-radius: 6px;
     font-size: 0.78rem;
-    color: var(--theme-text-muted, #aaa);
+    color: var(--theme-text-muted);
     border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
@@ -235,21 +228,19 @@
     max-width: 320px;
 }
 
-.seqbody {
-    max-height: 500px;
-    opacity: 1;
-    overflow: hidden;
-    transition:
-        max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-        opacity 0.2s ease-in-out;
-}
+.toolTabRow {
+    .tabBtn {
+        color: #ffffff;
+        background: #222;
+        border-radius: 20px;
+        cursor: pointer;
+        padding: 6px 15px;
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        border-color: #393e4c;
+        border-color: #393e4c;
 
-.seqbodyCollapsed {
-    max-height: 0;
-    opacity: 0;
-}
-
-.seqwrapper:hover .seqbodyCollapsed {
-    max-height: 500px;
-    opacity: 1;
+        &.activeTab {
+            background-color: rgba(59, 130, 246, 0.12);
+        }
+    }
 }

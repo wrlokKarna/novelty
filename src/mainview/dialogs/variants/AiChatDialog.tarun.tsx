@@ -66,6 +66,7 @@ function SimulatedProcessing({
             }
         } catch (e) {
             setSteps([{ percentage: 100, delay: 1 }]);
+            console.error('err', e);
         }
     }, [content, stepIndex]);
 
@@ -174,13 +175,13 @@ export default function AiChatDialogTarun({
     chatSeq: chatSeqType;
 }) {
     const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
-    const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     const [visibleCount, setVisibleCount] = useState(1);
     const [startTime, setStartTime] = useState<number | null>(() =>
         chatSeq?.length ? Date.now() : null
     );
     const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
     const [allStepsExpanded, setAllStepsExpanded] = useState<boolean>(false);
+    const [toolsExpanded, setToolsExpanded] = useState<boolean>(false);
 
     const prevChatSeqLengthRef = useRef(chatSeq?.length);
 
@@ -194,6 +195,7 @@ export default function AiChatDialogTarun({
             setStartTime(Date.now());
             setElapsedSeconds(0);
             setAllStepsExpanded(false);
+            setToolsExpanded(false);
         } else if (!startTime && currentLength > 0) {
             setStartTime(Date.now());
         }
@@ -239,6 +241,10 @@ export default function AiChatDialogTarun({
         setAllStepsExpanded((prev) => !prev);
     };
 
+    const toggleToolsExpanded = () => {
+        setToolsExpanded((prev) => !prev);
+    };
+
     const handleProcessingComplete = useCallback(() => {
         if (chatSeq && visibleCount < chatSeq.length) {
             setVisibleCount((prev) => prev + 1);
@@ -252,10 +258,9 @@ export default function AiChatDialogTarun({
             chatSeq &&
             visibleCount < chatSeq.length
         ) {
-            const timeoutMs = (currentStep.timeOut ?? 1) * 1000;
             const timer = setTimeout(() => {
                 setVisibleCount((prev) => prev + 1);
-            }, timeoutMs);
+            }, 600);
 
             return () => clearTimeout(timer);
         }
@@ -289,6 +294,11 @@ export default function AiChatDialogTarun({
         }
     };
 
+    const totalToolCount =
+        chatSeq?.filter((s) => s.type === 'tool').length ?? 0;
+    const readFilesCount =
+        chatSeq?.filter((s) => s.type === 'tool' && s.action === 'read')
+            .length ?? 0;
     const showHeader = visibleCount > 1 && !isAllComplete;
 
     if (!chatSeq || chatSeq.length === 0) {
@@ -305,16 +315,40 @@ export default function AiChatDialogTarun({
                 >
                     {/* Top Completion Badge Button */}
                     {isAllComplete && (
-                        <button
-                            type="button"
-                            className={styles.completionBadge}
-                            onClick={toggleAllSteps}
+                        <div
+                            style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                            }}
                         >
-                            Worked for {elapsedSeconds}s
-                            <span
-                                className={`${styles.badgeArrow} ${allStepsExpanded ? styles.expanded : ''}`}
-                            />
-                        </button>
+                            <button
+                                type="button"
+                                className={styles.completionBadge}
+                                onClick={toggleAllSteps}
+                            >
+                                Worked for {elapsedSeconds}s
+                                <span
+                                    className={`${styles.badgeArrow} ${allStepsExpanded ? styles.expanded : ''}`}
+                                />
+                            </button>
+
+                            {/* Secondary Tool Call Summary Button */}
+                            {allStepsExpanded && totalToolCount > 0 && (
+                                <button
+                                    type="button"
+                                    className={styles.completionBadge}
+                                    onClick={toggleToolsExpanded}
+                                >
+                                    Called {totalToolCount} tools
+                                    {readFilesCount > 0
+                                        ? `, read ${readFilesCount} file${readFilesCount > 1 ? 's' : ''}`
+                                        : ''}
+                                    <span
+                                        className={`${styles.badgeArrow} ${toolsExpanded ? styles.expanded : ''}`}
+                                    />
+                                </button>
+                            )}
+                        </div>
                     )}
 
                     {/* Thinking Header for live active states */}
@@ -329,7 +363,8 @@ export default function AiChatDialogTarun({
                     {/* Collapsible Container for internal steps */}
                     <div
                         className={
-                            !isAllComplete || allStepsExpanded
+                            !isAllComplete ||
+                            (allStepsExpanded && toolsExpanded)
                                 ? styles.stepsExpandedContainer
                                 : styles.stepsCollapsedContainer
                         }
@@ -352,22 +387,24 @@ export default function AiChatDialogTarun({
                                 : !isCurrentActive;
 
                             const isCollapsed =
-                                hoveredIndex === index
-                                    ? false
-                                    : (collapsed[index] ?? defaultCollapsed);
+                                collapsed[index] ?? defaultCollapsed;
 
                             return (
-                                <div
-                                    key={index}
-                                    className={styles.seqwrapper}
-                                    onMouseEnter={() => setHoveredIndex(index)}
-                                    onMouseLeave={() => setHoveredIndex(null)}
-                                >
+                                <div key={index} className={styles.seqwrapper}>
                                     <div
                                         className={`${styles.seqheader} ${isCollapsed ? styles.collapsed : ''}`}
                                         onClick={() => toggleStep(index)}
                                     >
-                                        <h5>
+                                        <h5
+                                            style={
+                                                !isCollapsed
+                                                    ? ({
+                                                          '--after-opacity':
+                                                              '1',
+                                                      } as React.CSSProperties)
+                                                    : undefined
+                                            }
+                                        >
                                             {s.type === 'tool' ? (
                                                 <span
                                                     className={
