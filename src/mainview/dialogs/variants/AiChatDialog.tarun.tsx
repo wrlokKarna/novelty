@@ -9,15 +9,64 @@ import DottedSpinner from '@/mainview/components/DottedSpinner';
 import type { chatSeqType } from './AiChatDialog.common';
 import styles from './AiChatDialog.tarun.module.css';
 
-function WordByWordText({ text }: { text: string }) {
+export type TokenSpeedMode =
+    'very_slow' | 'slow' | 'standard' | 'fast' | 'very_fast';
+
+const SPEED_CONFIG: Record<
+    TokenSpeedMode,
+    { label: string; multiplier: number }
+> = {
+    very_slow: { label: '🐢 Very Slow (3-10 tps)', multiplier: 18.0 },
+    slow: { label: '🚶 Slow (~15 tps)', multiplier: 6.0 },
+    standard: { label: '⚡ Standard (~40 tps)', multiplier: 1.0 },
+    fast: { label: '🚀 Fast (70-80 tps)', multiplier: 0.45 },
+    very_fast: { label: '⚡⚡ Very Fast (120+ tps)', multiplier: 0.15 },
+};
+
+function getTextAnimationTiming(text: string, speedMode: TokenSpeedMode) {
     const words = text ? text.split(/(\s+)/) : [];
+    const multiplier = SPEED_CONFIG[speedMode].multiplier;
+    const baseDelay = 250 / Math.max(words.length, 1);
+    const wordDelay = Math.max(0.5, baseDelay * multiplier);
+    const animationDuration = Math.max(80, Math.min(300, wordDelay * 6));
+    const totalDuration =
+        words.length > 0
+            ? (words.length - 1) * wordDelay + animationDuration
+            : 0;
+
+    return { words, wordDelay, animationDuration, totalDuration };
+}
+
+function WordByWordText({
+    text,
+    animate,
+    speedMode = 'standard',
+}: {
+    text: string;
+    animate: boolean;
+    speedMode?: TokenSpeedMode;
+}) {
+    const { words, wordDelay, animationDuration } = getTextAnimationTiming(
+        text,
+        speedMode
+    );
+
+    if (!animate) {
+        return <span>{text}</span>;
+    }
+
     return (
-        <span>
+        <span key={speedMode}>
             {words.map((word, i) => (
                 <span
                     key={i}
                     className={styles.word}
-                    style={{ animationDelay: `${i * 35}ms` }}
+                    style={
+                        {
+                            animationDelay: `${i * wordDelay}ms`,
+                            '--word-duration': `${animationDuration}ms`,
+                        } as React.CSSProperties
+                    }
                 >
                     {word}
                 </span>
@@ -47,8 +96,8 @@ function SimulatedProcessing({
     const [steps, setSteps] = useState<{ percentage: number; delay: number }[]>(
         []
     );
-
     const onCompleteRef = useRef(onComplete);
+
     useEffect(() => {
         onCompleteRef.current = onComplete;
     }, [onComplete]);
@@ -72,7 +121,6 @@ function SimulatedProcessing({
 
     useEffect(() => {
         if (steps.length === 0) return;
-
         const currentStep = steps[currentIndex];
         const stepDelay = (currentStep?.delay ?? 1) * 1000;
 
@@ -87,7 +135,6 @@ function SimulatedProcessing({
         const timer = setTimeout(() => {
             setCurrentIndex((prev) => prev + 1);
         }, stepDelay);
-
         return () => clearTimeout(timer);
     }, [steps, currentIndex, stepIndex]);
 
@@ -135,6 +182,7 @@ function ToolPayloadViewer({
             >
                 {request && (
                     <button
+                        type="button"
                         className={`${styles.tabBtn} ${activeTab === 'request' ? styles.activeTab : ''}`}
                         onClick={() => setActiveTab('request')}
                     >
@@ -143,6 +191,7 @@ function ToolPayloadViewer({
                 )}
                 {response && (
                     <button
+                        type="button"
                         className={`${styles.tabBtn} ${activeTab === 'response' ? styles.activeTab : ''}`}
                         onClick={() => setActiveTab('response')}
                     >
@@ -150,7 +199,6 @@ function ToolPayloadViewer({
                     </button>
                 )}
             </div>
-
             <div className={styles.tabBody}>
                 {activeTab === 'request' && (
                     <pre style={{ margin: 0, overflowX: 'auto' }}>
@@ -175,37 +223,57 @@ export default function AiChatDialogTarun({
     chatSeq: chatSeqType;
 }) {
     const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
-    const [visibleCount, setVisibleCount] = useState(1);
-    const [startTime, setStartTime] = useState<number | null>(() =>
-        chatSeq?.length ? Date.now() : null
+    const [userToggled, setUserToggled] = useState<Record<number, boolean>>({});
+    const [animatedSteps, setAnimatedSteps] = useState<Record<number, boolean>>(
+        {}
     );
+    const [visibleCount, setVisibleCount] = useState(1);
+
+    // Initialize start time securely on mount or when sequence starts
+    const [startTime, setStartTime] = useState<number>(() => Date.now());
     const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
     const [allStepsExpanded, setAllStepsExpanded] = useState<boolean>(false);
     const [toolsExpanded, setToolsExpanded] = useState<boolean>(false);
+    const [tokenSpeed, setTokenSpeed] = useState<TokenSpeedMode>('standard');
+
+    const runIdRef = useRef<number>(0);
+    const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
+    const intervalsRef = useRef<NodeJS.Timeout[]>([]);
+
+    const clearTimers = () => {
+        timeoutsRef.current.forEach(clearTimeout);
+        intervalsRef.current.forEach(clearInterval);
+        timeoutsRef.current = [];
+        intervalsRef.current = [];
+    };
 
     const prevChatSeqLengthRef = useRef(chatSeq?.length);
 
     useEffect(() => {
+        runIdRef.current += 1;
+        clearTimers();
+
         const currentLength = chatSeq?.length ?? 0;
         const prevLength = prevChatSeqLengthRef.current ?? 0;
 
         if (currentLength <= 1 || currentLength < prevLength) {
             setVisibleCount(1);
             setCollapsed({});
+            setUserToggled({});
+            setAnimatedSteps({});
             setStartTime(Date.now());
             setElapsedSeconds(0);
             setAllStepsExpanded(false);
             setToolsExpanded(false);
-        } else if (!startTime && currentLength > 0) {
-            setStartTime(Date.now());
         }
         prevChatSeqLengthRef.current = currentLength;
-    }, [chatSeq, startTime]);
+
+        return () => clearTimers();
+    }, [chatSeq]);
 
     const activeSequence = chatSeq ? chatSeq.slice(0, visibleCount) : [];
     const currentStep = activeSequence[activeSequence.length - 1];
     const isProcessingActive = currentStep?.type === 'processing';
-
     const isAllComplete = Boolean(
         chatSeq &&
         chatSeq.length > 0 &&
@@ -214,26 +282,58 @@ export default function AiChatDialogTarun({
     );
 
     useEffect(() => {
-        if (!startTime || isAllComplete) return;
+        const activeIndex = visibleCount - 1;
+        const step = chatSeq?.[activeIndex];
+        if (
+            !step ||
+            step.type === 'processing' ||
+            step.type === 'tool' ||
+            animatedSteps[activeIndex]
+        ) {
+            return;
+        }
+
+        const { totalDuration } = getTextAnimationTiming(
+            step.content ?? '',
+            tokenSpeed
+        );
+        const currentRunId = runIdRef.current;
+
+        const markAnimatedTimer = setTimeout(() => {
+            if (currentRunId !== runIdRef.current) return;
+            setAnimatedSteps((prev) => ({ ...prev, [activeIndex]: true }));
+        }, totalDuration + 50);
+
+        timeoutsRef.current.push(markAnimatedTimer);
+        return () => clearTimeout(markAnimatedTimer);
+    }, [visibleCount, chatSeq, tokenSpeed, animatedSteps]);
+
+    // Live elapsed timer calculation
+    useEffect(() => {
+        if (isAllComplete) return;
+        const currentRunId = runIdRef.current;
 
         const timer = setInterval(() => {
+            if (currentRunId !== runIdRef.current) return;
             const currentElapsed = Math.floor((Date.now() - startTime) / 1000);
             setElapsedSeconds(currentElapsed);
         }, 1000);
 
+        intervalsRef.current.push(timer);
         return () => clearInterval(timer);
     }, [startTime, isAllComplete]);
 
     const toggleStep = (index: number) => {
+        setAnimatedSteps((prev) =>
+            prev[index] ? prev : { ...prev, [index]: true }
+        );
+        setUserToggled((prev) => ({ ...prev, [index]: true }));
+
         setCollapsed((prev) => {
             const isCurrentActive = index === activeSequence.length - 1;
             const defaultCollapsed = isAllComplete ? true : !isCurrentActive;
             const currentCollapsedState = prev[index] ?? defaultCollapsed;
-
-            return {
-                ...prev,
-                [index]: !currentCollapsedState,
-            };
+            return { ...prev, [index]: !currentCollapsedState };
         });
     };
 
@@ -258,13 +358,28 @@ export default function AiChatDialogTarun({
             chatSeq &&
             visibleCount < chatSeq.length
         ) {
-            const timer = setTimeout(() => {
-                setVisibleCount((prev) => prev + 1);
-            }, 600);
+            const currentRunId = runIdRef.current;
 
+            const stepWaitTime =
+                currentStep.type === 'tool'
+                    ? 600
+                    : Math.max(
+                          600,
+                          getTextAnimationTiming(
+                              currentStep.content ?? '',
+                              tokenSpeed
+                          ).totalDuration + 250
+                      );
+
+            const timer = setTimeout(() => {
+                if (currentRunId !== runIdRef.current) return;
+                setVisibleCount((prev) => prev + 1);
+            }, stepWaitTime);
+
+            timeoutsRef.current.push(timer);
             return () => clearTimeout(timer);
         }
-    }, [currentStep, isProcessingActive, visibleCount, chatSeq]);
+    }, [currentStep, isProcessingActive, visibleCount, chatSeq, tokenSpeed]);
 
     const getHeaderLabel = (type: string, isCompleted: boolean) => {
         if (type === 'reasoning') {
@@ -282,7 +397,6 @@ export default function AiChatDialogTarun({
             case 'fetch':
                 return 'Fetched';
             case 'edit':
-                return 'Edited';
             case 'modify':
                 return 'Edited';
             case 'update':
@@ -309,232 +423,240 @@ export default function AiChatDialogTarun({
         <div
             className={`${styles.tarun} ${activeView === 'tarun' ? styles.active : ''}`}
         >
+            <div className={styles.speedControllerBar}>
+                <span className={styles.speedLabel}>Speed:</span>
+                {(
+                    [
+                        'very_slow',
+                        'slow',
+                        'standard',
+                        'fast',
+                        'very_fast',
+                    ] as TokenSpeedMode[]
+                ).map((mode) => (
+                    <button
+                        key={mode}
+                        type="button"
+                        className={`${styles.speedBtn} ${tokenSpeed === mode ? styles.activeSpeedBtn : ''}`}
+                        onClick={() => setTokenSpeed(mode)}
+                        title={SPEED_CONFIG[mode].label}
+                    >
+                        {mode === 'very_slow' && 'Very Slow'}
+                        {mode === 'slow' && 'Slow'}
+                        {mode === 'standard' && 'Standard'}
+                        {mode === 'fast' && 'Fast'}
+                        {mode === 'very_fast' && 'Very Fast'}
+                    </button>
+                ))}
+            </div>
+
             <div>
-                <div
-                    className={`${styles.tarun} ${activeView === 'tarun' ? styles.active : ''}`}
-                >
-                    {/* Top Completion Badge Button */}
-                    {isAllComplete && (
-                        <div
-                            style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                            }}
+                {isAllComplete && (
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <button
+                            type="button"
+                            className={styles.completionBadge}
+                            onClick={toggleAllSteps}
                         >
+                            Worked for {elapsedSeconds}s{' '}
+                            <span
+                                className={`${styles.badgeArrow} ${allStepsExpanded ? styles.expanded : ''}`}
+                            />
+                        </button>
+                        {allStepsExpanded && totalToolCount > 0 && (
                             <button
                                 type="button"
                                 className={styles.completionBadge}
-                                onClick={toggleAllSteps}
+                                onClick={toggleToolsExpanded}
                             >
-                                Worked for {elapsedSeconds}s
+                                Called {totalToolCount} tools{' '}
+                                {readFilesCount > 0
+                                    ? `, read ${readFilesCount} file${readFilesCount > 1 ? 's' : ''}`
+                                    : ''}{' '}
                                 <span
-                                    className={`${styles.badgeArrow} ${allStepsExpanded ? styles.expanded : ''}`}
+                                    className={`${styles.badgeArrow} ${toolsExpanded ? styles.expanded : ''}`}
                                 />
                             </button>
+                        )}
+                    </div>
+                )}
 
-                            {/* Secondary Tool Call Summary Button */}
-                            {allStepsExpanded && totalToolCount > 0 && (
-                                <button
-                                    type="button"
-                                    className={styles.completionBadge}
-                                    onClick={toggleToolsExpanded}
-                                >
-                                    Called {totalToolCount} tools
-                                    {readFilesCount > 0
-                                        ? `, read ${readFilesCount} file${readFilesCount > 1 ? 's' : ''}`
-                                        : ''}
-                                    <span
-                                        className={`${styles.badgeArrow} ${toolsExpanded ? styles.expanded : ''}`}
-                                    />
-                                </button>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Thinking Header for live active states */}
-                    {showHeader && (
-                        <div
-                            className={`${styles.thinkingheader} ${styles.thinkingActive}`}
-                        >
-                            {getHeaderLabel(currentStep?.type || '', false)}
-                        </div>
-                    )}
-
-                    {/* Collapsible Container for internal steps */}
+                {showHeader && (
                     <div
-                        className={
-                            !isAllComplete ||
-                            (allStepsExpanded && toolsExpanded)
-                                ? styles.stepsExpandedContainer
-                                : styles.stepsCollapsedContainer
-                        }
+                        className={`${styles.thinkingheader} ${styles.thinkingActive}`}
                     >
-                        {activeSequence.map((s, index) => {
-                            if (
-                                s.type === 'processing' ||
-                                s.type === 'response'
-                            )
-                                return null;
+                        {getHeaderLabel(currentStep?.type || '', false)}
+                    </div>
+                )}
 
-                            const isCurrentActive =
-                                index === activeSequence.length - 1;
-                            const isStepCompleted =
-                                index < activeSequence.length - 1 ||
-                                isAllComplete;
+                <div
+                    className={
+                        !isAllComplete || (allStepsExpanded && toolsExpanded)
+                            ? styles.stepsExpandedContainer
+                            : styles.stepsCollapsedContainer
+                    }
+                >
+                    {activeSequence.map((s, index) => {
+                        if (s.type === 'processing' || s.type === 'response')
+                            return null;
+                        const isCurrentActive =
+                            index === activeSequence.length - 1;
+                        const isStepCompleted =
+                            index < activeSequence.length - 1 || isAllComplete;
 
-                            const defaultCollapsed = isAllComplete
-                                ? true
-                                : !isCurrentActive;
+                        const defaultCollapsed = isAllComplete
+                            ? true
+                            : !isCurrentActive;
 
-                            const isCollapsed =
-                                collapsed[index] ?? defaultCollapsed;
+                        // FIX: Honor user toggle state permanently once clicked, ignoring global collapse states
+                        const isCollapsed = userToggled[index]
+                            ? (collapsed[index] ?? false)
+                            : allStepsExpanded
+                              ? false
+                              : defaultCollapsed;
 
-                            return (
-                                <div key={index} className={styles.seqwrapper}>
-                                    <div
-                                        className={`${styles.seqheader} ${isCollapsed ? styles.collapsed : ''}`}
-                                        onClick={() => toggleStep(index)}
+                        const shouldAnimate =
+                            !isCollapsed && !animatedSteps[index];
+
+                        return (
+                            <div key={index} className={styles.seqwrapper}>
+                                <div
+                                    className={`${styles.seqheader} ${isCollapsed ? styles.collapsed : ''}`}
+                                    onClick={() => toggleStep(index)}
+                                >
+                                    <h5
+                                        style={
+                                            !isCollapsed
+                                                ? ({
+                                                      '--after-opacity': '1',
+                                                  } as React.CSSProperties)
+                                                : undefined
+                                        }
                                     >
-                                        <h5
-                                            style={
-                                                !isCollapsed
-                                                    ? ({
-                                                          '--after-opacity':
-                                                              '1',
-                                                      } as React.CSSProperties)
-                                                    : undefined
-                                            }
-                                        >
-                                            {s.type === 'tool' ? (
+                                        {s.type === 'tool' ? (
+                                            <span
+                                                className={
+                                                    styles.toolHeaderContent
+                                                }
+                                            >
+                                                {[
+                                                    'edit',
+                                                    'modify',
+                                                    'update',
+                                                ].includes(s.action ?? '') ? (
+                                                    <IconPencil size={15} />
+                                                ) : (
+                                                    <IconEye size={15} />
+                                                )}
                                                 <span
                                                     className={
-                                                        styles.toolHeaderContent
+                                                        styles.toolActionText
                                                     }
                                                 >
-                                                    {[
-                                                        'edit',
-                                                        'modify',
-                                                        'update',
-                                                    ].includes(
-                                                        s.action ?? ''
-                                                    ) ? (
-                                                        <IconPencil size={15} />
-                                                    ) : (
-                                                        <IconEye size={15} />
+                                                    {getToolActionLabel(
+                                                        s.action
                                                     )}
+                                                </span>
+                                                {s.path && (
                                                     <span
                                                         className={
-                                                            styles.toolActionText
+                                                            styles.pathPill
                                                         }
                                                     >
-                                                        {getToolActionLabel(
-                                                            s.action
-                                                        )}
-                                                    </span>
-                                                    {s.path && (
+                                                        <PathIcon
+                                                            isFolder={
+                                                                s.action ===
+                                                                'list'
+                                                            }
+                                                        />
                                                         <span
                                                             className={
-                                                                styles.pathPill
+                                                                styles.pathText
                                                             }
                                                         >
-                                                            <PathIcon
-                                                                isFolder={
-                                                                    s.action ===
-                                                                    'list'
-                                                                }
-                                                            />
-                                                            <span
-                                                                className={
-                                                                    styles.pathText
-                                                                }
-                                                            >
-                                                                {s.path}
-                                                            </span>
+                                                            {s.path}
                                                         </span>
-                                                    )}
-                                                </span>
-                                            ) : (
-                                                <span>
-                                                    {getHeaderLabel(
-                                                        s.type,
-                                                        isStepCompleted
-                                                    )}
-                                                </span>
-                                            )}
-                                        </h5>
-                                    </div>
-                                    <div
-                                        className={`${styles.seqbody} ${isCollapsed ? styles.seqbodyCollapsed : ''}`}
-                                    >
-                                        <div className={styles.seqbodyInner}>
-                                            {s.type === 'tool' ? (
-                                                <ToolPayloadViewer
-                                                    request={s.request}
-                                                    response={s.response}
-                                                />
-                                            ) : (
-                                                <WordByWordText
-                                                    text={s.content ?? ''}
-                                                />
-                                            )}
-                                        </div>
+                                                    </span>
+                                                )}
+                                            </span>
+                                        ) : (
+                                            <span>
+                                                {getHeaderLabel(
+                                                    s.type,
+                                                    isStepCompleted
+                                                )}
+                                            </span>
+                                        )}
+                                    </h5>
+                                </div>
+                                <div
+                                    className={`${styles.seqbody} ${isCollapsed ? styles.seqbodyCollapsed : ''}`}
+                                >
+                                    <div className={styles.seqbodyInner}>
+                                        {s.type === 'tool' ? (
+                                            <ToolPayloadViewer
+                                                request={s.request}
+                                                response={s.response}
+                                            />
+                                        ) : (
+                                            <WordByWordText
+                                                text={s.content ?? ''}
+                                                animate={shouldAnimate}
+                                                speedMode={tokenSpeed}
+                                            />
+                                        )}
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Response Container placed outside collapsible container */}
-                    {activeSequence.map((s, index) => {
-                        if (s.type !== 'response') return null;
-                        return (
-                            <div
-                                key={index}
-                                className={styles.responseContainer}
-                                style={{ marginTop: '16px' }}
-                            >
-                                <WordByWordText text={s.content ?? ''} />
                             </div>
                         );
                     })}
                 </div>
 
-                <div
-                    className={`${styles.tarun} ${activeView === 'chakri' ? styles.active : ''}`}
-                />
-
-                {!isAllComplete && (
-                    <div style={{ marginTop: '16px' }}>
-                        {isProcessingActive ? (
-                            <SimulatedProcessing
-                                content={currentStep.content ?? ''}
-                                key={`process-${visibleCount}`}
-                                stepIndex={visibleCount}
-                                onComplete={handleProcessingComplete}
+                {activeSequence.map((s, index) => {
+                    if (s.type !== 'response') return null;
+                    return (
+                        <div key={index} className={styles.responseContainer}>
+                            <WordByWordText
+                                text={s.content ?? ''}
+                                animate={!animatedSteps[index]}
+                                speedMode={tokenSpeed}
                             />
-                        ) : (
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    padding: '8px 0',
-                                }}
-                            >
-                                <DottedSpinner
-                                    size={38}
-                                    dotSize={5}
-                                    spinSpeed={4}
-                                    radialSpeed={1.2}
-                                    minRadiusFactor={0.4}
-                                    maxRadiusFactor={0.75}
-                                    glowIntensity="md"
-                                />
-                            </div>
-                        )}
-                    </div>
-                )}
+                        </div>
+                    );
+                })}
             </div>
+
+            {!isAllComplete && (
+                <div style={{ marginTop: '16px' }}>
+                    {isProcessingActive ? (
+                        <SimulatedProcessing
+                            content={currentStep.content ?? ''}
+                            key={`process-${visibleCount}`}
+                            stepIndex={visibleCount}
+                            onComplete={handleProcessingComplete}
+                        />
+                    ) : (
+                        <div
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '8px 0',
+                            }}
+                        >
+                            <DottedSpinner
+                                size={38}
+                                dotSize={5}
+                                spinSpeed={4}
+                                radialSpeed={1.2}
+                                minRadiusFactor={0.4}
+                                maxRadiusFactor={0.75}
+                                glowIntensity="md"
+                            />
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

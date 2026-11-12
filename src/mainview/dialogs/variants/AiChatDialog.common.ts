@@ -19,7 +19,7 @@ export const MOCK_CHAT_DATA: chatSeqType = [
     {
         type: 'processing',
         content:
-            '[{percentage: 10, delay: 1}, {percentage: 50, delay: 1}, {percentage: 100, delay: 1}]',
+            '[{"percentage": 10, "delay": 1}, {"percentage": 50, "delay": 1}, {"percentage": 100, "delay": 1}]',
     },
     {
         type: 'reasoning',
@@ -29,7 +29,7 @@ export const MOCK_CHAT_DATA: chatSeqType = [
     {
         type: 'processing',
         content:
-            '[{percentage: 20, delay: 1}, {percentage: 60, delay: 1}, {percentage: 100, delay: 1}]',
+            '[{"percentage": 20, "delay": 1}, {"percentage": 60, "delay": 1}, {"percentage": 100, "delay": 1}]',
     },
     {
         type: 'tool',
@@ -41,7 +41,7 @@ export const MOCK_CHAT_DATA: chatSeqType = [
     {
         type: 'processing',
         content:
-            '[{percentage: 30, delay: 1}, {percentage: 85, delay: 1}, {percentage: 100, delay: 1}]',
+            '[{"percentage": 30, "delay": 1}, {"percentage": 85, "delay": 1}, {"percentage": 100, "delay": 1}]',
     },
     {
         type: 'reasoning',
@@ -51,7 +51,7 @@ export const MOCK_CHAT_DATA: chatSeqType = [
     {
         type: 'processing',
         content:
-            '[{percentage: 40, delay: 1}, {percentage: 90, delay: 1}, {percentage: 100, delay: 1}]',
+            '[{"percentage": 40, "delay": 1}, {"percentage": 90, "delay": 1}, {"percentage": 100, "delay": 1}]',
     },
     {
         type: 'tool',
@@ -63,7 +63,7 @@ export const MOCK_CHAT_DATA: chatSeqType = [
     {
         type: 'processing',
         content:
-            '[{percentage: 50, delay: 1}, {percentage: 95, delay: 1}, {percentage: 100, delay: 1}]',
+            '[{"percentage": 50, "delay": 1}, {"percentage": 95, "delay": 1}, {"percentage": 100, "delay": 1}]',
     },
     {
         type: 'reasoning',
@@ -73,7 +73,7 @@ export const MOCK_CHAT_DATA: chatSeqType = [
     {
         type: 'processing',
         content:
-            '[{percentage: 60, delay: 1}, {percentage: 90, delay: 1}, {percentage: 100, delay: 1}]',
+            '[{"percentage": 60, "delay": 1}, {"percentage": 90, "delay": 1}, {"percentage": 100, "delay": 1}]',
     },
     {
         type: 'tool',
@@ -84,7 +84,8 @@ export const MOCK_CHAT_DATA: chatSeqType = [
     },
     {
         type: 'processing',
-        content: '[{percentage: 70, delay: 1}, {percentage: 100, delay: 1}]',
+        content:
+            '[{"percentage": 70, "delay": 1}, {"percentage": 100, "delay": 1}]',
     },
     {
         type: 'reasoning',
@@ -93,7 +94,8 @@ export const MOCK_CHAT_DATA: chatSeqType = [
     },
     {
         type: 'processing',
-        content: '[{percentage: 80, delay: 1}, {percentage: 100, delay: 1}]',
+        content:
+            '[{"percentage": 80, "delay": 1}, {"percentage": 100, "delay": 1}]',
     },
     {
         type: 'tool',
@@ -104,7 +106,8 @@ export const MOCK_CHAT_DATA: chatSeqType = [
     },
     {
         type: 'processing',
-        content: '[{percentage: 90, delay: 1}, {percentage: 100, delay: 1}]',
+        content:
+            '[{"percentage": 90, "delay": 1}, {"percentage": 100, "delay": 1}]',
     },
     {
         type: 'reasoning',

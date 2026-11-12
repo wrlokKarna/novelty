@@ -98,7 +98,9 @@
     white-space: pre-wrap;
     opacity: 0;
     transform: translateY(3px);
-    animation: fadeWordIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    /* Updated to use --word-duration with a fallback of 0.3s */
+    animation: fadeWordIn var(--word-duration, 0.3s)
+        cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes fadeWordIn {
@@ -243,4 +245,59 @@ button.completionBadge {
             background-color: rgba(59, 130, 246, 0.12);
         }
     }
+}
+
+.speedControllerBar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 14px;
+    font-size: 0.78rem;
+    flex-wrap: wrap;
+}
+
+.speedLabel {
+    color: var(--theme-text-muted);
+    margin-right: 2px;
+    font-weight: 500;
+}
+
+.speedBtn {
+    background: var(--theme-card-bg);
+    border: 1px solid var(--theme-border);
+    color: var(--theme-text-step);
+    padding: 3px 9px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.speedBtn:hover {
+    border-color: var(--theme-text-step);
+    color: var(--theme-text-primary);
+    color: #ffffff;
+    background: #20222a;
+    border-color: #393e4c;
+}
+
+.activeSpeedBtn {
+    background-color: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.4);
+    color: var(--theme-text-primary);
+    font-weight: 500;
+
+    &:hover {
+        background-color: rgba(59, 130, 246, 0.15);
+        border-color: rgba(59, 130, 246, 0.4);
+        color: var(--theme-text-primary);
+    }
+}
+
+.responseContainer {
+    padding: 12px;
+    border-radius: 8px;
+    background-color: var(--theme-card-bg);
+    color: var(--theme-text-body);
 }
