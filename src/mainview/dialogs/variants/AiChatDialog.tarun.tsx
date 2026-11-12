@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import DottedSpinner from '@/mainview/components/DottedSpinner';
 import type { chatSeqType } from './AiChatDialog.common';
 import styles from './AiChatDialog.tarun.module.css';
@@ -20,6 +20,206 @@ function WordByWordText({ text }: { text: string }) {
     );
 }
 
+function ReadIcon() {
+    return (
+        <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+    );
+}
+
+function PencilIcon() {
+    return (
+        <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+        </svg>
+    );
+}
+
+function PathIcon({ isFolder }: { isFolder?: boolean }) {
+    return isFolder ? (
+        <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ opacity: 0.7 }}
+        >
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+        </svg>
+    ) : (
+        <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ opacity: 0.7 }}
+        >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+        </svg>
+    );
+}
+
+function SimulatedProcessing({
+    content,
+    onComplete,
+    stepIndex,
+}: {
+    content: string;
+    onComplete: () => void;
+    stepIndex: number;
+}) {
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [steps, setSteps] = useState<{ percentage: number; delay: number }[]>(
+        []
+    );
+
+    const onCompleteRef = useRef(onComplete);
+    useEffect(() => {
+        onCompleteRef.current = onComplete;
+    }, [onComplete]);
+
+    useEffect(() => {
+        try {
+            const sanitized = content.replace(
+                /([{,]\s*)([a-zA-Z0-9_]+)(\s*:\s*)/g,
+                '$1"$2"$3'
+            );
+            const parsed = JSON.parse(sanitized);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                setSteps(parsed);
+                setCurrentIndex(0);
+            }
+        } catch (e) {
+            setSteps([{ percentage: 100, delay: 1 }]);
+        }
+    }, [content, stepIndex]);
+
+    useEffect(() => {
+        if (steps.length === 0) return;
+
+        const currentStep = steps[currentIndex];
+        const stepDelay = (currentStep?.delay ?? 1) * 1000;
+
+        if (currentIndex >= steps.length - 1) {
+            const lingerTime = Math.max(stepDelay, 800);
+            const completeTimer = setTimeout(() => {
+                onCompleteRef.current();
+            }, lingerTime);
+            return () => clearTimeout(completeTimer);
+        }
+
+        const timer = setTimeout(() => {
+            setCurrentIndex((prev) => prev + 1);
+        }, stepDelay);
+
+        return () => clearTimeout(timer);
+    }, [steps, currentIndex, stepIndex]);
+
+    const currentPercentage = steps[currentIndex]?.percentage ?? 10;
+
+    return (
+        <div
+            style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 0',
+            }}
+        >
+            <DottedSpinner
+                size={38}
+                dotSize={5}
+                spinSpeed={4}
+                radialSpeed={1.2}
+                minRadiusFactor={0.4}
+                maxRadiusFactor={0.75}
+                glowIntensity="md"
+            />
+            <span>Processing prompt {currentPercentage}%</span>
+        </div>
+    );
+}
+
+function ToolPayloadViewer({
+    request,
+    response,
+}: {
+    request?: string;
+    response?: string;
+}) {
+    const [activeTab, setActiveTab] = useState<'request' | 'response'>(
+        request ? 'request' : 'response'
+    );
+
+    return (
+        <div className={styles.toolPayloadContainer}>
+            <div
+                className={styles.toolTabRow}
+                style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}
+            >
+                {request && (
+                    <button
+                        className={`${styles.tabBtn} ${activeTab === 'request' ? styles.activeTab : ''}`}
+                        onClick={() => setActiveTab('request')}
+                    >
+                        Request
+                    </button>
+                )}
+                {response && (
+                    <button
+                        className={`${styles.tabBtn} ${activeTab === 'response' ? styles.activeTab : ''}`}
+                        onClick={() => setActiveTab('response')}
+                    >
+                        Response
+                    </button>
+                )}
+            </div>
+
+            <div className={styles.tabBody}>
+                {activeTab === 'request' && (
+                    <pre style={{ margin: 0, overflowX: 'auto' }}>
+                        {request}
+                    </pre>
+                )}
+                {activeTab === 'response' && (
+                    <pre style={{ margin: 0, overflowX: 'auto' }}>
+                        {response}
+                    </pre>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function AiChatDialogTarun({
     activeView,
     chatSeq,
@@ -28,115 +228,321 @@ export default function AiChatDialogTarun({
     chatSeq: chatSeqType;
 }) {
     const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
-    const [isThinking, setIsThinking] = useState(true);
+    const [visibleCount, setVisibleCount] = useState(1);
+    const [startTime, setStartTime] = useState<number | null>(() =>
+        chatSeq?.length ? Date.now() : null
+    );
+    const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+    const [allStepsExpanded, setAllStepsExpanded] = useState<boolean>(false);
+
+    const prevChatSeqLengthRef = useRef(chatSeq?.length);
 
     useEffect(() => {
-        setIsThinking(true);
+        const currentLength = chatSeq?.length ?? 0;
+        const prevLength = prevChatSeqLengthRef.current ?? 0;
 
-        const totalWords = chatSeq.reduce((acc, step) => {
-            const count = step.content ? step.content.split(/(\s+)/).length : 0;
-            return acc + count;
-        }, 0);
+        if (currentLength <= 1 || currentLength < prevLength) {
+            setVisibleCount(1);
+            setCollapsed({});
+            setStartTime(Date.now());
+            setElapsedSeconds(0);
+            setAllStepsExpanded(false);
+        } else if (!startTime && currentLength > 0) {
+            setStartTime(Date.now());
+        }
+        prevChatSeqLengthRef.current = currentLength;
+    }, [chatSeq, startTime]);
 
-        const totalDuration = totalWords * 35 + 300;
+    const activeSequence = chatSeq ? chatSeq.slice(0, visibleCount) : [];
+    const currentStep = activeSequence[activeSequence.length - 1];
+    const isProcessingActive = currentStep?.type === 'processing';
 
-        const timer = setTimeout(() => {
-            setIsThinking(false);
-        }, totalDuration);
+    const isAllComplete = Boolean(
+        chatSeq &&
+        chatSeq.length > 0 &&
+        visibleCount >= chatSeq.length &&
+        !isProcessingActive
+    );
 
-        return () => clearTimeout(timer);
-    }, [chatSeq]);
+    useEffect(() => {
+        if (!startTime || isAllComplete) return;
+
+        const timer = setInterval(() => {
+            const currentElapsed = Math.floor((Date.now() - startTime) / 1000);
+            setElapsedSeconds(currentElapsed);
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [startTime, isAllComplete]);
 
     const toggleStep = (index: number) => {
-        setCollapsed((prev) => ({ ...prev, [index]: !prev[index] }));
+        setCollapsed((prev) => {
+            const isCurrentActive = index === activeSequence.length - 1;
+            const defaultCollapsed = isAllComplete ? true : !isCurrentActive;
+            const currentCollapsedState = prev[index] ?? defaultCollapsed;
+
+            return {
+                ...prev,
+                [index]: !currentCollapsedState,
+            };
+        });
     };
+
+    const toggleAllSteps = () => {
+        setAllStepsExpanded((prev) => !prev);
+    };
+
+    const handleProcessingComplete = useCallback(() => {
+        if (chatSeq && visibleCount < chatSeq.length) {
+            setVisibleCount((prev) => prev + 1);
+        }
+    }, [visibleCount, chatSeq]);
+
+    useEffect(() => {
+        if (
+            !isProcessingActive &&
+            currentStep &&
+            chatSeq &&
+            visibleCount < chatSeq.length
+        ) {
+            const timeoutMs = (currentStep.timeOut ?? 1) * 1000;
+            const timer = setTimeout(() => {
+                setVisibleCount((prev) => prev + 1);
+            }, timeoutMs);
+
+            return () => clearTimeout(timer);
+        }
+    }, [currentStep, isProcessingActive, visibleCount, chatSeq]);
+
+    const getHeaderLabel = (type: string, isCompleted: boolean) => {
+        if (type === 'reasoning') {
+            return isCompleted ? 'Reasoned' : 'Reasoning';
+        }
+        return type ? type.charAt(0).toUpperCase() + type.slice(1) : '';
+    };
+
+    const getToolActionLabel = (action?: string) => {
+        switch (action) {
+            case 'list':
+                return 'Listed';
+            case 'read':
+                return 'Read';
+            case 'fetch':
+                return 'Fetched';
+            case 'edit':
+                return 'Edited';
+            case 'modify':
+                return 'Edited';
+            case 'update':
+                return 'Updated';
+            default:
+                return action
+                    ? action.charAt(0).toUpperCase() + action.slice(1)
+                    : 'Action';
+        }
+    };
+
+    const showHeader = visibleCount > 1 && !isAllComplete;
+
+    if (!chatSeq || chatSeq.length === 0) {
+        return null;
+    }
 
     return (
         <div
             className={`${styles.tarun} ${activeView === 'tarun' ? styles.active : ''}`}
         >
-            {'asdads'}
-            <DottedSpinner
-                size={72}
-                dotSize={8}
-                spinSpeed={2}
-                radialSpeed={1.2}
-                minRadiusFactor={0}
-                maxRadiusFactor={0.75}
-                color="#06b6d4"
-                glowIntensity="md"
-            />
-            <DottedSpinner
-                size={80}
-                dotSize={8}
-                spinSpeed={1.5}
-                radialSpeed={1.2}
-                minRadiusFactor={0.4}
-                maxRadiusFactor={0.75}
-                color="#06b6d4"
-                glowIntensity="md"
-            />
-            <DottedSpinner
-                size={80}
-                dotSize={8}
-                spinSpeed={4}
-                radialSpeed={1.2}
-                minRadiusFactor={0.4}
-                maxRadiusFactor={0.75}
-                color="#06b6d4"
-                glowIntensity="md"
-            />
             <div>
                 <div
                     className={`${styles.tarun} ${activeView === 'tarun' ? styles.active : ''}`}
                 >
-                    {chatSeq.length > 0 && (
-                        <div>
-                            <div
-                                className={`${styles.thinkingheader} ${
-                                    isThinking
-                                        ? styles.thinkingActive
-                                        : styles.thinkingDone
-                                }`}
-                            >
-                                {chatSeq[chatSeq.length - 1]?.type}
-                            </div>
+                    {/* Top Completion Badge Button */}
+                    {isAllComplete && (
+                        <button
+                            type="button"
+                            className={styles.completionBadge}
+                            onClick={toggleAllSteps}
+                        >
+                            Worked for {elapsedSeconds}s
+                            <span
+                                className={`${styles.badgeArrow} ${allStepsExpanded ? styles.expanded : ''}`}
+                            />
+                        </button>
+                    )}
+
+                    {/* Thinking Header for live active states */}
+                    {showHeader && (
+                        <div
+                            className={`${styles.thinkingheader} ${styles.thinkingActive}`}
+                        >
+                            {getHeaderLabel(currentStep?.type || '', false)}
                         </div>
                     )}
 
-                    {chatSeq.map((s, index) => {
-                        const isCollapsed = !!collapsed[index];
-                        return (
-                            <div key={index} className={styles.seqwrapper}>
-                                <div
-                                    className={`${styles.seqheader} ${isCollapsed ? styles.collapsed : ''}`}
-                                    onClick={() => toggleStep(index)}
-                                >
-                                    <h5>
-                                        <span>
-                                            {s.name || 'Reasoned'}{' '}
-                                            {s.type ? `(${s.type})` : ''}
-                                        </span>
-                                    </h5>
-                                </div>
-                                <div
-                                    className={`${styles.seqbody} ${
-                                        isCollapsed
-                                            ? styles.seqbodyCollapsed
-                                            : ''
-                                    }`}
-                                >
-                                    <div className={styles.seqbodyInner}>
-                                        <WordByWordText text={s.content} />
+                    {/* Collapsible Container for internal steps */}
+                    <div
+                        className={
+                            !isAllComplete || allStepsExpanded
+                                ? styles.stepsExpandedContainer
+                                : styles.stepsCollapsedContainer
+                        }
+                    >
+                        {activeSequence.map((s, index) => {
+                            if (
+                                s.type === 'processing' ||
+                                s.type === 'response'
+                            )
+                                return null;
+
+                            const isCurrentActive =
+                                index === activeSequence.length - 1;
+                            const isStepCompleted =
+                                index < activeSequence.length - 1 ||
+                                isAllComplete;
+
+                            const defaultCollapsed = isAllComplete
+                                ? true
+                                : !isCurrentActive;
+
+                            const isCollapsed =
+                                collapsed[index] ?? defaultCollapsed;
+
+                            return (
+                                <div key={index} className={styles.seqwrapper}>
+                                    <div
+                                        className={`${styles.seqheader} ${isCollapsed ? styles.collapsed : ''}`}
+                                        onClick={() => toggleStep(index)}
+                                    >
+                                        <h5>
+                                            {s.type === 'tool' ? (
+                                                <span
+                                                    className={
+                                                        styles.toolHeaderContent
+                                                    }
+                                                >
+                                                    {[
+                                                        'edit',
+                                                        'modify',
+                                                        'update',
+                                                    ].includes(
+                                                        s.action ?? ''
+                                                    ) ? (
+                                                        <PencilIcon />
+                                                    ) : (
+                                                        <ReadIcon />
+                                                    )}
+                                                    <span
+                                                        className={
+                                                            styles.toolActionText
+                                                        }
+                                                    >
+                                                        {getToolActionLabel(
+                                                            s.action
+                                                        )}
+                                                    </span>
+                                                    {s.path && (
+                                                        <span
+                                                            className={
+                                                                styles.pathPill
+                                                            }
+                                                        >
+                                                            <PathIcon
+                                                                isFolder={
+                                                                    s.action ===
+                                                                    'list'
+                                                                }
+                                                            />
+                                                            <span
+                                                                className={
+                                                                    styles.pathText
+                                                                }
+                                                            >
+                                                                {s.path}
+                                                            </span>
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            ) : (
+                                                <span>
+                                                    {getHeaderLabel(
+                                                        s.type,
+                                                        isStepCompleted
+                                                    )}
+                                                </span>
+                                            )}
+                                        </h5>
+                                    </div>
+                                    <div
+                                        className={`${styles.seqbody} ${isCollapsed ? styles.seqbodyCollapsed : ''}`}
+                                    >
+                                        <div className={styles.seqbodyInner}>
+                                            {s.type === 'tool' ? (
+                                                <ToolPayloadViewer
+                                                    request={s.request}
+                                                    response={s.response}
+                                                />
+                                            ) : (
+                                                <WordByWordText
+                                                    text={s.content ?? ''}
+                                                />
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Response Container placed outside collapsible container */}
+                    {activeSequence.map((s, index) => {
+                        if (s.type !== 'response') return null;
+                        return (
+                            <div
+                                key={index}
+                                className={styles.responseContainer}
+                                style={{ marginTop: '16px' }}
+                            >
+                                <WordByWordText text={s.content ?? ''} />
                             </div>
                         );
                     })}
                 </div>
+
                 <div
                     className={`${styles.tarun} ${activeView === 'chakri' ? styles.active : ''}`}
                 />
+
+                {!isAllComplete && (
+                    <div style={{ marginTop: '16px' }}>
+                        {isProcessingActive ? (
+                            <SimulatedProcessing
+                                content={currentStep.content ?? ''}
+                                key={`process-${visibleCount}`}
+                                stepIndex={visibleCount}
+                                onComplete={handleProcessingComplete}
+                            />
+                        ) : (
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '8px 0',
+                                }}
+                            >
+                                <DottedSpinner
+                                    size={38}
+                                    dotSize={5}
+                                    spinSpeed={4}
+                                    radialSpeed={1.2}
+                                    minRadiusFactor={0.4}
+                                    maxRadiusFactor={0.75}
+                                    glowIntensity="md"
+                                />
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -1,11 +1,10 @@
-import Dialog from '../Dialog';
 import { useEffect, useState } from 'react';
-import AiChatDialogTarun from './AiChatDialog.tarun';
+import Dialog from '../Dialog';
 import AiChatDialogChakri from './AiChatDialog.chakri';
-import type { chatSeqType} from './AiChatDialog.common';
+import type { chatSeqType } from './AiChatDialog.common';
 import { MOCK_CHAT_DATA } from './AiChatDialog.common';
-
 import styles from './AiChatDialog.module.css';
+import AiChatDialogTarun from './AiChatDialog.tarun';
 
 type Props = { open: boolean; onClose: () => void };
 

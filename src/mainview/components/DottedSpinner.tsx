@@ -24,7 +24,7 @@ interface DottedSpinnerProps {
 export default function DottedSpinner({
     size = 48,
     dotSize = 8,
-    color = '#06b6d4',
+    color = '#D9A05F',
     glowIntensity = 'md',
     spinSpeed = 1.8,
     radialSpeed = 1.4,
@@ -38,14 +38,15 @@ export default function DottedSpinner({
 
     const getGlowStyle = () => {
         if (glowIntensity === 'none') return {};
+
         const intensityMap = {
             sm: '0 0 6px',
             md: '0 0 12px',
-            lg: '0 0 22px 2px',
+            lg: '0 0 22px 4px',
         };
         const spread = intensityMap[glowIntensity] || intensityMap.md;
         return {
-            boxShadow: `${spread}${color}`,
+            boxShadow: `${spread} ${color}`,
         };
     };
 
@@ -76,7 +77,6 @@ export default function DottedSpinner({
                 }
             `}</style>
 
-            {/* Rotating container */}
             <span
                 role="status"
                 aria-label="Loading"
@@ -92,16 +92,18 @@ export default function DottedSpinner({
                     animationPlayState: paused ? 'paused' : 'running',
                 }}
             >
-                {' '}
                 {Array.from({ length: dotCount }).map((_, index) => {
                     const angleDeg = index * (360 / dotCount);
                     const angleRad = (angleDeg * Math.PI) / 180;
+
                     const sinA = Math.sin(angleRad);
                     const cosA = -Math.cos(angleRad);
+
                     const dxMin = `${(minR * sinA).toFixed(2)}px`;
                     const dyMin = `${(minR * cosA).toFixed(2)}px`;
                     const dxMax = `${(maxR * sinA).toFixed(2)}px`;
                     const dyMax = `${(maxR * cosA).toFixed(2)}px`;
+
                     return (
                         <span
                             key={index}
