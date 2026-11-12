@@ -67,6 +67,14 @@
 .seqwrapper {
     margin-bottom: 12px;
 }
+.seqwrapper:hover .seqbodyCollapsed {
+    max-height: 500px;
+    opacity: 1;
+    visibility: visible;
+    transition:
+        max-height 0.3s ease,
+        opacity 0.2s ease;
+}
 
 .seqbody {
     display: grid;
@@ -225,4 +233,23 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 320px;
+}
+
+.seqbody {
+    max-height: 500px;
+    opacity: 1;
+    overflow: hidden;
+    transition:
+        max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.2s ease-in-out;
+}
+
+.seqbodyCollapsed {
+    max-height: 0;
+    opacity: 0;
+}
+
+.seqwrapper:hover .seqbodyCollapsed {
+    max-height: 500px;
+    opacity: 1;
 }

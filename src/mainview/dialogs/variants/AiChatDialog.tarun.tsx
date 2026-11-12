@@ -1,4 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+    IconEye,
+    IconFileText,
+    IconFolder,
+    IconPencil,
+} from '@tabler/icons-react';
 import DottedSpinner from '@/mainview/components/DottedSpinner';
 import type { chatSeqType } from './AiChatDialog.common';
 import styles from './AiChatDialog.tarun.module.css';
@@ -20,71 +26,11 @@ function WordByWordText({ text }: { text: string }) {
     );
 }
 
-function ReadIcon() {
-    return (
-        <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-            <circle cx="12" cy="12" r="3"></circle>
-        </svg>
-    );
-}
-
-function PencilIcon() {
-    return (
-        <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-        </svg>
-    );
-}
-
 function PathIcon({ isFolder }: { isFolder?: boolean }) {
     return isFolder ? (
-        <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{ opacity: 0.7 }}
-        >
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-        </svg>
+        <IconFolder size={13} style={{ opacity: 0.7 }} />
     ) : (
-        <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{ opacity: 0.7 }}
-        >
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-            <polyline points="14 2 14 8 20 8"></polyline>
-        </svg>
+        <IconFileText size={13} style={{ opacity: 0.7 }} />
     );
 }
 
@@ -228,6 +174,7 @@ export default function AiChatDialogTarun({
     chatSeq: chatSeqType;
 }) {
     const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
+    const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     const [visibleCount, setVisibleCount] = useState(1);
     const [startTime, setStartTime] = useState<number | null>(() =>
         chatSeq?.length ? Date.now() : null
@@ -405,10 +352,17 @@ export default function AiChatDialogTarun({
                                 : !isCurrentActive;
 
                             const isCollapsed =
-                                collapsed[index] ?? defaultCollapsed;
+                                hoveredIndex === index
+                                    ? false
+                                    : (collapsed[index] ?? defaultCollapsed);
 
                             return (
-                                <div key={index} className={styles.seqwrapper}>
+                                <div
+                                    key={index}
+                                    className={styles.seqwrapper}
+                                    onMouseEnter={() => setHoveredIndex(index)}
+                                    onMouseLeave={() => setHoveredIndex(null)}
+                                >
                                     <div
                                         className={`${styles.seqheader} ${isCollapsed ? styles.collapsed : ''}`}
                                         onClick={() => toggleStep(index)}
@@ -427,9 +381,9 @@ export default function AiChatDialogTarun({
                                                     ].includes(
                                                         s.action ?? ''
                                                     ) ? (
-                                                        <PencilIcon />
+                                                        <IconPencil size={15} />
                                                     ) : (
-                                                        <ReadIcon />
+                                                        <IconEye size={15} />
                                                     )}
                                                     <span
                                                         className={

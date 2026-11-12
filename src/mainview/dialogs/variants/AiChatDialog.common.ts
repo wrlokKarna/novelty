@@ -27,7 +27,7 @@ export const MOCK_CHAT_DATA: chatSeqType = [
         timeOut: 1,
         type: 'reasoning',
         content:
-            'Locating the project directory to begin the manuscript update.',
+            'I need to begin the manuscript update for "Chronicles of Durge". First, I must navigate to the correct project directory. I will start by identifying the root path and then drilling down into the manuscript folder to ensure all subsequent file operations are performed in the correct context.',
     },
     {
         type: 'processing',
@@ -52,7 +52,8 @@ export const MOCK_CHAT_DATA: chatSeqType = [
     {
         timeOut: 1,
         type: 'reasoning',
-        content: 'Fetching the current content of the timeline file.',
+        content:
+            'I have successfully listed the files and confirmed that "timeline.md" exists in the directory. My next step is to fetch the current content of this file so I can analyze the existing structure and determine exactly where the new notes should be integrated without disrupting the established narrative flow.',
     },
     {
         type: 'processing',
@@ -77,7 +78,8 @@ export const MOCK_CHAT_DATA: chatSeqType = [
     {
         timeOut: 1,
         type: 'reasoning',
-        content: 'Applying the requested changes to the timeline text.',
+        content:
+            'Now that I have the raw content of the timeline file, I will proceed to synthesize the user\'s requested changes. I need to ensure that the tone remains consistent with the "Chronicles of Durge" style while accurately reflecting the new lore points provided in the prompt.',
     },
     {
         type: 'processing',
@@ -101,7 +103,8 @@ export const MOCK_CHAT_DATA: chatSeqType = [
     {
         timeOut: 1,
         type: 'reasoning',
-        content: 'Verifying the update by reading the file again.',
+        content:
+            'The modification request has been sent successfully. To ensure data integrity and verify that the changes were applied correctly by the server, I will perform a final read operation on the file to compare the current state against my expected output.',
     },
     {
         type: 'processing',
@@ -124,7 +127,8 @@ export const MOCK_CHAT_DATA: chatSeqType = [
     {
         timeOut: 1,
         type: 'reasoning',
-        content: 'Finalizing the summary of actions taken.',
+        content:
+            'Verification complete. The content of "timeline.md" now correctly reflects the updated notes. I have confirmed that no unintended regressions occurred during the patch process. I am now ready to provide a final summary to the user.',
     },
     {
         type: 'response',
