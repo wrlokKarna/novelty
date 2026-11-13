@@ -81,6 +81,7 @@ export interface AICompletionOptions {
     chunkTimeoutMs?: number;
     supportsTools?: boolean;
     onToolSupportDetermined?: (modelId: string, supports: boolean) => void;
+    maxToolRounds?: number;
 }
 
 export interface ChatCompletionResult {
@@ -91,6 +92,13 @@ export interface ChatCompletionResult {
         completion_tokens: number;
         total_tokens: number;
     } | null;
+}
+
+interface RoundResult {
+    content: string;
+    reasoning: string;
+    toolCalls: ToolCall[];
+    usage: ChatCompletionResult['usage'];
 }
 
 export class AIAbortError extends Error {
@@ -157,17 +165,7 @@ export async function chatCompletion(
     url: string,
     options: AICompletionOptions
 ): Promise<ChatCompletionResult> {
-    const {
-        messages,
-        temperature = 0.7,
-        maxTokens = 2048,
-        onChunk,
-        onReasoningChunk,
-        systemPrompt,
-        signal,
-        connectTimeoutMs = 30_000,
-        chunkTimeoutMs = 120_000,
-    } = options;
+    const { messages, systemPrompt, signal } = options;
 
     const activeModel = options.enabledModel.provider.models.find(
         (m) => m.id === options.enabledModel.activeModelId
@@ -203,16 +201,12 @@ export async function chatCompletion(
     }
 
     const tools = toolsSupported ? await getCachedTools() : undefined;
-    console.log('[checked tools]', tools);
-    console.log({ ...(tools && tools.length > 0 ? { tools } : {}) });
-    const request: ChatCompletionRequest = {
-        model: modelLabel,
-        messages: apiMessages,
-        temperature,
-        ...(tools && tools.length > 0 ? { tools } : {}),
-        max_tokens: maxTokens,
-        stream: !!onChunk,
-    };
+    console.log(
+        '[ai.ts] tools available:',
+        tools && tools.length > 0
+            ? tools.map((tool) => tool.function.name)
+            : 'none'
+    );
 
     const controller = new AbortController();
     if (signal) {
@@ -224,8 +218,188 @@ export async function chatCompletion(
         });
     }
 
-    console.log('[req]', JSON.stringify(request));
+    return runAgenticLoop(url, options, apiMessages, tools, controller.signal);
+}
 
+interface StreamingCompletionHandlers {
+    onChunk?: (chunk: string) => void;
+    onReasoningChunk?: (chunk: string) => void;
+    chunkTimeoutMs?: number;
+}
+
+async function readStreamingCompletion(
+    response: Response,
+    handlers: StreamingCompletionHandlers
+): Promise<RoundResult> {
+    const { onChunk, onReasoningChunk, chunkTimeoutMs = 120_000 } = handlers;
+
+    if (!response.body) {
+        return readJsonCompletion(response);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    let lineBuffer = '';
+    let content = '';
+    let reasoning = '';
+    let usage: ChatCompletionResult['usage'] = null;
+    const streamedToolCalls: Record<
+        number,
+        {
+            id?: string;
+            type: string;
+            function: { name: string; arguments: string };
+        }
+    > = {};
+
+    const handleLine = (rawLine: string) => {
+        const line = rawLine.trim();
+        if (!line.startsWith('data:')) return;
+
+        const data = line.slice(5).trim();
+        if (!data || data === '[DONE]') return;
+
+        let parsed: {
+            usage?: {
+                prompt_tokens?: number;
+                completion_tokens?: number;
+                total_tokens?: number;
+            };
+            choices?: {
+                delta?: {
+                    content?: string;
+                    reasoning_content?: string;
+                    reasoning?: string;
+                    tool_calls?: {
+                        index?: number;
+                        id?: string;
+                        type?: string;
+                        function?: { name?: string; arguments?: string };
+                    }[];
+                };
+            }[];
+        };
+        try {
+            parsed = JSON.parse(data);
+        } catch {
+            return;
+        }
+
+        if (parsed.usage) {
+            usage = {
+                prompt_tokens: parsed.usage.prompt_tokens ?? 0,
+                completion_tokens: parsed.usage.completion_tokens ?? 0,
+                total_tokens: parsed.usage.total_tokens ?? 0,
+            };
+        }
+
+        const delta = parsed.choices?.[0]?.delta;
+        if (!delta) return;
+
+        if (delta.content) {
+            content += delta.content;
+            onChunk?.(delta.content);
+        }
+
+        const reasoningDelta = delta.reasoning_content || delta.reasoning || '';
+        if (reasoningDelta) {
+            reasoning += reasoningDelta;
+            onReasoningChunk?.(reasoningDelta);
+        }
+
+        if (Array.isArray(delta.tool_calls)) {
+            console.log('[delta tools]', delta.tool_calls);
+            for (const tc of delta.tool_calls) {
+                const idx = tc.index ?? 0;
+                if (!streamedToolCalls[idx]) {
+                    streamedToolCalls[idx] = {
+                        id: tc.id || `call_${idx}_${Date.now()}`,
+                        type: tc.type || 'function',
+                        function: {
+                            name: tc.function?.name || '',
+                            arguments: '',
+                        },
+                    };
+                }
+                const accumulated = streamedToolCalls[idx];
+                if (tc.id) {
+                    accumulated.id = tc.id;
+                }
+                const nameFragment = tc.function?.name;
+                if (nameFragment) {
+                    if (!accumulated.function.name) {
+                        accumulated.function.name = nameFragment;
+                    } else if (
+                        !nameFragment.startsWith(accumulated.function.name) &&
+                        !accumulated.function.name.endsWith(nameFragment)
+                    ) {
+                        accumulated.function.name += nameFragment;
+                    }
+                }
+                if (tc.function?.arguments) {
+                    accumulated.function.arguments += tc.function.arguments;
+                }
+            }
+        }
+    };
+
+    while (true) {
+        const readPromise = reader.read();
+        const result = await Promise.race([
+            readPromise,
+            new Promise<{ done: true; value: undefined }>((_, reject) => {
+                const timer = setTimeout(() => {
+                    reader.cancel().catch(() => {});
+                    reject(
+                        new AIAbortError(
+                            `No data received for ${Math.round(chunkTimeoutMs / 1000)}s, stream may be stuck`
+                        )
+                    );
+                }, chunkTimeoutMs);
+                readPromise
+                    .then(() => clearTimeout(timer))
+                    .catch(() => clearTimeout(timer));
+            }),
+        ]);
+
+        if (result.done) break;
+
+        lineBuffer += decoder.decode(result.value, { stream: true });
+        const lines = lineBuffer.split('\n');
+        lineBuffer = lines.pop() ?? '';
+        for (const line of lines) handleLine(line);
+    }
+
+    lineBuffer += decoder.decode();
+    if (lineBuffer.trim()) handleLine(lineBuffer);
+
+    return {
+        content,
+        reasoning,
+        toolCalls: Object.values(streamedToolCalls),
+        usage,
+    };
+}
+
+async function readJsonCompletion(response: Response): Promise<RoundResult> {
+    const result: ChatCompletionResponse = await response.json();
+    const message = result.choices?.[0]?.message;
+
+    return {
+        content: message?.content || '',
+        reasoning: message?.reasoning_content || message?.reasoning || '',
+        toolCalls: message?.tool_calls ?? [],
+        usage: result.usage ?? null,
+    };
+}
+
+async function runCompletionRound(
+    url: string,
+    request: ChatCompletionRequest,
+    options: AICompletionOptions,
+    signal?: AbortSignal
+): Promise<RoundResult> {
     const response = await withTimeout(
         fetch(`${url}/chat/completions`, {
             method: 'POST',
@@ -233,389 +407,197 @@ export async function chatCompletion(
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(request),
-            signal: controller.signal,
+            signal,
         }),
-        connectTimeoutMs,
+        options.connectTimeoutMs ?? 30_000,
         signal,
         'Connection'
     );
 
     if (!response.ok) {
         const error = await response.text();
-        console.log('ai.ts', error);
-        console.log('ai.ts', response);
-        console.log('ai.ts', request);
+        console.error(
+            '[ai.ts] AI request failed:',
+            response.status,
+            error,
+            request
+        );
         throw new Error(`AI request failed: ${response.status} ${error}`);
     }
 
-    if (onChunk && response.body) {
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let fullContent = '';
-        let fullReasoning = '';
-        let usage: ChatCompletionResult['usage'] = null;
-        const streamedToolCalls: Record<
-            number,
-            {
-                id?: string;
-                type: string;
-                function: { name: string; arguments: string };
-            }
-        > = {};
-
-        const chunkTimeout = chunkTimeoutMs;
-
-        while (true) {
-            const readPromise = reader.read();
-            const result = await Promise.race([
-                readPromise,
-                new Promise<{ done: true; value: undefined }>((_, reject) => {
-                    const timer = setTimeout(() => {
-                        reader.cancel().catch(() => {});
-                        reject(
-                            new AIAbortError(
-                                `No data received for ${Math.round(chunkTimeout / 1000)}s, stream may be stuck`
-                            )
-                        );
-                    }, chunkTimeout);
-                    readPromise
-                        .then(() => clearTimeout(timer))
-                        .catch(() => clearTimeout(timer));
-                }),
-            ]);
-
-            if (result.done) break;
-            const { value } = result;
-
-            const chunk = decoder.decode(value);
-            const lines = chunk
-                .split('\n')
-                .filter((line) => line.trim() !== '');
-
-            for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    const data = line.slice(6);
-                    if (data === '[DONE]') continue;
-
-                    try {
-                        const parsed = JSON.parse(data);
-                        if (parsed.usage) {
-                            usage = {
-                                prompt_tokens: parsed.usage.prompt_tokens ?? 0,
-                                completion_tokens:
-                                    parsed.usage.completion_tokens ?? 0,
-                                total_tokens: parsed.usage.total_tokens ?? 0,
-                            };
-                        }
-                        const delta = parsed.choices?.[0]?.delta;
-                        const content = delta?.content || '';
-                        const reasoning =
-                            delta?.reasoning_content || delta?.reasoning || '';
-                        if (content) {
-                            fullContent += content;
-                            onChunk?.(content);
-                        }
-                        if (reasoning) {
-                            fullReasoning += reasoning;
-                            onReasoningChunk?.(reasoning);
-                        }
-
-                        if (Array.isArray(delta?.tool_calls)) {
-                            console.log('[delta tools]', delta?.tool_calls);
-                            for (const tc of delta.tool_calls) {
-                                const idx = tc.index ?? 0;
-                                if (!streamedToolCalls[idx]) {
-                                    streamedToolCalls[idx] = {
-                                        id:
-                                            tc.id ||
-                                            `call_${idx}_${Date.now()}`,
-                                        type: tc.type || 'function',
-                                        function: {
-                                            name: tc.function?.name || '',
-                                            arguments: '',
-                                        },
-                                    };
-                                }
-                                if (tc.id) {
-                                    streamedToolCalls[idx].id = tc.id;
-                                }
-                                /*
-                                if (tc.function?.name) {
-                                    streamedToolCalls[idx].function.name +=
-                                        tc.function.name;
-                                }
-                                */
-                                if (tc.function?.name) {
-                                    if (
-                                        !streamedToolCalls[
-                                            idx
-                                        ].function.name.endsWith(
-                                            tc.function.name
-                                        )
-                                    ) {
-                                        streamedToolCalls[idx].function.name +=
-                                            tc.function.name;
-                                    }
-                                }
-                                if (tc.function?.arguments) {
-                                    streamedToolCalls[idx].function.arguments +=
-                                        tc.function.arguments;
-                                }
-                            }
-                        }
-                    } catch {
-                        // Skip invalid JSON
-                    }
-                }
-            }
-        }
-
-        const toolCallsList = Object.values(streamedToolCalls);
-        if (toolCallsList.length > 0) {
-            return await handleToolCallsAndFollowUp(
-                url,
-                options,
-                apiMessages,
-                toolCallsList,
-                fullContent,
-                controller.signal
-            );
-        }
-
-        return {
-            content: fullContent,
-            reasoning_content: fullReasoning || undefined,
-            usage,
-        };
+    if (options.onChunk && response.body) {
+        return readStreamingCompletion(response, {
+            onChunk: options.onChunk,
+            onReasoningChunk: options.onReasoningChunk,
+            chunkTimeoutMs: options.chunkTimeoutMs,
+        });
     }
 
-    const result: ChatCompletionResponse = await response.json();
-    const choice = result.choices[0];
-    const message = choice?.message;
-
-    if (message?.tool_calls && message.tool_calls.length > 0) {
-        return await handleToolCallsAndFollowUp(
-            url,
-            options,
-            apiMessages,
-            message.tool_calls,
-            message.content,
-            controller.signal
-        );
-    }
-
-    return {
-        content: message?.content || '',
-        reasoning_content:
-            message?.reasoning_content || message?.reasoning || undefined,
-        usage: result.usage ?? null,
-    };
+    return readJsonCompletion(response);
 }
 
-async function handleToolCallsAndFollowUp(
+async function runAgenticLoop(
     url: string,
     options: AICompletionOptions,
     apiMessages: ApiMessage[],
-    toolCalls: ToolCall[],
-    assistantContent: string | null | undefined,
+    tools: LLMTool[] | undefined,
     signal?: AbortSignal
 ): Promise<ChatCompletionResult> {
-    const { onChunk, onReasoningChunk, onToolStep } = options;
+    const { onChunk, onToolStep } = options;
     const rpc = getRPC();
 
-    // 1. Add assistant message with tool calls to conversation history
-    apiMessages.push({
-        role: 'assistant',
-        content: assistantContent || null,
-        tool_calls: toolCalls,
-    });
+    const activeModel = options.enabledModel.provider.models.find(
+        (m) => m.id === options.enabledModel.activeModelId
+    );
+    const modelLabel = activeModel?.label || 'local-model';
 
-    console.log('[toolCalls]', toolCalls);
+    const configuredRounds = options.maxToolRounds ?? 10;
+    const maxRounds = configuredRounds <= 0 ? Infinity : configuredRounds;
 
-    for (const toolCall of toolCalls) {
-        const toolName = toolCall.function.name;
-        console.log('[toolName]', toolName);
-        const toolStepId = toolCall.id ?? crypto.randomUUID();
-        const rawArguments =
-            typeof toolCall.function.arguments === 'string'
-                ? toolCall.function.arguments
-                : JSON.stringify(toolCall.function.arguments ?? {});
+    let content = '';
+    let reasoning = '';
+    let usage: ChatCompletionResult['usage'] = null;
 
-        onToolStep?.({
-            type: 'tool',
-            id: toolStepId,
-            name: toolName,
-            arguments: rawArguments,
-            status: 'running',
-        });
-
-        let toolArgs: Record<string, unknown> = {};
-
-        if (typeof toolCall.function.arguments === 'string') {
-            try {
-                toolArgs = JSON.parse(toolCall.function.arguments);
-            } catch {
-                toolArgs = {};
-            }
-        } else if (
-            typeof toolCall.function.arguments === 'object' &&
-            toolCall.function.arguments !== null
-        ) {
-            toolArgs = toolCall.function.arguments as Record<string, unknown>;
-        }
+    let round = 0;
+    for (; round < maxRounds; round++) {
+        const request: ChatCompletionRequest = {
+            model: modelLabel,
+            messages: apiMessages,
+            temperature: options.temperature ?? 0.7,
+            max_tokens: options.maxTokens ?? 2048,
+            stream: !!onChunk,
+            ...(tools && tools.length > 0 ? { tools } : {}),
+        };
 
         console.log(
-            `[ai.ts] Executing tool '${toolName}' with arguments:`,
-            toolArgs
+            `[ai.ts] round ${round + 1}${maxRounds === Infinity ? '' : `/${maxRounds}`}`,
+            JSON.stringify({
+                model: request.model,
+                messages: request.messages.length,
+                tools: tools?.length ?? 0,
+            })
         );
 
-        let resultText: string;
-        let toolStatus: ToolStep['status'] = 'completed';
-        try {
-            const execResult = await rpc.request['ai:execute-tool']({
+        const roundResult = await runCompletionRound(
+            url,
+            request,
+            options,
+            signal
+        );
+
+        content += roundResult.content;
+        reasoning += roundResult.reasoning;
+        usage = roundResult.usage ?? usage;
+
+        if (roundResult.toolCalls.length === 0) break;
+
+        console.log('[toolCalls]', roundResult.toolCalls);
+
+        // Add assistant message with tool calls to conversation history.
+        apiMessages.push({
+            role: 'assistant',
+            content: roundResult.content || null,
+            tool_calls: roundResult.toolCalls,
+        });
+
+        for (const toolCall of roundResult.toolCalls) {
+            const toolName = toolCall.function.name;
+            console.log('[toolName]', toolName);
+            const toolStepId = toolCall.id ?? crypto.randomUUID();
+            const rawArguments =
+                typeof toolCall.function.arguments === 'string'
+                    ? toolCall.function.arguments
+                    : JSON.stringify(toolCall.function.arguments ?? {});
+
+            onToolStep?.({
+                type: 'tool',
+                id: toolStepId,
                 name: toolName,
-                arguments: toolArgs,
+                arguments: rawArguments,
+                status: 'running',
             });
 
-            if (execResult?.content && Array.isArray(execResult.content)) {
-                resultText = execResult.content
-                    .map(
-                        (item: { text?: string; [k: string]: unknown }) =>
-                            item.text || JSON.stringify(item)
-                    )
-                    .join('\n');
-            } else {
-                resultText = JSON.stringify(execResult);
+            let toolArgs: Record<string, unknown> = {};
+
+            if (typeof toolCall.function.arguments === 'string') {
+                try {
+                    toolArgs = JSON.parse(toolCall.function.arguments);
+                } catch {
+                    toolArgs = {};
+                }
+            } else if (
+                typeof toolCall.function.arguments === 'object' &&
+                toolCall.function.arguments !== null
+            ) {
+                toolArgs = toolCall.function.arguments as Record<
+                    string,
+                    unknown
+                >;
             }
-        } catch (error) {
-            console.error(`[ai.ts] Error executing tool '${toolName}':`, error);
-            toolStatus = 'error';
-            resultText = `Error executing tool '${toolName}': ${error instanceof Error ? error.message : String(error)}`;
+
+            console.log(
+                `[ai.ts] Executing tool '${toolName}' with arguments:`,
+                toolArgs
+            );
+
+            let resultText: string;
+            let toolStatus: ToolStep['status'] = 'completed';
+            try {
+                const execResult = await rpc.request['ai:execute-tool']({
+                    name: toolName,
+                    arguments: toolArgs,
+                });
+
+                if (execResult?.content && Array.isArray(execResult.content)) {
+                    resultText = execResult.content
+                        .map(
+                            (item: { text?: string; [k: string]: unknown }) =>
+                                item.text || JSON.stringify(item)
+                        )
+                        .join('\n');
+                } else {
+                    resultText = JSON.stringify(execResult);
+                }
+            } catch (error) {
+                console.error(
+                    `[ai.ts] Error executing tool '${toolName}':`,
+                    error
+                );
+                toolStatus = 'error';
+                resultText = `Error executing tool '${toolName}': ${error instanceof Error ? error.message : String(error)}`;
+            }
+
+            console.log(`[ai.ts] Tool '${toolName}' result:`, resultText);
+
+            onToolStep?.({
+                type: 'tool',
+                id: toolStepId,
+                name: toolName,
+                arguments: rawArguments,
+                result: resultText,
+                status: toolStatus,
+            });
+
+            // Add tool execution result to conversation history.
+            apiMessages.push({
+                role: 'tool',
+                tool_call_id: toolCall.id,
+                name: toolName,
+                content: resultText,
+            });
         }
-
-        console.log(`[ai.ts] Tool '${toolName}' result:`, resultText);
-
-        onToolStep?.({
-            type: 'tool',
-            id: toolStepId,
-            name: toolName,
-            arguments: rawArguments,
-            result: resultText,
-            status: toolStatus,
-        });
-
-        // 3. Add tool execution result to conversation history
-        apiMessages.push({
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            name: toolName,
-            content: resultText,
-        });
     }
 
-    // 4. Send follow-up request to LLM with updated apiMessages
-    const modelLabel =
-        options.enabledModel.provider.models.find(
-            (m) => m.id === options.enabledModel.activeModelId
-        )?.label || 'local-model';
-
-    const followUpRequest: ChatCompletionRequest = {
-        model: modelLabel,
-        messages: apiMessages,
-        temperature: options.temperature ?? 0.7,
-        max_tokens: options.maxTokens ?? 2048,
-        stream: !!onChunk,
-    };
-
-    const followUpResponse = await withTimeout(
-        fetch(`${url}/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(followUpRequest),
-            signal,
-        }),
-        options.connectTimeoutMs ?? 30_000,
-        signal,
-        'Tool follow-up completion'
-    );
-
-    if (!followUpResponse.ok) {
-        const error = await followUpResponse.text();
-        throw new Error(
-            `AI follow-up request failed: ${followUpResponse.status} ${error}`
+    if (round >= maxRounds) {
+        console.warn(
+            `[ai.ts] Reached the maximum of ${maxRounds} tool rounds, returning partial result`
         );
     }
 
-    if (onChunk && followUpResponse.body) {
-        const reader = followUpResponse.body.getReader();
-        const decoder = new TextDecoder();
-        let followUpContent = '';
-        let followUpReasoning = '';
-        let usage: ChatCompletionResult['usage'] = null;
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value);
-            const lines = chunk
-                .split('\n')
-                .filter((line) => line.trim() !== '');
-
-            for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    const data = line.slice(6);
-                    if (data === '[DONE]') continue;
-
-                    try {
-                        const parsed = JSON.parse(data);
-                        if (parsed.usage) {
-                            usage = {
-                                prompt_tokens: parsed.usage.prompt_tokens ?? 0,
-                                completion_tokens:
-                                    parsed.usage.completion_tokens ?? 0,
-                                total_tokens: parsed.usage.total_tokens ?? 0,
-                            };
-                        }
-                        const content =
-                            parsed.choices?.[0]?.delta?.content || '';
-                        const reasoning =
-                            parsed.choices?.[0]?.delta?.reasoning_content ||
-                            parsed.choices?.[0]?.delta?.reasoning ||
-                            '';
-                        if (content) {
-                            followUpContent += content;
-                            onChunk?.(content);
-                        }
-                        if (reasoning) {
-                            followUpReasoning += reasoning;
-                            onReasoningChunk?.(reasoning);
-                        }
-                    } catch {
-                        // Skip invalid JSON
-                    }
-                }
-            }
-        }
-
-        return {
-            content: followUpContent,
-            reasoning_content: followUpReasoning || undefined,
-            usage,
-        };
-    }
-
-    const followUpResult: ChatCompletionResponse =
-        await followUpResponse.json();
     return {
-        content: followUpResult.choices[0]?.message?.content || '',
-        reasoning_content:
-            followUpResult.choices[0]?.message?.reasoning_content ||
-            followUpResult.choices[0]?.message?.reasoning ||
-            undefined,
-        usage: followUpResult.usage ?? null,
+        content,
+        reasoning_content: reasoning || undefined,
+        usage,
     };
 }
 
