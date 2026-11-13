@@ -1,20 +1,18 @@
-import { forwardRef, useState, useEffect } from 'react';
+import { forwardRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
 import {
-    IconCopy,
-    IconCheck,
-    IconRefresh,
-    IconEdit,
     IconArrowBack,
+    IconCheck,
     IconChevronLeft,
     IconChevronRight,
-    IconBrain,
-    IconChevronDown,
-    IconChevronUp,
+    IconCopy,
+    IconEdit,
+    IconRefresh,
 } from '@tabler/icons-react';
+import rehypeHighlight from 'rehype-highlight';
+import remarkGfm from 'remark-gfm';
 import type { ChatMessage } from '../../shared/types/ai';
+import ThinkingPanel from './thinking/ThinkingPanel';
 
 //import 'highlight.js/styles/github-dark.css';
 
@@ -39,7 +37,9 @@ interface MessageBubbleProps {
 function formatTimestamp(iso: string): string {
     try {
         const d = new Date(iso);
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return d
+            .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+            .toLowerCase();
     } catch {
         return '';
     }
@@ -67,6 +67,29 @@ const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
         ref
     ) => {
         const isAssistant = message.role === 'assistant';
+        const assistantContent = isAssistant
+            ? (message.content[message.currentVariantIndex] ?? '')
+            : '';
+        const assistantReasoning = isAssistant ? message.reasoning : undefined;
+        const assistantSteps = isAssistant ? message.steps : undefined;
+
+        const [stepsExpanded, setStepsExpanded] = useState(false);
+        const [toolsExpanded, setToolsExpanded] = useState(false);
+
+        const toggleSteps = () => {
+            const next = !stepsExpanded;
+            setStepsExpanded(next);
+            if (!next) setToolsExpanded(false);
+        };
+
+        const renderMarkdown = (text: string) => (
+            <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeHighlight]}
+            >
+                {text}
+            </ReactMarkdown>
+        );
 
         // Accordion preview for old messages
         if (viewMode === 'accordion' && isOld && !isExpanded) {
@@ -89,17 +112,11 @@ const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
         }
 
         if (isAssistant) {
-            const content = message.content[message.currentVariantIndex];
             const totalVariants = message.content.length;
             const isCopied = justCopiedId === message.id;
             const isTruncated = viewMode === 'truncate' && isOld && !isExpanded;
-            const [thinkingExpanded, setThinkingExpanded] =
-                useState(isStreaming);
-            useEffect(() => {
-                if (isStreaming) setThinkingExpanded(true);
-            }, [isStreaming]);
-            const hasReasoning =
-                message.reasoning && message.reasoning.length > 0;
+            const canToggleSteps =
+                !!assistantSteps && assistantSteps.length > 0 && !isStreaming;
 
             return (
                 <div
@@ -107,47 +124,59 @@ const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                     className="message-wrapper assistant"
                     data-msg-id={message.id}
                 >
-                    <div className="chat-message-header">
-                        <span className="message-mode-badge">
+                    <div
+                        className={
+                            'chat-message-header' +
+                            (canToggleSteps ? ' is-clickable' : '')
+                        }
+                        onClick={canToggleSteps ? toggleSteps : undefined}
+                        onKeyDown={
+                            canToggleSteps
+                                ? (event) => {
+                                      if (
+                                          event.key === 'Enter' ||
+                                          event.key === ' '
+                                      ) {
+                                          event.preventDefault();
+                                          toggleSteps();
+                                      }
+                                  }
+                                : undefined
+                        }
+                        role={canToggleSteps ? 'button' : undefined}
+                        tabIndex={canToggleSteps ? 0 : undefined}
+                        aria-expanded={
+                            canToggleSteps ? stepsExpanded : undefined
+                        }
+                    >
+                        <span
+                            className={`message-mode-badge badge-${message.mode}`}
+                        >
                             {message.mode}
                         </span>
+                        <span className="message-header-sep">•</span>
                         <span className="message-timestamp">
                             {formatTimestamp(message.timestamp)}
                         </span>
+                        {canToggleSteps && (
+                            <>
+                                <span className="message-header-sep">•</span>
+                                <span className="message-worked">
+                                    {message.durationMs != null
+                                        ? `Worked for ${Math.floor(
+                                              message.durationMs / 1000
+                                          )}s`
+                                        : 'Worked'}
+                                    <span
+                                        className={
+                                            'message-worked-arrow' +
+                                            (stepsExpanded ? ' open' : '')
+                                        }
+                                    />
+                                </span>
+                            </>
+                        )}
                     </div>
-                    {hasReasoning && (
-                        <div className="chat-message thinking-container">
-                            <button
-                                className="thinking-toggle"
-                                onClick={() =>
-                                    setThinkingExpanded(!thinkingExpanded)
-                                }
-                                aria-expanded={thinkingExpanded}
-                            >
-                                <div className="thinking-toggle-left">
-                                    <IconBrain size={16} />
-                                    <span className="thinking-title">
-                                        Reasoning
-                                    </span>
-                                </div>
-                                {thinkingExpanded ? (
-                                    <IconChevronUp size={14} />
-                                ) : (
-                                    <IconChevronDown size={14} />
-                                )}
-                            </button>
-                            {thinkingExpanded && (
-                                <div className="thinking-body">
-                                    <ReactMarkdown
-                                        remarkPlugins={[remarkGfm]}
-                                        rehypePlugins={[rehypeHighlight]}
-                                    >
-                                        {message.reasoning}
-                                    </ReactMarkdown>
-                                </div>
-                            )}
-                        </div>
-                    )}
                     <div className="chat-message assistant">
                         <div
                             className={
@@ -155,12 +184,20 @@ const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                                 (isTruncated ? ' truncated' : '')
                             }
                         >
-                            <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                rehypePlugins={[rehypeHighlight]}
+                            <ThinkingPanel
+                                steps={assistantSteps}
+                                reasoning={assistantReasoning}
+                                isStreaming={isStreaming}
+                                hasResponse={assistantContent.length > 0}
+                                stepsExpanded={stepsExpanded}
+                                toolsExpanded={toolsExpanded}
+                                onToggleTools={() =>
+                                    setToolsExpanded((prev) => !prev)
+                                }
+                                renderMarkdown={renderMarkdown}
                             >
-                                {content}
-                            </ReactMarkdown>
+                                {renderMarkdown(assistantContent)}
+                            </ThinkingPanel>
                         </div>
                         {isTruncated && (
                             <button

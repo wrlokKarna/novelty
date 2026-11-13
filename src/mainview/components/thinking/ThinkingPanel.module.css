@@ -1,4 +1,5 @@
-:root {
+.tarun {
+    --thinking-amber: #f59e0b;
     --theme-bg: #111215;
     --theme-card-bg: #18191d;
     --theme-border: #23252a;
@@ -6,15 +7,24 @@
     --theme-text-step: #8a8f98;
     --theme-text-body: #a0a6b2;
     --theme-text-muted: #5e6470;
-}
 
-.tarun {
-    display: none;
+    display: block;
+    font-size: inherit;
     color: var(--theme-text-primary);
 }
 
-.tarun.active {
-    display: block;
+.responseStreaming {
+    animation: responseFadeIn 0.2s ease-out;
+}
+
+@keyframes responseFadeIn {
+    from {
+        opacity: 0.65;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 .thinkingheader {
@@ -42,17 +52,11 @@
     animation: slideThinkingSweep 2.5s linear infinite;
 }
 
-.thinkingDone {
-    color: var(--theme-text-step);
-    background: none;
-    -webkit-text-fill-color: initial;
-    animation: none;
-}
-
 @keyframes slideThinkingSweep {
     0% {
         background-position: 200% center;
     }
+
     100% {
         background-position: -200% center;
     }
@@ -91,23 +95,6 @@
     color: var(--theme-text-body);
     font-size: 0.84rem;
     line-height: 1.55;
-}
-
-.word {
-    display: inline-block;
-    white-space: pre-wrap;
-    opacity: 0;
-    transform: translateY(3px);
-    /* Updated to use --word-duration with a fallback of 0.3s */
-    animation: fadeWordIn var(--word-duration, 0.3s)
-        cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes fadeWordIn {
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
 }
 
 .seqheader {
@@ -153,7 +140,12 @@
     opacity: 1;
 }
 
-button.completionBadge {
+.completionBadges {
+    display: flex;
+    flex-direction: column;
+}
+
+.completionBadge {
     width: max-content;
     background: none;
     border: none;
@@ -167,14 +159,15 @@ button.completionBadge {
     padding: 2px 0;
     font-weight: 400;
     letter-spacing: -0.01em;
-
-    &:hover {
-        background-color: none;
-    }
+    font-family: inherit;
 }
 
 .completionBadge:hover {
     color: var(--theme-text-step);
+}
+
+.completionBadgeNested {
+    margin-left: 14px;
 }
 
 .badgeArrow {
@@ -188,7 +181,7 @@ button.completionBadge {
     margin-top: -2px;
 }
 
-.badgeArrow.expanded {
+.badgeArrowExpanded {
     transform: rotate(-135deg);
     margin-top: 2px;
 }
@@ -211,7 +204,7 @@ button.completionBadge {
     font-weight: 500;
 }
 
-.pathPill {
+.tarunPathPill {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -223,81 +216,123 @@ button.completionBadge {
     border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.pathText {
+.tarunPathText {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 320px;
 }
 
-.toolTabRow {
-    .tabBtn {
-        color: #ffffff;
-        background: #222;
-        border-radius: 20px;
-        cursor: pointer;
-        padding: 6px 15px;
-        border: 1px solid rgba(245, 158, 11, 0.4);
-        border-color: #393e4c;
-        border-color: #393e4c;
-
-        &.activeTab {
-            background-color: rgba(59, 130, 246, 0.12);
-        }
-    }
-}
-
-.speedControllerBar {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 14px;
-    font-size: 0.78rem;
-    flex-wrap: wrap;
-}
-
-.speedLabel {
-    color: var(--theme-text-muted);
-    margin-right: 2px;
+.tarunErrorBadge {
+    font-size: 0.7rem;
     font-weight: 500;
-}
-
-.speedBtn {
-    background: var(--theme-card-bg);
-    border: 1px solid var(--theme-border);
-    color: var(--theme-text-step);
-    padding: 3px 9px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.75rem;
-    transition: all 0.2s ease;
-    user-select: none;
-}
-
-.speedBtn:hover {
-    border-color: var(--theme-text-step);
-    color: var(--theme-text-primary);
-    color: #ffffff;
-    background: #20222a;
-    border-color: #393e4c;
-}
-
-.activeSpeedBtn {
-    background-color: rgba(59, 130, 246, 0.15);
-    border-color: rgba(59, 130, 246, 0.4);
-    color: var(--theme-text-primary);
-    font-weight: 500;
-
-    &:hover {
-        background-color: rgba(59, 130, 246, 0.15);
-        border-color: rgba(59, 130, 246, 0.4);
-        color: var(--theme-text-primary);
-    }
+    color: #f87171;
+    background-color: rgba(248, 113, 113, 0.12);
+    border: 1px solid rgba(248, 113, 113, 0.3);
+    padding: 0 5px;
+    border-radius: 4px;
 }
 
 .responseContainer {
-    padding: 12px;
-    border-radius: 8px;
-    background-color: var(--theme-card-bg);
+    padding: 0;
+    border-radius: 0;
+    background-color: transparent;
     color: var(--theme-text-body);
+}
+
+.tarunProcessing {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+}
+
+.tarunProcessingLabel {
+    color: var(--theme-text-step);
+    font-size: 0.82rem;
+}
+
+/* ---------- Markdown spacing ---------- */
+
+.markdownBlock > :first-child {
+    margin-top: 0;
+}
+
+.markdownBlock > :last-child {
+    margin-bottom: 0;
+}
+
+/* ---------- Caret ---------- */
+
+.caret {
+    display: inline-block;
+    width: 2px;
+    height: 13px;
+    margin-left: 4px;
+    background-color: var(--thinking-amber);
+    vertical-align: -1px;
+    animation: thinkingBlink 0.8s infinite;
+}
+
+@keyframes thinkingBlink {
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
+}
+
+/* ---------- Tool payload viewer ---------- */
+
+.toolPayload {
+    min-width: 0;
+}
+
+.toolTabRow {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.tabBtn {
+    color: #ffffff;
+    background: #222;
+    border-radius: 20px;
+    cursor: pointer;
+    padding: 6px 15px;
+    border: 1px solid #393e4c;
+    font-size: 0.75rem;
+    font-family: inherit;
+    transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.tabBtn:hover {
+    border-color: #4a5060;
+}
+
+.tabBtnActive {
+    background-color: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.tabBody {
+    overflow: auto;
+    max-height: 320px;
+}
+
+.toolPre {
+    margin: 0;
+    overflow-x: auto;
+    max-height: 320px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family:
+        'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.78rem;
+    line-height: 1.5;
 }

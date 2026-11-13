@@ -71,6 +71,10 @@
     --accent: #f0a050;
     --accent-active: rgba(240, 160, 80, 0.2);
 
+    /* Agent identity colors (assistant vs editor) */
+    --agent-assistant: #60a5fa;
+    --agent-editor: #fbbf24;
+
     /* Minimum height of one layout band. Every band is at least this tall, so
        single-band fields share a common baseline while taller content (a
        portrait, a textarea, a tree) still grows instead of being clipped. */
@@ -993,6 +997,8 @@ li {
 code {
     background: #f5f5f5;
     color: #555;
+    background: var(--accent-subtle);
+    color: var(--accent);
     padding: 2px 8px;
     border-radius: 4px;
     font-family: 'Monaco', 'Menlo', monospace;
@@ -1624,6 +1630,7 @@ select {
 .chat-panel-header-actions {
     display: flex;
     gap: 8px;
+    align-items: center;
 }
 
 .chat-panel-header h4 {
@@ -1720,7 +1727,7 @@ select {
 }
 
 .chat-message.assistant {
-    background-color: #313233;
+    /*background-color: #313233;*/
     color: #ffffff;
 }
 
@@ -1747,50 +1754,6 @@ select {
     align-items: center;
     gap: 8px;
     color: #595d68;
-}
-
-.chat-message.thinking {
-    background-color: #2a2b2c;
-    border-radius: 8px;
-    margin-bottom: 4px;
-}
-
-.thinking-toggle {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    width: 100%;
-    padding: 8px 12px;
-    background: none;
-    border: none;
-    color: #8b8fa3;
-    cursor: pointer;
-    font-size: 13px;
-    font-family: inherit;
-    text-align: left;
-}
-
-.thinking-toggle:hover {
-    color: #c9d1d9;
-}
-
-.thinking-body {
-    padding: 0 12px 10px 12px;
-    color: #8b8fa3;
-    font-size: 13px;
-    line-height: 1.5;
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.thinking-body :deep(p) {
-    margin: 0 0 8px 0;
-}
-
-.thinking-body :deep(ul),
-.thinking-body :deep(ol) {
-    padding-left: 20px;
-    margin: 0 0 8px 0;
 }
 
 .chat-panel-input {
@@ -2325,9 +2288,18 @@ select {
 .chat-message-header {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     margin-bottom: 4px;
     padding: 0 16px;
+}
+
+.chat-message-header.is-clickable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.chat-message-header.is-clickable:hover .message-worked {
+    color: var(--text-secondary);
 }
 
 .message-mode-badge {
@@ -2335,16 +2307,65 @@ select {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    padding: 2px 8px;
+    padding: 2px 9px;
     border-radius: 10px;
-    background: #424242;
-    color: #8e8e93;
     line-height: 1.4;
+    border: 1px solid
+        color-mix(in srgb, var(--agent-color, #8e8e93) 25%, transparent);
+    background-color: color-mix(
+        in srgb,
+        var(--agent-color, #8e8e93) 12%,
+        transparent
+    );
+    color: var(--agent-color, #8e8e93);
+}
+
+.badge-assistant {
+    --agent-color: var(--agent-assistant);
+}
+
+.badge-editor {
+    --agent-color: var(--agent-editor);
+}
+
+.message-header-sep {
+    font-size: 10px;
+    line-height: 1;
+    color: #3a3f49;
 }
 
 .message-timestamp {
     font-size: 11px;
     color: #595d68;
+}
+
+/* Worked badge — lives in the assistant header row next to the mode pill. */
+.message-worked {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    line-height: 1.4;
+    color: #5e6470;
+    transition: color 0.15s ease;
+}
+
+.message-worked-arrow {
+    display: inline-block;
+    width: 4.5px;
+    height: 4.5px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform 0.25s ease;
+    margin-top: -2px;
+}
+
+.message-worked-arrow.open {
+    transform: rotate(-135deg);
+    margin-top: 2px;
 }
 
 /* Message body with truncation support */
@@ -2507,7 +2528,11 @@ select {
     color: #8e8e93;
     border-radius: 4px;
     cursor: pointer;
-    transition: color 0.15s;
+    opacity: 0;
+    transition:
+        opacity 0.15s ease,
+        color 0.15s ease,
+        background-color 0.15s ease;
 
     svg {
         width: 18px;
@@ -2515,6 +2540,18 @@ select {
     }
     span.txt {
         font-size: 18px;
+    }
+}
+
+.message-wrapper:hover .message-action-btn,
+.message-wrapper:focus-within .message-action-btn,
+.message-action-btn.copied {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .message-action-btn {
+        opacity: 1;
     }
 }
 
@@ -5856,60 +5893,4 @@ textarea {
 .structure-review-confirm-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-}
-
-.chat-message.thinking-container {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 8px;
-    margin-bottom: 12px;
-    overflow: hidden;
-    transition: all 0.2s ease-in-out;
-}
-
-.thinking-toggle {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: transparent;
-    border: none;
-    color: #9ca3af;
-    padding: 10px 14px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    text-align: left;
-}
-
-.thinking-toggle:hover {
-    color: #e5e7eb;
-    background: rgba(255, 255, 255, 0.03);
-}
-
-.thinking-toggle-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.thinking-title {
-    color: #d1d5db;
-}
-
-.thinking-body {
-    padding: 10px 14px 14px 14px;
-    font-size: 13px;
-    line-height: 1.5;
-    color: #9ca3af;
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
-    background: rgba(0, 0, 0, 0.15);
-}
-
-.thinking-body p {
-    margin: 0 0 8px 0;
-}
-
-.thinking-body p:last-child {
-    margin-bottom: 0;
 }

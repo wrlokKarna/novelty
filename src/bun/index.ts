@@ -273,6 +273,15 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
             'db:create-message': async (message: NewChatMessage) => {
                 return await chatDB.createMessage(db, message);
             },
+            'db:update-message': async ({
+                id,
+                data,
+            }: {
+                id: string;
+                data: Partial<NewChatMessage>;
+            }) => {
+                return await chatDB.updateMessage(db, id, data);
+            },
             'db:get-agents': async () => {
                 return await agentsDB.getAllAgents(db);
             },

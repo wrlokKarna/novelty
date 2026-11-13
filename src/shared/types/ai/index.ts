@@ -35,7 +35,27 @@ export type ChatSession = {
 
 export type NewChatSession = Omit<ChatSession, 'createdAt' | 'updatedAt'>;
 
-export type NewChatMessage = Omit<ChatMessage, 'timestamp'>;
+export type NewChatMessage = Omit<ChatMessage, 'timestamp'> & {
+    reasoning?: string;
+    steps?: AssistantStep[];
+    durationMs?: number;
+};
+
+export interface ReasoningStep {
+    type: 'reasoning';
+    content: string;
+}
+
+export interface ToolStep {
+    type: 'tool';
+    id: string;
+    name: string;
+    arguments?: string;
+    result?: string;
+    status: 'running' | 'completed' | 'error';
+}
+
+export type AssistantStep = ReasoningStep | ToolStep;
 
 export interface ToolCall {
     id?: string;
@@ -71,6 +91,9 @@ export interface AssistantChatMessage extends ChatMessageCommon {
     role: 'assistant';
     content: string[];
     reasoning?: string;
+    steps?: AssistantStep[];
+    /** Wall-clock time the response took to stream, in milliseconds. */
+    durationMs?: number;
     currentVariantIndex: number;
     model: string;
 }

@@ -75,7 +75,10 @@ export async function initDatabase(sqlite: Database, dbPath: string) {
 			timestamp INTEGER NOT NULL,
             model TEXT,
             mode TEXT NOT NULL,
-            currentVariantIndex INTEGER NOT NULL
+            currentVariantIndex INTEGER NOT NULL,
+            reasoning TEXT,
+            steps TEXT,
+            duration_ms INTEGER
 
 		);
 

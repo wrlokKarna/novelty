@@ -73,6 +73,9 @@ export const SCHEMA_MIGRATIONS = [
         name: 'currentVariantIndex',
         type: 'INTEGER NOT NULL DEFAULT 0',
     },
+    { table: 'chat_messages', name: 'reasoning', type: 'TEXT' },
+    { table: 'chat_messages', name: 'steps', type: 'TEXT' },
+    { table: 'chat_messages', name: 'duration_ms', type: 'INTEGER' },
     {
         table: 'chat_sessions',
         name: 'is_archived',

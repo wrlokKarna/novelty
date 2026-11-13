@@ -1,18 +1,27 @@
-import { eq, asc } from 'drizzle-orm';
-
-import { chatSessions, chatMessages } from '../../../shared/schema';
+import { asc, eq } from 'drizzle-orm';
 import type {
-    ChatSession,
-    NewChatSession,
     ChatMessage,
+    ChatSession,
     NewChatMessage,
+    NewChatSession,
 } from '@/shared/types/ai';
 import type { SQLiteDB } from '@/shared/types/db';
+import { chatMessages, chatSessions } from '../../../shared/schema';
 
 //type ChatSession = typeof chatSessions.$inferSelect;
 //type NewChatSession = typeof chatSessions.$inferInsert;
 //type ChatMessage = typeof chatMessages.$inferSelect;
 //type NewChatMessage = typeof chatMessages.$inferInsert;
+
+function parseAssistantContent(content: string): string[] {
+    try {
+        const parsed = JSON.parse(content);
+        if (Array.isArray(parsed)) return parsed.map((item) => String(item));
+        return [String(parsed)];
+    } catch {
+        return [content];
+    }
+}
 
 export async function getAllSessions(db: SQLiteDB): Promise<ChatSession[]> {
     return db.select().from(chatSessions).orderBy(asc(chatSessions.updatedAt));
@@ -79,7 +88,10 @@ export async function getMessagesBySession(
         timestamp: row.timestamp.toISOString(),
 
         content:
-            row.role === 'assistant' ? JSON.parse(row.content) : row.content,
+            row.role === 'assistant'
+                ? parseAssistantContent(row.content)
+                : row.content,
+        steps: row.steps ? JSON.parse(row.steps) : undefined,
     })) as ChatMessage[];
 }
 
@@ -94,6 +106,10 @@ export async function createMessage(
         content: Array.isArray(message.content)
             ? JSON.stringify(message.content)
             : message.content,
+        steps:
+            message.role === 'assistant' && message.steps
+                ? JSON.stringify(message.steps)
+                : undefined,
         timestamp: now,
     };
 
@@ -102,6 +118,49 @@ export async function createMessage(
     return {
         ...message,
         timestamp: now.toISOString(),
+    } as ChatMessage;
+}
+
+export async function updateMessage(
+    db: SQLiteDB,
+    id: string,
+    data: Partial<NewChatMessage>
+): Promise<ChatMessage | undefined> {
+    const dbValues: Record<string, unknown> = { ...data };
+
+    if (data.content !== undefined) {
+        dbValues.content = Array.isArray(data.content)
+            ? JSON.stringify(data.content)
+            : data.content;
+    }
+    if ('steps' in data) {
+        dbValues.steps = data.steps ? JSON.stringify(data.steps) : null;
+    }
+    if ('reasoning' in data) {
+        dbValues.reasoning = data.reasoning ?? null;
+    }
+
+    await db
+        .update(chatMessages)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .set(dbValues as any)
+        .where(eq(chatMessages.id, id));
+
+    const rows = await db
+        .select()
+        .from(chatMessages)
+        .where(eq(chatMessages.id, id));
+    const row = rows[0];
+    if (!row) return undefined;
+
+    return {
+        ...row,
+        timestamp: row.timestamp.toISOString(),
+        content:
+            row.role === 'assistant'
+                ? parseAssistantContent(row.content)
+                : row.content,
+        steps: row.steps ? JSON.parse(row.steps) : undefined,
     } as ChatMessage;
 }
 

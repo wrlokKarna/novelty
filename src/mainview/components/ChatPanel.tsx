@@ -1,82 +1,47 @@
 import React, {
-    useState,
-    useEffect,
-    useRef,
     useCallback,
+    useEffect,
     useMemo,
+    useRef,
+    useState,
 } from 'react';
 import {
-    //IconArrowRight,
-    IconPlus,
-    IconHistory,
     IconArchive,
-    IconSettings2,
-    IconX,
-    IconSend,
+    IconArrowBackUp,
+    IconArrowDown,
+    IconArrowUp,
+    IconBook,
+    IconBuildings,
+    IconFiles,
+    IconHistory,
+    IconLoader2,
+    IconMapPin2,
     IconMicrophone,
     IconPaperclip,
-    IconLoader2,
-    IconArrowUp,
-    IconArrowDown,
-    IconArrowBackUp,
-    IconBook,
-    IconFiles,
-    IconUsers,
-    IconMapPin2,
-    IconBuildings,
+    //IconArrowRight,
+    IconPlus,
+    IconSend,
+    IconSettings2,
     IconSwords,
+    IconUsers,
+    IconX,
 } from '@tabler/icons-react';
-import {
-    chatCompletion,
-    toApiMessages,
-    AIAbortError,
-    getCurrentlyLoadedModelInProvider,
-} from '../services/ai';
-import {
-    COMMAND_MAP,
-    EXTRACT_COMMANDS,
-    EXTRACT_CATEGORY_MAP,
-    ANALYSIS_COMMANDS,
-    typeLabels,
-    SLASH_COMMANDS,
-} from '../features/ai/constants/chatpanel_consts';
-
-import { parseEntryData, parseAllEntryData } from '../services/entryParser';
-import type { ParsedEntry } from '../services/entryParser';
-import type { RichTextEditorHandle } from './RichTextEditor';
-import { checkEmbeddingsAvailable } from '../services/context_engine_requests';
-import {
-    appendSystemPromptSection,
-    buildBaseSystemPrompt,
-    buildCreateEntryPrompt,
-    buildExtractionPrompt,
-    buildStructurePrompt,
-    buildTitlePrompt,
-} from '../services/chatPromptBuilder';
-import { getTextSource } from '../services/textExtractor';
-import type { ExtractionSource } from '../services/textExtractor';
-import { useSettings } from '../contexts/SettingsContext';
-import { getRPC } from '../contexts/RPCContext';
-import SceneStructureReviewDialog from './SceneStructureReviewDialog';
-import type { ReviewScene, ReviewSequence } from './SceneStructureReviewDialog';
-import { useSessions } from '../hooks/useSessions';
-import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
-import MessageBubble from './MessageBubble';
-import SessionListView from './SessionListView';
-import SettingsDialog from '../dialogs/variants/SettingsDialog';
-import FloatingSuggestions from './FloatingSuggestions';
-import type { SuggestionGroup } from './FloatingSuggestions';
-import ContextChips from './ContextChips';
-import SystemPromptToggle from './SystemPromptToggle';
-import type { SettingsDialogActiveTab } from '../constants/layout_tabs';
-
-import type { Item, Project, StorySequence, Location } from '../../shared/types';
+import type {
+    Item,
+    Location,
+    Project,
+    StorySequence,
+} from '../../shared/types';
 import type {
     AssistantChatMessage,
+    AssistantStep,
     ChatMessage,
     NewChatSession,
+    ToolStep,
     UserChatMessage,
 } from '../../shared/types/ai';
+import type { MentionTarget } from '../../shared/types/ai/chat';
+import type { Model } from '../../shared/types/ai/provider';
 import type { Chapter } from '../../shared/types/project';
 import type {
     Character,
@@ -86,8 +51,49 @@ import type {
 } from '../../shared/types/project/compendium';
 import type { StoryScene } from '../../shared/types/project/manuscript';
 import type { FieldDefinition } from '../../shared/types/project/templates';
-import type { Model } from '../../shared/types/ai/provider';
-import type { MentionTarget } from '../../shared/types/ai/chat';
+import type { SettingsDialogActiveTab } from '../constants/layout_tabs';
+import { getRPC } from '../contexts/RPCContext';
+import { useSettings } from '../contexts/SettingsContext';
+import SettingsDialog from '../dialogs/variants/SettingsDialog';
+import {
+    ANALYSIS_COMMANDS,
+    COMMAND_MAP,
+    EXTRACT_CATEGORY_MAP,
+    EXTRACT_COMMANDS,
+    SLASH_COMMANDS,
+    typeLabels,
+} from '../features/ai/constants/chatpanel_consts';
+import { useSessions } from '../hooks/useSessions';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import {
+    AIAbortError,
+    chatCompletion,
+    getCurrentlyLoadedModelInProvider,
+    toApiMessages,
+} from '../services/ai';
+import {
+    appendSystemPromptSection,
+    buildBaseSystemPrompt,
+    buildCreateEntryPrompt,
+    buildExtractionPrompt,
+    buildStructurePrompt,
+    buildTitlePrompt,
+} from '../services/chatPromptBuilder';
+import { checkEmbeddingsAvailable } from '../services/context_engine_requests';
+import { parseAllEntryData, parseEntryData } from '../services/entryParser';
+import type { ParsedEntry } from '../services/entryParser';
+import { getTextSource } from '../services/textExtractor';
+import type { ExtractionSource } from '../services/textExtractor';
+import { getModelDisplayName } from '../utils/ai/helper';
+import ContextChips from './ContextChips';
+import FloatingSuggestions from './FloatingSuggestions';
+import type { SuggestionGroup } from './FloatingSuggestions';
+import MessageBubble from './MessageBubble';
+import type { RichTextEditorHandle } from './RichTextEditor';
+import SceneStructureReviewDialog from './SceneStructureReviewDialog';
+import type { ReviewScene, ReviewSequence } from './SceneStructureReviewDialog';
+import SessionListView from './SessionListView';
+import SystemPromptToggle from './SystemPromptToggle';
 
 function smartTruncate(text: string, maxLen = 50): string {
     const cleaned = text
@@ -236,6 +242,18 @@ export default function ChatPanel({
     }, [selectedModel, enabledProviders]);
     //console.log('enabledModel', enabledModel);
 
+    const getMessageModelLabel = (modelId?: string | null) => {
+        if (!modelId) return undefined;
+        const model = (settings?.providers?.configs ?? [])
+            .flatMap((provider) => provider.models)
+            .find((m) => m.id === modelId);
+        if (!model) return modelId;
+        return getModelDisplayName(
+            model,
+            settings?.providers?.modelDisplayMode ?? 'label'
+        );
+    };
+
     /*
     return {
         provider: enabledProviders.find((p) =>
@@ -351,6 +369,8 @@ export default function ChatPanel({
     const atTriggerPos = useRef<{ start: number; end: number } | null>(null);
     const streamedContentRef = useRef('');
     const streamedReasoningRef = useRef('');
+    const streamedStepsRef = useRef<AssistantStep[]>([]);
+    const streamStartRef = useRef(0);
     const rafIdRef = useRef<number | null>(null);
     const isStreamingRef = useRef(false);
     const abortControllerRef = useRef<AbortController | null>(null);
@@ -446,6 +466,62 @@ export default function ChatPanel({
         },
         []
     );
+
+    const streamingUpdateSteps = useCallback(
+        (assistantId: string, steps: AssistantStep[]) => {
+            setMessages((prev) => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last.role === 'assistant' && last.id === assistantId) {
+                    updated[updated.length - 1] = {
+                        ...last,
+                        steps,
+                    } as AssistantChatMessage;
+                }
+                return updated;
+            });
+        },
+        []
+    );
+
+    const streamingUpdateDuration = useCallback(
+        (assistantId: string, durationMs: number) => {
+            setMessages((prev) =>
+                prev.map((m) =>
+                    m.id === assistantId && m.role === 'assistant'
+                        ? { ...m, durationMs }
+                        : m
+                )
+            );
+        },
+        []
+    );
+
+    const appendReasoningChunk = (chunk: string) => {
+        streamedReasoningRef.current += chunk;
+        const steps = streamedStepsRef.current;
+        const last = steps[steps.length - 1];
+        if (last && last.type === 'reasoning') {
+            steps[steps.length - 1] = {
+                type: 'reasoning',
+                content: last.content + chunk,
+            };
+        } else {
+            steps.push({ type: 'reasoning', content: chunk });
+        }
+    };
+
+    const upsertToolStep = (step: ToolStep) => {
+        const steps = streamedStepsRef.current;
+        const index = steps.findIndex(
+            (existing) => existing.type === 'tool' && existing.id === step.id
+        );
+        if (index >= 0) {
+            steps[index] = step;
+        } else {
+            steps.push(step);
+        }
+    };
 
     const handleSubmit = async (prompt?: string) => {
         const text = (prompt ?? input).trim();
@@ -800,6 +876,7 @@ export default function ChatPanel({
             role: 'assistant',
             content: [''],
             reasoning: '',
+            steps: [],
             currentVariantIndex: 0,
             model: enabledModel.activeModelId || '',
             mode,
@@ -830,6 +907,8 @@ export default function ChatPanel({
 
             streamedContentRef.current = '';
             streamedReasoningRef.current = '';
+            streamedStepsRef.current = [];
+            streamStartRef.current = Date.now();
 
             const abortController = new AbortController();
             abortControllerRef.current = abortController;
@@ -880,11 +959,20 @@ export default function ChatPanel({
                     }
                 },
                 onReasoningChunk: (chunk) => {
-                    streamedReasoningRef.current += chunk;
+                    appendReasoningChunk(chunk);
                     streamingUpdateReasoning(
                         assistantId,
                         streamedReasoningRef.current
                     );
+                    streamingUpdateSteps(assistantId, [
+                        ...streamedStepsRef.current,
+                    ]);
+                },
+                onToolStep: (step) => {
+                    upsertToolStep(step);
+                    streamingUpdateSteps(assistantId, [
+                        ...streamedStepsRef.current,
+                    ]);
                 },
             });
 
@@ -895,14 +983,24 @@ export default function ChatPanel({
             // Final state sync
             streamingUpdate(assistantId, result.content);
             streamingUpdateReasoning(assistantId, streamedReasoningRef.current);
+            streamingUpdateSteps(assistantId, [...streamedStepsRef.current]);
+
+            const durationMs = Date.now() - streamStartRef.current;
+            streamingUpdateDuration(assistantId, durationMs);
 
             rpc.request['db:create-message']({
                 id: assistantId,
                 sessionId,
                 role: 'assistant',
-                content: result.content,
+                content: [result.content],
                 mode,
                 model: enabledModel.activeModelId || '',
+                reasoning: streamedReasoningRef.current || undefined,
+                steps:
+                    streamedStepsRef.current.length > 0
+                        ? [...streamedStepsRef.current]
+                        : undefined,
+                durationMs,
             });
 
             if (result.usage) {
@@ -1036,6 +1134,10 @@ export default function ChatPanel({
             }
         } catch (error) {
             console.error('Chat error:', error);
+            streamingUpdateDuration(
+                assistantId,
+                Date.now() - streamStartRef.current
+            );
             if (error instanceof AIAbortError) {
                 streamingUpdate(
                     assistantId,
@@ -1063,8 +1165,11 @@ export default function ChatPanel({
                         id: m.id,
                         role: 'assistant' as const,
                         content: m.content,
+                        reasoning: m.reasoning,
+                        steps: m.steps,
+                        durationMs: m.durationMs,
                         currentVariantIndex: 0,
-                        model: 'unknown',
+                        model: m.model ?? 'unknown',
                         mode: 'assistant' as const,
                         timestamp:
                             typeof m.timestamp === 'string'
@@ -1168,6 +1273,10 @@ export default function ChatPanel({
             if (msg.role === 'assistant') return msg.content.length;
             return 0;
         })();
+        const previousContent =
+            messages[msgIndex].role === 'assistant'
+                ? messages[msgIndex].content
+                : [];
 
         setMessages((prev) =>
             prev.map((m) =>
@@ -1176,6 +1285,8 @@ export default function ChatPanel({
                           ...m,
                           content: [...m.content, ''],
                           currentVariantIndex: newVariantIndex,
+                          reasoning: '',
+                          steps: [],
                       }
                     : m
             )
@@ -1190,6 +1301,8 @@ export default function ChatPanel({
 
             streamedContentRef.current = '';
             streamedReasoningRef.current = '';
+            streamedStepsRef.current = [];
+            streamStartRef.current = Date.now();
 
             const retryAbortController = new AbortController();
             abortControllerRef.current = retryAbortController;
@@ -1267,14 +1380,25 @@ export default function ChatPanel({
                     }
                 },
                 onReasoningChunk: (chunk) => {
-                    streamedReasoningRef.current += chunk;
+                    appendReasoningChunk(chunk);
                     setMessages((prev) =>
                         prev.map((m) =>
                             m.id === messageId && m.role === 'assistant'
                                 ? {
                                       ...m,
                                       reasoning: streamedReasoningRef.current,
+                                      steps: [...streamedStepsRef.current],
                                   }
+                                : m
+                        )
+                    );
+                },
+                onToolStep: (step) => {
+                    upsertToolStep(step);
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m.id === messageId && m.role === 'assistant'
+                                ? { ...m, steps: [...streamedStepsRef.current] }
                                 : m
                         )
                     );
@@ -1296,11 +1420,28 @@ export default function ChatPanel({
                                   result.content,
                               ],
                               reasoning:
-                                  streamedReasoningRef.current || m.reasoning,
+                                  streamedReasoningRef.current || undefined,
+                              steps: [...streamedStepsRef.current],
+                              durationMs: Date.now() - streamStartRef.current,
                           }
                         : m
                 )
             );
+
+            const retryDurationMs = Date.now() - streamStartRef.current;
+
+            rpc.request['db:update-message']({
+                id: messageId,
+                data: {
+                    content: [...previousContent, result.content],
+                    reasoning: streamedReasoningRef.current || undefined,
+                    steps:
+                        streamedStepsRef.current.length > 0
+                            ? [...streamedStepsRef.current]
+                            : undefined,
+                    durationMs: retryDurationMs,
+                },
+            });
 
             // Scan for compendium entry data in the retried response
             const parsed = parseEntryData(result.content);
@@ -1365,10 +1506,26 @@ export default function ChatPanel({
                                   ...m.content.slice(0, newVariantIndex),
                                   errorMsg,
                               ],
+                              reasoning:
+                                  streamedReasoningRef.current || undefined,
+                              steps: [...streamedStepsRef.current],
+                              durationMs: Date.now() - streamStartRef.current,
                           }
                         : m
                 )
             );
+            rpc.request['db:update-message']({
+                id: messageId,
+                data: {
+                    content: [...previousContent, errorMsg],
+                    reasoning: streamedReasoningRef.current || undefined,
+                    steps:
+                        streamedStepsRef.current.length > 0
+                            ? [...streamedStepsRef.current]
+                            : undefined,
+                    durationMs: Date.now() - streamStartRef.current,
+                },
+            });
         } finally {
             abortControllerRef.current = null;
             isStreamingRef.current = false;
@@ -1873,16 +2030,6 @@ export default function ChatPanel({
                             </div>
                         )}
                         {messages.map((msg, i) => {
-                            // Skip rendering empty assistant bubbles during loading unless they have reasoning content (Ollama/Gemma 4 pattern)
-                            if (
-                                msg.role === 'assistant' &&
-                                isLoading &&
-                                (msg as AssistantChatMessage).content[0]
-                                    .length === 0 &&
-                                !(msg as AssistantChatMessage).reasoning
-                            ) {
-                                return null;
-                            }
                             const isLastUser =
                                 msg.role === 'user' &&
                                 !messages
@@ -2209,15 +2356,19 @@ export default function ChatPanel({
                                     message={msg}
                                     modelDisplayText={
                                         msg.role === 'assistant'
-                                            ? (msg as AssistantChatMessage)
-                                                  .model
+                                            ? getMessageModelLabel(
+                                                  (msg as AssistantChatMessage)
+                                                      .model
+                                              )
                                             : undefined
                                     }
                                     justCopiedId={lastCopiedId}
                                     viewMode={viewMode}
                                     isOld={isOld}
                                     isExpanded={expandedMessages.has(msg.id)}
-                                    isStreaming={isLoading}
+                                    isStreaming={
+                                        isLoading && i === messages.length - 1
+                                    }
                                     onCopy={handleCopy}
                                     onRetry={handleRetry}
                                     onUndo={handleUndo}
@@ -2266,28 +2417,6 @@ export default function ChatPanel({
                                         </button>
                                     </div>
                                 );
-                            })()}
-                        {isLoading &&
-                            messages.length > 0 &&
-                            (() => {
-                                const last = messages[messages.length - 1];
-                                if (
-                                    last.role === 'assistant' &&
-                                    last.content[0].length === 0
-                                ) {
-                                    return (
-                                        <div className="chat-message loading">
-                                            <div className="chat-message-content">
-                                                <IconLoader2
-                                                    className="spin"
-                                                    size={16}
-                                                />
-                                                <span>Thinking...</span>
-                                            </div>
-                                        </div>
-                                    );
-                                }
-                                return null;
                             })()}
                         <div ref={messagesEndRef} />
                         <div className="scroll-nav-buttons">

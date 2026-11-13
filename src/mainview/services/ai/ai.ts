@@ -2,6 +2,7 @@ import type {
     ApiMessage,
     ChatMessage,
     ToolCall,
+    ToolStep,
     UserChatMessage,
 } from '../../../shared/types/ai';
 import type { Model, Provider } from '../../../shared/types/ai/provider';
@@ -74,6 +75,7 @@ export interface AICompletionOptions {
     maxTokens?: number;
     onChunk?: (chunk: string) => void;
     onReasoningChunk?: (chunk: string) => void;
+    onToolStep?: (step: ToolStep) => void;
     signal?: AbortSignal;
     connectTimeoutMs?: number;
     chunkTimeoutMs?: number;
@@ -418,7 +420,7 @@ async function handleToolCallsAndFollowUp(
     assistantContent: string | null | undefined,
     signal?: AbortSignal
 ): Promise<ChatCompletionResult> {
-    const { onChunk, onReasoningChunk } = options;
+    const { onChunk, onReasoningChunk, onToolStep } = options;
     const rpc = getRPC();
 
     // 1. Add assistant message with tool calls to conversation history
@@ -433,6 +435,20 @@ async function handleToolCallsAndFollowUp(
     for (const toolCall of toolCalls) {
         const toolName = toolCall.function.name;
         console.log('[toolName]', toolName);
+        const toolStepId = toolCall.id ?? crypto.randomUUID();
+        const rawArguments =
+            typeof toolCall.function.arguments === 'string'
+                ? toolCall.function.arguments
+                : JSON.stringify(toolCall.function.arguments ?? {});
+
+        onToolStep?.({
+            type: 'tool',
+            id: toolStepId,
+            name: toolName,
+            arguments: rawArguments,
+            status: 'running',
+        });
+
         let toolArgs: Record<string, unknown> = {};
 
         if (typeof toolCall.function.arguments === 'string') {
@@ -453,7 +469,8 @@ async function handleToolCallsAndFollowUp(
             toolArgs
         );
 
-        let resultText = '';
+        let resultText: string;
+        let toolStatus: ToolStep['status'] = 'completed';
         try {
             const execResult = await rpc.request['ai:execute-tool']({
                 name: toolName,
@@ -472,10 +489,20 @@ async function handleToolCallsAndFollowUp(
             }
         } catch (error) {
             console.error(`[ai.ts] Error executing tool '${toolName}':`, error);
+            toolStatus = 'error';
             resultText = `Error executing tool '${toolName}': ${error instanceof Error ? error.message : String(error)}`;
         }
 
         console.log(`[ai.ts] Tool '${toolName}' result:`, resultText);
+
+        onToolStep?.({
+            type: 'tool',
+            id: toolStepId,
+            name: toolName,
+            arguments: rawArguments,
+            result: resultText,
+            status: toolStatus,
+        });
 
         // 3. Add tool execution result to conversation history
         apiMessages.push({

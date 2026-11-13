@@ -1,5 +1,5 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
-import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
+import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const series = sqliteTable('series', {
     id: text('id').primaryKey(),
@@ -89,6 +89,9 @@ export const chatMessages = sqliteTable('chat_messages', {
     model: text(),
     mode: text().notNull(),
     currentVariantIndex: integer().notNull().default(0),
+    reasoning: text(),
+    steps: text(),
+    durationMs: integer('duration_ms'),
 });
 
 export const agents = sqliteTable('agents', {

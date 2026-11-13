@@ -171,6 +171,10 @@ export type SelectorSchema = {
                 params: NewChatMessage;
                 response: ChatMessage;
             };
+            'db:update-message': {
+                params: { id: string; data: Partial<NewChatMessage> };
+                response: ChatMessage | undefined;
+            };
             'db:get-agents': { params: void; response: Agent[] };
             'db:get-agent': { params: string; response: Agent | undefined };
             'db:create-agent': { params: NewAgent; response: Agent };
