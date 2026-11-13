@@ -164,6 +164,7 @@
 
 .completionBadge:hover {
     color: var(--theme-text-step);
+    background-color: transparent;
 }
 
 .completionBadgeNested {
@@ -298,7 +299,7 @@
 }
 
 .tabBtn {
-    color: #ffffff;
+    color: var(--theme-text-primary);
     background: #222;
     border-radius: 20px;
     cursor: pointer;
@@ -312,12 +313,17 @@
 }
 
 .tabBtn:hover {
+    color: #ffffff;
+    background-color: transparent;
     border-color: #4a5060;
 }
 
 .tabBtnActive {
     background-color: rgba(59, 130, 246, 0.12);
     border-color: rgba(59, 130, 246, 0.4);
+    &:hover {
+        background-color: rgba(59, 130, 246, 0.12);
+    }
 }
 
 .tabBody {
