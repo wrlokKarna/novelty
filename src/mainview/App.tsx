@@ -758,6 +758,26 @@ function App() {
                 [chapter.id]: c.content!,
             }));
         }
+
+        if (currentProject) {
+            await loadPlotArchitecture(currentProject.id);
+        }
+        try {
+            const savedThreads = await rpc.request['db:get-chapter-plot-threads'](chapter.id);
+            if (savedThreads) {
+                setChapterPlotThreads((prev) => [
+                    ...prev.filter((t) => t.chapterId !== chapter.id),
+                    ...savedThreads,
+                ]);
+            }
+        } catch (e) {
+            console.error('Failed to load chapter plot threads:', e);
+        }
+
+        if (currentProject) {
+            await loadPlotArchitecture(currentProject.id);
+        }
+
         const existingTab = openTabs.find((t) => t.id === chapter.id);
         if (!existingTab) {
             const newTab = {
@@ -803,6 +823,26 @@ function App() {
             setActiveTabId(existing.id);
         }
     }
+
+    useEffect(() => {
+        if (!currentProject || !activeTabId) return;
+        const activeTab = openTabs.find((t) => t.id === activeTabId);
+        if (activeTab?.type === 'chapter') {
+            loadPlotArchitecture(currentProject.id);
+        rpc.request['db:get-chapter-plot-threads'](activeTab.id)
+                .then((savedThreads) => {
+                    if (savedThreads) {
+                        setChapterPlotThreads((prev) => [
+                            ...prev.filter((t) => t.chapterId !== activeTab.id),
+                            ...savedThreads,
+                        ]);
+                    }
+                })
+                .catch((e) =>
+                    console.error('Failed to load chapter plot threads:', e)
+                );
+        }
+    }, [activeTabId, currentProject?.id, openTabs.length]);
 
     async function handleNewCompendiumEntry(category: CompendiumCategory) {
         if (!currentProject) return;
@@ -2092,6 +2132,9 @@ function App() {
             ) {
                 return (
                     <ChapterOutlineEditor
+                        key={`${chapter.id}-${plotThreads.length}-${
+                            chapterPlotThreads.filter((t) => t.chapterId === chapter.id).length
+                        }`}
                         projectId={currentProject.id}
                         chapter={chapter}
                         characters={characters}
@@ -2119,13 +2162,14 @@ function App() {
                                     chapterId: chapter.id,
                                     threads,
                                 });
-                                setChapterPlotThreads(
-                                    threads.map((t) => ({
+                                setChapterPlotThreads((prev) => [
+                                    ...prev.filter((t) => t.chapterId !== chapter.id),
+                                    ...threads.map((t) => ({
                                         chapterId: t.chapterId,
                                         plotThreadId: t.plotThreadId,
                                         intensity: t.intensity,
-                                    }))
-                                );
+                                    })),
+                                ]);
                                 return;
                             }
                             await rpc.request['db:update-chapter']({
