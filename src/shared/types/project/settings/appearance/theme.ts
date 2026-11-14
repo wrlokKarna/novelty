@@ -12,6 +12,15 @@ export type ThemesBuiltIn =
     | 'emerald-noir'
     | 'crimson-dusk';
 
+export type BuiltInThemeMeta = {
+    id: ThemesBuiltIn;
+    name: string;
+    isBuiltIn: true;
+    supportedModes: 'light' | 'dark' | 'both';
+    defaultShape?: ThemeBorderShape;
+    defaultDensity?: UIDensity;
+};
+
 export type UserAddedTheme = string & {};
 export type ThemeActive = ThemesBuiltIn | UserAddedTheme;
 
@@ -19,15 +28,22 @@ export type ThemeDefinition = {
     id: ThemeActive;
     name: string;
     isBuiltIn: boolean;
-    /** Supports light-only, dark-only, or dual-mode themes */
-    schemes: {
-        light?: ThemeColorTokens;
-        dark?: ThemeColorTokens;
-        schemas: 'light' | 'dark' | 'both';
-    };
     defaultShape?: ThemeBorderShape;
     defaultDensity?: UIDensity;
-};
+} & (
+    | {
+          schemas: 'light';
+          schemes: { light: ThemeColorTokens };
+      }
+    | {
+          schemas: 'dark';
+          schemes: { dark: ThemeColorTokens };
+      }
+    | {
+          schemas: 'both';
+          schemes: { light: ThemeColorTokens; dark: ThemeColorTokens };
+      }
+);
 
 export type EditorLayoutSettings = {
     widthMode: 'full' | 'fixed';
@@ -36,11 +52,20 @@ export type EditorLayoutSettings = {
     previewPosition: 'left' | 'right';
 };
 
+export type ThemeCycleConfig = {
+    strategy: 'time-of-day' | 'interval' | 'on-launch';
+    dayTheme?: ThemeActive;
+    nightTheme?: ThemeActive;
+    playlist?: ThemeActive[];
+    intervalMinutes?: number;
+};
+
 export type ThemeSettings = {
-    mode: ThemeMode; // 'light' | 'dark' | 'system' | 'custom' | 'custom system'
-    active: ThemeActive; // 'sapphire-slate' | 'midnight-gold' | custom ID
-    shape: ThemeBorderShape; // 'rounded' | 'pill' | 'sharp'
-    density: UIDensity; // 'compact' | 'comfortable' | 'spacious'
-    accentColor?: string; // Optional override on top of any active theme
+    mode: ThemeMode;
+    active: ThemeActive;
+    shape: ThemeBorderShape;
+    density: UIDensity;
+    accentColor?: string;
     customThemes?: Record<string, ThemeDefinition>;
+    cycleConfig?: ThemeCycleConfig;
 };
