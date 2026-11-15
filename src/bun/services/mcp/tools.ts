@@ -1,23 +1,31 @@
 import { z } from 'zod';
+import { itemsDB } from '@/bun/database/index.js';
+import type { Item, Location } from '@/shared/types/index.js';
+import type {
+    PlotThreadType,
+    StoryBeatType,
+} from '@/shared/types/project/manuscript/index.js';
+import type {
+    Character,
+    CompendiumCategory,
+    LoreEntry,
+    Organization,
+} from '../../../shared/types/project/compendium/index.js';
+import * as characterDB from '../../database/tables/characters.js';
+import * as itemDB from '../../database/tables/items.js';
+import * as locationDB from '../../database/tables/locations.js';
+import * as loreDB from '../../database/tables/lore.js';
+import * as organizationDB from '../../database/tables/organizations.js';
+import * as plotthreadDB from '../../database/tables/plotThreads.js';
+import * as projectDB from '../../database/tables/projects.js';
+import * as storybeatDB from '../../database/tables/storyBeats.js';
+import * as templatesDB from '../../database/tables/templates.js';
+import type { NewEntityTemplate } from '../../database/tables/templates.js';
+import { db } from '../../electrobun/db';
 //import { characters } from '../../schema/index.js';
 //import { eq } from 'drizzle-orm';
 //import { db } from '../../database/index.js';
 import { mcpServer } from './server.js';
-import { db } from '../../electrobun/db';
-import * as projectDB from '../../database/tables/projects.js';
-import * as templatesDB from '../../database/tables/templates.js';
-import * as characterDB from '../../database/tables/characters.js';
-import * as locationDB from '../../database/tables/locations.js';
-import * as organizationDB from '../../database/tables/organizations.js';
-import * as itemDB from '../../database/tables/items.js';
-import * as loreDB from '../../database/tables/lore.js';
-import type { Character, CompendiumCategory, LoreEntry, Organization } from '../../../shared/types/project/compendium/index.js';
-import * as storybeatDB from '../../database/tables/storyBeats.js';
-import type { PlotThreadType, StoryBeatType } from '@/shared/types/project/manuscript/index.js';
-import * as plotthreadDB from '../../database/tables/plotThreads.js'
-import type { NewEntityTemplate } from '../../database/tables/templates.js';
-import { itemsDB } from '@/bun/database/index.js';
-import type { Item, Location } from '@/shared/types/index.js';
 
 const compendiumCategoryEnum = z.enum([
     'character',
@@ -156,13 +164,12 @@ export default function registerAllTools() {
             }),
         },
         async ({ projectId, baseType, attributes }) => {
-
             const newEntityTemplate = {
                 id: crypto.randomUUID(),
                 projectId: projectId,
                 baseType: baseType,
                 customFields: [],
-                layout: null
+                layout: null,
             };
             console.log(
                 `[calling create_entity] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
@@ -178,9 +185,9 @@ export default function registerAllTools() {
             const template = await db.query.entityTemplates.findFirst({
                 where: (t, { and, eq }) => and(eq(t.projectId, projectId), eq(t.baseType, baseType))
             });
- 
+
             // template?.custom_fields contains your FieldDefinition[] array[cite: 1, 2]!
- 
+
             // TODO: Insert into your database entity table, saving `attributes` into your JSON data column
             // Example DB insertion logic:
             const newEntity = await db.insert(entities).values({
@@ -295,8 +302,8 @@ export default function registerAllTools() {
                     ? and(eq(entities.projectId, projectId), eq(entities.baseType, baseType))
                     : eq(entities.projectId, projectId)
             );
-    
-    
+
+
             Mock return for demonstration
             return {
                 content: [
@@ -353,16 +360,19 @@ export default function registerAllTools() {
             }),
         },
         async ({ entityId, baseType, projectId }) => {
-
             const newEntityTemplate = {
                 id: entityId,
                 projectId: projectId,
                 baseType: baseType,
                 customFields: [],
-                layout: null
+                layout: null,
             };
 
-            const template = await updateEntity(entityId, newEntityTemplate, baseType);
+            const template = await updateEntity(
+                entityId,
+                newEntityTemplate,
+                baseType
+            );
             console.log(`[CRUD: Update] Entity ID: ${template}`);
 
             // Example DB update logic:
@@ -413,7 +423,6 @@ export default function registerAllTools() {
 
         async ({ entityId }) => {
             try {
-
                 await templatesDB.deleteTemplate(db, entityId);
                 console.log(`[CRUD: Delete] Entity ID: ${entityId}`);
 
@@ -429,10 +438,8 @@ export default function registerAllTools() {
                         },
                     ],
                 };
-            }
-
-            catch (err) {
-                console.log('error', err)
+            } catch (err) {
+                console.log('error', err);
 
                 return {
                     content: [
@@ -446,17 +453,23 @@ export default function registerAllTools() {
         }
     );
 
-
     mcpServer.registerTool(
         'create_story_beat',
         {
             title: 'Create Story Beat',
-            description: 'Create new story beat based on project ID,beat type, title and description',
+            description:
+                'Create new story beat based on project ID,beat type, title and description',
             inputSchema: z.object({
                 projectId: z.string().describe('The Project ID'),
                 title: z.string().describe('The title of the story beat'),
-                beatType: z.string().optional().describe('The beat type of the story beat'),
-                description: z.string().optional().describe('The description of the story beat'),
+                beatType: z
+                    .string()
+                    .optional()
+                    .describe('The beat type of the story beat'),
+                description: z
+                    .string()
+                    .optional()
+                    .describe('The description of the story beat'),
             }),
         },
         async ({ title, projectId, beatType, description }) => {
@@ -472,7 +485,7 @@ export default function registerAllTools() {
                 description: description ?? null,
             };
 
-            const result = await storybeatDB.createBeat(db, newStoryBeat)
+            const result = await storybeatDB.createBeat(db, newStoryBeat);
 
             return {
                 content: [
@@ -481,7 +494,7 @@ export default function registerAllTools() {
                         text: `Successfully created with ${result} storybeat`,
                     },
                 ],
-            }
+            };
         }
     );
 
@@ -489,14 +502,18 @@ export default function registerAllTools() {
         'get_story_beat_by_proj_id',
         {
             title: 'Retrieve story_beat',
-            description: 'Retrieves story_beat for a specific manuscript chapter and compendium category within a project',
+            description:
+                'Retrieves story_beat for a specific manuscript chapter and compendium category within a project',
             inputSchema: z.object({
                 projectId: z.string().describe('The ID of the project'),
             }),
         },
         async ({ projectId }) => {
             console.log(`[Calling get_story_beat] for Project: ${projectId}`);
-            const storyBeat = await storybeatDB.getBeatsByProject(db, projectId);
+            const storyBeat = await storybeatDB.getBeatsByProject(
+                db,
+                projectId
+            );
             console.log('[Get Story Beat:', storyBeat);
 
             if (!storyBeat) {
@@ -515,20 +532,24 @@ export default function registerAllTools() {
                     {
                         type: 'text',
                         text: JSON.stringify(storyBeat),
-                    }
-                ]
-            }
+                    },
+                ],
+            };
         }
-    )
+    );
 
     mcpServer.registerTool(
         'get_story_beat_by_id',
         {
             title: 'Retrieve story_beat',
-            description: 'Retrieves story_beat for a specific manuscript chapter and compendium category within a project',
+            description:
+                'Retrieves story_beat for a specific manuscript chapter and compendium category within a project',
             inputSchema: z.object({
-                id: z.string().describe("The ID of the story beat"),
-                projectId: z.string().optional().describe('The ID of the project'),
+                id: z.string().describe('The ID of the story beat'),
+                projectId: z
+                    .string()
+                    .optional()
+                    .describe('The ID of the project'),
             }),
         },
         async ({ id }) => {
@@ -552,11 +573,11 @@ export default function registerAllTools() {
                     {
                         type: 'text',
                         text: JSON.stringify(storyBeat),
-                    }
-                ]
-            }
+                    },
+                ],
+            };
         }
-    )
+    );
 
     mcpServer.registerTool(
         'update_story_beat',
@@ -564,16 +585,26 @@ export default function registerAllTools() {
             title: 'Update Story beat',
             description: "Update an existing story beat's title",
             inputSchema: z.object({
-                id: z.string().describe('The unique ID of the story beat to update'),
+                id: z
+                    .string()
+                    .describe('The unique ID of the story beat to update'),
                 name: z.string().optional().describe('New title if updating'),
-                description: z.string().optional().describe('The description of the story beat'),
-                projectId: z.string().optional().describe('The projectId of the story beat'),
-                beatType: z.string().optional().describe('Beat type of the story beat'),
+                description: z
+                    .string()
+                    .optional()
+                    .describe('The description of the story beat'),
+                projectId: z
+                    .string()
+                    .optional()
+                    .describe('The projectId of the story beat'),
+                beatType: z
+                    .string()
+                    .optional()
+                    .describe('Beat type of the story beat'),
             }),
         },
 
         async ({ id, projectId, description, name, beatType }) => {
-
             const newStoryBeat = {
                 id: crypto.randomUUID(),
                 projectId: projectId,
@@ -584,7 +615,11 @@ export default function registerAllTools() {
                 description: description,
             };
             console.log(`[story beat update with] ${id} and ${name}`);
-            const UpdateBeat = await storybeatDB.updateBeat(db, id, newStoryBeat)
+            const UpdateBeat = await storybeatDB.updateBeat(
+                db,
+                id,
+                newStoryBeat
+            );
 
             if (!UpdateBeat) {
                 return {
@@ -611,16 +646,18 @@ export default function registerAllTools() {
         'delete_story_beat',
         {
             title: 'Delete Story beat',
-            description: 'Delete story beat from the story_beats table in novelty db',
+            description:
+                'Delete story beat from the story_beats table in novelty db',
             inputSchema: z.object({
-                id: z.string().describe('The unique ID of the story beat to delete'),
+                id: z
+                    .string()
+                    .describe('The unique ID of the story beat to delete'),
             }),
         },
 
         async ({ id }) => {
-
             try {
-                await storybeatDB.deleteBeat(db, id)
+                await storybeatDB.deleteBeat(db, id);
 
                 console.log(`storybeat id delete with: ${id}`);
 
@@ -632,9 +669,8 @@ export default function registerAllTools() {
                         },
                     ],
                 };
-            }
-            catch (err) {
-                console.log('[tools.ts]', err)
+            } catch (err) {
+                console.log('[tools.ts]', err);
                 return {
                     content: [
                         {
@@ -651,13 +687,23 @@ export default function registerAllTools() {
         'create_plot_thread',
         {
             title: 'Create Plot Thread',
-            description: 'Create new plot thread based on project ID,thread type, title and description',
+            description:
+                'Create new plot thread based on project ID,thread type, title and description',
             inputSchema: z.object({
                 title: z.string().describe('The title of the plot thread'),
-                threadType: z.string().optional().describe('The thread type of the plot thread'),
-                description: z.string().optional().describe('The description of the plot thread'),
+                threadType: z
+                    .string()
+                    .optional()
+                    .describe('The thread type of the plot thread'),
+                description: z
+                    .string()
+                    .optional()
+                    .describe('The description of the plot thread'),
                 projectId: z.string().optional().describe('The Project ID'),
-                color: z.string().optional().describe("Color of the plot thread")
+                color: z
+                    .string()
+                    .optional()
+                    .describe('Color of the plot thread'),
             }),
         },
         async ({ title, threadType, description, projectId, color }) => {
@@ -672,7 +718,7 @@ export default function registerAllTools() {
                 description: description ?? null,
             };
 
-            const result = await plotthreadDB.createThread(db, newPlotThread)
+            const result = await plotthreadDB.createThread(db, newPlotThread);
 
             return {
                 content: [
@@ -681,7 +727,7 @@ export default function registerAllTools() {
                         text: `Successfully created with ${result} plot thread`,
                     },
                 ],
-            }
+            };
         }
     );
 
@@ -695,7 +741,6 @@ export default function registerAllTools() {
             }),
         },
         async ({ id }) => {
-
             const result = await plotthreadDB.getThreadById(db, id);
 
             if (!result) {
@@ -703,10 +748,10 @@ export default function registerAllTools() {
                     content: [
                         {
                             type: 'text',
-                            text: `ERROR: ID ${id} was not found`
-                        }
-                    ]
-                }
+                            text: `ERROR: ID ${id} was not found`,
+                        },
+                    ],
+                };
             }
 
             console.log(`[calling get_story_beat] ID: ${id}`);
@@ -717,7 +762,7 @@ export default function registerAllTools() {
                         text: JSON.stringify(result),
                     },
                 ],
-            }
+            };
         }
     );
 
@@ -731,18 +776,20 @@ export default function registerAllTools() {
             }),
         },
         async ({ projectId }) => {
-
-            const result = await plotthreadDB.getThreadsByProject(db, projectId);
+            const result = await plotthreadDB.getThreadsByProject(
+                db,
+                projectId
+            );
 
             if (!result) {
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: `ERROR: Project ID ${projectId} was not found`
-                        }
-                    ]
-                }
+                            text: `ERROR: Project ID ${projectId} was not found`,
+                        },
+                    ],
+                };
             }
 
             console.log(`[calling get_story_beat] ID: ${projectId}`);
@@ -753,7 +800,7 @@ export default function registerAllTools() {
                         text: JSON.stringify(result),
                     },
                 ],
-            }
+            };
         }
     );
 
@@ -763,16 +810,30 @@ export default function registerAllTools() {
             title: 'Update Plot Thread',
             description: 'Update existing plot thread based on ID',
             inputSchema: z.object({
-                title: z.string().optional().describe('The title of the plot thread'),
-                description: z.string().optional().describe('The description of the plot thread'),
+                title: z
+                    .string()
+                    .optional()
+                    .describe('The title of the plot thread'),
+                description: z
+                    .string()
+                    .optional()
+                    .describe('The description of the plot thread'),
                 id: z.string().describe('The id of the plot thread'),
-                projectId: z.string().optional().describe('Project Id of the plot thread'),
-                color: z.string().optional().describe('Color of the plot thread'),
-                threadType: z.string().optional().describe('Thread type of the plot thread')
+                projectId: z
+                    .string()
+                    .optional()
+                    .describe('Project Id of the plot thread'),
+                color: z
+                    .string()
+                    .optional()
+                    .describe('Color of the plot thread'),
+                threadType: z
+                    .string()
+                    .optional()
+                    .describe('Thread type of the plot thread'),
             }),
         },
         async ({ title, description, id, projectId, color, threadType }) => {
-
             const newPlotThread = {
                 id: crypto.randomUUID(),
                 projectId: projectId,
@@ -782,17 +843,21 @@ export default function registerAllTools() {
                 description: description ?? null,
             };
 
-            const result = await plotthreadDB.updateThread(db, id, newPlotThread)
+            const result = await plotthreadDB.updateThread(
+                db,
+                id,
+                newPlotThread
+            );
 
             if (!result) {
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: `ERROR: ID ${id} was not found`
-                        }
-                    ]
-                }
+                            text: `ERROR: ID ${id} was not found`,
+                        },
+                    ],
+                };
             }
             console.log(`[calling update_plot_thread] id: ${id}`);
             return {
@@ -802,7 +867,7 @@ export default function registerAllTools() {
                         text: `Successfully updated ${result} plot thread`,
                     },
                 ],
-            }
+            };
         }
     );
 
@@ -812,15 +877,14 @@ export default function registerAllTools() {
             title: 'Delete Plot Thread',
             description: 'Delete plot thread based on ID',
             inputSchema: z.object({
-                id: z.string().describe('The id of the plot thread')
+                id: z.string().describe('The id of the plot thread'),
             }),
         },
         async ({ id }) => {
-
-            await plotthreadDB.deleteThread(db, id)
+            await plotthreadDB.deleteThread(db, id);
 
             try {
-                await plotthreadDB.deleteThread(db, id)
+                await plotthreadDB.deleteThread(db, id);
 
                 console.log(`plotThread id delete with: ${id}`);
 
@@ -832,9 +896,8 @@ export default function registerAllTools() {
                         },
                     ],
                 };
-            }
-            catch (err) {
-                console.log('[tools.ts]', err)
+            } catch (err) {
+                console.log('[tools.ts]', err);
                 return {
                     content: [
                         {
@@ -850,7 +913,6 @@ export default function registerAllTools() {
     mcpServer.registerTool(
         'create_compendium',
         {
-
             title: 'Create Compendium',
             description:
                 'Create a new dynamic Compendium (character, location, organization, item, lore) inside a project using its custom template fields.',
@@ -863,7 +925,6 @@ export default function registerAllTools() {
             }),
         },
         async ({ projectId, name, baseType }) => {
-
             const newEntityTemplate = {
                 id: crypto.randomUUID(),
                 projectId: projectId,
@@ -871,13 +932,16 @@ export default function registerAllTools() {
                 filePath: null,
                 templateData: null,
                 createdAt: new Date(),
-                updatedAt: new Date()
+                updatedAt: new Date(),
             };
             console.log(
                 `[calling createCompendium] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
             );
 
-            const template = await createCompendium(newEntityTemplate, baseType);
+            const template = await createCompendium(
+                newEntityTemplate,
+                baseType
+            );
             console.log(
                 `[CRUD: Create] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
             );
@@ -897,7 +961,6 @@ export default function registerAllTools() {
     mcpServer.registerTool(
         'update_compendium',
         {
-
             title: 'Update Compendium',
             description:
                 'Update a existing Compendium (character, location, organization, item, lore) inside a project using its custom template fields.',
@@ -913,7 +976,6 @@ export default function registerAllTools() {
             }),
         },
         async ({ id, projectId, name, baseType }) => {
-
             const newEntityTemplate = {
                 id: id,
                 projectId: projectId,
@@ -921,13 +983,17 @@ export default function registerAllTools() {
                 filePath: null,
                 templateData: null,
                 createdAt: new Date(),
-                updatedAt: new Date()
+                updatedAt: new Date(),
             };
             console.log(
                 `[calling updateCompendium] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
             );
 
-            const template = await updateCompendium(id, newEntityTemplate, baseType);
+            const template = await updateCompendium(
+                id,
+                newEntityTemplate,
+                baseType
+            );
             console.log('Compendium updated ', template);
 
             return {
@@ -944,12 +1010,14 @@ export default function registerAllTools() {
     mcpServer.registerTool(
         'get_compendium_by_id',
         {
-
             title: 'Retrive Compendium',
             description:
                 'Retrive a existing Compendium (character, location, organization, item, lore) inside a project using its custom template fields.',
             inputSchema: z.object({
-                name: z.string().optional().describe('The primary name of the Compendium'),
+                name: z
+                    .string()
+                    .optional()
+                    .describe('The primary name of the Compendium'),
                 projectId: z.string().describe('The ID of the project'),
                 id: z
                     .string()
@@ -960,7 +1028,6 @@ export default function registerAllTools() {
             }),
         },
         async ({ id, projectId, name, baseType }) => {
-
             console.log(
                 `[calling getChar] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
             );
@@ -982,12 +1049,14 @@ export default function registerAllTools() {
     mcpServer.registerTool(
         'get_compendium_by_proj_id',
         {
-
             title: 'Retrive Compendium',
             description:
                 'Retrive a existing Compendium (character, location, organization, item, lore) inside a project using its custom template fields.',
             inputSchema: z.object({
-                name: z.string().optional().describe('The primary name of the Compendium'),
+                name: z
+                    .string()
+                    .optional()
+                    .describe('The primary name of the Compendium'),
                 projectId: z.string().describe('The ID of the project'),
                 id: z
                     .string()
@@ -998,12 +1067,14 @@ export default function registerAllTools() {
             }),
         },
         async ({ projectId, name, baseType }) => {
-
             console.log(
                 `[calling getCompendium] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
             );
 
-            const template = await getCompendiumByProjectId(projectId, baseType);
+            const template = await getCompendiumByProjectId(
+                projectId,
+                baseType
+            );
             console.log('Compendium Retreived ', template);
 
             return {
@@ -1020,12 +1091,14 @@ export default function registerAllTools() {
     mcpServer.registerTool(
         'delete_compendium',
         {
-
             title: 'Delete Compendium',
             description:
                 'Delete a existing Compendium (character, location, organization, item, lore) inside a project using its custom template fields.',
             inputSchema: z.object({
-                name: z.string().optional().describe('The primary name of the Compendium'),
+                name: z
+                    .string()
+                    .optional()
+                    .describe('The primary name of the Compendium'),
                 projectId: z.string().describe('The ID of the project'),
                 id: z
                     .string()
@@ -1036,7 +1109,6 @@ export default function registerAllTools() {
             }),
         },
         async ({ id, projectId, name, baseType }) => {
-
             try {
                 console.log(
                     `[calling deleteChar] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
@@ -1052,9 +1124,8 @@ export default function registerAllTools() {
                         },
                     ],
                 };
-            }
-            catch (err) {
-                console.log('[tools.ts]', err)
+            } catch (err) {
+                console.log('[tools.ts]', err);
                 return {
                     content: [
                         {
@@ -1166,30 +1237,15 @@ async function createEntity(
     // If baseType is provided, route query to specific category tables/handlers
     switch (baseType) {
         case 'character':
-            return await templatesDB.createTemplate(
-                db,
-                entityTemplate,
-            );
+            return await templatesDB.createTemplate(db, entityTemplate);
         case 'location':
-            return await templatesDB.createTemplate(
-                db,
-                entityTemplate,
-            );
+            return await templatesDB.createTemplate(db, entityTemplate);
         case 'organization':
-            return await templatesDB.createTemplate(
-                db,
-                entityTemplate,
-            );
+            return await templatesDB.createTemplate(db, entityTemplate);
         case 'item':
-            return await templatesDB.createTemplate(
-                db,
-                entityTemplate,
-            );
+            return await templatesDB.createTemplate(db, entityTemplate);
         case 'lore':
-            return await templatesDB.createTemplate(
-                db,
-                entityTemplate,
-            );
+            return await templatesDB.createTemplate(db, entityTemplate);
         default:
             // Fallback if baseType is omitted: query unified entities table or search across categories
             return null;
@@ -1207,31 +1263,31 @@ async function updateEntity(
             return await templatesDB.updateTemplate(
                 db,
                 entityId,
-                entityTemplate,
+                entityTemplate
             );
         case 'location':
             return await templatesDB.updateTemplate(
                 db,
                 entityId,
-                entityTemplate,
+                entityTemplate
             );
         case 'organization':
             return await templatesDB.updateTemplate(
                 db,
                 entityId,
-                entityTemplate,
+                entityTemplate
             );
         case 'item':
             return await templatesDB.updateTemplate(
                 db,
                 entityId,
-                entityTemplate,
+                entityTemplate
             );
         case 'lore':
             return await templatesDB.updateTemplate(
                 db,
                 entityId,
-                entityTemplate,
+                entityTemplate
             );
         default:
             // Fallback if baseType is omitted: query unified entities table or search across categories
@@ -1248,28 +1304,19 @@ async function createCompendium(
         case 'character':
             return await characterDB.createCharacter(
                 db,
-                entityData as Character,
+                entityData as Character
             );
         case 'location':
-            return await locationDB.createLocation(
-                db,
-                entityData as Location,
-            );
+            return await locationDB.createLocation(db, entityData as Location);
         case 'organization':
             return await organizationDB.createOrganization(
                 db,
-                entityData as Organization,
+                entityData as Organization
             );
         case 'item':
-            return await itemsDB.createItem(
-                db,
-                entityData as Item,
-            );
+            return await itemsDB.createItem(db, entityData as Item);
         case 'lore':
-            return await loreDB.createLoreEntry(
-                db,
-                entityData as LoreEntry,
-            );
+            return await loreDB.createLoreEntry(db, entityData as LoreEntry);
         default:
             // Fallback if baseType is omitted: query unified entities table or search across categories
             return null;
@@ -1286,26 +1333,22 @@ async function updateCompendium(
             return await characterDB.updateCharacter(
                 db,
                 id,
-                entityData as Character,
+                entityData as Character
             );
         case 'location':
             return await locationDB.updateLocation(
                 db,
                 id,
-                entityData as Location,
+                entityData as Location
             );
         case 'organization':
             return await organizationDB.updateOrganization(
                 db,
                 id,
-                entityData as Organization,
+                entityData as Organization
             );
         case 'item':
-            return await itemsDB.updateItem(
-                db,
-                id,
-                entityData as Item,
-            );
+            return await itemsDB.updateItem(db, id, entityData as Item);
         case 'lore':
             return await loreDB.updateLoreEntry(
                 db,
@@ -1318,37 +1361,19 @@ async function updateCompendium(
     }
 }
 
-async function getCompendiumById(
-    id: string,
-    baseType?: CompendiumCategory
-) {
+async function getCompendiumById(id: string, baseType?: CompendiumCategory) {
     // If baseType is provided, route query to specific category tables/handlers
     switch (baseType) {
         case 'character':
-            return await characterDB.getCharacterById(
-                db,
-                id,
-            );
+            return await characterDB.getCharacterById(db, id);
         case 'location':
-            return await locationDB.getLocationById(
-                db,
-                id,
-            );
+            return await locationDB.getLocationById(db, id);
         case 'organization':
-            return await organizationDB.getOrganizationById(
-                db,
-                id,
-            );
+            return await organizationDB.getOrganizationById(db, id);
         case 'item':
-            return await itemsDB.getItemById(
-                db,
-                id,
-            );
+            return await itemsDB.getItemById(db, id);
         case 'lore':
-            return await loreDB.getLoreEntryById(
-                db,
-                id,
-            );
+            return await loreDB.getLoreEntryById(db, id);
         default:
             // Fallback if baseType is omitted: query unified entities table or search across categories
             return null;
@@ -1362,70 +1387,39 @@ async function getCompendiumByProjectId(
     // If baseType is provided, route query to specific category tables/handlers
     switch (baseType) {
         case 'character':
-            return await characterDB.getCharactersByProject(
-                db,
-                projecIid,
-            );
+            return await characterDB.getCharactersByProject(db, projecIid);
         case 'location':
-            return await locationDB.getLocationsByProject(
-                db,
-                projecIid,
-            );
+            return await locationDB.getLocationsByProject(db, projecIid);
         case 'organization':
             return await organizationDB.getOrganizationsByProject(
                 db,
-                projecIid,
+                projecIid
             );
         case 'item':
-            return await itemsDB.getItemsByProject(
-                db,
-                projecIid,
-            );
+            return await itemsDB.getItemsByProject(db, projecIid);
         case 'lore':
-            return await loreDB.getLoreEntriesByProject(
-                db,
-                projecIid,
-            );
+            return await loreDB.getLoreEntriesByProject(db, projecIid);
         default:
             // Fallback if baseType is omitted: query unified entities table or search across categories
             return null;
     }
 }
 
-async function deleteCompendium(
-    id: string,
-    baseType?: CompendiumCategory
-) {
+async function deleteCompendium(id: string, baseType?: CompendiumCategory) {
     // If baseType is provided, route query to specific category tables/handlers
     switch (baseType) {
         case 'character':
-            return await characterDB.deleteCharacter(
-                db,
-                id,
-            );
+            return await characterDB.deleteCharacter(db, id);
         case 'location':
-            return await locationDB.deleteLocation(
-                db,
-                id,
-            );
+            return await locationDB.deleteLocation(db, id);
         case 'organization':
-            return await organizationDB.deleteOrganization(
-                db,
-                id,
-            );
+            return await organizationDB.deleteOrganization(db, id);
         case 'item':
-            return await itemsDB.deleteItem(
-                db,
-                id,
-            );
+            return await itemsDB.deleteItem(db, id);
         case 'lore':
-            return await loreDB.deleteLoreEntry(
-                db,
-                id,
-            );
+            return await loreDB.deleteLoreEntry(db, id);
         default:
             // Fallback if baseType is omitted: query unified entities table or search across categories
             return null;
     }
 }
-
