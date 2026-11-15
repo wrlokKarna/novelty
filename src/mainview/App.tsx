@@ -9,8 +9,10 @@ import {
 import {
     IconBook,
     IconChevronLeft,
+    IconDotsVertical,
     IconFiles,
     IconFileText,
+    IconLayoutColumns,
     IconLinkOff,
     IconNotes,
     IconPlus,
@@ -42,6 +44,7 @@ import type {
     FileTab,
     TemplateLayout,
 } from '../shared/types/project/templates';
+import styles from './App.module.css';
 import ChapterOutlineEditor from './components/ChapterOutlineEditor';
 import ChatPanel from './components/ChatPanel';
 import CompendiumEntryEditor from './components/CompendiumEntryEditor';
@@ -227,17 +230,51 @@ function App() {
     const editorRef = useRef<RichTextEditorHandle>(null);
 
     // =========================================================================
-    // CHAPTER LINKING STATE & WORKFLOW
+    // CHAPTER TILE LINKING, RIGHT-CLICK & THREE-DOTS MENU STATE
     // =========================================================================
     const [chapterLinks, setChapterLinks] = useState<
         Record<string, string | null>
     >({});
     const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
     const [isCenterHovered, setIsCenterHovered] = useState<boolean>(false);
+    const [tileMenuState, setTileMenuState] = useState<{
+        chapterId: string;
+        x: number;
+        y: number;
+    } | null>(null);
 
     const leftScrollRef = useRef<HTMLDivElement>(null);
     const rightScrollRef = useRef<HTMLDivElement>(null);
     const isScrollingRef = useRef<boolean>(false);
+
+    // Close the "Add Tile" dropdown menu when clicking anywhere outside
+    useEffect(() => {
+        if (!tileMenuState) return;
+        const handleClickOutside = () => setTileMenuState(null);
+        window.addEventListener('click', handleClickOutside);
+        return () => window.removeEventListener('click', handleClickOutside);
+    }, [tileMenuState]);
+
+    // Dismiss the bottom linking notification banner when clicking anywhere on the display
+    useEffect(() => {
+        if (!linkingSourceId) return;
+        const handleGlobalClick = (e: MouseEvent) => {
+            const target = e.target as HTMLElement | null;
+            if (!target) return;
+            // Allow clicks inside the left sidebar chapter list so user can still link via sidebar
+            if (target.closest('.app-panel-left') || target.closest('aside')) {
+                return;
+            }
+            setLinkingSourceId(null);
+        };
+        const timer = setTimeout(() => {
+            window.addEventListener('click', handleGlobalClick);
+        }, 0);
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener('click', handleGlobalClick);
+        };
+    }, [linkingSourceId]);
 
     const handleScrollSync = (source: 'left' | 'right') => {
         if (isScrollingRef.current) return;
@@ -269,8 +306,10 @@ function App() {
         }, 50);
     };
 
-    const handleStartLinking = (chapterId: string) => {
+    const handleStartLinking = (chapterId: string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
         setLinkingSourceId(chapterId);
+        setTileMenuState(null);
     };
 
     const handleCompleteLink = (targetId: string) => {
@@ -306,6 +345,7 @@ function App() {
             }
             return next;
         });
+        setTileMenuState(null);
     };
 
     const getLinkedPartner = useCallback(
@@ -877,52 +917,6 @@ function App() {
         }
 
         setActiveTabId(chapter.id);
-    }
-
-    async function handleAutoLinkNextChapter(sourceChapterId: string) {
-        const currentIndex = chapters.findIndex(
-            (c) => c.id === sourceChapterId
-        );
-        if (currentIndex === -1 || currentIndex + 1 >= chapters.length) {
-            handleStartLinking(sourceChapterId);
-            return;
-        }
-        const nextChapter = chapters[currentIndex + 1];
-        const c = await rpc.request['db:get-chapter'](nextChapter.id);
-        if (c?.content) {
-            setTabContents((prev) => ({
-                ...prev,
-                [nextChapter.id]: c.content!,
-            }));
-        }
-        if (!openTabs.some((t) => t.id === nextChapter.id)) {
-            setOpenTabs((prev) => [
-                ...prev,
-                {
-                    id: nextChapter.id,
-                    name: nextChapter.title,
-                    type: 'chapter' as const,
-                    filePath: nextChapter.filePath || '',
-                    isModified: false,
-                },
-            ]);
-        }
-        setChapterLinks((prev) => {
-            const cleaned: Record<string, string | null> = {};
-            for (const [k, v] of Object.entries(prev)) {
-                if (
-                    k !== sourceChapterId &&
-                    v !== sourceChapterId &&
-                    k !== nextChapter.id &&
-                    v !== nextChapter.id
-                ) {
-                    cleaned[k] = v;
-                }
-            }
-            cleaned[sourceChapterId] = nextChapter.id;
-            return cleaned;
-        });
-        setLinkingSourceId(null);
     }
 
     function openPlotArchitectureTab() {
@@ -2647,30 +2641,27 @@ function App() {
 
             if (linkedPair) {
                 return (
-                    <div style={tabContStyles.tabContentContainer}>
-                        <div style={tabContStyles.tabHeaderBar}>
-                            <span style={tabContStyles.tabHeaderTitle}>
-                                {linkedPair.source.name} &amp;{' '}
-                                {linkedPair.target.name} — Linked View
-                            </span>
-                            <button
-                                style={tabContStyles.linkToggleBtn}
-                                onClick={() =>
-                                    handleUnlinkChapter(linkedPair.source.id)
-                                }
-                            >
-                                Unlink Chapters
-                            </button>
-                        </div>
-
-                        <div style={tabContStyles.workspace}>
+                    <div className={styles.tabContentContainer}>
+                        <div className={styles.workspace}>
                             <div
                                 ref={leftScrollRef}
-                                style={tabContStyles.leftPane}
+                                className={styles.leftPane}
                                 onScroll={() => handleScrollSync('left')}
                             >
-                                <div style={tabContStyles.paneTitleBadge}>
-                                    {linkedPair.source.name}
+                                <div className={styles.paneHeaderRow}>
+                                    <span className={styles.paneTitleBadge}>
+                                        {linkedPair.source.name}
+                                    </span>
+                                    <button
+                                        className={styles.paneUnlinkSmallBtn}
+                                        onClick={() =>
+                                            handleUnlinkChapter(
+                                                linkedPair.source.id
+                                            )
+                                        }
+                                    >
+                                        Unlink Tile
+                                    </button>
                                 </div>
                                 {renderSingleChapterWorkspace(
                                     linkedPair.source.id
@@ -2678,13 +2669,13 @@ function App() {
                             </div>
 
                             <div
-                                style={tabContStyles.centerHoverZone}
+                                className={styles.centerHoverZone}
                                 onMouseEnter={() => setIsCenterHovered(true)}
                                 onMouseLeave={() => setIsCenterHovered(false)}
                             >
                                 {isCenterHovered && (
                                     <button
-                                        style={tabContStyles.hoverUnlinkBtn}
+                                        className={styles.hoverUnlinkBtn}
                                         onClick={() =>
                                             handleUnlinkChapter(
                                                 linkedPair.source.id
@@ -2698,11 +2689,13 @@ function App() {
 
                             <div
                                 ref={rightScrollRef}
-                                style={tabContStyles.rightPane}
+                                className={styles.rightPane}
                                 onScroll={() => handleScrollSync('right')}
                             >
-                                <div style={tabContStyles.paneTitleBadge}>
-                                    {linkedPair.target.name}
+                                <div className={styles.paneHeaderRow}>
+                                    <span className={styles.paneTitleBadge}>
+                                        {linkedPair.target.name}
+                                    </span>
                                 </div>
                                 {renderSingleChapterWorkspace(
                                     linkedPair.target.id
@@ -2713,41 +2706,9 @@ function App() {
                 );
             }
 
-            const nextChapterIndex =
-                chapters.findIndex((c) => c.id === activeTab.id) + 1;
-            const nextChapter =
-                nextChapterIndex > 0 && nextChapterIndex < chapters.length
-                    ? chapters[nextChapterIndex]
-                    : null;
-
             return (
-                <div style={tabContStyles.tabContentContainer}>
-                    <div style={tabContStyles.tabHeaderBar}>
-                        <span style={tabContStyles.tabHeaderTitle}>
-                            {activeTab.name} (Standard Mode)
-                        </span>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <button
-                                style={tabContStyles.linkToggleBtn}
-                                onClick={() => handleStartLinking(activeTab.id)}
-                            >
-                                Enable Preview Link
-                            </button>
-                            {nextChapter && (
-                                <button
-                                    style={tabContStyles.primaryAccentBtn}
-                                    onClick={() =>
-                                        handleAutoLinkNextChapter(activeTab.id)
-                                    }
-                                    title={`Automatically link with ${nextChapter.title}`}
-                                >
-                                    Auto-Link to {nextChapter.title}
-                                </button>
-                            )}
-                        </div>
-                    </div>
-
-                    <div style={{ flex: 1, overflowY: 'auto' }}>
+                <div className={styles.tabContentContainer}>
+                    <div className={styles.standardEditorScroll}>
                         {editorSplit(
                             wrapWidth(
                                 renderSingleChapterWorkspace(activeTab.id)
@@ -2992,7 +2953,39 @@ function App() {
         }
     };
 
+    // Opens the "Add Tile" menu via Three-Dots click (in top-right action bar)
+    const handleOpenTileMenu = (chapterId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        setTileMenuState((prev) =>
+            prev?.chapterId === chapterId
+                ? null
+                : {
+                      chapterId,
+                      x: Math.min(rect.left, window.innerWidth - 170),
+                      y: rect.bottom + 6,
+                  }
+        );
+    };
+
+    // Opens the "Add Tile" menu via Right-Click (Context Menu) on a Chapter Tab
+    const handleTabContextMenu = (
+        tab: FileTab,
+        e: React.MouseEvent<HTMLButtonElement>
+    ) => {
+        if (tab.type !== 'chapter') return;
+        e.preventDefault();
+        e.stopPropagation();
+        setTileMenuState({
+            chapterId: tab.id,
+            x: Math.min(e.clientX, window.innerWidth - 170),
+            y: e.clientY + 4,
+        });
+    };
+
     const renderedTabIds = new Set<string>();
+    const activeChapterTab =
+        getActiveTab()?.type === 'chapter' ? getActiveTab() : null;
 
     return (
         <>
@@ -3136,44 +3129,11 @@ function App() {
                 />
 
                 <div className="app-editor">
-                    {/* Linking Mode Active Notification Banner */}
-                    {linkingSourceId && (
-                        <div style={tabContStyles.linkingBanner}>
-                            <span>
-                                Linking mode active: Click another chapter tab
-                                (or chapter in the left sidebar) to link with{' '}
-                                <strong style={{ color: '#ffffff' }}>
-                                    {chapters.find(
-                                        (c) => c.id === linkingSourceId
-                                    )?.title ||
-                                        openTabs.find(
-                                            (t) => t.id === linkingSourceId
-                                        )?.name}
-                                </strong>
-                            </span>
-                            <button
-                                style={tabContStyles.cancelLinkBtn}
-                                onClick={() => setLinkingSourceId(null)}
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    )}
-
                     {/* Top Tabs Bar Matching Native App UI */}
-                    <div style={tabContStyles.topContainer}>
-                        <div style={tabContStyles.tabsGroupDiv}>
+                    <div className={styles.topContainer}>
+                        <div className={styles.tabsGroupDiv}>
                             <button
-                                style={{
-                                    ...tabContStyles.topTab,
-                                    backgroundColor: isScratchOpen
-                                        ? '#252528'
-                                        : 'transparent',
-                                    color: isScratchOpen
-                                        ? '#ffffff'
-                                        : '#8e8e93',
-                                    padding: '6px 10px',
-                                }}
+                                className={`${styles.topTab} ${isScratchOpen ? styles.topTabActive : ''}`}
                                 onClick={() => setIsScratchOpen(!isScratchOpen)}
                                 title="Scratchpad"
                             >
@@ -3201,20 +3161,18 @@ function App() {
                                     return (
                                         <div
                                             key={`pair-${partner.source.id}-${partner.target.id}`}
-                                            style={tabContStyles.tabPairWrapper}
+                                            className={styles.tabPairWrapper}
                                         >
                                             <button
-                                                style={{
-                                                    ...tabContStyles.topTab,
-                                                    backgroundColor:
-                                                        isSourceActive
-                                                            ? '#252528'
-                                                            : 'transparent',
-                                                    color: isSourceActive
-                                                        ? '#ffffff'
-                                                        : '#8e8e93',
-                                                }}
-                                                onClick={() => {
+                                                className={`${styles.topTab} ${isSourceActive ? styles.topTabActive : ''}`}
+                                                onContextMenu={(e) =>
+                                                    handleTabContextMenu(
+                                                        partner.source,
+                                                        e
+                                                    )
+                                                }
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
                                                     setIsScratchOpen(false);
                                                     if (linkingSourceId) {
                                                         handleCompleteLink(
@@ -3229,61 +3187,51 @@ function App() {
                                             >
                                                 <IconFileText
                                                     size={14}
-                                                    style={{
-                                                        marginRight: '6px',
-                                                        opacity: 0.75,
-                                                    }}
+                                                    className={styles.tabIcon}
                                                 />
                                                 <span>
                                                     {partner.source.name}
                                                 </span>
-                                                <IconX
-                                                    size={12}
-                                                    style={{
-                                                        marginLeft: '6px',
-                                                        opacity: 0.6,
-                                                    }}
+                                                <span
+                                                    className={
+                                                        styles.tabCloseIcon
+                                                    }
                                                     onClick={(e) =>
                                                         handleCloseTab(
                                                             partner.source.id,
                                                             e
                                                         )
                                                     }
-                                                />
+                                                >
+                                                    <IconX size={12} />
+                                                </span>
                                             </button>
 
                                             <div
-                                                style={
-                                                    tabContStyles.pairIconContainer
+                                                className={
+                                                    styles.pairIconContainer
                                                 }
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleUnlinkChapter(
+                                                        partner.source.id
+                                                    );
+                                                }}
+                                                title="Unlink Tile"
                                             >
-                                                <IconLinkOff
-                                                    size={14}
-                                                    color="#2b7de9"
-                                                    style={{
-                                                        cursor: 'pointer',
-                                                    }}
-                                                    onClick={() =>
-                                                        handleUnlinkChapter(
-                                                            partner.source.id
-                                                        )
-                                                    }
-                                                    title="Unlink chapters"
-                                                />
+                                                <IconLinkOff size={14} />
                                             </div>
 
                                             <button
-                                                style={{
-                                                    ...tabContStyles.topTab,
-                                                    backgroundColor:
-                                                        isTargetActive
-                                                            ? '#252528'
-                                                            : 'transparent',
-                                                    color: isTargetActive
-                                                        ? '#ffffff'
-                                                        : '#8e8e93',
-                                                }}
-                                                onClick={() => {
+                                                className={`${styles.topTab} ${isTargetActive ? styles.topTabActive : ''}`}
+                                                onContextMenu={(e) =>
+                                                    handleTabContextMenu(
+                                                        partner.target,
+                                                        e
+                                                    )
+                                                }
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
                                                     setIsScratchOpen(false);
                                                     if (linkingSourceId) {
                                                         handleCompleteLink(
@@ -3298,27 +3246,24 @@ function App() {
                                             >
                                                 <IconFileText
                                                     size={14}
-                                                    style={{
-                                                        marginRight: '6px',
-                                                        opacity: 0.75,
-                                                    }}
+                                                    className={styles.tabIcon}
                                                 />
                                                 <span>
                                                     {partner.target.name}
                                                 </span>
-                                                <IconX
-                                                    size={12}
-                                                    style={{
-                                                        marginLeft: '6px',
-                                                        opacity: 0.6,
-                                                    }}
+                                                <span
+                                                    className={
+                                                        styles.tabCloseIcon
+                                                    }
                                                     onClick={(e) =>
                                                         handleCloseTab(
                                                             partner.target.id,
                                                             e
                                                         )
                                                     }
-                                                />
+                                                >
+                                                    <IconX size={12} />
+                                                </span>
                                             </button>
                                         </div>
                                     );
@@ -3327,23 +3272,18 @@ function App() {
                                     const isActive =
                                         !isScratchOpen &&
                                         activeTabId === tab.id;
+                                    const isLinkingSource =
+                                        linkingSourceId === tab.id;
+
                                     return (
                                         <button
                                             key={tab.id}
-                                            style={{
-                                                ...tabContStyles.topTab,
-                                                backgroundColor: isActive
-                                                    ? '#252528'
-                                                    : 'transparent',
-                                                color: isActive
-                                                    ? '#ffffff'
-                                                    : '#8e8e93',
-                                                border:
-                                                    linkingSourceId === tab.id
-                                                        ? '1px dashed #2b7de9'
-                                                        : '1px solid transparent',
-                                            }}
-                                            onClick={() => {
+                                            className={`${styles.topTab} ${isActive ? styles.topTabActive : ''} ${isLinkingSource ? styles.topTabLinkingSource : ''}`}
+                                            onContextMenu={(e) =>
+                                                handleTabContextMenu(tab, e)
+                                            }
+                                            onClick={(e) => {
+                                                e.stopPropagation();
                                                 setIsScratchOpen(false);
                                                 if (linkingSourceId) {
                                                     handleCompleteLink(tab.id);
@@ -3354,38 +3294,93 @@ function App() {
                                         >
                                             <IconFileText
                                                 size={14}
-                                                style={{
-                                                    marginRight: '6px',
-                                                    opacity: 0.75,
-                                                }}
+                                                className={styles.tabIcon}
                                             />
                                             <span>{tab.name}</span>
-                                            <IconX
-                                                size={12}
-                                                style={{
-                                                    marginLeft: '6px',
-                                                    opacity: 0.6,
-                                                }}
+                                            <span
+                                                className={styles.tabCloseIcon}
                                                 onClick={(e) =>
                                                     handleCloseTab(tab.id, e)
                                                 }
-                                            />
+                                            >
+                                                <IconX size={12} />
+                                            </span>
                                         </button>
                                     );
                                 }
                             })}
+                        </div>
 
+                        {/* Top-Right Action Buttons: Plus (+) on the left, Three-Dots (⋮) on the right */}
+                        <div className={styles.rightActionsGroup}>
                             <button
-                                style={tabContStyles.addBtn}
+                                className={styles.addBtn}
                                 onClick={() =>
                                     setActiveDialog('openFileDialog')
                                 }
                                 title="Open File or Add Tab"
                             >
-                                <IconPlus size={15} />
+                                <IconPlus size={16} />
                             </button>
+                            {activeChapterTab && (
+                                <button
+                                    className={styles.addBtn}
+                                    onClick={(e) =>
+                                        handleOpenTileMenu(
+                                            activeChapterTab.id,
+                                            e
+                                        )
+                                    }
+                                    title="Chapter Tile Options"
+                                >
+                                    <IconDotsVertical size={16} />
+                                </button>
+                            )}
                         </div>
                     </div>
+
+                    {/* Three-Dots & Right-Click Dropdown Menu ("Add Tile") */}
+                    {tileMenuState && (
+                        <div
+                            className={styles.tileDropdownMenu}
+                            style={{
+                                top: tileMenuState.y,
+                                left: tileMenuState.x,
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button
+                                className={styles.tileDropdownItem}
+                                onClick={(e) =>
+                                    handleStartLinking(
+                                        tileMenuState.chapterId,
+                                        e
+                                    )
+                                }
+                            >
+                                <IconLayoutColumns size={15} />
+                                <span>Add Tile</span>
+                            </button>
+                            {getLinkedPartner(tileMenuState.chapterId) && (
+                                <>
+                                    <div
+                                        className={styles.tileDropdownDivider}
+                                    />
+                                    <button
+                                        className={styles.tileDropdownItem}
+                                        onClick={() =>
+                                            handleUnlinkChapter(
+                                                tileMenuState.chapterId
+                                            )
+                                        }
+                                    >
+                                        <IconLinkOff size={15} />
+                                        <span>Unlink Tile</span>
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    )}
 
                     {skeletonMode && (
                         <div className="skeleton-banner">
@@ -3410,6 +3405,36 @@ function App() {
                     >
                         {renderEditor()}
                     </div>
+
+                    {/* Bottom Floating Notification Toast (Dismisses on any display click) */}
+                    {linkingSourceId && (
+                        <div
+                            className={styles.bottomLinkingToast}
+                            onClick={() => setLinkingSourceId(null)}
+                        >
+                            <span>
+                                Tile linking active: Click another chapter tab
+                                (or chapter in the left sidebar) to pair with{' '}
+                                <span className={styles.toastHighlight}>
+                                    {chapters.find(
+                                        (c) => c.id === linkingSourceId
+                                    )?.title ||
+                                        openTabs.find(
+                                            (t) => t.id === linkingSourceId
+                                        )?.name}
+                                </span>
+                            </span>
+                            <button
+                                className={styles.cancelLinkBtn}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLinkingSourceId(null);
+                                }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <RightPanel>
@@ -3999,213 +4024,5 @@ function App() {
         </>
     );
 }
-
-// ============================================================================
-// NATIVE DARK UI THEME STYLES (Matched to App Screenshot)
-// ============================================================================
-const tabContStyles: { [key: string]: React.CSSProperties } = {
-    linkingBanner: {
-        background: '#131d2b',
-        border: '1px solid #2b7de9',
-        padding: '8px 16px',
-        borderRadius: '6px',
-        margin: '8px 16px 0 16px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        fontSize: '12.5px',
-        color: '#8bb8f8',
-    },
-    cancelLinkBtn: {
-        background: '#1e1e22',
-        border: '1px solid #3a3a40',
-        color: '#e5e5e7',
-        padding: '4px 10px',
-        borderRadius: '4px',
-        cursor: 'pointer',
-        fontSize: '11px',
-    },
-    topContainer: {
-        width: '100%',
-        display: 'flex',
-        justifyContent: 'flex-start',
-        alignItems: 'center',
-        backgroundColor: '#111111',
-        borderBottom: '1px solid #222225',
-        padding: '6px 12px',
-        boxSizing: 'border-box',
-    },
-    tabsGroupDiv: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px',
-        overflowX: 'auto',
-        width: '100%',
-    },
-    tabPairWrapper: {
-        display: 'flex',
-        alignItems: 'center',
-        background: '#161b22',
-        border: '1px solid #2b7de9',
-        borderRadius: '7px',
-        padding: '2px 4px',
-        gap: '4px',
-    },
-    pairIconContainer: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '0 4px',
-    },
-    topTab: {
-        border: '1px solid transparent',
-        borderRadius: '6px',
-        padding: '6px 14px',
-        fontSize: '13px',
-        fontWeight: 500,
-        cursor: 'pointer',
-        outline: 'none',
-        whiteSpace: 'nowrap',
-        transition: 'all 0.15s ease',
-        background: 'transparent',
-        color: '#8e8e93',
-        display: 'inline-flex',
-        alignItems: 'center',
-    },
-    addBtn: {
-        border: 'none',
-        borderRadius: '6px',
-        padding: '6px 8px',
-        marginLeft: 'auto',
-        cursor: 'pointer',
-        background: 'transparent',
-        color: '#8e8e93',
-        outline: 'none',
-        display: 'inline-flex',
-        alignItems: 'center',
-    },
-    tabContentContainer: {
-        width: '100%',
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        gap: '12px',
-        padding: '12px 16px',
-        boxSizing: 'border-box',
-        overflow: 'hidden',
-        backgroundColor: '#111111',
-    },
-    tabHeaderBar: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '8px 14px',
-        background: '#161618',
-        border: '1px solid #26262a',
-        borderRadius: '6px',
-        flexShrink: 0,
-    },
-    tabHeaderTitle: {
-        fontSize: '12px',
-        color: '#98989f',
-        fontWeight: 600,
-        letterSpacing: '0.4px',
-        textTransform: 'uppercase',
-    },
-    linkToggleBtn: {
-        background: '#222226',
-        border: '1px solid #36363c',
-        color: '#e5e5e7',
-        padding: '5px 12px',
-        borderRadius: '5px',
-        fontSize: '12px',
-        fontWeight: 500,
-        cursor: 'pointer',
-    },
-    primaryAccentBtn: {
-        background: '#2b7de9',
-        border: '1px solid #2b7de9',
-        color: '#ffffff',
-        padding: '5px 12px',
-        borderRadius: '5px',
-        fontSize: '12px',
-        fontWeight: 500,
-        cursor: 'pointer',
-    },
-    workspace: {
-        width: '100%',
-        flex: 1,
-        display: 'flex',
-        gap: '0px',
-        height: '100%',
-        position: 'relative',
-        overflow: 'hidden',
-    },
-    centerHoverZone: {
-        position: 'absolute',
-        left: '50%',
-        top: 0,
-        transform: 'translateX(-50%)',
-        width: '36px',
-        height: '100%',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 10,
-        cursor: 'pointer',
-    },
-    hoverUnlinkBtn: {
-        background: '#1e1e22',
-        border: '1px solid #2b7de9',
-        color: '#ffffff',
-        padding: '6px 12px',
-        borderRadius: '16px',
-        cursor: 'pointer',
-        fontSize: '11px',
-        fontWeight: 500,
-        whiteSpace: 'nowrap',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.6)',
-    },
-    leftPane: {
-        flex: 1,
-        background: '#141416',
-        border: '1px solid #26262a',
-        borderTopRightRadius: '0px',
-        borderBottomRightRadius: '0px',
-        borderTopLeftRadius: '8px',
-        borderBottomLeftRadius: '8px',
-        padding: '16px',
-        color: '#e5e5e7',
-        boxSizing: 'border-box',
-        height: '100%',
-        overflowY: 'auto',
-    },
-    rightPane: {
-        flex: 1,
-        background: '#121214',
-        border: '1px solid #26262a',
-        borderLeft: 'none',
-        borderTopLeftRadius: '0px',
-        borderBottomLeftRadius: '0px',
-        borderTopRightRadius: '8px',
-        borderBottomRightRadius: '8px',
-        padding: '16px',
-        color: '#e5e5e7',
-        boxSizing: 'border-box',
-        height: '100%',
-        overflowY: 'auto',
-    },
-    paneTitleBadge: {
-        fontSize: '11.5px',
-        fontWeight: 600,
-        color: '#2b7de9',
-        textTransform: 'uppercase',
-        letterSpacing: '0.5px',
-        marginBottom: '12px',
-        paddingBottom: '8px',
-        borderBottom: '1px solid #26262a',
-    },
-};
 
 export default App;
