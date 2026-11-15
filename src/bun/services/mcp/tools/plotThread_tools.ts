@@ -9,7 +9,7 @@ mcpServer.registerTool(
   {
     title: 'Create Plot Thread',
     description:
-      'Create new plot thread based on project ID,thread type, title and description',
+      'Create new plot thread based on project Id, thread type, title and description',
     inputSchema: z.object({
       title: z.string().describe('The title of the plot thread'),
       threadType: z
@@ -53,12 +53,13 @@ mcpServer.registerTool(
 );
 
 mcpServer.registerTool(
-  'get_plot_thread_by_id',
+  'get_plot_thread',
   {
     title: 'Retreive Plot Thread',
-    description: 'Retreive plot thread based on ID',
+    description: 'Retrieve a plot thread based on project Id using id or title',
     inputSchema: z.object({
       id: z.string().describe('The id of the plot thread'),
+      title: z.string().describe('The title of the plot thread')
     }),
   },
   async ({ id }) => {
@@ -88,10 +89,10 @@ mcpServer.registerTool(
 );
 
 mcpServer.registerTool(
-  'get_plot_thread_by_proj_id',
+  'list_plot_threads',
   {
     title: 'Retreive Plot Thread',
-    description: 'Retreive plot thread based on Project ID',
+    description: 'Retrieve all available plot threads based on project Id using project id or current project id',
     inputSchema: z.object({
       projectId: z.string().describe('The id of the project'),
     }),
@@ -113,7 +114,7 @@ mcpServer.registerTool(
       };
     }
 
-    console.log(`[calling get_story_beat] ID: ${projectId}`);
+    console.log(`[calling list_plot_threads] ID: ${projectId}`);
     return {
       content: [
         {
@@ -129,7 +130,7 @@ mcpServer.registerTool(
   'update_plot_thread',
   {
     title: 'Update Plot Thread',
-    description: 'Update existing plot thread based on ID',
+    description: 'Update an existing plot thread based on project Id by using id or title or using list plot thread tool call to get details about the plot thread',
     inputSchema: z.object({
       title: z
         .string()
@@ -196,9 +197,13 @@ mcpServer.registerTool(
   'delete_plot_thread',
   {
     title: 'Delete Plot Thread',
-    description: 'Delete plot thread based on ID',
+    description: 'Delete plot thread based on project Id using id or title',
     inputSchema: z.object({
       id: z.string().describe('The id of the plot thread'),
+      title: z
+        .string()
+        .optional()
+        .describe('The title of the plot thread'),
     }),
   },
   async ({ id }) => {

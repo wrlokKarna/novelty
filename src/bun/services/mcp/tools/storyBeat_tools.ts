@@ -9,7 +9,7 @@ mcpServer.registerTool(
   {
     title: 'Create Story Beat',
     description:
-      'Create new story beat based on project ID,beat type, title and description',
+      'Create new story beat based on project ID, beat type, title and description',
     inputSchema: z.object({
       projectId: z.string().describe('The Project ID'),
       title: z.string().describe('The title of the story beat'),
@@ -50,24 +50,23 @@ mcpServer.registerTool(
 );
 
 mcpServer.registerTool(
-  'get_story_beat_by_proj_id',
+  'list_story_beats',
   {
-    title: 'Retrieve story_beat',
+    title: 'Retrieve all story beats',
     description:
-      'Retrieves story_beat for a specific manuscript chapter and compendium category within a project',
+      'Retrieve all available story beats based on project Id using project id or current project id',
     inputSchema: z.object({
       projectId: z.string().describe('The ID of the project'),
     }),
   },
   async ({ projectId }) => {
-    console.log(`[Calling get_story_beat] for Project: ${projectId}`);
-    const storyBeat = await storybeatDB.getBeatsByProject(
+    console.log(`[Calling list_story_beats] for Project: ${projectId}`);
+    const template = await storybeatDB.getBeatsByProject(
       db,
       projectId
     );
-    console.log('[Get Story Beat:', storyBeat);
 
-    if (!storyBeat) {
+    if (!template) {
       return {
         content: [
           {
@@ -78,11 +77,13 @@ mcpServer.registerTool(
       };
     }
 
+    console.log('[Story Beats:', template);
+
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(storyBeat),
+          text: JSON.stringify(template),
         },
       ],
     };
@@ -90,13 +91,14 @@ mcpServer.registerTool(
 );
 
 mcpServer.registerTool(
-  'get_story_beat_by_id',
+  'get_story_beat',
   {
     title: 'Retrieve story_beat',
     description:
-      'Retrieves story_beat for a specific manuscript chapter and compendium category within a project',
+      'Retrieve a story beat based on project Id using id or title',
     inputSchema: z.object({
       id: z.string().describe('The ID of the story beat'),
+      title: z.string().describe('The title of the story beat'),
       projectId: z
         .string()
         .optional()
@@ -134,12 +136,12 @@ mcpServer.registerTool(
   'update_story_beat',
   {
     title: 'Update Story beat',
-    description: "Update an existing story beat's title",
+    description: "Update an existing story beat based on project Id by using id or title or using list story beats tool call to get details about the story beat",
     inputSchema: z.object({
       id: z
         .string()
         .describe('The unique ID of the story beat to update'),
-      name: z.string().optional().describe('New title if updating'),
+      title: z.string().optional().describe('New title if updating'),
       description: z
         .string()
         .optional()
@@ -155,17 +157,17 @@ mcpServer.registerTool(
     }),
   },
 
-  async ({ id, projectId, description, name, beatType }) => {
+  async ({ id, projectId, description, title, beatType }) => {
     const newStoryBeat = {
       id: crypto.randomUUID(),
       projectId: projectId,
       chapterId: 'null',
       orderIndex: 1,
-      title: name,
+      title: title,
       beatType: (beatType ?? 'custom') as StoryBeatType,
       description: description,
     };
-    console.log(`[story beat update with] ${id} and ${name}`);
+    console.log(`[story beat update with] ${id} and ${title}`);
     const UpdateBeat = await storybeatDB.updateBeat(
       db,
       id,
@@ -198,11 +200,12 @@ mcpServer.registerTool(
   {
     title: 'Delete Story beat',
     description:
-      'Delete story beat from the story_beats table in novelty db',
+      'Delete story beat based on project Id using id or title',
     inputSchema: z.object({
       id: z
         .string()
         .describe('The unique ID of the story beat to delete'),
+      title: z.string().optional().describe('title of the story beat'),
     }),
   },
 

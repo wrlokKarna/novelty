@@ -19,11 +19,11 @@ const compendiumCategoryEnum = z.enum([
 ]);
 
 mcpServer.registerTool(
-  'create_compendium',
+  'create_compendium_entity',
   {
     title: 'Create Compendium',
     description:
-      'Create a new dynamic Compendium (character, location, organization, item, lore) inside a project using its custom template fields.',
+      'Create a new dynamic Compendium entity(character, location, organization, item, lore) based on project Id.',
     inputSchema: z.object({
       name: z.string().describe('The primary name of the Compendium'),
       projectId: z.string().describe('The ID of the project'),
@@ -67,11 +67,11 @@ mcpServer.registerTool(
 );
 
 mcpServer.registerTool(
-  'update_compendium',
+  'update_compendium_entity',
   {
     title: 'Update Compendium',
     description:
-      'Update a existing Compendium (character, location, organization, item, lore) inside a project using its custom template fields.',
+      'Update a Compendium entity(character, location, organization, item, lore) based on project Id, base type by using id or using list compendium tool to get details about the compendium entity',
     inputSchema: z.object({
       name: z.string().describe('The primary name of the Compendium'),
       projectId: z.string().describe('The ID of the project'),
@@ -102,6 +102,18 @@ mcpServer.registerTool(
       newEntityTemplate,
       baseType
     );
+
+    if (!template) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error: project with ID ${projectId} was not found`,
+          },
+        ],
+      };
+    }
+
     console.log('Compendium updated ', template);
 
     return {
@@ -116,11 +128,11 @@ mcpServer.registerTool(
 );
 
 mcpServer.registerTool(
-  'get_compendium_by_id',
+  'get_compendium_entity',
   {
     title: 'Retrive Compendium',
     description:
-      'Retrive a existing Compendium (character, location, organization, item, lore) inside a project using its custom template fields.',
+      'Retrive a Compendium entity(character, location, organization, item, lore) based on project Id using id or name and base type.',
     inputSchema: z.object({
       name: z
         .string()
@@ -137,10 +149,21 @@ mcpServer.registerTool(
   },
   async ({ id, projectId, name, baseType }) => {
     console.log(
-      `[calling getChar] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
+      `[calling getCompendium] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
     );
 
     const template = await getCompendiumById(id, baseType);
+
+    if (!template) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error: ID ${id} was not found`,
+          },
+        ],
+      };
+    }
     console.log('Compendium Retreived ', template);
 
     return {
@@ -155,26 +178,19 @@ mcpServer.registerTool(
 );
 
 mcpServer.registerTool(
-  'get_compendium_by_proj_id',
+  'list_compendium_entities',
   {
     title: 'Retrive Compendium',
     description:
-      'Retrive a existing Compendium (character, location, organization, item, lore) inside a project using its custom template fields.',
+      'Retrive Compendium entity(character, location, organization, item, lore) details using project id or current project id and base type.',
     inputSchema: z.object({
-      name: z
-        .string()
-        .optional()
-        .describe('The primary name of the Compendium'),
       projectId: z.string().describe('The ID of the project'),
-      id: z
-        .string()
-        .describe('The unique ID of the Compendium to update'),
       baseType: compendiumCategoryEnum.describe(
         'The category/base type of the Compendium'
       ),
     }),
   },
-  async ({ projectId, name, baseType }) => {
+  async ({ projectId, baseType }) => {
     console.log(
       `[calling getCompendium] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
     );
@@ -184,6 +200,17 @@ mcpServer.registerTool(
       baseType
     );
     console.log('Compendium Retreived ', template);
+
+    if (!template) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error: project with ID ${projectId} was not found`,
+          },
+        ],
+      };
+    }
 
     return {
       content: [
@@ -201,7 +228,7 @@ mcpServer.registerTool(
   {
     title: 'Delete Compendium',
     description:
-      'Delete a existing Compendium (character, location, organization, item, lore) inside a project using its custom template fields.',
+      'Delete a Compendium entity(character, location, organization, item, lore) based on project Id using id or name and base type.',
     inputSchema: z.object({
       name: z
         .string()
@@ -210,7 +237,7 @@ mcpServer.registerTool(
       projectId: z.string().describe('The ID of the project'),
       id: z
         .string()
-        .describe('The unique ID of the Compendium to update'),
+        .describe('The unique ID of the Compendium to delete'),
       baseType: compendiumCategoryEnum.describe(
         'The category/base type of the Compendium'
       ),
@@ -219,7 +246,7 @@ mcpServer.registerTool(
   async ({ id, projectId, name, baseType }) => {
     try {
       console.log(
-        `[calling deleteChar] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
+        `[calling deleteCompendium] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
       );
 
       await deleteCompendium(id, baseType);
