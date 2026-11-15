@@ -8,14 +8,19 @@ import {
 } from 'react';
 import {
     IconBook,
+    IconBuilding,
     IconChevronLeft,
     IconDotsVertical,
     IconFiles,
     IconFileText,
+    IconHierarchy2,
     IconLayoutColumns,
     IconLinkOff,
+    IconMapPin,
     IconNotes,
     IconPlus,
+    IconSwords,
+    IconUser,
     IconX,
 } from '@tabler/icons-react';
 import type {
@@ -255,23 +260,78 @@ function App() {
         }
     };
 
+    // Exact Category Icons matching the Left Sidebar Compendium Icons
+    const renderTabIcon = (type: FileTab['type']) => {
+        switch (type) {
+            case 'character':
+                return <IconUser size={14} className={styles.tabIcon} />;
+            case 'location':
+                return <IconMapPin size={14} className={styles.tabIcon} />;
+            case 'organization':
+                return <IconBuilding size={14} className={styles.tabIcon} />;
+            case 'item':
+                return <IconSwords size={14} className={styles.tabIcon} />;
+            case 'lore':
+                return <IconBook size={14} className={styles.tabIcon} />;
+            case 'plot-architecture':
+                return <IconHierarchy2 size={14} className={styles.tabIcon} />;
+            default:
+                return <IconFileText size={14} className={styles.tabIcon} />;
+        }
+    };
+
     // =========================================================================
-    // CHAPTER TILE LINKING, RIGHT-CLICK & THREE-DOTS MENU STATE
+    // UNIVERSAL TILE LINKING (CHAPTERS, CHARACTERS, LOCATIONS, ETC.) & RESIZE
     // =========================================================================
     const [chapterLinks, setChapterLinks] = useState<
         Record<string, string | null>
     >({});
     const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
     const [isCenterHovered, setIsCenterHovered] = useState<boolean>(false);
+    const [focusedTileSide, setFocusedTileSide] = useState<'left' | 'right'>(
+        'left'
+    );
     const [tileMenuState, setTileMenuState] = useState<{
         chapterId: string;
         x: number;
         y: number;
     } | null>(null);
 
+    // Split workspace resizable ratio (strictly clamped between 40% and 60%)
+    const [tileSplitRatio, setTileSplitRatio] = useState<number>(50);
+    const [isTileResizing, setIsTileResizing] = useState<boolean>(false);
+    const workspaceRef = useRef<HTMLDivElement>(null);
+
     const leftScrollRef = useRef<HTMLDivElement>(null);
     const rightScrollRef = useRef<HTMLDivElement>(null);
     const isScrollingRef = useRef<boolean>(false);
+
+    useEffect(() => {
+        if (!isTileResizing) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            const container = workspaceRef.current;
+            if (!container) return;
+            const rect = container.getBoundingClientRect();
+            const rawPercent = ((e.clientX - rect.left) / rect.width) * 100;
+            const clampedPercent = Math.min(60, Math.max(40, rawPercent));
+            setTileSplitRatio(clampedPercent);
+        };
+
+        const handleMouseUp = () => {
+            setIsTileResizing(false);
+            document.body.style.userSelect = '';
+            document.body.style.webkitUserSelect = '';
+            document.body.style.cursor = '';
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isTileResizing]);
 
     // Close the "Add Tile" dropdown menu when clicking anywhere outside
     useEffect(() => {
@@ -287,7 +347,7 @@ function App() {
         const handleGlobalClick = (e: MouseEvent) => {
             const target = e.target as HTMLElement | null;
             if (!target) return;
-            // Allow clicks inside the left sidebar chapter list so user can still link via sidebar
+            // Allow clicks inside the left sidebar list so user can link any chapter/character/location
             if (target.closest('.app-panel-left') || target.closest('aside')) {
                 return;
             }
@@ -332,9 +392,9 @@ function App() {
         }, 50);
     };
 
-    const handleStartLinking = (chapterId: string, e?: React.MouseEvent) => {
+    const handleStartLinking = (itemId: string, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
-        setLinkingSourceId(chapterId);
+        setLinkingSourceId(itemId);
         setTileMenuState(null);
     };
 
@@ -358,14 +418,16 @@ function App() {
             cleaned[linkingSourceId] = targetId;
             return cleaned;
         });
+        setTileSplitRatio(50);
+        setFocusedTileSide('left');
         setLinkingSourceId(null);
     };
 
-    const handleUnlinkChapter = (chapterId: string) => {
+    const handleUnlinkChapter = (itemId: string) => {
         setChapterLinks((prev) => {
             const next = { ...prev };
             for (const [k, v] of Object.entries(next)) {
-                if (k === chapterId || v === chapterId) {
+                if (k === itemId || v === itemId) {
                     delete next[k];
                 }
             }
@@ -901,11 +963,6 @@ function App() {
     }
 
     async function openChapterTab(chapter: Chapter) {
-        if (linkingSourceId) {
-            handleCompleteLink(chapter.id);
-            return;
-        }
-
         const c = await rpc.request['db:get-chapter'](chapter.id);
         if (c?.content) {
             setTabContents((prev) => ({
@@ -941,6 +998,11 @@ function App() {
                 isModified: false,
             };
             setOpenTabs((prev) => [...prev, newTab]);
+        }
+
+        if (linkingSourceId) {
+            handleCompleteLink(chapter.id);
+            return;
         }
 
         setIsScratchOpen(false);
@@ -1138,6 +1200,12 @@ function App() {
                     };
                     setOpenTabs((prev) => [...prev, newTab]);
                 }
+
+                if (linkingSourceId) {
+                    handleCompleteLink(entryId);
+                    return;
+                }
+
                 setIsScratchOpen(false);
                 setActiveTabId(entryId);
             }
@@ -2156,376 +2224,433 @@ function App() {
         getActiveTab()?.type === 'chapter' &&
         isTextFileTab();
 
-    function renderSingleChapterWorkspace(chapterId: string) {
-        const chapter = chapters.find((c) => c.id === chapterId);
+    // Renders any tab's workspace content (Chapters, Characters, Locations, Items, Lore, Files)
+    function renderSingleTabWorkspace(tab: FileTab) {
         const showTextFormatting = isTextFileTab();
 
-        if (
-            chapter &&
-            currentProject &&
-            (chapter.status === 'outline' || skeletonMode)
-        ) {
-            return (
-                <ChapterOutlineEditor
-                    key={`${chapter.id}-${plotThreads.length}-${
-                        chapterPlotThreads.filter(
+        if (tab.type === 'chapter') {
+            const chapterId = tab.id;
+            const chapter = chapters.find((c) => c.id === chapterId);
+
+            if (
+                chapter &&
+                currentProject &&
+                (chapter.status === 'outline' || skeletonMode)
+            ) {
+                return (
+                    <ChapterOutlineEditor
+                        key={`${chapter.id}-${plotThreads.length}-${
+                            chapterPlotThreads.filter(
+                                (t) => t.chapterId === chapter.id
+                            ).length
+                        }`}
+                        projectId={currentProject.id}
+                        chapter={chapter}
+                        characters={characters}
+                        plotThreads={plotThreads}
+                        chapterPlotThreads={chapterPlotThreads.filter(
                             (t) => t.chapterId === chapter.id
-                        ).length
-                    }`}
-                    projectId={currentProject.id}
-                    chapter={chapter}
-                    characters={characters}
-                    plotThreads={plotThreads}
-                    chapterPlotThreads={chapterPlotThreads.filter(
-                        (t) => t.chapterId === chapter.id
-                    )}
-                    acts={storyActs}
-                    scenes={storyScenes.filter(
-                        (s: any) => s.chapterId === chapter.id
-                    )}
-                    sequences={storySequences.filter(
-                        (s) => s.chapterId === chapter.id
-                    )}
-                    onUpdate={async (field, value) => {
-                        if (field === 'plotThreads') {
-                            const threads = value as {
-                                chapterId: string;
-                                plotThreadId: string;
-                                intensity: number;
-                            }[];
-                            await rpc.request['db:set-chapter-plot-threads']({
-                                chapterId: chapter.id,
-                                threads,
+                        )}
+                        acts={storyActs}
+                        scenes={storyScenes.filter(
+                            (s: any) => s.chapterId === chapter.id
+                        )}
+                        sequences={storySequences.filter(
+                            (s) => s.chapterId === chapter.id
+                        )}
+                        onUpdate={async (field, value) => {
+                            if (field === 'plotThreads') {
+                                const threads = value as {
+                                    chapterId: string;
+                                    plotThreadId: string;
+                                    intensity: number;
+                                }[];
+                                await rpc.request[
+                                    'db:set-chapter-plot-threads'
+                                ]({
+                                    chapterId: chapter.id,
+                                    threads,
+                                });
+                                setChapterPlotThreads((prev) => [
+                                    ...prev.filter(
+                                        (t) => t.chapterId !== chapter.id
+                                    ),
+                                    ...threads.map((t) => ({
+                                        chapterId: t.chapterId,
+                                        plotThreadId: t.plotThreadId,
+                                        intensity: t.intensity,
+                                    })),
+                                ]);
+                                return;
+                            }
+                            await rpc.request['db:update-chapter']({
+                                id: chapter.id,
+                                data: { [field]: value } as any,
                             });
-                            setChapterPlotThreads((prev) => [
-                                ...prev.filter(
-                                    (t) => t.chapterId !== chapter.id
+                            const updated = await rpc.request['db:get-chapter'](
+                                chapter.id
+                            );
+                            if (updated) {
+                                setChapters((prev) =>
+                                    prev.map((c) =>
+                                        c.id === chapter.id ? updated : c
+                                    )
+                                );
+                            }
+                            if (field === 'status' && value === 'draft') {
+                                setTabContents((prev) => ({
+                                    ...prev,
+                                    [chapter.id]:
+                                        chapter.outline ||
+                                        prev[chapter.id] ||
+                                        '',
+                                }));
+                            }
+                        }}
+                        onMoveToDraft={async () => {
+                            await rpc.request['db:update-chapter']({
+                                id: chapter.id,
+                                data: { status: 'draft' } as any,
+                            });
+                            const updated = await rpc.request['db:get-chapter'](
+                                chapter.id
+                            );
+                            if (updated) {
+                                setChapters((prev) =>
+                                    prev.map((c) =>
+                                        c.id === chapter.id ? updated : c
+                                    )
+                                );
+                                setTabContents((prev) => ({
+                                    ...prev,
+                                    [chapter.id]:
+                                        chapter.outline ||
+                                        prev[chapter.id] ||
+                                        '',
+                                }));
+                            }
+                        }}
+                        onSceneCreate={async (sequenceId) => {
+                            const seq = sequenceId
+                                ? storySequences.find(
+                                      (s) => s.id === sequenceId
+                                  )
+                                : undefined;
+                            const chapterDirectScenes = storyScenes.filter(
+                                (s: any) =>
+                                    s.chapterId === chapter.id && !s.sequenceId
+                            );
+                            const chapterSequences = storySequences.filter(
+                                (s) => s.chapterId === chapter.id
+                            );
+                            const maxDisplayOrder = Math.max(
+                                0,
+                                ...chapterDirectScenes.map(
+                                    (s: any) => s.displayOrder
                                 ),
-                                ...threads.map((t) => ({
-                                    chapterId: t.chapterId,
-                                    plotThreadId: t.plotThreadId,
-                                    intensity: t.intensity,
-                                })),
-                            ]);
-                            return;
-                        }
-                        await rpc.request['db:update-chapter']({
-                            id: chapter.id,
-                            data: { [field]: value } as any,
-                        });
-                        const updated = await rpc.request['db:get-chapter'](
-                            chapter.id
-                        );
-                        if (updated) {
-                            setChapters((prev) =>
-                                prev.map((c) =>
-                                    c.id === chapter.id ? updated : c
-                                )
+                                ...chapterSequences.map((s) => s.displayOrder)
                             );
-                        }
-                        if (field === 'status' && value === 'draft') {
-                            setTabContents((prev) => ({
-                                ...prev,
-                                [chapter.id]:
-                                    chapter.outline || prev[chapter.id] || '',
-                            }));
-                        }
-                    }}
-                    onMoveToDraft={async () => {
-                        await rpc.request['db:update-chapter']({
-                            id: chapter.id,
-                            data: { status: 'draft' } as any,
-                        });
-                        const updated = await rpc.request['db:get-chapter'](
-                            chapter.id
-                        );
-                        if (updated) {
-                            setChapters((prev) =>
-                                prev.map((c) =>
-                                    c.id === chapter.id ? updated : c
-                                )
-                            );
-                            setTabContents((prev) => ({
-                                ...prev,
-                                [chapter.id]:
-                                    chapter.outline || prev[chapter.id] || '',
-                            }));
-                        }
-                    }}
-                    onSceneCreate={async (sequenceId) => {
-                        const seq = sequenceId
-                            ? storySequences.find((s) => s.id === sequenceId)
-                            : undefined;
-                        const chapterDirectScenes = storyScenes.filter(
-                            (s: any) =>
-                                s.chapterId === chapter.id && !s.sequenceId
-                        );
-                        const chapterSequences = storySequences.filter(
-                            (s) => s.chapterId === chapter.id
-                        );
-                        const maxDisplayOrder = Math.max(
-                            0,
-                            ...chapterDirectScenes.map(
-                                (s: any) => s.displayOrder
-                            ),
-                            ...chapterSequences.map((s) => s.displayOrder)
-                        );
-                        const scene = await rpc.request[
-                            'db:create-story-scene'
-                        ]({
-                            id: crypto.randomUUID(),
-                            projectId: chapter.projectId,
-                            chapterId: seq?.chapterId ?? chapter.id,
-                            actId: seq?.actId ?? chapter.actId,
-                            sequenceId: seq?.id ?? null,
-                            title: 'New Scene',
-                            orderIndex: seq
-                                ? storyScenes.filter(
-                                      (s: any) => s.sequenceId === seq.id
-                                  ).length
-                                : chapterDirectScenes.length,
-                            displayOrder: seq ? 0 : maxDisplayOrder + 1,
-                        } as any);
-                        if (scene)
-                            setStoryScenes((prev: any) => [...prev, scene]);
-                    }}
-                    onSceneDelete={async (id) => {
-                        await rpc.request['db:delete-story-scene'](id);
-                        setStoryScenes((prev: any) =>
-                            prev.filter((s: any) => s.id !== id)
-                        );
-                    }}
-                    onSceneUpdate={async (id, field, value) => {
-                        await rpc.request['db:update-story-scene']({
-                            id,
-                            data: { [field]: value } as any,
-                        });
-                        const updated =
-                            await rpc.request['db:get-story-scene'](id);
-                        if (updated)
+                            const scene = await rpc.request[
+                                'db:create-story-scene'
+                            ]({
+                                id: crypto.randomUUID(),
+                                projectId: chapter.projectId,
+                                chapterId: seq?.chapterId ?? chapter.id,
+                                actId: seq?.actId ?? chapter.actId,
+                                sequenceId: seq?.id ?? null,
+                                title: 'New Scene',
+                                orderIndex: seq
+                                    ? storyScenes.filter(
+                                          (s: any) => s.sequenceId === seq.id
+                                      ).length
+                                    : chapterDirectScenes.length,
+                                displayOrder: seq ? 0 : maxDisplayOrder + 1,
+                            } as any);
+                            if (scene)
+                                setStoryScenes((prev: any) => [...prev, scene]);
+                        }}
+                        onSceneDelete={async (id) => {
+                            await rpc.request['db:delete-story-scene'](id);
                             setStoryScenes((prev: any) =>
-                                prev.map((s: any) =>
-                                    s.id === id ? updated : s
-                                )
+                                prev.filter((s: any) => s.id !== id)
                             );
-                    }}
-                    onSceneReorder={async (
-                        targetContainer,
-                        orderedIds,
-                        movedSceneId,
-                        sourceContainer
-                    ) => {
-                        if (
-                            movedSceneId &&
-                            sourceContainer !== targetContainer
-                        ) {
-                            await rpc.request['db:move-scene']({
-                                id: movedSceneId,
-                                data: {
-                                    sequenceId: targetContainer,
-                                    orderIndex:
-                                        orderedIds.indexOf(movedSceneId),
-                                },
-                            });
-                        }
-                        await rpc.request['db:reorder-scenes'](
-                            orderedIds.map((id, orderIndex) => ({
+                        }}
+                        onSceneUpdate={async (id, field, value) => {
+                            await rpc.request['db:update-story-scene']({
                                 id,
-                                orderIndex,
-                            }))
-                        );
-                        setStoryScenes((prev: any) =>
-                            prev.map((s: any) => {
-                                const idx = orderedIds.indexOf(s.id);
-                                if (idx >= 0) {
-                                    const updated = {
-                                        ...s,
-                                        orderIndex: idx,
-                                    };
-                                    if (movedSceneId && s.id === movedSceneId) {
-                                        updated.sequenceId = targetContainer;
-                                    }
-                                    return updated;
-                                }
-                                return s;
-                            })
-                        );
-                    }}
-                    onSequenceCreate={async () => {
-                        const chapterSeqs = storySequences.filter(
-                            (s) => s.chapterId === chapter.id
-                        );
-                        const chapterScenesList = storyScenes.filter(
-                            (s: any) =>
-                                s.chapterId === chapter.id && !s.sequenceId
-                        );
-                        const maxDisplayOrder = Math.max(
-                            0,
-                            ...chapterSeqs.map((s) => s.displayOrder),
-                            ...chapterScenesList.map((s: any) => s.displayOrder)
-                        );
-                        const seq = await rpc.request[
-                            'db:create-story-sequence'
-                        ]({
-                            id: crypto.randomUUID(),
-                            projectId: chapter.projectId,
-                            chapterId: chapter.id,
-                            actId: chapter.actId,
-                            title: 'New Sequence',
-                            summary: null,
-                            orderIndex: chapterSeqs.length,
-                            displayOrder: maxDisplayOrder + 1,
-                            status: 'outline',
-                        } as any);
-                        if (seq) setStorySequences((prev) => [...prev, seq]);
-                    }}
-                    onSequenceDelete={async (id) => {
-                        await rpc.request['db:delete-story-sequence'](id);
-                        setStorySequences((prev) =>
-                            prev.filter((s) => s.id !== id)
-                        );
-                        setStoryScenes((prev: any) =>
-                            prev.filter((s: any) => s.sequenceId !== id)
-                        );
-                    }}
-                    onSequenceUpdate={async (id, field, value) => {
-                        await rpc.request['db:update-story-sequence']({
-                            id,
-                            data: { [field]: value } as any,
-                        });
-                        const updated =
-                            await rpc.request['db:get-story-sequence'](id);
-                        if (updated)
-                            setStorySequences((prev) =>
-                                prev.map((s) => (s.id === id ? updated : s))
-                            );
-                    }}
-                    onStructureReorder={async (unifiedItems) => {
-                        const chapterScenes = unifiedItems.filter(
-                            (item) => item.type === 'scene'
-                        );
-                        const chapterSequences = unifiedItems.filter(
-                            (item) => item.type === 'sequence'
-                        );
-
-                        await rpc.request['db:reorder-scenes'](
-                            chapterScenes.map((item) => ({
-                                id: item.id,
-                                orderIndex: 0,
-                                displayOrder: item.displayOrder,
-                            }))
-                        );
-                        await rpc.request['db:reorder-sequences'](
-                            chapterSequences.map((item) => ({
-                                id: item.id,
-                                orderIndex: 0,
-                                displayOrder: item.displayOrder,
-                            }))
-                        );
-
-                        for (const item of chapterScenes) {
-                            if (item.sequenceId !== undefined) {
+                                data: { [field]: value } as any,
+                            });
+                            const updated =
+                                await rpc.request['db:get-story-scene'](id);
+                            if (updated)
+                                setStoryScenes((prev: any) =>
+                                    prev.map((s: any) =>
+                                        s.id === id ? updated : s
+                                    )
+                                );
+                        }}
+                        onSceneReorder={async (
+                            targetContainer,
+                            orderedIds,
+                            movedSceneId,
+                            sourceContainer
+                        ) => {
+                            if (
+                                movedSceneId &&
+                                sourceContainer !== targetContainer
+                            ) {
                                 await rpc.request['db:move-scene']({
-                                    id: item.id,
+                                    id: movedSceneId,
                                     data: {
-                                        sequenceId: item.sequenceId,
-                                        displayOrder: item.displayOrder,
-                                    } as any,
+                                        sequenceId: targetContainer,
+                                        orderIndex:
+                                            orderedIds.indexOf(movedSceneId),
+                                    },
                                 });
                             }
-                        }
-
-                        setStoryScenes((prev: any) =>
-                            prev.map((s: any) => {
-                                const item = chapterScenes.find(
-                                    (ci) => ci.id === s.id
-                                );
-                                if (item) {
-                                    const updated: any = {
-                                        ...s,
-                                        displayOrder: item.displayOrder,
-                                    };
-                                    if (item.sequenceId !== undefined) {
-                                        updated.sequenceId = item.sequenceId;
+                            await rpc.request['db:reorder-scenes'](
+                                orderedIds.map((id, orderIndex) => ({
+                                    id,
+                                    orderIndex,
+                                }))
+                            );
+                            setStoryScenes((prev: any) =>
+                                prev.map((s: any) => {
+                                    const idx = orderedIds.indexOf(s.id);
+                                    if (idx >= 0) {
+                                        const updated = {
+                                            ...s,
+                                            orderIndex: idx,
+                                        };
+                                        if (
+                                            movedSceneId &&
+                                            s.id === movedSceneId
+                                        ) {
+                                            updated.sequenceId =
+                                                targetContainer;
+                                        }
+                                        return updated;
                                     }
-                                    return updated;
-                                }
-                                return s;
-                            })
-                        );
-                        setStorySequences((prev) =>
-                            prev.map((s) => {
-                                const item = chapterSequences.find(
-                                    (ci) => ci.id === s.id
+                                    return s;
+                                })
+                            );
+                        }}
+                        onSequenceCreate={async () => {
+                            const chapterSeqs = storySequences.filter(
+                                (s) => s.chapterId === chapter.id
+                            );
+                            const chapterScenesList = storyScenes.filter(
+                                (s: any) =>
+                                    s.chapterId === chapter.id && !s.sequenceId
+                            );
+                            const maxDisplayOrder = Math.max(
+                                0,
+                                ...chapterSeqs.map((s) => s.displayOrder),
+                                ...chapterScenesList.map(
+                                    (s: any) => s.displayOrder
+                                )
+                            );
+                            const seq = await rpc.request[
+                                'db:create-story-sequence'
+                            ]({
+                                id: crypto.randomUUID(),
+                                projectId: chapter.projectId,
+                                chapterId: chapter.id,
+                                actId: chapter.actId,
+                                title: 'New Sequence',
+                                summary: null,
+                                orderIndex: chapterSeqs.length,
+                                displayOrder: maxDisplayOrder + 1,
+                                status: 'outline',
+                            } as any);
+                            if (seq)
+                                setStorySequences((prev) => [...prev, seq]);
+                        }}
+                        onSequenceDelete={async (id) => {
+                            await rpc.request['db:delete-story-sequence'](id);
+                            setStorySequences((prev) =>
+                                prev.filter((s) => s.id !== id)
+                            );
+                            setStoryScenes((prev: any) =>
+                                prev.filter((s: any) => s.sequenceId !== id)
+                            );
+                        }}
+                        onSequenceUpdate={async (id, field, value) => {
+                            await rpc.request['db:update-story-sequence']({
+                                id,
+                                data: { [field]: value } as any,
+                            });
+                            const updated =
+                                await rpc.request['db:get-story-sequence'](id);
+                            if (updated)
+                                setStorySequences((prev) =>
+                                    prev.map((s) => (s.id === id ? updated : s))
                                 );
-                                if (item) {
-                                    return {
-                                        ...s,
-                                        displayOrder: item.displayOrder,
-                                    };
+                        }}
+                        onStructureReorder={async (unifiedItems) => {
+                            const chapterScenes = unifiedItems.filter(
+                                (item) => item.type === 'scene'
+                            );
+                            const chapterSequences = unifiedItems.filter(
+                                (item) => item.type === 'sequence'
+                            );
+
+                            await rpc.request['db:reorder-scenes'](
+                                chapterScenes.map((item) => ({
+                                    id: item.id,
+                                    orderIndex: 0,
+                                    displayOrder: item.displayOrder,
+                                }))
+                            );
+                            await rpc.request['db:reorder-sequences'](
+                                chapterSequences.map((item) => ({
+                                    id: item.id,
+                                    orderIndex: 0,
+                                    displayOrder: item.displayOrder,
+                                }))
+                            );
+
+                            for (const item of chapterScenes) {
+                                if (item.sequenceId !== undefined) {
+                                    await rpc.request['db:move-scene']({
+                                        id: item.id,
+                                        data: {
+                                            sequenceId: item.sequenceId,
+                                            displayOrder: item.displayOrder,
+                                        } as any,
+                                    });
                                 }
-                                return s;
-                            })
-                        );
-                    }}
-                />
+                            }
+
+                            setStoryScenes((prev: any) =>
+                                prev.map((s: any) => {
+                                    const item = chapterScenes.find(
+                                        (ci) => ci.id === s.id
+                                    );
+                                    if (item) {
+                                        const updated: any = {
+                                            ...s,
+                                            displayOrder: item.displayOrder,
+                                        };
+                                        if (item.sequenceId !== undefined) {
+                                            updated.sequenceId =
+                                                item.sequenceId;
+                                        }
+                                        return updated;
+                                    }
+                                    return s;
+                                })
+                            );
+                            setStorySequences((prev) =>
+                                prev.map((s) => {
+                                    const item = chapterSequences.find(
+                                        (ci) => ci.id === s.id
+                                    );
+                                    if (item) {
+                                        return {
+                                            ...s,
+                                            displayOrder: item.displayOrder,
+                                        };
+                                    }
+                                    return s;
+                                })
+                            );
+                        }}
+                    />
+                );
+            }
+
+            const editingTitle = chapterTitleEditId === chapterId;
+            const titleValue = editingTitle
+                ? chapterTitleDraft
+                : (chapter?.title ?? '');
+
+            return (
+                <>
+                    <div className="chapter-title-row">
+                        <input
+                            className="chapter-title-input"
+                            value={titleValue}
+                            placeholder="Chapter title"
+                            onChange={(e) => {
+                                setChapterTitleEditId(chapterId);
+                                setChapterTitleDraft(e.target.value);
+                            }}
+                            onFocus={() => {
+                                if (!editingTitle) {
+                                    setChapterTitleEditId(chapterId);
+                                    setChapterTitleDraft(chapter?.title ?? '');
+                                }
+                            }}
+                            onBlur={() => handleChapterTitleDraftCommit()}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    (e.target as HTMLInputElement).blur();
+                                } else if (e.key === 'Escape') {
+                                    setChapterTitleEditId(null);
+                                    setChapterTitleDraft('');
+                                }
+                            }}
+                        />
+                    </div>
+                    <RichTextEditor
+                        ref={editorRef}
+                        tabId={chapterId}
+                        initialContent={tabContents[chapterId] || ''}
+                        onChange={(content) => {
+                            setTabContents((prev) => ({
+                                ...prev,
+                                [chapterId]: content,
+                            }));
+                            setOpenTabs((prev) =>
+                                prev.map((t) =>
+                                    t.id === chapterId
+                                        ? { ...t, isModified: true }
+                                        : t
+                                )
+                            );
+                            computeMetrics(content);
+                            modifiedTabIdsRef.current.add(chapterId);
+                            setSaveState('saving');
+                            debouncedSave(chapterId, content);
+                        }}
+                        onCursorPosition={(line, col) => {
+                            setCursorLine(line);
+                            setCursorCol(col);
+                        }}
+                        showToolbar={showTextFormatting}
+                        showBubbleMenu={showTextFormatting}
+                        editable={!isReadingMode}
+                        onToggleEditable={() => setIsReadingMode((v) => !v)}
+                        isPreviewOpen={isPreviewOpen}
+                        onTogglePreview={() => setIsPreviewOpen((v) => !v)}
+                        showPreview={true}
+                    />
+                </>
             );
         }
 
-        const editingTitle = chapterTitleEditId === chapterId;
-        const titleValue = editingTitle
-            ? chapterTitleDraft
-            : (chapter?.title ?? '');
-
-        return (
-            <>
-                <div className="chapter-title-row">
-                    <input
-                        className="chapter-title-input"
-                        value={titleValue}
-                        placeholder="Chapter title"
-                        onChange={(e) => {
-                            setChapterTitleEditId(chapterId);
-                            setChapterTitleDraft(e.target.value);
-                        }}
-                        onFocus={() => {
-                            if (!editingTitle) {
-                                setChapterTitleEditId(chapterId);
-                                setChapterTitleDraft(chapter?.title ?? '');
-                            }
-                        }}
-                        onBlur={() => handleChapterTitleDraftCommit()}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                (e.target as HTMLInputElement).blur();
-                            } else if (e.key === 'Escape') {
-                                setChapterTitleEditId(null);
-                                setChapterTitleDraft('');
-                            }
-                        }}
-                    />
-                </div>
+        if (tab.type === 'file') {
+            return (
                 <RichTextEditor
                     ref={editorRef}
-                    tabId={chapterId}
-                    initialContent={tabContents[chapterId] || ''}
+                    tabId={tab.id}
+                    initialContent={tabContents[tab.id] || ''}
                     onChange={(content) => {
                         setTabContents((prev) => ({
                             ...prev,
-                            [chapterId]: content,
+                            [tab.id]: content,
                         }));
                         setOpenTabs((prev) =>
                             prev.map((t) =>
-                                t.id === chapterId
-                                    ? { ...t, isModified: true }
-                                    : t
+                                t.id === tab.id ? { ...t, isModified: true } : t
                             )
                         );
                         computeMetrics(content);
-                        modifiedTabIdsRef.current.add(chapterId);
+                        modifiedTabIdsRef.current.add(tab.id);
                         setSaveState('saving');
-                        debouncedSave(chapterId, content);
+                        debouncedSave(tab.id, content);
                     }}
                     onCursorPosition={(line, col) => {
                         setCursorLine(line);
@@ -2537,9 +2662,56 @@ function App() {
                     onToggleEditable={() => setIsReadingMode((v) => !v)}
                     isPreviewOpen={isPreviewOpen}
                     onTogglePreview={() => setIsPreviewOpen((v) => !v)}
-                    showPreview={true}
+                    showPreview={false}
                 />
-            </>
+            );
+        }
+
+        const entry = compendiumEntries[tab.id];
+        if (entry) {
+            const category = tab.type as CompendiumCategory;
+            const resolvedFields = resolvedTemplateFields[category];
+            const effectiveTemplate =
+                resolvedFields.length > 0
+                    ? ({
+                          ...templates[category],
+                          customFields: resolvedFields,
+                      } as EntityTemplate)
+                    : templates[category];
+            return (
+                <CompendiumEntryEditor
+                    entry={
+                        entry as Parameters<
+                            typeof CompendiumEntryEditor
+                        >[0]['entry']
+                    }
+                    category={category}
+                    template={effectiveTemplate}
+                    columns={resolvedTemplateColumns[category]}
+                    layout={templateLayouts[category]}
+                    characters={characters}
+                    locations={locations}
+                    organizations={organizations}
+                    items={items}
+                    loreEntries={loreEntries}
+                    onUpdate={(field, value) =>
+                        handleUpdateCompendiumEntry(
+                            tab.id,
+                            category,
+                            field,
+                            value
+                        )
+                    }
+                    onEditTemplate={() => handleEditTemplate(category)}
+                />
+            );
+        }
+
+        return (
+            <div className="empty-editor">
+                <IconBook size={48} stroke={1.5} />
+                <p>Loading...</p>
+            </div>
         );
     }
 
@@ -2679,83 +2851,123 @@ function App() {
             );
         }
 
-        if (activeTab.type === 'chapter') {
-            const linkedPair = getLinkedPartner(activeTab.id);
+        // Check if active tab (Chapter, Character, Location, Org, Item, Lore, or File) is linked in a Tile pair
+        const linkedPair = getLinkedPartner(activeTab.id);
 
-            if (linkedPair) {
-                return (
-                    <div className={styles.tabContentContainer}>
-                        <div className={styles.workspace}>
-                            <div
-                                ref={leftScrollRef}
-                                className={styles.leftPane}
-                                onScroll={() => handleScrollSync('left')}
-                            >
-                                <div className={styles.paneHeaderRow}>
-                                    <span className={styles.paneTitleBadge}>
-                                        {linkedPair.source.name}
-                                    </span>
+        if (linkedPair) {
+            return (
+                <div className={styles.tabContentContainer}>
+                    <div ref={workspaceRef} className={styles.workspace}>
+                        <div
+                            ref={leftScrollRef}
+                            className={styles.leftPane}
+                            style={{
+                                flex: `0 0 ${tileSplitRatio}%`,
+                                width: `${tileSplitRatio}%`,
+                            }}
+                            onMouseDownCapture={() => {
+                                setFocusedTileSide('left');
+                                if (activeTabId !== linkedPair.source.id) {
+                                    setActiveTabId(linkedPair.source.id);
+                                }
+                            }}
+                            onScroll={() => handleScrollSync('left')}
+                        >
+                            <div className={styles.paneHeaderRow}>
+                                <span className={styles.paneTitleBadge}>
+                                    {linkedPair.source.name}
+                                </span>
+                                {focusedTileSide === 'left' && (
                                     <button
                                         className={styles.paneUnlinkSmallBtn}
-                                        onClick={() =>
+                                        onClick={(e) => {
+                                            e.stopPropagation();
                                             handleUnlinkChapter(
                                                 linkedPair.source.id
-                                            )
-                                        }
+                                            );
+                                        }}
                                     >
                                         Unlink Tile
                                     </button>
-                                </div>
-                                {renderSingleChapterWorkspace(
-                                    linkedPair.source.id
                                 )}
                             </div>
+                            {renderSingleTabWorkspace(linkedPair.source)}
+                        </div>
 
-                            <div
-                                className={styles.centerHoverZone}
-                                onMouseEnter={() => setIsCenterHovered(true)}
-                                onMouseLeave={() => setIsCenterHovered(false)}
-                            >
-                                {isCenterHovered && (
+                        {/* Draggable Resizer Divider (Clamped strictly between 40% and 60%) */}
+                        <div
+                            className={`${styles.tileResizeDivider} ${isTileResizing ? styles.tileResizeDividerActive : ''}`}
+                            onMouseDown={(e) => {
+                                e.preventDefault();
+                                setIsTileResizing(true);
+                                document.body.style.userSelect = 'none';
+                                document.body.style.webkitUserSelect = 'none';
+                                document.body.style.cursor = 'col-resize';
+                            }}
+                            onMouseEnter={() => setIsCenterHovered(true)}
+                            onMouseLeave={() => setIsCenterHovered(false)}
+                            title="Drag to resize panes (40% - 60%)"
+                        >
+                            {isCenterHovered && !isTileResizing && (
+                                <button
+                                    className={styles.hoverUnlinkBtn}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onClick={() =>
+                                        handleUnlinkChapter(
+                                            linkedPair.source.id
+                                        )
+                                    }
+                                >
+                                    Unlink
+                                </button>
+                            )}
+                        </div>
+
+                        <div
+                            ref={rightScrollRef}
+                            className={styles.rightPane}
+                            style={{
+                                flex: '1 1 0%',
+                            }}
+                            onMouseDownCapture={() => {
+                                setFocusedTileSide('right');
+                                if (activeTabId !== linkedPair.target.id) {
+                                    setActiveTabId(linkedPair.target.id);
+                                }
+                            }}
+                            onScroll={() => handleScrollSync('right')}
+                        >
+                            <div className={styles.paneHeaderRow}>
+                                <span className={styles.paneTitleBadge}>
+                                    {linkedPair.target.name}
+                                </span>
+                                {focusedTileSide === 'right' && (
                                     <button
-                                        className={styles.hoverUnlinkBtn}
-                                        onClick={() =>
+                                        className={styles.paneUnlinkSmallBtn}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
                                             handleUnlinkChapter(
-                                                linkedPair.source.id
-                                            )
-                                        }
+                                                linkedPair.target.id
+                                            );
+                                        }}
                                     >
-                                        Unlink
+                                        Unlink Tile
                                     </button>
                                 )}
                             </div>
-
-                            <div
-                                ref={rightScrollRef}
-                                className={styles.rightPane}
-                                onScroll={() => handleScrollSync('right')}
-                            >
-                                <div className={styles.paneHeaderRow}>
-                                    <span className={styles.paneTitleBadge}>
-                                        {linkedPair.target.name}
-                                    </span>
-                                </div>
-                                {renderSingleChapterWorkspace(
-                                    linkedPair.target.id
-                                )}
-                            </div>
+                            {renderSingleTabWorkspace(linkedPair.target)}
                         </div>
                     </div>
-                );
-            }
+                </div>
+            );
+        }
 
+        if (activeTab.type === 'chapter') {
             return (
                 <div className={styles.tabContentContainer}>
                     <div className={styles.standardEditorScroll}>
                         {editorSplit(
-                            wrapWidth(
-                                renderSingleChapterWorkspace(activeTab.id)
-                            )
+                            wrapWidth(renderSingleTabWorkspace(activeTab))
                         )}
                     </div>
                 </div>
@@ -2763,91 +2975,10 @@ function App() {
         }
 
         if (activeTab.type === 'file') {
-            return editorSplit(
-                wrapWidth(
-                    <RichTextEditor
-                        ref={editorRef}
-                        tabId={activeTab.id}
-                        initialContent={tabContents[activeTab.id] || ''}
-                        onChange={(content) => {
-                            setTabContents((prev) => ({
-                                ...prev,
-                                [activeTab.id]: content,
-                            }));
-                            setOpenTabs((prev) =>
-                                prev.map((t) =>
-                                    t.id === activeTab.id
-                                        ? { ...t, isModified: true }
-                                        : t
-                                )
-                            );
-                            computeMetrics(content);
-                            modifiedTabIdsRef.current.add(activeTab.id);
-                            setSaveState('saving');
-                            debouncedSave(activeTab.id, content);
-                        }}
-                        onCursorPosition={(line, col) => {
-                            setCursorLine(line);
-                            setCursorCol(col);
-                        }}
-                        showToolbar={showTextFormatting}
-                        showBubbleMenu={showTextFormatting}
-                        editable={!isReadingMode}
-                        onToggleEditable={() => setIsReadingMode((v) => !v)}
-                        isPreviewOpen={isPreviewOpen}
-                        onTogglePreview={() => setIsPreviewOpen((v) => !v)}
-                        showPreview={false}
-                    />
-                )
-            );
+            return editorSplit(wrapWidth(renderSingleTabWorkspace(activeTab)));
         }
 
-        const entry = compendiumEntries[activeTab.id];
-        if (entry) {
-            const category = activeTab.type as CompendiumCategory;
-            const resolvedFields = resolvedTemplateFields[category];
-            const effectiveTemplate =
-                resolvedFields.length > 0
-                    ? ({
-                          ...templates[category],
-                          customFields: resolvedFields,
-                      } as EntityTemplate)
-                    : templates[category];
-            return (
-                <CompendiumEntryEditor
-                    entry={
-                        entry as Parameters<
-                            typeof CompendiumEntryEditor
-                        >[0]['entry']
-                    }
-                    category={category}
-                    template={effectiveTemplate}
-                    columns={resolvedTemplateColumns[category]}
-                    layout={templateLayouts[category]}
-                    characters={characters}
-                    locations={locations}
-                    organizations={organizations}
-                    items={items}
-                    loreEntries={loreEntries}
-                    onUpdate={(field, value) =>
-                        handleUpdateCompendiumEntry(
-                            activeTab.id,
-                            activeTab.type as CompendiumCategory,
-                            field,
-                            value
-                        )
-                    }
-                    onEditTemplate={() => handleEditTemplate(category)}
-                />
-            );
-        }
-
-        return (
-            <div className="empty-editor">
-                <IconBook size={48} stroke={1.5} />
-                <p>Loading...</p>
-            </div>
-        );
+        return renderSingleTabWorkspace(activeTab);
     }
 
     const handleDragStart = useCallback(
@@ -2998,26 +3129,26 @@ function App() {
     };
 
     // Opens the "Add Tile" menu via Three-Dots click (in top-right action bar)
-    const handleOpenTileMenu = (chapterId: string, e: React.MouseEvent) => {
+    const handleOpenTileMenu = (tabId: string, e: React.MouseEvent) => {
         e.stopPropagation();
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         setTileMenuState((prev) =>
-            prev?.chapterId === chapterId
+            prev?.chapterId === tabId
                 ? null
                 : {
-                      chapterId,
+                      chapterId: tabId,
                       x: Math.min(rect.left, window.innerWidth - 170),
                       y: rect.bottom + 6,
                   }
         );
     };
 
-    // Opens the "Add Tile" menu via Right-Click (Context Menu) on a Chapter Tab
+    // Opens the "Add Tile" menu via Right-Click (Context Menu) on any Chapter/Character/Location/etc. Tab
     const handleTabContextMenu = (
         tab: FileTab,
         e: React.MouseEvent<HTMLButtonElement>
     ) => {
-        if (tab.type !== 'chapter') return;
+        if (tab.type === 'plot-architecture') return;
         e.preventDefault();
         e.stopPropagation();
         setTileMenuState({
@@ -3028,8 +3159,25 @@ function App() {
     };
 
     const renderedTabIds = new Set<string>();
-    const activeChapterTab =
-        getActiveTab()?.type === 'chapter' ? getActiveTab() : null;
+    const activeTabObj = getActiveTab();
+    const canTileActiveTab =
+        activeTabObj && activeTabObj.type !== 'plot-architecture'
+            ? activeTabObj
+            : null;
+
+    // Helper to resolve display name during linking toast
+    const getLinkingSourceName = (id: string) => {
+        return (
+            openTabs.find((t) => t.id === id)?.name ||
+            chapters.find((c) => c.id === id)?.title ||
+            characters.find((c) => c.id === id)?.name ||
+            locations.find((l) => l.id === id)?.name ||
+            organizations.find((o) => o.id === id)?.name ||
+            items.find((i) => i.id === id)?.name ||
+            loreEntries.find((l) => l.id === id)?.name ||
+            'Selected Tab'
+        );
+    };
 
     return (
         <>
@@ -3192,7 +3340,7 @@ function App() {
                                 if (renderedTabIds.has(tab.id)) return null;
 
                                 const partner =
-                                    tab.type === 'chapter'
+                                    tab.type !== 'plot-architecture'
                                         ? getLinkedPartner(tab.id)
                                         : null;
 
@@ -3217,7 +3365,7 @@ function App() {
                                                         partner.source.id
                                                     ] = el;
                                                 }}
-                                                className={`${styles.topTab} ${isSourceActive ? styles.topTabActive : ''}`}
+                                                className={`${styles.topTab} ${isSourceActive ? styles.topTabPairedActive : ''}`}
                                                 onContextMenu={(e) =>
                                                     handleTabContextMenu(
                                                         partner.source,
@@ -3227,6 +3375,7 @@ function App() {
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setIsScratchOpen(false);
+                                                    setFocusedTileSide('left');
                                                     if (linkingSourceId) {
                                                         handleCompleteLink(
                                                             partner.source.id
@@ -3238,10 +3387,9 @@ function App() {
                                                     }
                                                 }}
                                             >
-                                                <IconFileText
-                                                    size={14}
-                                                    className={styles.tabIcon}
-                                                />
+                                                {renderTabIcon(
+                                                    partner.source.type
+                                                )}
                                                 <span>
                                                     {partner.source.name}
                                                 </span>
@@ -3281,7 +3429,7 @@ function App() {
                                                         partner.target.id
                                                     ] = el;
                                                 }}
-                                                className={`${styles.topTab} ${isTargetActive ? styles.topTabActive : ''}`}
+                                                className={`${styles.topTab} ${isTargetActive ? styles.topTabPairedActive : ''}`}
                                                 onContextMenu={(e) =>
                                                     handleTabContextMenu(
                                                         partner.target,
@@ -3291,6 +3439,7 @@ function App() {
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setIsScratchOpen(false);
+                                                    setFocusedTileSide('right');
                                                     if (linkingSourceId) {
                                                         handleCompleteLink(
                                                             partner.target.id
@@ -3302,10 +3451,9 @@ function App() {
                                                     }
                                                 }}
                                             >
-                                                <IconFileText
-                                                    size={14}
-                                                    className={styles.tabIcon}
-                                                />
+                                                {renderTabIcon(
+                                                    partner.target.type
+                                                )}
                                                 <span>
                                                     {partner.target.name}
                                                 </span>
@@ -3353,10 +3501,7 @@ function App() {
                                                 }
                                             }}
                                         >
-                                            <IconFileText
-                                                size={14}
-                                                className={styles.tabIcon}
-                                            />
+                                            {renderTabIcon(tab.type)}
                                             <span>{tab.name}</span>
                                             <span
                                                 className={styles.tabCloseIcon}
@@ -3383,16 +3528,16 @@ function App() {
                             >
                                 <IconPlus size={16} />
                             </button>
-                            {activeChapterTab && (
+                            {canTileActiveTab && (
                                 <button
                                     className={styles.addBtn}
                                     onClick={(e) =>
                                         handleOpenTileMenu(
-                                            activeChapterTab.id,
+                                            canTileActiveTab.id,
                                             e
                                         )
                                     }
-                                    title="Chapter Tile Options"
+                                    title="Tile Options"
                                 >
                                     <IconDotsVertical size={16} />
                                 </button>
@@ -3474,15 +3619,11 @@ function App() {
                             onClick={() => setLinkingSourceId(null)}
                         >
                             <span>
-                                Tile linking active: Click another chapter tab
-                                (or chapter in the left sidebar) to pair with{' '}
+                                Tile linking active: Click another tab (or any
+                                chapter/character/location in the left sidebar)
+                                to pair with{' '}
                                 <span className={styles.toastHighlight}>
-                                    {chapters.find(
-                                        (c) => c.id === linkingSourceId
-                                    )?.title ||
-                                        openTabs.find(
-                                            (t) => t.id === linkingSourceId
-                                        )?.name}
+                                    {getLinkingSourceName(linkingSourceId)}
                                 </span>
                             </span>
                             <button

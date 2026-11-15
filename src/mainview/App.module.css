@@ -166,6 +166,18 @@
     color: #ffffff !important;
 }
 
+/* Blue Theme Highlight for Selected/Active Tab inside a Paired Tile (Matching "Outline" Button Style) */
+.topTabPairedActive {
+    background-color: rgba(43, 125, 233, 0.14) !important;
+    border: 1px solid #2b7de9 !important;
+    color: #5294ff !important;
+}
+
+.topTabPairedActive .tabIcon {
+    color: #5294ff !important;
+    opacity: 1;
+}
+
 .topTabLinkingSource {
     border: 1px dashed #2b7de9 !important;
     background-color: rgba(43, 125, 233, 0.12) !important;
@@ -331,21 +343,37 @@
     overflow: hidden;
 }
 
-.centerHoverZone {
-    position: absolute;
-    left: 50%;
-    top: 0;
-    transform: translateX(-50%);
-    width: 36px;
+/* Draggable Resizer Divider Between Left and Right Tile Panes */
+.tileResizeDivider {
+    width: 8px;
     height: 100%;
+    cursor: col-resize;
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 10;
-    cursor: pointer;
+    position: relative;
+    z-index: 15;
+    flex-shrink: 0;
+    background: transparent;
+    transition: background 0.15s ease;
+}
+
+.tileResizeDivider::after {
+    content: '';
+    width: 2px;
+    height: 100%;
+    background: #26262a;
+    transition: background 0.15s ease;
+}
+
+.tileResizeDivider:hover::after,
+.tileResizeDividerActive::after {
+    background: #2b7de9;
+    width: 3px;
 }
 
 .hoverUnlinkBtn {
+    position: absolute;
     background: #1e1e22;
     border: 1px solid #2b7de9;
     color: #ffffff;
@@ -356,12 +384,15 @@
     font-weight: 500;
     white-space: nowrap;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+    z-index: 20;
 }
 
 .leftPane {
-    flex: 1;
+    min-width: 40%;
+    max-width: 60%;
     background: #141416;
     border: 1px solid #26262a;
+    border-right: none;
     border-top-right-radius: 0px;
     border-bottom-right-radius: 0px;
     border-top-left-radius: 8px;
@@ -374,6 +405,8 @@
 }
 
 .rightPane {
+    min-width: 40%;
+    max-width: 60%;
     flex: 1;
     background: #121214;
     border: 1px solid #26262a;
