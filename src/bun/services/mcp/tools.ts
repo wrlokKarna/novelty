@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { itemsDB } from '@/bun/database/index.js';
 import type { Item, Location } from '@/shared/types/index.js';
 import type {
     PlotThreadType,
@@ -1314,7 +1313,7 @@ async function createCompendium(
                 entityData as Organization
             );
         case 'item':
-            return await itemsDB.createItem(db, entityData as Item);
+            return await itemDB.createItem(db, entityData as Item);
         case 'lore':
             return await loreDB.createLoreEntry(db, entityData as LoreEntry);
         default:
@@ -1348,7 +1347,7 @@ async function updateCompendium(
                 entityData as Organization
             );
         case 'item':
-            return await itemsDB.updateItem(db, id, entityData as Item);
+            return await itemDB.updateItem(db, id, entityData as Item);
         case 'lore':
             return await loreDB.updateLoreEntry(
                 db,
@@ -1371,7 +1370,7 @@ async function getCompendiumById(id: string, baseType?: CompendiumCategory) {
         case 'organization':
             return await organizationDB.getOrganizationById(db, id);
         case 'item':
-            return await itemsDB.getItemById(db, id);
+            return await itemDB.getItemById(db, id);
         case 'lore':
             return await loreDB.getLoreEntryById(db, id);
         default:
@@ -1396,7 +1395,7 @@ async function getCompendiumByProjectId(
                 projecIid
             );
         case 'item':
-            return await itemsDB.getItemsByProject(db, projecIid);
+            return await itemDB.getItemsByProject(db, projecIid);
         case 'lore':
             return await loreDB.getLoreEntriesByProject(db, projecIid);
         default:
@@ -1415,7 +1414,7 @@ async function deleteCompendium(id: string, baseType?: CompendiumCategory) {
         case 'organization':
             return await organizationDB.deleteOrganization(db, id);
         case 'item':
-            return await itemsDB.deleteItem(db, id);
+            return await itemDB.deleteItem(db, id);
         case 'lore':
             return await loreDB.deleteLoreEntry(db, id);
         default:
