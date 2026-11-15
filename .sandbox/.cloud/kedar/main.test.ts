@@ -4,9 +4,9 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 //import { db, sqlite } from '../db/McpIndex.ts';
 //import { characters } from '../db/McpSchema.ts';
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
-import { db } from './McpIndex';
+import { db } from './db';
 import { characters } from '../../../src/shared/schema';
-import { sqlite } from './McpIndex';
+import { sqlite } from './db';
 import { mcpServer } from '../../../src/bun/services/mcp/server';
 
 async function runPhase1Tests() {

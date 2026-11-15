@@ -11,10 +11,13 @@ import * as locationDB from '../../database/tables/locations.js';
 import * as organizationDB from '../../database/tables/organizations.js';
 import * as itemDB from '../../database/tables/items.js';
 import * as loreDB from '../../database/tables/lore.js';
-import type { CompendiumCategory } from '../../../shared/types/project/compendium/index.js';
+import type { Character, CompendiumCategory, LoreEntry, Organization } from '../../../shared/types/project/compendium/index.js';
 import * as storybeatDB from '../../database/tables/storyBeats.js';
 import type { PlotThreadType, StoryBeatType } from '@/shared/types/project/manuscript/index.js';
 import * as plotthreadDB from '../../database/tables/plotThreads.js'
+import type { NewEntityTemplate } from '../../database/tables/templates.js';
+import { itemsDB } from '@/bun/database/index.js';
+import type { Item, Location } from '@/shared/types/index.js';
 
 const compendiumCategoryEnum = z.enum([
     'character',
@@ -23,6 +26,7 @@ const compendiumCategoryEnum = z.enum([
     'item',
     'lore',
 ]);
+
 // export type CompendiumCategory = z.infer<typeof compendiumCategoryEnum>;
 export default function registerAllTools() {
     mcpServer.registerTool(
@@ -142,7 +146,6 @@ export default function registerAllTools() {
                 baseType: compendiumCategoryEnum.describe(
                     'The category/base type of the entity'
                 ),
-                name: z.string().describe('The primary name of the entity'),
                 // A flexible record where the LLM can populate whatever custom fields
                 // are defined in your entity_templates table for this baseType
                 attributes: z
@@ -152,26 +155,34 @@ export default function registerAllTools() {
                     ),
             }),
         },
-        async ({ projectId, baseType, name, attributes }) => {
+        async ({ projectId, baseType, attributes }) => {
+
+            const newEntityTemplate = {
+                id: crypto.randomUUID(),
+                projectId: projectId,
+                baseType: baseType,
+                customFields: [],
+                layout: null
+            };
             console.log(
                 `[calling create_entity] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
             );
+
+            const template = await createEntity(newEntityTemplate, baseType);
             console.log(
                 `[CRUD: Create] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
             );
-
+            console.log('Entity created ', template);
             // Optional: Fetch the entity template from database to validate or inspect custom_fields
             /*
             const template = await db.query.entityTemplates.findFirst({
                 where: (t, { and, eq }) => and(eq(t.projectId, projectId), eq(t.baseType, baseType))
             });
-
+ 
             // template?.custom_fields contains your FieldDefinition[] array[cite: 1, 2]!
-            */
-
+ 
             // TODO: Insert into your database entity table, saving `attributes` into your JSON data column
             // Example DB insertion logic:
-            /*
             const newEntity = await db.insert(entities).values({
                 projectId,
                 baseType,
@@ -180,8 +191,7 @@ export default function registerAllTools() {
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
             }).returning();
-            */
-
+*/
             return {
                 content: [
                     {
@@ -285,8 +295,8 @@ export default function registerAllTools() {
                     ? and(eq(entities.projectId, projectId), eq(entities.baseType, baseType))
                     : eq(entities.projectId, projectId)
             );
-
-
+    
+    
             Mock return for demonstration
             return {
                 content: [
@@ -330,7 +340,10 @@ export default function registerAllTools() {
                 entityId: z
                     .string()
                     .describe('The unique ID of the entity to update'),
-                name: z.string().optional().describe('New name if changing'),
+                baseType: compendiumCategoryEnum.describe(
+                    'The category/base type of the entity'
+                ),
+                projectId: z.string().describe('The ID of the project'),
                 attributes: z
                     .record(z.any())
                     .optional()
@@ -339,8 +352,18 @@ export default function registerAllTools() {
                     ),
             }),
         },
-        async ({ entityId, name, attributes }) => {
-            console.log(`[CRUD: Update] Entity ID: ${entityId}`);
+        async ({ entityId, baseType, projectId }) => {
+
+            const newEntityTemplate = {
+                id: entityId,
+                projectId: projectId,
+                baseType: baseType,
+                customFields: [],
+                layout: null
+            };
+
+            const template = await updateEntity(entityId, newEntityTemplate, baseType);
+            console.log(`[CRUD: Update] Entity ID: ${template}`);
 
             // Example DB update logic:
             /*
@@ -352,6 +375,17 @@ export default function registerAllTools() {
                 })
                 .where(eq(entities.id, entityId));
             */
+
+            if (!template) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Error: Entity with ID ${entityId} was not found.`,
+                        },
+                    ],
+                };
+            }
 
             return {
                 content: [
@@ -376,24 +410,42 @@ export default function registerAllTools() {
                     .describe('The unique ID of the entity to delete'),
             }),
         },
+
         async ({ entityId }) => {
-            console.log(`[CRUD: Delete] Entity ID: ${entityId}`);
+            try {
 
-            // Example DB delete logic:
-            /*
-            await db.delete(entities).where(eq(entities.id, entityId));
-            */
+                await templatesDB.deleteTemplate(db, entityId);
+                console.log(`[CRUD: Delete] Entity ID: ${entityId}`);
 
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Successfully deleted entity ${entityId}.`,
-                    },
-                ],
-            };
+                // Example DB delete logic:
+                /*
+                await db.delete(entities).where(eq(entities.id, entityId));
+                */
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Successfully deleted entity ${entityId}.`,
+                        },
+                    ],
+                };
+            }
+
+            catch (err) {
+                console.log('error', err)
+
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Error: Entity with ID ${entityId} was not found.`,
+                        },
+                    ],
+                };
+            }
         }
     );
+
 
     mcpServer.registerTool(
         'create_story_beat',
@@ -434,7 +486,7 @@ export default function registerAllTools() {
     );
 
     mcpServer.registerTool(
-        'get_story_beat',
+        'get_story_beat_by_proj_id',
         {
             title: 'Retrieve story_beat',
             description: 'Retrieves story_beat for a specific manuscript chapter and compendium category within a project',
@@ -453,6 +505,43 @@ export default function registerAllTools() {
                         {
                             type: 'text',
                             text: `Error: project with ID ${projectId} was not found`,
+                        },
+                    ],
+                };
+            }
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(storyBeat),
+                    }
+                ]
+            }
+        }
+    )
+
+    mcpServer.registerTool(
+        'get_story_beat_by_id',
+        {
+            title: 'Retrieve story_beat',
+            description: 'Retrieves story_beat for a specific manuscript chapter and compendium category within a project',
+            inputSchema: z.object({
+                id: z.string().describe("The ID of the story beat"),
+                projectId: z.string().optional().describe('The ID of the project'),
+            }),
+        },
+        async ({ id }) => {
+            console.log(`[Calling get_story_beat] for Id: ${id}`);
+            const storyBeat = await storybeatDB.getBeatById(db, id);
+            console.log('[Get Story Beat:', storyBeat);
+
+            if (!storyBeat) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Error: story beat with ID ${id} was not found`,
                         },
                     ],
                 };
@@ -511,7 +600,7 @@ export default function registerAllTools() {
                 content: [
                     {
                         type: 'text',
-                        text: `Successfully updated entity ${id}`,
+                        text: `Successfully updated story beat ${id}`,
                     },
                 ],
             };
@@ -555,7 +644,6 @@ export default function registerAllTools() {
                     ],
                 };
             }
-
         }
     );
 
@@ -759,6 +847,226 @@ export default function registerAllTools() {
         }
     );
 
+    mcpServer.registerTool(
+        'create_compendium',
+        {
+
+            title: 'Create Compendium',
+            description:
+                'Create a new dynamic Compendium (character, location, organization, item, lore) inside a project using its custom template fields.',
+            inputSchema: z.object({
+                name: z.string().describe('The primary name of the Compendium'),
+                projectId: z.string().describe('The ID of the project'),
+                baseType: compendiumCategoryEnum.describe(
+                    'The category/base type of the Compendium'
+                ),
+            }),
+        },
+        async ({ projectId, name, baseType }) => {
+
+            const newEntityTemplate = {
+                id: crypto.randomUUID(),
+                projectId: projectId,
+                name: name,
+                filePath: null,
+                templateData: null,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            };
+            console.log(
+                `[calling createCompendium] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
+            );
+
+            const template = await createCompendium(newEntityTemplate, baseType);
+            console.log(
+                `[CRUD: Create] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
+            );
+            console.log('Compendium created ', template);
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Successfully created ${baseType} "${name}".`,
+                    },
+                ],
+            };
+        }
+    );
+
+    mcpServer.registerTool(
+        'update_compendium',
+        {
+
+            title: 'Update Compendium',
+            description:
+                'Update a existing Compendium (character, location, organization, item, lore) inside a project using its custom template fields.',
+            inputSchema: z.object({
+                name: z.string().describe('The primary name of the Compendium'),
+                projectId: z.string().describe('The ID of the project'),
+                id: z
+                    .string()
+                    .describe('The unique ID of the Compendium to update'),
+                baseType: compendiumCategoryEnum.describe(
+                    'The category/base type of the Compendium'
+                ),
+            }),
+        },
+        async ({ id, projectId, name, baseType }) => {
+
+            const newEntityTemplate = {
+                id: id,
+                projectId: projectId,
+                name: name,
+                filePath: null,
+                templateData: null,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            };
+            console.log(
+                `[calling updateCompendium] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
+            );
+
+            const template = await updateCompendium(id, newEntityTemplate, baseType);
+            console.log('Compendium updated ', template);
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Successfully updated ${baseType} "${name}".`,
+                    },
+                ],
+            };
+        }
+    );
+
+    mcpServer.registerTool(
+        'get_compendium_by_id',
+        {
+
+            title: 'Retrive Compendium',
+            description:
+                'Retrive a existing Compendium (character, location, organization, item, lore) inside a project using its custom template fields.',
+            inputSchema: z.object({
+                name: z.string().optional().describe('The primary name of the Compendium'),
+                projectId: z.string().describe('The ID of the project'),
+                id: z
+                    .string()
+                    .describe('The unique ID of the Compendium to update'),
+                baseType: compendiumCategoryEnum.describe(
+                    'The category/base type of the Compendium'
+                ),
+            }),
+        },
+        async ({ id, projectId, name, baseType }) => {
+
+            console.log(
+                `[calling getChar] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
+            );
+
+            const template = await getCompendiumById(id, baseType);
+            console.log('Compendium Retreived ', template);
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Successfully Retreived ${baseType} "${name}".`,
+                    },
+                ],
+            };
+        }
+    );
+
+    mcpServer.registerTool(
+        'get_compendium_by_proj_id',
+        {
+
+            title: 'Retrive Compendium',
+            description:
+                'Retrive a existing Compendium (character, location, organization, item, lore) inside a project using its custom template fields.',
+            inputSchema: z.object({
+                name: z.string().optional().describe('The primary name of the Compendium'),
+                projectId: z.string().describe('The ID of the project'),
+                id: z
+                    .string()
+                    .describe('The unique ID of the Compendium to update'),
+                baseType: compendiumCategoryEnum.describe(
+                    'The category/base type of the Compendium'
+                ),
+            }),
+        },
+        async ({ projectId, name, baseType }) => {
+
+            console.log(
+                `[calling getCompendium] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
+            );
+
+            const template = await getCompendiumByProjectId(projectId, baseType);
+            console.log('Compendium Retreived ', template);
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Successfully Retreived ${baseType} "${name}".`,
+                    },
+                ],
+            };
+        }
+    );
+
+    mcpServer.registerTool(
+        'delete_compendium',
+        {
+
+            title: 'Delete Compendium',
+            description:
+                'Delete a existing Compendium (character, location, organization, item, lore) inside a project using its custom template fields.',
+            inputSchema: z.object({
+                name: z.string().optional().describe('The primary name of the Compendium'),
+                projectId: z.string().describe('The ID of the project'),
+                id: z
+                    .string()
+                    .describe('The unique ID of the Compendium to update'),
+                baseType: compendiumCategoryEnum.describe(
+                    'The category/base type of the Compendium'
+                ),
+            }),
+        },
+        async ({ id, projectId, name, baseType }) => {
+
+            try {
+                console.log(
+                    `[calling deleteChar] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
+                );
+
+                await deleteCompendium(id, baseType);
+
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Successfully Deleted ${baseType} "${name}".`,
+                        },
+                    ],
+                };
+            }
+            catch (err) {
+                console.log('[tools.ts]', err)
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Error: ID ${id} was not found`,
+                        },
+                    ],
+                };
+            }
+        }
+    );
+
     console.log('🛠️ All MCP tools registered successfully.');
 }
 
@@ -780,7 +1088,6 @@ async function getEntityByType(
             return await loreDB.getLoreEntryById(db, entityId);
         default:
             // Fallback if baseType is omitted: query unified entities table or search across categories
-            //return await entityDB.getById(projectId, entityId);
             return null;
     }
 }
@@ -806,7 +1113,6 @@ async function getAllEntities(
             return await loreDB.getLoreEntriesByProject(db, projectId);
         default:
             // Fallback if baseType is omitted: query unified entities table or search across categories
-            //return await entityDB.getById(projectId, entityId);
             return null;
     }
 }
@@ -849,7 +1155,277 @@ async function getTemplateByType(
             );
         default:
             // Fallback if baseType is omitted: query unified entities table or search across categories
-            //return await entityDB.getById(projectId, entityId);
             return null;
     }
 }
+
+async function createEntity(
+    entityTemplate: NewEntityTemplate,
+    baseType?: CompendiumCategory
+) {
+    // If baseType is provided, route query to specific category tables/handlers
+    switch (baseType) {
+        case 'character':
+            return await templatesDB.createTemplate(
+                db,
+                entityTemplate,
+            );
+        case 'location':
+            return await templatesDB.createTemplate(
+                db,
+                entityTemplate,
+            );
+        case 'organization':
+            return await templatesDB.createTemplate(
+                db,
+                entityTemplate,
+            );
+        case 'item':
+            return await templatesDB.createTemplate(
+                db,
+                entityTemplate,
+            );
+        case 'lore':
+            return await templatesDB.createTemplate(
+                db,
+                entityTemplate,
+            );
+        default:
+            // Fallback if baseType is omitted: query unified entities table or search across categories
+            return null;
+    }
+}
+
+async function updateEntity(
+    entityId: string,
+    entityTemplate: NewEntityTemplate,
+    baseType?: CompendiumCategory
+) {
+    // If baseType is provided, route query to specific category tables/handlers
+    switch (baseType) {
+        case 'character':
+            return await templatesDB.updateTemplate(
+                db,
+                entityId,
+                entityTemplate,
+            );
+        case 'location':
+            return await templatesDB.updateTemplate(
+                db,
+                entityId,
+                entityTemplate,
+            );
+        case 'organization':
+            return await templatesDB.updateTemplate(
+                db,
+                entityId,
+                entityTemplate,
+            );
+        case 'item':
+            return await templatesDB.updateTemplate(
+                db,
+                entityId,
+                entityTemplate,
+            );
+        case 'lore':
+            return await templatesDB.updateTemplate(
+                db,
+                entityId,
+                entityTemplate,
+            );
+        default:
+            // Fallback if baseType is omitted: query unified entities table or search across categories
+            return null;
+    }
+}
+
+async function createCompendium(
+    entityData: Character | Location | Organization | Item | LoreEntry,
+    baseType?: CompendiumCategory
+) {
+    // If baseType is provided, route query to specific category tables/handlers
+    switch (baseType) {
+        case 'character':
+            return await characterDB.createCharacter(
+                db,
+                entityData as Character,
+            );
+        case 'location':
+            return await locationDB.createLocation(
+                db,
+                entityData as Location,
+            );
+        case 'organization':
+            return await organizationDB.createOrganization(
+                db,
+                entityData as Organization,
+            );
+        case 'item':
+            return await itemsDB.createItem(
+                db,
+                entityData as Item,
+            );
+        case 'lore':
+            return await loreDB.createLoreEntry(
+                db,
+                entityData as LoreEntry,
+            );
+        default:
+            // Fallback if baseType is omitted: query unified entities table or search across categories
+            return null;
+    }
+}
+async function updateCompendium(
+    id: string,
+    entityData: Character | Location | Organization | Item | LoreEntry,
+    baseType?: CompendiumCategory
+) {
+    // If baseType is provided, route query to specific category tables/handlers
+    switch (baseType) {
+        case 'character':
+            return await characterDB.updateCharacter(
+                db,
+                id,
+                entityData as Character,
+            );
+        case 'location':
+            return await locationDB.updateLocation(
+                db,
+                id,
+                entityData as Location,
+            );
+        case 'organization':
+            return await organizationDB.updateOrganization(
+                db,
+                id,
+                entityData as Organization,
+            );
+        case 'item':
+            return await itemsDB.updateItem(
+                db,
+                id,
+                entityData as Item,
+            );
+        case 'lore':
+            return await loreDB.updateLoreEntry(
+                db,
+                id,
+                entityData as LoreEntry
+            );
+        default:
+            // Fallback if baseType is omitted: query unified entities table or search across categories
+            return null;
+    }
+}
+
+async function getCompendiumById(
+    id: string,
+    baseType?: CompendiumCategory
+) {
+    // If baseType is provided, route query to specific category tables/handlers
+    switch (baseType) {
+        case 'character':
+            return await characterDB.getCharacterById(
+                db,
+                id,
+            );
+        case 'location':
+            return await locationDB.getLocationById(
+                db,
+                id,
+            );
+        case 'organization':
+            return await organizationDB.getOrganizationById(
+                db,
+                id,
+            );
+        case 'item':
+            return await itemsDB.getItemById(
+                db,
+                id,
+            );
+        case 'lore':
+            return await loreDB.getLoreEntryById(
+                db,
+                id,
+            );
+        default:
+            // Fallback if baseType is omitted: query unified entities table or search across categories
+            return null;
+    }
+}
+
+async function getCompendiumByProjectId(
+    projecIid: string,
+    baseType?: CompendiumCategory
+) {
+    // If baseType is provided, route query to specific category tables/handlers
+    switch (baseType) {
+        case 'character':
+            return await characterDB.getCharactersByProject(
+                db,
+                projecIid,
+            );
+        case 'location':
+            return await locationDB.getLocationsByProject(
+                db,
+                projecIid,
+            );
+        case 'organization':
+            return await organizationDB.getOrganizationsByProject(
+                db,
+                projecIid,
+            );
+        case 'item':
+            return await itemsDB.getItemsByProject(
+                db,
+                projecIid,
+            );
+        case 'lore':
+            return await loreDB.getLoreEntriesByProject(
+                db,
+                projecIid,
+            );
+        default:
+            // Fallback if baseType is omitted: query unified entities table or search across categories
+            return null;
+    }
+}
+
+async function deleteCompendium(
+    id: string,
+    baseType?: CompendiumCategory
+) {
+    // If baseType is provided, route query to specific category tables/handlers
+    switch (baseType) {
+        case 'character':
+            return await characterDB.deleteCharacter(
+                db,
+                id,
+            );
+        case 'location':
+            return await locationDB.deleteLocation(
+                db,
+                id,
+            );
+        case 'organization':
+            return await organizationDB.deleteOrganization(
+                db,
+                id,
+            );
+        case 'item':
+            return await itemsDB.deleteItem(
+                db,
+                id,
+            );
+        case 'lore':
+            return await loreDB.deleteLoreEntry(
+                db,
+                id,
+            );
+        default:
+            // Fallback if baseType is omitted: query unified entities table or search across categories
+            return null;
+    }
+}
+

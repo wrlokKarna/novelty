@@ -26,15 +26,11 @@ async function runTest() {
     console.log();
     console.log('🚀 Invoking "create_entry"...');
     const result = await client.callTool({
-        name: 'create_entry',
+        name: 'create_entity',
         arguments: {
             projectId: crypto.randomUUID().split('-')[0],
-            category: 'character',
-            data: JSON.stringify({
-                id: crypto.randomUUID().split('-')[0],
-                name: 'Test Hero',
-                bio: 'A brave adventurer',
-            }),
+            baseType: 'character',
+            name: 'cena'
         },
     });
     console.log();

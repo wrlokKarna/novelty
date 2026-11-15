@@ -1,9 +1,9 @@
 /// <reference types="bun-types" />
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { mcpServer } from '../../../src/bun/services/mcp/server';
+import { mcpServer } from '../../../src/bun/services/mcp/server.js';
 import './tools.js';
-import { sqlite } from './McpIndex.js';
+import { sqlite } from './db.js';
 import { mock } from 'bun:test';
 
 mock.module('../core/BrowserWindow', () => ({
@@ -18,11 +18,13 @@ async function runTest() {
 
     try {
         sqlite.run(`CREATE TABLE IF NOT EXISTS characters(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            projectid TEXT NOT null,
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT null,
             name TEXT not null,
-            filepath TEXT,
-            templatedata TEXT
+            file_path TEXT,
+            template_data TEXT,
+            created_at INTERGER NOT NULL,
+            updated_at INTEGER NOT NULL
             );`);
         sqlite.run(`CREATE TABLE IF NOT EXISTS story_beats (
 			id TEXT PRIMARY KEY,
@@ -37,7 +39,7 @@ async function runTest() {
 		);`);
         sqlite.run(`CREATE TABLE IF NOT EXISTS plot_threads (
 			id TEXT PRIMARY KEY,
-			project_id TEXT REFERENCES projects(id),
+			projectId TEXT REFERENCES projects(id),
 			name TEXT NOT NULL,
 			description TEXT,
 			thread_type TEXT NOT NULL DEFAULT 'subplot',
@@ -64,14 +66,17 @@ async function runTest() {
             toolsList.tools.map((t) => t.name)
         );
 
-        const deletePlotThread = await client.callTool({
-            name: 'delete_plot_thread',
+        const createEntity = await client.callTool({
+            name: 'delete_entity',
             arguments: {
-                id: '1'
+                baseType: 'character',
+                projectId: '12',
+                id: 'abd1abe7-7ed1-4a28-bcfd-88d7dd4ad29b',
+                filePath: ''
             },
         })
 
-        console.log('delete plot thread', deletePlotThread)
+        console.log('create entity', createEntity)
 
         /*
         const updatePlotThread = await client.callTool({

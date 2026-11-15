@@ -8,8 +8,15 @@ import { mcpServer } from './../../../src/bun/services/mcp/server.js';
 import * as charactersDB from '../../../src/bun/database/tables/characters.js';
 import * as storybeatDB from '../../../src/bun/database/tables/storyBeats.js'
 import type { PlotThreadType, StoryBeatType } from '@/shared/types/project/manuscript/index.js';
-import { db } from './McpIndex.js';
+import { db } from './db.js';
 import * as plotthreadDB from '../../../src/bun/database/tables/plotThreads.js'
+import * as itemsDB from '../../../src/bun/database/tables/items.js'
+import * as locationsDB from '../../../src/bun/database/tables/locations.js'
+import * as loreDB from '../../../src/bun/database/tables/lore.js'
+import * as organizationsDB from '../../../src/bun/database/tables/organizations.js'
+//import { itemsDB, locationsDB, loreDB, organizationsDB } from '@/bun/database/index.js';
+import type { Character, CompendiumCategory, LoreEntry, Organization } from '@/shared/types/project/compendium/index.js';
+import type { Location, Item } from '@/shared/types/index.js';
 
 const compendiumCategoryEnum = z.enum([
     'character',
@@ -592,6 +599,414 @@ mcpServer.registerTool(
         }
     }
 );
+
+mcpServer.registerTool(
+    'create_entity',
+    {
+
+        title: 'Create Entity',
+        description:
+            'Create a new dynamic entity (character, location, organization, item, lore) inside a project using its custom template fields.',
+        inputSchema: z.object({
+            name: z.string().describe('The primary name of the entity'),
+            projectId: z.string().describe('The ID of the project'),
+            baseType: compendiumCategoryEnum.describe(
+                'The category/base type of the entity'
+            ),
+        }),
+    },
+    async ({ projectId, name, baseType }) => {
+
+        const newEntityTemplate = {
+            id: crypto.randomUUID(),
+            projectId: projectId,
+            name: name,
+            filePath: null,
+            templateData: null,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+        console.log(
+            `[calling createChar] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
+        );
+
+        const template = await createCompendium(newEntityTemplate, baseType);
+        console.log(
+            `[CRUD: Create] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
+        );
+        console.log('Entity created ', template);
+        // Optional: Fetch the entity template from database to validate or inspect custom_fields
+        /*
+        const template = await db.query.entityTemplates.findFirst({
+            where: (t, { and, eq }) => and(eq(t.projectId, projectId), eq(t.baseType, baseType))
+        });
+
+        // template?.custom_fields contains your FieldDefinition[] array[cite: 1, 2]!
+        */
+
+        // TODO: Insert into your database entity table, saving `attributes` into your JSON data column
+        // Example DB insertion logic:
+        /*
+        const newEntity = await db.insert(entities).values({
+            projectId,
+            baseType,
+            name,
+            attributes: JSON.stringify(attributes),
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        }).returning();
+        */
+
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `Successfully created ${baseType} "${name}".`,
+                },
+            ],
+        };
+    }
+);
+
+mcpServer.registerTool(
+    'update_entity',
+    {
+
+        title: 'Update Entity',
+        description:
+            'Update a existing entity (character, location, organization, item, lore) inside a project using its custom template fields.',
+        inputSchema: z.object({
+            name: z.string().describe('The primary name of the entity'),
+            projectId: z.string().describe('The ID of the project'),
+            id: z
+                .string()
+                .describe('The unique ID of the entity to update'),
+            baseType: compendiumCategoryEnum.describe(
+                'The category/base type of the entity'
+            ),
+        }),
+    },
+    async ({ id, projectId, name, baseType }) => {
+
+        const newEntityTemplate = {
+            id: id,
+            projectId: projectId,
+            name: name,
+            filePath: null,
+            templateData: null,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+        console.log(
+            `[calling updateChar] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
+        );
+
+        const template = await updateCompendium(id, newEntityTemplate, baseType);
+        console.log('Entity updated ', template);
+        // Optional: Fetch the entity template from database to validate or inspect custom_fields
+        /*
+        const template = await db.query.entityTemplates.findFirst({
+            where: (t, { and, eq }) => and(eq(t.projectId, projectId), eq(t.baseType, baseType))
+        });
+
+        // template?.custom_fields contains your FieldDefinition[] array[cite: 1, 2]!
+        */
+
+        // TODO: Insert into your database entity table, saving `attributes` into your JSON data column
+        // Example DB insertion logic:
+        /*
+        const newEntity = await db.insert(entities).values({
+            projectId,
+            baseType,
+            name,
+            attributes: JSON.stringify(attributes),
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        }).returning();
+        */
+
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `Successfully updated ${baseType} "${name}".`,
+                },
+            ],
+        };
+    }
+);
+
+mcpServer.registerTool(
+    'get_entity',
+    {
+
+        title: 'Retrive Entity',
+        description:
+            'Retrive a existing entity (character, location, organization, item, lore) inside a project using its custom template fields.',
+        inputSchema: z.object({
+            name: z.string().optional().describe('The primary name of the entity'),
+            projectId: z.string().describe('The ID of the project'),
+            id: z
+                .string()
+                .describe('The unique ID of the entity to update'),
+            baseType: compendiumCategoryEnum.describe(
+                'The category/base type of the entity'
+            ),
+        }),
+    },
+    async ({ id, projectId, name, baseType }) => {
+
+        console.log(
+            `[calling getChar] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
+        );
+
+        const template = await getCompendium(id, baseType);
+        console.log('Entity Retreived ', template);
+        // Optional: Fetch the entity template from database to validate or inspect custom_fields
+        /*
+        const template = await db.query.entityTemplates.findFirst({
+            where: (t, { and, eq }) => and(eq(t.projectId, projectId), eq(t.baseType, baseType))
+        });
+
+        // template?.custom_fields contains your FieldDefinition[] array[cite: 1, 2]!
+        */
+
+        // TODO: Insert into your database entity table, saving `attributes` into your JSON data column
+        // Example DB insertion logic:
+        /*
+        const newEntity = await db.insert(entities).values({
+            projectId,
+            baseType,
+            name,
+            attributes: JSON.stringify(attributes),
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        }).returning();
+        */
+
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `Successfully Retreived ${baseType} "${name}".`,
+                },
+            ],
+        };
+    }
+);
+mcpServer.registerTool(
+    'delete_entity',
+    {
+
+        title: 'Delete Entity',
+        description:
+            'Delete a existing entity (character, location, organization, item, lore) inside a project using its custom template fields.',
+        inputSchema: z.object({
+            name: z.string().optional().describe('The primary name of the entity'),
+            projectId: z.string().describe('The ID of the project'),
+            id: z
+                .string()
+                .describe('The unique ID of the entity to update'),
+            baseType: compendiumCategoryEnum.describe(
+                'The category/base type of the entity'
+            ),
+        }),
+    },
+    async ({ id, projectId, name, baseType }) => {
+
+        console.log(
+            `[calling deleteChar] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
+        );
+
+        const template = await deleteCompendium(id, baseType);
+        console.log('Entity Deleted ', template);
+        // Optional: Fetch the entity template from database to validate or inspect custom_fields
+        /*
+        const template = await db.query.entityTemplates.findFirst({
+            where: (t, { and, eq }) => and(eq(t.projectId, projectId), eq(t.baseType, baseType))
+        });
+
+        // template?.custom_fields contains your FieldDefinition[] array[cite: 1, 2]!
+        */
+
+        // TODO: Insert into your database entity table, saving `attributes` into your JSON data column
+        // Example DB insertion logic:
+        /*
+        const newEntity = await db.insert(entities).values({
+            projectId,
+            baseType,
+            name,
+            attributes: JSON.stringify(attributes),
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        }).returning();
+        */
+
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `Successfully Deleted ${baseType} "${name}".`,
+                },
+            ],
+        };
+    }
+);
+
+async function createCompendium(
+    entityData: Character | Location | Organization | Item | LoreEntry,
+    baseType?: CompendiumCategory
+) {
+    // If baseType is provided, route query to specific category tables/handlers
+    switch (baseType) {
+        case 'character':
+            return await charactersDB.createCharacter(
+                db,
+                entityData as Character,
+            );
+        case 'location':
+            return await locationsDB.createLocation(
+                db,
+                entityData as Location,
+            );
+        case 'organization':
+            return await organizationsDB.createOrganization(
+                db,
+                entityData,
+            );
+        case 'item':
+            return await itemsDB.createItem(
+                db,
+                entityData,
+            );
+        case 'lore':
+            return await loreDB.createLoreEntry(
+                db,
+                entityData,
+            );
+        default:
+            // Fallback if baseType is omitted: query unified entities table or search across categories
+            return null;
+    }
+}
+async function updateCompendium(
+    id: string,
+    entityData: Character | Location | Organization | Item | LoreEntry,
+    baseType?: CompendiumCategory
+) {
+    // If baseType is provided, route query to specific category tables/handlers
+    switch (baseType) {
+        case 'character':
+            return await charactersDB.updateCharacter(
+                db,
+                id,
+                entityData,
+            );
+        case 'location':
+            return await locationsDB.updateLocation(
+                db,
+                id,
+                entityData,
+            );
+        case 'organization':
+            return await organizationsDB.updateOrganization(
+                db,
+                id,
+                entityData,
+            );
+        case 'item':
+            return await itemsDB.updateItem(
+                db,
+                id,
+                entityData,
+            );
+        case 'lore':
+            return await loreDB.updateLoreEntry(
+                db,
+                id,
+                entityData,
+            );
+        default:
+            // Fallback if baseType is omitted: query unified entities table or search across categories
+            return null;
+    }
+}
+
+async function getCompendium(
+    id: string,
+    baseType?: CompendiumCategory
+) {
+    // If baseType is provided, route query to specific category tables/handlers
+    switch (baseType) {
+        case 'character':
+            return await charactersDB.getCharacterById(
+                db,
+                id,
+            );
+        case 'location':
+            return await locationsDB.getLocationById(
+                db,
+                id,
+            );
+        case 'organization':
+            return await organizationsDB.getOrganizationById(
+                db,
+                id,
+            );
+        case 'item':
+            return await itemsDB.getItemById(
+                db,
+                id,
+            );
+        case 'lore':
+            return await loreDB.getLoreEntryById(
+                db,
+                id,
+            );
+        default:
+            // Fallback if baseType is omitted: query unified entities table or search across categories
+            return null;
+    }
+}
+
+async function deleteCompendium(
+    id: string,
+    baseType?: CompendiumCategory
+) {
+    // If baseType is provided, route query to specific category tables/handlers
+    switch (baseType) {
+        case 'character':
+            return await charactersDB.deleteCharacter(
+                db,
+                id,
+            );
+        case 'location':
+            return await locationsDB.deleteLocation(
+                db,
+                id,
+            );
+        case 'organization':
+            return await organizationsDB.deleteOrganization(
+                db,
+                id,
+            );
+        case 'item':
+            return await itemsDB.deleteItem(
+                db,
+                id,
+            );
+        case 'lore':
+            return await loreDB.deleteLoreEntry(
+                db,
+                id,
+            );
+        default:
+            // Fallback if baseType is omitted: query unified entities table or search across categories
+            return null;
+    }
+}
+
+
 
 /*
 
