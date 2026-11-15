@@ -230,6 +230,24 @@ function App() {
     const editorRef = useRef<RichTextEditorHandle>(null);
 
     // =========================================================================
+    // TOP TAB AUTO-SCROLL REFS & EFFECT (Scrolls active tab into view)
+    // =========================================================================
+    const tabsGroupRef = useRef<HTMLDivElement>(null);
+    const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+    useEffect(() => {
+        if (!activeTabId || isScratchOpen) return;
+        const activeTabEl = tabRefs.current[activeTabId];
+        if (activeTabEl) {
+            activeTabEl.scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest',
+                inline: 'nearest',
+            });
+        }
+    }, [activeTabId, openTabs, isScratchOpen]);
+
+    // =========================================================================
     // CHAPTER TILE LINKING, RIGHT-CLICK & THREE-DOTS MENU STATE
     // =========================================================================
     const [chapterLinks, setChapterLinks] = useState<
@@ -874,6 +892,11 @@ function App() {
     }
 
     async function openChapterTab(chapter: Chapter) {
+        if (linkingSourceId) {
+            handleCompleteLink(chapter.id);
+            return;
+        }
+
         const c = await rpc.request['db:get-chapter'](chapter.id);
         if (c?.content) {
             setTabContents((prev) => ({
@@ -911,17 +934,14 @@ function App() {
             setOpenTabs((prev) => [...prev, newTab]);
         }
 
-        if (linkingSourceId) {
-            handleCompleteLink(chapter.id);
-            return;
-        }
-
+        setIsScratchOpen(false);
         setActiveTabId(chapter.id);
     }
 
     function openPlotArchitectureTab() {
         const existing = openTabs.find((t) => t.type === 'plot-architecture');
         if (existing) {
+            setIsScratchOpen(false);
             setActiveTabId(existing.id);
             return;
         }
@@ -933,6 +953,7 @@ function App() {
             isModified: false,
         };
         setOpenTabs((prev) => [...prev, tab]);
+        setIsScratchOpen(false);
         setActiveTabId(tab.id);
     }
 
@@ -947,6 +968,7 @@ function App() {
             setOpenTabs(newTabs);
             setActiveTabId(newTabs.length > 0 ? newTabs[0].id : null);
         } else {
+            setIsScratchOpen(false);
             setActiveTabId(existing.id);
         }
     }
@@ -1061,6 +1083,7 @@ function App() {
                 category,
             };
             setOpenTabs((prev) => [...prev, newTab]);
+            setIsScratchOpen(false);
             setActiveTabId(id);
         }
     }
@@ -1106,6 +1129,7 @@ function App() {
                     };
                     setOpenTabs((prev) => [...prev, newTab]);
                 }
+                setIsScratchOpen(false);
                 setActiveTabId(entryId);
             }
         } catch (e) {
@@ -1180,6 +1204,7 @@ function App() {
                 break;
             }
             case 'tab': {
+                setIsScratchOpen(false);
                 setActiveTabId(item.id);
                 break;
             }
@@ -1786,6 +1811,7 @@ function App() {
                 category,
             };
             setOpenTabs((prev) => [...prev, newTab]);
+            setIsScratchOpen(false);
             setActiveTabId(id);
             return id;
         } catch (e) {
@@ -1886,6 +1912,7 @@ function App() {
                 category,
             };
             setOpenTabs((prev) => [...prev, newTab]);
+            setIsScratchOpen(false);
             setActiveTabId(id);
             return id;
         } catch (e) {
@@ -2930,6 +2957,7 @@ function App() {
     const handleCloseTab = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         handleUnlinkChapter(id);
+        delete tabRefs.current[id];
         const tab = openTabs.find((t) => t.id === id);
         if (
             tab &&
@@ -3131,7 +3159,7 @@ function App() {
                 <div className="app-editor">
                     {/* Top Tabs Bar Matching Native App UI */}
                     <div className={styles.topContainer}>
-                        <div className={styles.tabsGroupDiv}>
+                        <div ref={tabsGroupRef} className={styles.tabsGroupDiv}>
                             <button
                                 className={`${styles.topTab} ${isScratchOpen ? styles.topTabActive : ''}`}
                                 onClick={() => setIsScratchOpen(!isScratchOpen)}
@@ -3164,6 +3192,11 @@ function App() {
                                             className={styles.tabPairWrapper}
                                         >
                                             <button
+                                                ref={(el) => {
+                                                    tabRefs.current[
+                                                        partner.source.id
+                                                    ] = el;
+                                                }}
                                                 className={`${styles.topTab} ${isSourceActive ? styles.topTabActive : ''}`}
                                                 onContextMenu={(e) =>
                                                     handleTabContextMenu(
@@ -3223,6 +3256,11 @@ function App() {
                                             </div>
 
                                             <button
+                                                ref={(el) => {
+                                                    tabRefs.current[
+                                                        partner.target.id
+                                                    ] = el;
+                                                }}
                                                 className={`${styles.topTab} ${isTargetActive ? styles.topTabActive : ''}`}
                                                 onContextMenu={(e) =>
                                                     handleTabContextMenu(
@@ -3278,6 +3316,9 @@ function App() {
                                     return (
                                         <button
                                             key={tab.id}
+                                            ref={(el) => {
+                                                tabRefs.current[tab.id] = el;
+                                            }}
                                             className={`${styles.topTab} ${isActive ? styles.topTabActive : ''} ${isLinkingSource ? styles.topTabLinkingSource : ''}`}
                                             onContextMenu={(e) =>
                                                 handleTabContextMenu(tab, e)
@@ -3915,6 +3956,7 @@ function App() {
                             isModified: false,
                         };
                         setOpenTabs((prev) => [...prev, newTab]);
+                        setIsScratchOpen(false);
                         setActiveTabId(newTab.id);
                         const content =
                             await rpc.request['file:read-content'](
