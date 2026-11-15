@@ -1,1 +1,32 @@
-@import './ThemeCard.common.css'
+@import './ThemeCard.common.module.css';
+
+.card {
+    border: 1px solid var(--border-secondary, #2f3440);
+}
+
+.builtInBadge {
+    font-size: 10px;
+    padding: 2px 6px;
+    background-color: var(--bg-tertiary, #1e1e1e);
+    color: var(--text-secondary, #888);
+    border-radius: 4px;
+    margin-left: 6px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.themeNameContainer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.label {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.themeHeader:hover {
+}

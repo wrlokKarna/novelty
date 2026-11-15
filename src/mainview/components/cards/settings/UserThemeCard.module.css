@@ -1,1 +1,46 @@
-@import './ThemeCard.common.css';
+@import './ThemeCard.common.module.css';
+
+.card {
+    border: 1px solid var(--border-primary, #475569);
+}
+
+.iconButton {
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    transition: opacity 0.2s ease;
+    color: var(--text-secondary, #888);
+}
+
+.iconButton:hover {
+    opacity: 0.7;
+    color: var(--accent-primary, #3b82f6);
+}
+
+.iconButtonDelete {
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    transition: opacity 0.2s ease;
+    color: var(--danger-color, #ef4444);
+}
+
+.iconButtonDelete:hover {
+    opacity: 0.7;
+}
+
+.editAction {
+    color: var(--primary-color, #3b82f6);
+}
+
+.deleteAction {
+    color: var(--danger-color, #ef4444);
+}
