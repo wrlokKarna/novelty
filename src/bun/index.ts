@@ -89,8 +89,11 @@ import {
     inspirationsDB,
 } from '@/bun/database';
 import { db, sqliteVecAvailable, rawSqlite, dbPath } from '@/bun/electrobun/db';
-
-registerAllTools();
+import './services/mcp/tools/compendium_tools.js';
+import './services/mcp/tools/manuscript_tools.js';
+import './services/mcp/tools/plotThread_tools.js';
+import './services/mcp/tools/storyBeat_tools.js';
+//registerAllTools();
 try {
     const [clientTransport, serverTransport] =
         InMemoryTransport.createLinkedPair();
@@ -647,11 +650,11 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                     db,
                     projectId,
                     baseType as
-                        | 'character'
-                        | 'location'
-                        | 'organization'
-                        | 'item'
-                        | 'lore'
+                    | 'character'
+                    | 'location'
+                    | 'organization'
+                    | 'item'
+                    | 'lore'
                 );
                 return result;
             },
@@ -666,11 +669,11 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                     db,
                     projectId,
                     baseType as
-                        | 'character'
-                        | 'location'
-                        | 'organization'
-                        | 'item'
-                        | 'lore'
+                    | 'character'
+                    | 'location'
+                    | 'organization'
+                    | 'item'
+                    | 'lore'
                 );
                 return result;
             },
@@ -689,11 +692,11 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                     db,
                     projectId,
                     baseType as
-                        | 'character'
-                        | 'location'
-                        | 'organization'
-                        | 'item'
-                        | 'lore',
+                    | 'character'
+                    | 'location'
+                    | 'organization'
+                    | 'item'
+                    | 'lore',
                     customFields,
                     layout
                 );
