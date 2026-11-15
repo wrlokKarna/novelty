@@ -155,7 +155,7 @@ function App() {
     const [storyBeats, setStoryBeats] = useState<StoryBeat[]>([]);
     const [storyActs, setStoryActs] = useState<StoryAct[]>([]);
     const [storySequences, setStorySequences] = useState<StorySequence[]>([]);
-    const [storyScenes, setStoryScenes] = useState<StoryScene[]>([]);
+    const [storyScenes, setStoryScenes] = useState<StorySequence[] & any>([]);
     const [chapterPlotThreads, setChapterPlotThreads] = useState<
         ChapterPlotThread[]
     >([]);
@@ -230,7 +230,7 @@ function App() {
     const editorRef = useRef<RichTextEditorHandle>(null);
 
     // =========================================================================
-    // TOP TAB AUTO-SCROLL REFS & EFFECT (Scrolls active tab into view)
+    // TOP TAB AUTO-SCROLL & MOUSE WHEEL HORIZONTAL SCROLL
     // =========================================================================
     const tabsGroupRef = useRef<HTMLDivElement>(null);
     const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -246,6 +246,14 @@ function App() {
             });
         }
     }, [activeTabId, openTabs, isScratchOpen]);
+
+    const handleTabsWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+        const container = tabsGroupRef.current;
+        if (!container) return;
+        if (e.deltaY !== 0) {
+            container.scrollLeft += e.deltaY;
+        }
+    };
 
     // =========================================================================
     // CHAPTER TILE LINKING, RIGHT-CLICK & THREE-DOTS MENU STATE
@@ -842,6 +850,7 @@ function App() {
             setChapters(result);
         }
         setOpenTabs((prev) => [...prev, tab]);
+        setIsScratchOpen(false);
         setActiveTabId(newChapter.id);
     }
 
@@ -2172,7 +2181,7 @@ function App() {
                     )}
                     acts={storyActs}
                     scenes={storyScenes.filter(
-                        (s) => s.chapterId === chapter.id
+                        (s: any) => s.chapterId === chapter.id
                     )}
                     sequences={storySequences.filter(
                         (s) => s.chapterId === chapter.id
@@ -2248,14 +2257,17 @@ function App() {
                             ? storySequences.find((s) => s.id === sequenceId)
                             : undefined;
                         const chapterDirectScenes = storyScenes.filter(
-                            (s) => s.chapterId === chapter.id && !s.sequenceId
+                            (s: any) =>
+                                s.chapterId === chapter.id && !s.sequenceId
                         );
                         const chapterSequences = storySequences.filter(
                             (s) => s.chapterId === chapter.id
                         );
                         const maxDisplayOrder = Math.max(
                             0,
-                            ...chapterDirectScenes.map((s) => s.displayOrder),
+                            ...chapterDirectScenes.map(
+                                (s: any) => s.displayOrder
+                            ),
                             ...chapterSequences.map((s) => s.displayOrder)
                         );
                         const scene = await rpc.request[
@@ -2269,17 +2281,18 @@ function App() {
                             title: 'New Scene',
                             orderIndex: seq
                                 ? storyScenes.filter(
-                                      (s) => s.sequenceId === seq.id
+                                      (s: any) => s.sequenceId === seq.id
                                   ).length
                                 : chapterDirectScenes.length,
                             displayOrder: seq ? 0 : maxDisplayOrder + 1,
                         } as any);
-                        if (scene) setStoryScenes((prev) => [...prev, scene]);
+                        if (scene)
+                            setStoryScenes((prev: any) => [...prev, scene]);
                     }}
                     onSceneDelete={async (id) => {
                         await rpc.request['db:delete-story-scene'](id);
-                        setStoryScenes((prev) =>
-                            prev.filter((s) => s.id !== id)
+                        setStoryScenes((prev: any) =>
+                            prev.filter((s: any) => s.id !== id)
                         );
                     }}
                     onSceneUpdate={async (id, field, value) => {
@@ -2290,8 +2303,10 @@ function App() {
                         const updated =
                             await rpc.request['db:get-story-scene'](id);
                         if (updated)
-                            setStoryScenes((prev) =>
-                                prev.map((s) => (s.id === id ? updated : s))
+                            setStoryScenes((prev: any) =>
+                                prev.map((s: any) =>
+                                    s.id === id ? updated : s
+                                )
                             );
                     }}
                     onSceneReorder={async (
@@ -2319,8 +2334,8 @@ function App() {
                                 orderIndex,
                             }))
                         );
-                        setStoryScenes((prev) =>
-                            prev.map((s) => {
+                        setStoryScenes((prev: any) =>
+                            prev.map((s: any) => {
                                 const idx = orderedIds.indexOf(s.id);
                                 if (idx >= 0) {
                                     const updated = {
@@ -2341,12 +2356,13 @@ function App() {
                             (s) => s.chapterId === chapter.id
                         );
                         const chapterScenesList = storyScenes.filter(
-                            (s) => s.chapterId === chapter.id && !s.sequenceId
+                            (s: any) =>
+                                s.chapterId === chapter.id && !s.sequenceId
                         );
                         const maxDisplayOrder = Math.max(
                             0,
                             ...chapterSeqs.map((s) => s.displayOrder),
-                            ...chapterScenesList.map((s) => s.displayOrder)
+                            ...chapterScenesList.map((s: any) => s.displayOrder)
                         );
                         const seq = await rpc.request[
                             'db:create-story-sequence'
@@ -2368,8 +2384,8 @@ function App() {
                         setStorySequences((prev) =>
                             prev.filter((s) => s.id !== id)
                         );
-                        setStoryScenes((prev) =>
-                            prev.filter((s) => s.sequenceId !== id)
+                        setStoryScenes((prev: any) =>
+                            prev.filter((s: any) => s.sequenceId !== id)
                         );
                     }}
                     onSequenceUpdate={async (id, field, value) => {
@@ -2419,8 +2435,8 @@ function App() {
                             }
                         }
 
-                        setStoryScenes((prev) =>
-                            prev.map((s) => {
+                        setStoryScenes((prev: any) =>
+                            prev.map((s: any) => {
                                 const item = chapterScenes.find(
                                     (ci) => ci.id === s.id
                                 );
@@ -3159,7 +3175,11 @@ function App() {
                 <div className="app-editor">
                     {/* Top Tabs Bar Matching Native App UI */}
                     <div className={styles.topContainer}>
-                        <div ref={tabsGroupRef} className={styles.tabsGroupDiv}>
+                        <div
+                            ref={tabsGroupRef}
+                            onWheel={handleTabsWheel}
+                            className={styles.tabsGroupDiv}
+                        >
                             <button
                                 className={`${styles.topTab} ${isScratchOpen ? styles.topTabActive : ''}`}
                                 onClick={() => setIsScratchOpen(!isScratchOpen)}
@@ -3554,7 +3574,7 @@ function App() {
                                             for (const id of removedIds) {
                                                 const isScene =
                                                     storyScenes.some(
-                                                        (s) => s.id === id
+                                                        (s: any) => s.id === id
                                                     );
                                                 if (isScene) {
                                                     await rpc.request[
@@ -3566,9 +3586,9 @@ function App() {
                                                     ](id);
                                                 }
                                             }
-                                            setStoryScenes((prev) =>
+                                            setStoryScenes((prev: any) =>
                                                 prev.filter(
-                                                    (s) =>
+                                                    (s: any) =>
                                                         !removedIds.includes(
                                                             s.id
                                                         )
@@ -3587,11 +3607,11 @@ function App() {
                                         if (mode === 'replace') {
                                             const chapterSceneIds = storyScenes
                                                 .filter(
-                                                    (s) =>
+                                                    (s: any) =>
                                                         s.chapterId ===
                                                         chapter.id
                                                 )
-                                                .map((s) => s.id);
+                                                .map((s: any) => s.id);
                                             const chapterSeqIds = storySequences
                                                 .filter(
                                                     (s) =>
@@ -3609,9 +3629,9 @@ function App() {
                                                     'db:delete-story-sequence'
                                                 ](id);
                                             }
-                                            setStoryScenes((prev) =>
+                                            setStoryScenes((prev: any) =>
                                                 prev.filter(
-                                                    (s) =>
+                                                    (s: any) =>
                                                         !chapterSceneIds.includes(
                                                             s.id
                                                         )
@@ -3630,7 +3650,7 @@ function App() {
                                         const existingDisplayOrders = [
                                             ...storyScenes
                                                 .filter(
-                                                    (s) =>
+                                                    (s: any) =>
                                                         s.chapterId ===
                                                             chapter.id &&
                                                         !s.sequenceId &&
@@ -3638,7 +3658,9 @@ function App() {
                                                             s.id
                                                         )
                                                 )
-                                                .map((s) => s.displayOrder),
+                                                .map(
+                                                    (s: any) => s.displayOrder
+                                                ),
                                             ...storySequences
                                                 .filter(
                                                     (s) =>
@@ -3705,7 +3727,7 @@ function App() {
                                                 });
                                                 const existing =
                                                     storyScenes.find(
-                                                        (s) =>
+                                                        (s: any) =>
                                                             s.id ===
                                                             sceneData.id
                                                     );
@@ -3870,7 +3892,7 @@ function App() {
                                             setStoryScenes(createdScenes);
                                             setStorySequences(createdSequences);
                                         } else {
-                                            setStoryScenes((prev) => [
+                                            setStoryScenes((prev: any) => [
                                                 ...prev,
                                                 ...createdScenes,
                                             ]);
