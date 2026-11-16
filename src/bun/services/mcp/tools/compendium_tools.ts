@@ -224,7 +224,7 @@ mcpServer.registerTool(
 );
 
 mcpServer.registerTool(
-  'delete_compendium',
+  'delete_compendium_entity',
   {
     title: 'Delete Compendium',
     description:

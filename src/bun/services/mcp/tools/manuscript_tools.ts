@@ -12,7 +12,7 @@ mcpServer.registerTool(
     description:
       'Create a new Chapter inside a project using its fields based on project Id.',
     inputSchema: z.object({
-      title: z.string().describe('The primary name of the Chapter'),
+      title: z.string().describe('The primary title of the Chapter'),
       projectId: z.string().describe('The Project ID of the Chapter'),
       status: chapterStatusEnum.describe('Status of the chapter')
     }),
@@ -66,7 +66,7 @@ mcpServer.registerTool(
       'Update a Chapter based on project Id by using id or using list chapters tool to get details about the chapter.',
     inputSchema: z.object({
       id: z.string().describe('The id of the chapter'),
-      title: z.string().describe('The primary name of the Chapter'),
+      title: z.string().describe('The primary title of the Chapter'),
       projectId: z.string().describe('The Project ID of the Chapter'),
       status: chapterStatusEnum.describe('Status of the chapter')
     }),
@@ -127,7 +127,7 @@ mcpServer.registerTool(
       'Retreive a Chapter based on project Id using id or title and name of the base type.',
     inputSchema: z.object({
       id: z.string().describe('The id of the chapter'),
-      title: z.string().describe('The primary name of the Chapter'),
+      title: z.string().describe('The primary title of the Chapter'),
       projectId: z.string().describe('The Project ID of the Chapter'),
       status: chapterStatusEnum.describe('Status of the chapter')
     }),
@@ -212,7 +212,7 @@ mcpServer.registerTool(
       'Delete a Chapter based on project Id using id or title.',
     inputSchema: z.object({
       id: z.string().describe('The id of the chapter'),
-      title: z.string().describe('The primary name of the Chapter'),
+      title: z.string().describe('The primary title of the Chapter'),
       projectId: z.string().describe('The Project ID of the Chapter'),
       status: chapterStatusEnum.describe('Status of the chapter')
     }),

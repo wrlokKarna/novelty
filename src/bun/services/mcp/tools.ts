@@ -96,7 +96,7 @@ export default function registerAllTools() {
         {
             title: 'Retrieve a Template',
             description:
-                'Retrieves a template for a specific compendium category within a project.',
+                'Retrive Compendium entity(character, location, organization, item, lore) details using project id or current project id and base type.',
             inputSchema: z.object({
                 projectId: z.string().describe('The ID of the project'),
                 baseType: compendiumCategoryEnum.describe(
