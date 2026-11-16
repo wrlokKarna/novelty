@@ -83,11 +83,12 @@
 /* TAB BAR & TILE LINKING STYLES */
 
 .topContainer {
-    width: 100%;
+    width: auto;
+    margin: 0 14px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: #111111;
+    background-color: transparent;
     border-bottom: 1px solid #222225;
     padding: 4px 12px;
     box-sizing: border-box;
@@ -114,6 +115,7 @@
     align-items: center;
     gap: 4px;
     margin-left: 8px;
+    background-color: transparent;
     position: relative;
 }
 
@@ -321,7 +323,7 @@
     height: 100%;
     box-sizing: border-box;
     overflow: hidden;
-    background-color: #111111;
+    background-color: transparent;
 }
 
 .standardEditorScroll {
