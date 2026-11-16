@@ -1,4 +1,5 @@
 import type { Provider } from '../../ai/provider';
+import type { ThemeSettings } from './appearance/theme';
 
 export type GeneralSettings = {
     enableAutoSave: boolean;
@@ -9,7 +10,6 @@ export type GeneralSettings = {
     autoSyncInterval: number;
     enableAutoUpdate: boolean;
     autoUpdateInterval: number;
-    theme: 'light' | 'dark' | 'system';
     chatViewMode: 'full' | 'truncate' | 'accordion';
     confirmBeforeDelete: boolean;
     autoNamingMethod: 'ai-summarizer' | 'smart-truncation';
@@ -76,7 +76,7 @@ export type SidebarConstraints = {
 };
 
 export type AppearanceSettings = {
-    theme: 'light' | 'dark' | 'system';
+    theme: ThemeSettings;
     fontSize: number;
     fontFamily: string;
     lineHeight: number;
@@ -86,6 +86,7 @@ export type AppearanceSettings = {
     previewWidth: number;
     previewPosition: 'left' | 'right';
     legacyBluePanel: boolean;
+    themeColors?: Record<string, string>;
 };
 
 export type Settings = {
