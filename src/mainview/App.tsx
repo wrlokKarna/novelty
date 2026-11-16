@@ -8,7 +8,7 @@ import {
 } from 'react';
 import {
     IconBook,
-    IconBuilding,
+    IconBuildings,
     IconChevronLeft,
     IconDotsVertical,
     IconFiles,
@@ -268,7 +268,7 @@ function App() {
             case 'location':
                 return <IconMapPin size={14} className={styles.tabIcon} />;
             case 'organization':
-                return <IconBuilding size={14} className={styles.tabIcon} />;
+                return <IconBuildings size={14} className={styles.tabIcon} />;
             case 'item':
                 return <IconSwords size={14} className={styles.tabIcon} />;
             case 'lore':
@@ -333,12 +333,23 @@ function App() {
         };
     }, [isTileResizing]);
 
-    // Close the "Add Tile" dropdown menu when clicking anywhere outside
+    // Close the "Add Tile" dropdown menu when clicking anywhere outside (including on any tab in the top bar)
     useEffect(() => {
         if (!tileMenuState) return;
-        const handleClickOutside = () => setTileMenuState(null);
-        window.addEventListener('click', handleClickOutside);
-        return () => window.removeEventListener('click', handleClickOutside);
+        const handlePointerDownOutside = (e: PointerEvent) => {
+            const target = e.target as HTMLElement | null;
+            if (target?.closest(`.${styles.tileDropdownMenu}`)) {
+                return;
+            }
+            setTileMenuState(null);
+        };
+        window.addEventListener('pointerdown', handlePointerDownOutside, true);
+        return () =>
+            window.removeEventListener(
+                'pointerdown',
+                handlePointerDownOutside,
+                true
+            );
     }, [tileMenuState]);
 
     // Dismiss the bottom linking notification banner when clicking anywhere on the display
@@ -419,7 +430,10 @@ function App() {
             return cleaned;
         });
         setTileSplitRatio(50);
-        setFocusedTileSide('left');
+        setIsScratchOpen(false);
+        setActiveTabId(targetId);
+        setFocusedTileSide('right');
+        setTileMenuState(null);
         setLinkingSourceId(null);
     };
 
@@ -3103,6 +3117,7 @@ function App() {
 
     const handleCloseTab = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
+        setTileMenuState(null);
         handleUnlinkChapter(id);
         delete tabRefs.current[id];
         const tab = openTabs.find((t) => t.id === id);
@@ -3322,7 +3337,10 @@ function App() {
 
                 <div className="app-editor">
                     {/* Top Tabs Bar Matching Native App UI */}
-                    <div className={styles.topContainer}>
+                    <div
+                        className={styles.topContainer}
+                        onClick={() => setTileMenuState(null)}
+                    >
                         <div
                             ref={tabsGroupRef}
                             onWheel={handleTabsWheel}
@@ -3330,7 +3348,10 @@ function App() {
                         >
                             <button
                                 className={`${styles.topTab} ${isScratchOpen ? styles.topTabActive : ''}`}
-                                onClick={() => setIsScratchOpen(!isScratchOpen)}
+                                onClick={() => {
+                                    setTileMenuState(null);
+                                    setIsScratchOpen(!isScratchOpen);
+                                }}
                                 title="Scratchpad"
                             >
                                 <IconNotes size={15} />
@@ -3374,6 +3395,7 @@ function App() {
                                                 }
                                                 onClick={(e) => {
                                                     e.stopPropagation();
+                                                    setTileMenuState(null);
                                                     setIsScratchOpen(false);
                                                     setFocusedTileSide('left');
                                                     if (linkingSourceId) {
@@ -3414,6 +3436,7 @@ function App() {
                                                 }
                                                 onClick={(e) => {
                                                     e.stopPropagation();
+                                                    setTileMenuState(null);
                                                     handleUnlinkChapter(
                                                         partner.source.id
                                                     );
@@ -3438,6 +3461,7 @@ function App() {
                                                 }
                                                 onClick={(e) => {
                                                     e.stopPropagation();
+                                                    setTileMenuState(null);
                                                     setIsScratchOpen(false);
                                                     setFocusedTileSide('right');
                                                     if (linkingSourceId) {
@@ -3493,6 +3517,7 @@ function App() {
                                             }
                                             onClick={(e) => {
                                                 e.stopPropagation();
+                                                setTileMenuState(null);
                                                 setIsScratchOpen(false);
                                                 if (linkingSourceId) {
                                                     handleCompleteLink(tab.id);
@@ -3521,9 +3546,10 @@ function App() {
                         <div className={styles.rightActionsGroup}>
                             <button
                                 className={styles.addBtn}
-                                onClick={() =>
-                                    setActiveDialog('openFileDialog')
-                                }
+                                onClick={() => {
+                                    setTileMenuState(null);
+                                    setActiveDialog('openFileDialog');
+                                }}
                                 title="Open File or Add Tab"
                             >
                                 <IconPlus size={16} />
