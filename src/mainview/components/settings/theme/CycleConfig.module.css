@@ -1,0 +1,165 @@
+.cycleConfig {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    margin-top: 14px;
+    padding: 14px;
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+    border-radius: var(--radius-lg, 12px);
+    background: var(--bg-secondary, rgba(255, 255, 255, 0.02));
+}
+
+.cycleHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.cycleTitle {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary, #f3f4f6);
+}
+
+.cycleHint {
+    margin: 4px 0 0;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-secondary, #8c909c);
+}
+
+.cycleField {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+}
+
+.cycleRow {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.cycleLabel {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-secondary, #8c909c);
+}
+
+.playlistBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.playlistPicker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.playlistOption {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary, #b6bac4);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.playlistOption:hover {
+    border-color: var(--accent-primary, #e5a93c);
+    color: var(--text-primary, #f3f4f6);
+}
+
+.playlistOptionActive {
+    border-color: var(--accent-primary, #e5a93c);
+    background: color-mix(
+        in srgb,
+        var(--accent-primary, #e5a93c) 16%,
+        transparent
+    );
+    color: var(--text-primary, #f3f4f6);
+}
+
+.plusSelected {
+    transform: rotate(45deg);
+}
+
+.playlistEmpty {
+    font-size: 11px;
+    color: var(--text-secondary, #8c909c);
+}
+
+.playlistOrder {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.playlistOrder li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+    border-radius: var(--radius-sm, 6px);
+    background: var(--bg-elevated, rgba(0, 0, 0, 0.15));
+}
+
+.playlistIndex {
+    width: 18px;
+    color: var(--text-secondary, #8c909c);
+    font-size: 10px;
+    text-align: center;
+}
+
+.playlistName {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text-primary, #e2e4e9);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.playlistIconButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border: none;
+    border-radius: var(--radius-sm, 4px);
+    background: transparent;
+    color: var(--text-secondary, #8c909c);
+    cursor: pointer;
+}
+
+.playlistIconButton:hover:not(:disabled) {
+    color: var(--text-primary, #f3f4f6);
+}
+
+.playlistIconButton:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+    .cycleRow {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

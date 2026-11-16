@@ -1,9 +1,8 @@
 import type { ThemeColorTokens } from './themeTokens';
 
-export type ThemeMode = 'light' | 'dark' | 'system' | 'cycle' | 'custom';
+export type ThemeMode = 'light' | 'dark' | 'system' | 'cycle';
 
-export type ThemeBorderShape = 'rounded' | 'pill' | 'sharp';
-export type UIDensity = 'compact' | 'comfortable' | 'spacious';
+export type ThemeVariant = 'light' | 'dark';
 
 export type ThemesBuiltIn =
     | 'default'
@@ -12,11 +11,15 @@ export type ThemesBuiltIn =
     | 'emerald-noir'
     | 'crimson-dusk';
 
+export type ThemeBorderShape = 'rounded' | 'pill' | 'sharp';
+export type UIDensity = 'compact' | 'comfortable' | 'spacious';
+
+export type SupportedModes = 'light' | 'dark' | 'both';
 export type BuiltInThemeMeta = {
     id: ThemesBuiltIn;
     name: string;
     isBuiltIn: true;
-    supportedModes: 'light' | 'dark' | 'both';
+    supportedModes: SupportedModes;
     defaultShape?: ThemeBorderShape;
     defaultDensity?: UIDensity;
 };
@@ -27,20 +30,20 @@ export type ThemeActive = ThemesBuiltIn | UserAddedTheme;
 export type ThemeDefinition = {
     id: ThemeActive;
     name: string;
-    isBuiltIn: boolean;
+    isBuiltIn: false;
     defaultShape?: ThemeBorderShape;
     defaultDensity?: UIDensity;
 } & (
     | {
-          schemas: 'light';
+          supportedModes: 'light';
           schemes: { light: ThemeColorTokens };
       }
     | {
-          schemas: 'dark';
+          supportedModes: 'dark';
           schemes: { dark: ThemeColorTokens };
       }
     | {
-          schemas: 'both';
+          supportedModes: 'both';
           schemes: { light: ThemeColorTokens; dark: ThemeColorTokens };
       }
 );

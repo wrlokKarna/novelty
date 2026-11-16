@@ -2,14 +2,20 @@ import { getThemeMetadata } from '@/shared/constants/project/settings/appearance
 import type {
     ThemeActive,
     ThemeSettings,
+    ThemeVariant,
 } from '@/shared/types/project/settings/appearance/theme';
 import type { ThemeColorTokens } from '@/shared/types/project/settings/appearance/themeTokens';
 
 export type ResolvedThemeResult = {
     effectiveThemeId: ThemeActive;
-    resolvedScheme: 'light' | 'dark';
+    resolvedScheme: ThemeVariant;
     isBuiltIn: boolean;
     customTokens?: ThemeColorTokens;
+};
+
+export type ThemePreviewTarget = {
+    themeId: ThemeActive;
+    scheme?: ThemeVariant;
 };
 
 function isDaytime(now: Date = new Date()): boolean {
@@ -20,10 +26,11 @@ function isDaytime(now: Date = new Date()): boolean {
 export function resolveEffectiveTheme(
     settings: ThemeSettings,
     systemPrefersDark: boolean,
-    cycleIndex: number = 0
+    cycleIndex: number = 0,
+    preview: ThemePreviewTarget | null = null
 ): ResolvedThemeResult {
     let effectiveThemeId: ThemeActive = settings.active;
-    let desiredScheme: 'light' | 'dark' = systemPrefersDark ? 'dark' : 'light';
+    let desiredScheme: ThemeVariant = systemPrefersDark ? 'dark' : 'light';
 
     switch (settings.mode) {
         case 'light':
@@ -55,16 +62,17 @@ export function resolveEffectiveTheme(
             }
             break;
         }
+    }
 
-        case 'custom':
-            desiredScheme = systemPrefersDark ? 'dark' : 'light';
-            break;
+    if (preview) {
+        effectiveThemeId = preview.themeId;
+        if (preview.scheme) desiredScheme = preview.scheme;
     }
 
     const meta = getThemeMetadata(effectiveThemeId, settings.customThemes);
     const supported = meta.supportedModes;
 
-    let resolvedScheme: 'light' | 'dark' = desiredScheme;
+    let resolvedScheme: ThemeVariant = desiredScheme;
     if (supported === 'light') {
         resolvedScheme = 'light';
     } else if (supported === 'dark') {

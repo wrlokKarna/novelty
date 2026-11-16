@@ -1,5 +1,6 @@
 import {
     createContext,
+    useCallback,
     useContext,
     useEffect,
     useMemo,
@@ -7,20 +8,33 @@ import {
     useState,
     type ReactNode,
 } from 'react';
+import { getThemeMetadata } from '@/shared/constants/project/settings/appearance/themeRegistry';
 import type {
     ThemeActive,
     ThemeBorderShape,
     ThemeMode,
     ThemeSettings,
+    ThemeVariant,
     UIDensity,
 } from '@/shared/types/project/settings/appearance/theme';
 import { useSettings } from '../contexts/SettingsContext';
-import { resolveEffectiveTheme } from '../utils/theme/resolveTheme';
+import {
+    resolveEffectiveTheme,
+    type ThemePreviewTarget,
+} from '../utils/theme/resolveTheme';
+import {
+    getAccentTokenAssignments,
+    getThemeTokenAssignments,
+} from '../utils/theme/themeTokens';
 
 interface ThemeContextValue {
     settings: ThemeSettings;
-    resolvedScheme: 'light' | 'dark';
+    resolvedScheme: ThemeVariant;
+    preferredScheme: ThemeVariant;
     effectiveThemeId: ThemeActive;
+    preview: ThemePreviewTarget | null;
+    previewTheme: (themeId: ThemeActive, scheme?: ThemeVariant) => void;
+    clearPreview: () => void;
     setMode: (mode: ThemeMode) => void;
     setActiveTheme: (theme: ThemeActive) => void;
     setShape: (shape: ThemeBorderShape) => void;
@@ -28,25 +42,46 @@ interface ThemeContextValue {
     stepCycle: () => void;
 }
 
+const FALLBACK_THEME_SETTINGS: ThemeSettings = {
+    mode: 'system',
+    active: 'midnight-gold',
+    shape: 'rounded',
+    density: 'comfortable',
+};
+
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
+
+function normalizeMode(mode: string | undefined): ThemeMode {
+    // `custom` was a duplicate of `system` in older settings files.
+    if (!mode || mode === 'custom') return 'system';
+    if (mode === 'light' || mode === 'dark' || mode === 'cycle') return mode;
+    return 'system';
+}
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
     const { settings, updateAppearance } = useSettings();
+    const rawThemeSettings = settings?.appearance?.theme;
 
-    const themeSettings: ThemeSettings = settings?.appearance?.theme ?? {
-        mode: 'system',
-        active: 'midnight-gold',
-        shape: 'rounded',
-        density: 'comfortable',
-    };
+    const themeSettings = useMemo<ThemeSettings>(() => {
+        if (!rawThemeSettings) return FALLBACK_THEME_SETTINGS;
 
-    const handleUpdateTheme = (patch: Partial<ThemeSettings>) => {
-        if (!settings?.appearance) return;
-        updateAppearance('theme', {
-            ...themeSettings,
-            ...patch,
-        });
-    };
+        return {
+            ...FALLBACK_THEME_SETTINGS,
+            ...rawThemeSettings,
+            mode: normalizeMode((rawThemeSettings as { mode?: string }).mode),
+        };
+    }, [rawThemeSettings]);
+
+    const handleUpdateTheme = useCallback(
+        (patch: Partial<ThemeSettings>) => {
+            if (!settings?.appearance) return;
+            updateAppearance('theme', {
+                ...themeSettings,
+                ...patch,
+            });
+        },
+        [settings?.appearance, themeSettings, updateAppearance]
+    );
 
     const [systemPrefersDark, setSystemPrefersDark] = useState<boolean>(() =>
         typeof window !== 'undefined'
@@ -55,6 +90,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     );
 
     const [cycleIndex, setCycleIndex] = useState<number>(0);
+    const [preview, setPreview] = useState<ThemePreviewTarget | null>(null);
     const appliedCustomKeysRef = useRef<string[]>([]);
 
     useEffect(() => {
@@ -84,10 +120,26 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         return () => window.clearInterval(timer);
     }, [themeSettings.mode, themeSettings.cycleConfig]);
 
+    const preferred = useMemo(
+        () =>
+            resolveEffectiveTheme(
+                themeSettings,
+                systemPrefersDark,
+                cycleIndex,
+                null
+            ),
+        [themeSettings, systemPrefersDark, cycleIndex]
+    );
+
     const resolved = useMemo(
         () =>
-            resolveEffectiveTheme(themeSettings, systemPrefersDark, cycleIndex),
-        [themeSettings, systemPrefersDark, cycleIndex]
+            resolveEffectiveTheme(
+                themeSettings,
+                systemPrefersDark,
+                cycleIndex,
+                preview
+            ),
+        [themeSettings, systemPrefersDark, cycleIndex, preview]
     );
 
     useEffect(() => {
@@ -103,35 +155,91 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         }
         appliedCustomKeysRef.current = [];
 
-        if (resolved.customTokens) {
-            for (const [token, value] of Object.entries(
-                resolved.customTokens
-            )) {
-                root.style.setProperty(token, value);
-                appliedCustomKeysRef.current.push(token);
-            }
+        const assignments = resolved.customTokens
+            ? getThemeTokenAssignments(resolved.customTokens)
+            : [];
+
+        if (!preview && themeSettings.accentColor) {
+            assignments.push(
+                ...getAccentTokenAssignments(themeSettings.accentColor)
+            );
         }
 
-        if (themeSettings.accentColor) {
-            root.style.setProperty(
-                '--accent-primary',
-                themeSettings.accentColor
-            );
-            appliedCustomKeysRef.current.push('--accent-primary');
+        for (const [token, value] of assignments) {
+            root.style.setProperty(token, value);
+            appliedCustomKeysRef.current.push(token);
         }
     }, [
         resolved,
         themeSettings.shape,
         themeSettings.density,
         themeSettings.accentColor,
+        preview,
     ]);
+
+    useEffect(
+        () => () => {
+            setPreview(null);
+        },
+        []
+    );
+
+    const previewTheme = useCallback(
+        (themeId: ThemeActive, scheme?: ThemeVariant) => {
+            setPreview({ themeId, scheme });
+        },
+        []
+    );
+
+    const clearPreview = useCallback(() => {
+        setPreview(null);
+    }, []);
+
+    const setActiveTheme = useCallback(
+        (active: ThemeActive) => {
+            const meta = getThemeMetadata(active, themeSettings.customThemes);
+            const patch: Partial<ThemeSettings> = {
+                active,
+                shape: meta.defaultShape ?? themeSettings.shape,
+                density: meta.defaultDensity ?? themeSettings.density,
+            };
+
+            if (themeSettings.mode === 'cycle') {
+                patch.mode =
+                    meta.supportedModes === 'both'
+                        ? 'system'
+                        : meta.supportedModes;
+            } else if (
+                themeSettings.mode === 'light' &&
+                meta.supportedModes === 'dark'
+            ) {
+                patch.mode = 'dark';
+            } else if (
+                themeSettings.mode === 'dark' &&
+                meta.supportedModes === 'light'
+            ) {
+                patch.mode = 'light';
+            }
+
+            setPreview(null);
+            handleUpdateTheme(patch);
+        },
+        [handleUpdateTheme, themeSettings]
+    );
 
     const value: ThemeContextValue = {
         settings: themeSettings,
         resolvedScheme: resolved.resolvedScheme,
-        effectiveThemeId: resolved.effectiveThemeId,
-        setMode: (mode) => handleUpdateTheme({ mode }),
-        setActiveTheme: (active) => handleUpdateTheme({ active }),
+        preferredScheme: preferred.resolvedScheme,
+        effectiveThemeId: preferred.effectiveThemeId,
+        preview,
+        previewTheme,
+        clearPreview,
+        setMode: (mode) => {
+            setPreview(null);
+            handleUpdateTheme({ mode });
+        },
+        setActiveTheme,
         setShape: (shape) => handleUpdateTheme({ shape }),
         setDensity: (density) => handleUpdateTheme({ density }),
         stepCycle: () => setCycleIndex((prev) => prev + 1),
