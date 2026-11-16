@@ -1,32 +1,35 @@
-@import './ThemeCard.common.module.css';
+.themeCard {
+    border-color: color-mix(
+        in srgb,
+        var(--accent-primary, #3b82f6) 28%,
+        var(--border-subtle, #2f3440)
+    );
+}
 
-.card {
-    border: 1px solid var(--border-secondary, #2f3440);
+.builtInBadge,
+.activeThemeBadge {
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
 }
 
 .builtInBadge {
-    font-size: 10px;
-    padding: 2px 6px;
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.14));
+    color: var(--text-secondary, #8c909c);
+}
+
+.activeThemeBadge {
     background-color: var(--bg-tertiary, #1e1e1e);
     color: var(--text-secondary, #888);
-    border-radius: 4px;
-    margin-left: 6px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
 }
 
 .themeNameContainer {
     display: flex;
     align-items: center;
     gap: 6px;
-}
-
-.label {
-    font-weight: 600;
-    font-size: 14px;
-    color: var(--text-primary);
-}
-
-.themeHeader:hover {
+    min-width: 0;
 }

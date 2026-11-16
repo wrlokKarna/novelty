@@ -1,93 +1,75 @@
-import type { BuiltInThemeMeta } from '@/shared/types/project/settings/appearance/theme';
+import { IconArrowBearRight2 } from '@tabler/icons-react';
+import { BUILT_IN_THEME_TOKENS } from '@/shared/constants/project/settings/appearance/builtInThemeTokens';
+import type {
+    BuiltInThemeMeta,
+    ThemeVariant,
+} from '@/shared/types/project/settings/appearance/theme';
 import styles from './BuiltInThemeCard.module.css';
+import commonStyles from './ThemeCard.common.module.css';
+import ThemeCardBase from './ThemeCardBase';
 
 export interface BuiltInThemeCardProps {
     theme: BuiltInThemeMeta;
     activeId?: string;
+    activeScheme?: ThemeVariant;
+    isPreviewing?: boolean;
+    onSelect?: (theme: BuiltInThemeMeta) => void;
+    onUseAsBase?: (theme: BuiltInThemeMeta) => void;
+    onPreviewStart?: (theme: BuiltInThemeMeta, scheme?: ThemeVariant) => void;
+    onPreviewEnd?: () => void;
 }
-
-//const DEFAULT_BG_COLOR = '#0f0f23';
-//const DEFAULT_TEXT_COLOR = '#e8e8e8';
-//const DEFAULT_ACCENT_COLOR = '#7c3aed';
 
 export default function BuiltInThemeCard({
     theme,
     activeId = '',
+    activeScheme = 'dark',
+    isPreviewing = false,
+    onSelect,
+    onUseAsBase,
+    onPreviewStart,
+    onPreviewEnd,
 }: BuiltInThemeCardProps) {
-    /*
-      const getPreviewColors = (): [string, string, string] => {
-
-          const themeMeta = theme as unknown as {
-              schemes?: {
-                  light?: {
-                      '--bg-primary': string;
-                      '--text-primary': string;
-                      '--accent-primary': string;
-                  };
-              };
-          };
-
-          if (themeMeta.schemes?.light) {
-              return [
-                  themeMeta.schemes.light['--bg-primary'] || DEFAULT_BG_COLOR,
-                  themeMeta.schemes.light['--text-primary'] || DEFAULT_TEXT_COLOR,
-                  themeMeta.schemes.light['--accent-primary'] ||
-                      DEFAULT_ACCENT_COLOR,
-              ];
-          }
-
-          return [DEFAULT_BG_COLOR, DEFAULT_TEXT_COLOR, DEFAULT_ACCENT_COLOR];
-      };
-
-      const [bgColor, textColor, accentColor] = getPreviewColors();
-    */
-
     const isThisActive = activeId === theme.id;
 
     return (
-        <div
-            className={`${styles.themeCard} ${isThisActive ? styles.active : ''}`}
-            style={{
-                ...(isThisActive && {
-                    background: 'var(--bg-tertiary, #1e1e1e)',
-                }),
-            }}
-        >
-            <div className={styles.themeHeader}>
-                {' '}
+        <ThemeCardBase
+            name={theme.name}
+            supportedModes={theme.supportedModes}
+            activeScheme={activeScheme}
+            isActive={isThisActive}
+            isPreviewing={isPreviewing}
+            shape={theme.defaultShape}
+            density={theme.defaultDensity}
+            resolveTokens={(scheme) => BUILT_IN_THEME_TOKENS[theme.id][scheme]}
+            onSelect={onSelect ? () => onSelect(theme) : undefined}
+            onPreviewStart={(scheme) => onPreviewStart?.(theme, scheme)}
+            onPreviewEnd={onPreviewEnd}
+            className={styles.themeCard}
+            headerStart={
                 <div className={styles.themeNameContainer}>
-                    <span className={styles.label}>{theme.name}</span>
-                    <span className={styles.builtInBadge}>Built-in</span>
+                    <span className={commonStyles.label}>{theme.name}</span>
+                    <span className={styles.builtInBadge}>built-in</span>
+                    {isThisActive && (
+                        <span className={styles.activeThemeBadge}>active</span>
+                    )}
                 </div>
-            </div>
-            <div className={styles.themePreview}>
-                <div
-                    className={styles.themeColorPreviewDot}
-                    style={{
-                        backgroundColor: `var(--theme-${theme.id}-background)`,
-                        border: `1px solid var(--theme-${theme.id}-color-text)`,
-                    }}
-                />
-                <div
-                    className={styles.themeColorPreviewDot}
-                    style={{
-                        backgroundColor: `var(--theme-${theme.id}-accent)`,
-                        opacity: 0.7,
-                    }}
-                />
-                <div
-                    className={styles.themeColorPreviewDot}
-                    style={{
-                        backgroundColor: `var(--theme-${theme.id}-color-text)`,
-                    }}
-                />
-                <div
-                    className={styles.themeColorPreviewDot}
-                    style={{
-                        backgroundColor: `var(--theme-${theme.id}-highlight)`,
-                    }}
-                />
-            </div>
-        </div>
+            }
+            headerActions={
+                onUseAsBase ? (
+                    <button
+                        type="button"
+                        className={commonStyles.iconButton}
+                        title={`Create a theme based on ${theme.name}`}
+                        aria-label={`Create a theme based on ${theme.name}`}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onUseAsBase(theme);
+                        }}
+                    >
+                        <IconArrowBearRight2 size={16} />
+                    </button>
+                ) : undefined
+            }
+        />
     );
 }
