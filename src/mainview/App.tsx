@@ -91,6 +91,13 @@ import { TitleBar } from './ui/window/TitleBar';
 import LeftPanel from './ui/workspaces/editor/LeftPanel';
 import RightPanel from './ui/workspaces/editor/RightPanel';
 
+interface SidebarDragPayload {
+    id: string;
+    name: string;
+    type: 'chapter' | CompendiumCategory;
+    category?: CompendiumCategory;
+}
+
 function App() {
     const [isLeftHovered, setIsLeftHovered] = useState(false);
     const hoverTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -250,13 +257,16 @@ function App() {
     }, []);
 
     // =========================================================================
-    // TOP TAB AUTO-SCROLL, MOUSE WHEEL SCROLL & VS CODE DRAG-AND-DROP
+    // TOP TAB AUTO-SCROLL, MOUSE WHEEL SCROLL & DRAG-AND-DROP (TABS + SIDEBAR)
     // =========================================================================
     const tabsGroupRef = useRef<HTMLDivElement>(null);
     const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
     const editorAreaRef = useRef<HTMLDivElement>(null);
+    const leftPanelContainerRef = useRef<HTMLDivElement>(null);
 
     const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
+    const [draggedSidebarItem, setDraggedSidebarItem] =
+        useState<SidebarDragPayload | null>(null);
     const [tabDropTarget, setTabDropTarget] = useState<{
         tabId: string;
         mode: 'before' | 'after' | 'merge';
@@ -265,24 +275,317 @@ function App() {
         'left' | 'right' | 'center' | null
     >(null);
 
+    const activeDragId = draggedTabId || draggedSidebarItem?.id || null;
+
+    // Ensure every LeftPanel item row has draggable="true" and syncs italic preview state on single-click vs normal on double-click
+    useEffect(() => {
+        const container = leftPanelContainerRef.current;
+        if (!container) return;
+
+        const syncSidebarRows = () => {
+            const entries: { id: string; name: string }[] =
+                explorerTab === 'chapters'
+                    ? chapters.map((c) => ({
+                          id: c.id,
+                          name: c.title.trim(),
+                      }))
+                    : (
+                          {
+                              character: characters,
+                              location: locations,
+                              organization: organizations,
+                              item: items,
+                              lore: loreEntries,
+                          }[explorerTab] || []
+                      ).map((e) => ({
+                          id: e.id,
+                          name: e.name.trim(),
+                      }));
+
+            // Clear old italic markers first
+            container
+                .querySelectorAll<HTMLElement>('.sidebar-item-preview-italic')
+                .forEach((el) => {
+                    el.classList.remove('sidebar-item-preview-italic');
+                    el.style.fontStyle = '';
+                });
+
+            if (entries.length === 0) return;
+
+            // Walk text nodes inside LeftPanel so icons/badges inside the row don't break matching
+            const walker = document.createTreeWalker(
+                container,
+                NodeFilter.SHOW_TEXT
+            );
+            let node: Node | null;
+            while ((node = walker.nextNode())) {
+                const text = node.nodeValue?.trim();
+                if (!text) continue;
+
+                const matched = entries.find((e) => e.name === text);
+                if (!matched) continue;
+
+                const textParent = node.parentElement;
+                if (!textParent || textParent.closest('input, textarea'))
+                    continue;
+
+                // Find the clickable row wrapper
+                const rowEl =
+                    (textParent.closest(
+                        'li, [role="treeitem"], [role="button"], button, a, [data-item-id]'
+                    ) as HTMLElement | null) || textParent;
+
+                if (rowEl.getAttribute('draggable') !== 'true') {
+                    rowEl.setAttribute('draggable', 'true');
+                }
+                rowEl.dataset.sidebarBoundId = matched.id;
+                rowEl.dataset.sidebarBoundName = matched.name;
+
+                if (previewTabId === matched.id) {
+                    rowEl.classList.add('sidebar-item-preview-italic');
+                    rowEl.style.fontStyle = 'italic';
+                    textParent.style.fontStyle = 'italic';
+                }
+            }
+        };
+
+        syncSidebarRows();
+        const observer = new MutationObserver(() => syncSidebarRows());
+        observer.observe(container, {
+            childList: true,
+            subtree: true,
+            characterData: true,
+        });
+        return () => observer.disconnect();
+    }, [
+        chapters,
+        characters,
+        locations,
+        organizations,
+        items,
+        loreEntries,
+        explorerTab,
+        previewTabId,
+        activeTabId,
+        isCollapsed,
+        isLeftHovered,
+    ]);
+
+    // Only scroll the tab bar when activeTabId actually changes and is clipped out of view
     useEffect(() => {
         if (!activeTabId || isScratchOpen) return;
-        const activeTabEl = tabRefs.current[activeTabId];
-        if (activeTabEl) {
-            activeTabEl.scrollIntoView({
-                behavior: 'smooth',
-                block: 'nearest',
-                inline: 'nearest',
-            });
-        }
-    }, [activeTabId, openTabs, isScratchOpen]);
+        const rafId = requestAnimationFrame(() => {
+            const container = tabsGroupRef.current;
+            const activeTabEl = tabRefs.current[activeTabId];
+            if (!container || !activeTabEl) return;
+
+            const containerRect = container.getBoundingClientRect();
+            const tabRect = activeTabEl.getBoundingClientRect();
+
+            if (tabRect.left < containerRect.left) {
+                container.scrollTo({
+                    left:
+                        container.scrollLeft +
+                        (tabRect.left - containerRect.left) -
+                        12,
+                    behavior: 'smooth',
+                });
+            } else if (tabRect.right > containerRect.right) {
+                container.scrollTo({
+                    left:
+                        container.scrollLeft +
+                        (tabRect.right - containerRect.right) +
+                        12,
+                    behavior: 'smooth',
+                });
+            }
+        });
+        return () => cancelAnimationFrame(rafId);
+    }, [activeTabId, isScratchOpen]);
 
     const handleTabsWheel = (e: React.WheelEvent<HTMLDivElement>) => {
         const container = tabsGroupRef.current;
         if (!container) return;
-        if (e.deltaY !== 0) {
-            container.scrollLeft += e.deltaY;
+        const delta =
+            Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+        if (delta !== 0) {
+            container.scrollLeft += delta;
         }
+    };
+
+    // Helper: Ensure a dragged sidebar item is loaded & present in openTabs
+    const ensureSidebarItemOpenedAsTab = async (
+        item: SidebarDragPayload,
+        insertAt?: { targetTabId: string; mode: 'before' | 'after' }
+    ): Promise<string> => {
+        const existingTab = openTabs.find((t) => t.id === item.id);
+
+        if (item.type === 'chapter') {
+            const c = await rpc.request['db:get-chapter'](item.id);
+            if (c?.content) {
+                setTabContents((prev) => ({
+                    ...prev,
+                    [item.id]: c.content!,
+                }));
+            }
+        } else if (item.category) {
+            let entry: unknown;
+            switch (item.category) {
+                case 'character':
+                    entry = await rpc.request['db:get-character'](item.id);
+                    break;
+                case 'location':
+                    entry = await rpc.request['db:get-location'](item.id);
+                    break;
+                case 'organization':
+                    entry = await rpc.request['db:get-organization'](item.id);
+                    break;
+                case 'item':
+                    entry = await rpc.request['db:get-item'](item.id);
+                    break;
+                case 'lore':
+                    entry = await rpc.request['db:get-lore-entry'](item.id);
+                    break;
+            }
+            if (entry) {
+                setCompendiumEntries((prev) => ({
+                    ...prev,
+                    [item.id]: entry,
+                }));
+            }
+        }
+
+        const newTab: FileTab = existingTab || {
+            id: item.id,
+            name: item.name,
+            type: item.type,
+            filePath: '',
+            isModified: false,
+            ...(item.category ? { category: item.category } : {}),
+        };
+
+        promoteTabToPermanent(item.id);
+
+        setOpenTabs((prev) => {
+            const without = prev.filter((t) => t.id !== item.id);
+            if (insertAt) {
+                const targetIdx = without.findIndex(
+                    (t) => t.id === insertAt.targetTabId
+                );
+                if (targetIdx !== -1) {
+                    const idx =
+                        insertAt.mode === 'after' ? targetIdx + 1 : targetIdx;
+                    const updated = [...without];
+                    updated.splice(idx, 0, newTab);
+                    return updated;
+                }
+            }
+            return existingTab ? prev : [...prev, newTab];
+        });
+
+        return item.id;
+    };
+
+    // Capture drag start from any chapter or compendium item in LeftPanel
+    const handleLeftPanelDragStartCapture = (
+        e: React.DragEvent<HTMLDivElement>
+    ) => {
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+
+        // 1. Check explicit data attributes (from LeftPanel or MutationObserver)
+        const dataEl = target.closest(
+            '[data-item-id], [data-sidebar-bound-id]'
+        ) as HTMLElement | null;
+        if (dataEl) {
+            const id =
+                dataEl.getAttribute('data-item-id') ||
+                dataEl.getAttribute('data-sidebar-bound-id');
+            const type = (dataEl.getAttribute('data-item-type') ||
+                explorerTab) as 'chapters' | CompendiumCategory;
+            const name =
+                dataEl.getAttribute('data-item-name') ||
+                dataEl.getAttribute('data-sidebar-bound-name') ||
+                dataEl.textContent?.trim() ||
+                'Untitled';
+            if (id) {
+                const payload: SidebarDragPayload =
+                    type === 'chapters'
+                        ? { id, name, type: 'chapter' }
+                        : { id, name, type, category: type };
+                setDraggedSidebarItem(payload);
+                setDraggedTabId(null);
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', id);
+                e.dataTransfer.setData(
+                    'application/x-novel-sidebar',
+                    JSON.stringify(payload)
+                );
+                return;
+            }
+        }
+
+        // 2. Fallback: match rendered label text against current explorerTab list
+        const draggableEl = target.closest(
+            '[draggable="true"]'
+        ) as HTMLElement | null;
+        const labelText = (draggableEl || target).textContent?.trim();
+        if (!labelText) return;
+
+        if (explorerTab === 'chapters') {
+            const ch = chapters.find((c) => c.title.trim() === labelText);
+            if (ch) {
+                const payload: SidebarDragPayload = {
+                    id: ch.id,
+                    name: ch.title,
+                    type: 'chapter',
+                };
+                setDraggedSidebarItem(payload);
+                setDraggedTabId(null);
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', ch.id);
+                e.dataTransfer.setData(
+                    'application/x-novel-sidebar',
+                    JSON.stringify(payload)
+                );
+            }
+        } else {
+            const listMap: Record<
+                CompendiumCategory,
+                { id: string; name: string }[]
+            > = {
+                character: characters,
+                location: locations,
+                organization: organizations,
+                item: items,
+                lore: loreEntries,
+            };
+            const found = listMap[explorerTab]?.find(
+                (entry) => entry.name.trim() === labelText
+            );
+            if (found) {
+                const payload: SidebarDragPayload = {
+                    id: found.id,
+                    name: found.name,
+                    type: explorerTab,
+                    category: explorerTab,
+                };
+                setDraggedSidebarItem(payload);
+                setDraggedTabId(null);
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', found.id);
+                e.dataTransfer.setData(
+                    'application/x-novel-sidebar',
+                    JSON.stringify(payload)
+                );
+            }
+        }
+    };
+
+    const handleLeftPanelDragEndCapture = () => {
+        setDraggedSidebarItem(null);
+        setTabDropTarget(null);
+        setEditorDropZone(null);
     };
 
     const handleTabDragStart = (
@@ -290,6 +593,7 @@ function App() {
         e: React.DragEvent<HTMLElement>
     ) => {
         setDraggedTabId(tabId);
+        setDraggedSidebarItem(null);
         setTileMenuState(null);
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', tabId);
@@ -301,15 +605,18 @@ function App() {
     ) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        if (!draggedTabId || draggedTabId === targetTab.id) return;
+        if (!activeDragId || activeDragId === targetTab.id) return;
 
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         const relX = (e.clientX - rect.left) / rect.width;
 
-        const draggedTab = openTabs.find((t) => t.id === draggedTabId);
+        const draggedTab = draggedTabId
+            ? openTabs.find((t) => t.id === draggedTabId)
+            : null;
         const canMerge =
-            draggedTab &&
-            draggedTab.type !== 'plot-architecture' &&
+            (draggedTab
+                ? draggedTab.type !== 'plot-architecture'
+                : Boolean(draggedSidebarItem)) &&
             targetTab.type !== 'plot-architecture';
 
         let mode: 'before' | 'after' | 'merge';
@@ -328,23 +635,38 @@ function App() {
         );
     };
 
-    const handleTabDrop = (
+    const handleTabDrop = async (
         targetTab: FileTab,
         e: React.DragEvent<HTMLElement>
     ) => {
         e.preventDefault();
         e.stopPropagation();
-        const sourceId = draggedTabId || e.dataTransfer.getData('text/plain');
+
         const currentMode =
             tabDropTarget?.tabId === targetTab.id
                 ? tabDropTarget.mode
                 : 'before';
+        const sidebarItem = draggedSidebarItem;
+        const sourceId =
+            sidebarItem?.id ||
+            draggedTabId ||
+            e.dataTransfer.getData('text/plain');
 
         setTabDropTarget(null);
         setDraggedTabId(null);
+        setDraggedSidebarItem(null);
         setEditorDropZone(null);
 
         if (!sourceId || sourceId === targetTab.id) return;
+
+        if (sidebarItem) {
+            await ensureSidebarItemOpenedAsTab(
+                sidebarItem,
+                currentMode === 'merge'
+                    ? undefined
+                    : { targetTabId: targetTab.id, mode: currentMode }
+            );
+        }
 
         promoteTabToPermanent(sourceId);
         promoteTabToPermanent(targetTab.id);
@@ -372,6 +694,12 @@ function App() {
             return;
         }
 
+        if (sidebarItem) {
+            setIsScratchOpen(false);
+            setActiveTabId(sourceId);
+            return;
+        }
+
         setOpenTabs((prev) => {
             const sourceIndex = prev.findIndex((t) => t.id === sourceId);
             if (sourceIndex === -1) return prev;
@@ -388,16 +716,56 @@ function App() {
         });
     };
 
+    // Allow dropping a left-sidebar item anywhere on the top tab bar
+    const handleTabsContainerDragOver = (
+        e: React.DragEvent<HTMLDivElement>
+    ) => {
+        if (!draggedSidebarItem) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleTabsContainerDrop = async (
+        e: React.DragEvent<HTMLDivElement>
+    ) => {
+        if (!draggedSidebarItem) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const sidebarItem = draggedSidebarItem;
+        setDraggedSidebarItem(null);
+        setTabDropTarget(null);
+        setEditorDropZone(null);
+
+        const openedId = await ensureSidebarItemOpenedAsTab(sidebarItem);
+        setIsScratchOpen(false);
+        setActiveTabId(openedId);
+    };
+
     const handleTabDragEnd = () => {
         setDraggedTabId(null);
+        setDraggedSidebarItem(null);
         setTabDropTarget(null);
         setEditorDropZone(null);
     };
 
     const handleEditorDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-        if (!draggedTabId) return;
+        if (!activeDragId) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
+
+        // If dragging the currently active single tab while viewing it, only allow center full-screen (no left/right split)
+        const currentTab = getActiveTab();
+        const isCurrentSingleTab =
+            !isScratchOpen &&
+            currentTab &&
+            currentTab.id === activeDragId &&
+            !getLinkedPartner(currentTab.id);
+
+        if (isCurrentSingleTab) {
+            setEditorDropZone('center');
+            return;
+        }
+
         const container = editorAreaRef.current;
         if (!container) return;
         const rect = container.getBoundingClientRect();
@@ -417,17 +785,73 @@ function App() {
         }
     };
 
-    const handleEditorDrop = (e: React.DragEvent<HTMLDivElement>) => {
-        if (!draggedTabId) return;
+    const handleEditorDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+        if (!activeDragId) return;
         e.preventDefault();
         e.stopPropagation();
-        const sourceId = draggedTabId;
+
+        const sidebarItem = draggedSidebarItem;
+        const sourceId = activeDragId;
         const zone = editorDropZone || 'center';
 
         setDraggedTabId(null);
+        setDraggedSidebarItem(null);
         setTabDropTarget(null);
         setEditorDropZone(null);
+
+        if (sidebarItem) {
+            await ensureSidebarItemOpenedAsTab(sidebarItem);
+        }
         promoteTabToPermanent(sourceId);
+
+        const currentTab = getActiveTab();
+        const existingPair = currentTab
+            ? getLinkedPartner(currentTab.id)
+            : null;
+
+        // If two tabs are currently tiled side-by-side and user drops a sidebar/tab item onto left/right tile,
+        // replace that specific tile pane while keeping the other tile intact!
+        if (existingPair && (zone === 'left' || zone === 'right')) {
+            const keptId =
+                zone === 'left'
+                    ? existingPair.target.id
+                    : existingPair.source.id;
+
+            if (sourceId === keptId) {
+                setIsScratchOpen(false);
+                setActiveTabId(sourceId);
+                return;
+            }
+
+            setChapterLinks((prev) => {
+                const cleaned: Record<string, string | null> = {};
+                for (const [k, v] of Object.entries(prev)) {
+                    if (
+                        k !== sourceId &&
+                        v !== sourceId &&
+                        k !== keptId &&
+                        v !== keptId &&
+                        k !== existingPair.source.id &&
+                        v !== existingPair.source.id &&
+                        k !== existingPair.target.id &&
+                        v !== existingPair.target.id
+                    ) {
+                        cleaned[k] = v;
+                    }
+                }
+                if (zone === 'left') {
+                    cleaned[sourceId] = keptId;
+                } else {
+                    cleaned[keptId] = sourceId;
+                }
+                return cleaned;
+            });
+
+            setIsScratchOpen(false);
+            setActiveTabId(sourceId);
+            setFocusedTileSide(zone);
+            return;
+        }
 
         if (zone === 'center') {
             handleUnlinkChapter(sourceId);
@@ -823,12 +1247,19 @@ function App() {
     function saveProjectTabs(
         projectId: string,
         tabs: FileTab[],
-        activeTabId: string | null
+        activeTabId: string | null,
+        links: Record<string, string | null> = {},
+        splitRatio: number = 50
     ) {
         try {
             localStorage.setItem(
                 getTabsStorageKey(projectId),
-                JSON.stringify({ tabs, activeTabId })
+                JSON.stringify({
+                    tabs,
+                    activeTabId,
+                    chapterLinks: links,
+                    tileSplitRatio: splitRatio,
+                })
             );
         } catch (e) {
             console.error('Failed to save project tabs:', e);
@@ -926,9 +1357,21 @@ function App() {
 
     useEffect(() => {
         if (currentProject) {
-            saveProjectTabs(currentProject.id, openTabs, activeTabId);
+            saveProjectTabs(
+                currentProject.id,
+                openTabs,
+                activeTabId,
+                chapterLinks,
+                tileSplitRatio
+            );
         }
-    }, [currentProject?.id, openTabs, activeTabId]);
+    }, [
+        currentProject?.id,
+        openTabs,
+        activeTabId,
+        chapterLinks,
+        tileSplitRatio,
+    ]);
 
     useEffect(() => {
         if (currentProject && explorerTab !== 'chapters') {
@@ -951,9 +1394,11 @@ function App() {
 
                 const savedState = loadProjectTabs(project.id);
                 if (savedState) {
-                    setOpenTabs(savedState.tabs);
-                    setActiveTabId(savedState.activeTabId);
-                    await restoreTabContents(savedState.tabs);
+                    setOpenTabs(savedState.tabs || []);
+                    setActiveTabId(savedState.activeTabId || null);
+                    setChapterLinks(savedState.chapterLinks || {});
+                    setTileSplitRatio(savedState.tileSplitRatio ?? 50);
+                    await restoreTabContents(savedState.tabs || []);
                 }
             } else {
                 setShowProjectSelection(true);
@@ -972,6 +1417,8 @@ function App() {
             setCurrentProject(project);
             setOpenTabs(savedState?.tabs || []);
             setActiveTabId(savedState?.activeTabId || null);
+            setChapterLinks(savedState?.chapterLinks || {});
+            setTileSplitRatio(savedState?.tileSplitRatio ?? 50);
             setPreviewTabId(null);
             setTabContents({});
             setCompendiumEntries({});
@@ -1193,13 +1640,34 @@ function App() {
         const chapterList = await rpc.request['db:get-chapters'](
             currentProject.id
         );
+
+        let maxChapterNum = 0;
+        let maxOrderIndex = -1;
+        for (const ch of chapterList) {
+            if (
+                typeof ch.orderIndex === 'number' &&
+                ch.orderIndex > maxOrderIndex
+            ) {
+                maxOrderIndex = ch.orderIndex;
+            }
+            const match = ch.title?.trim().match(/^Chapter\s+(\d+)$/i);
+            if (match) {
+                const num = parseInt(match[1], 10);
+                if (!isNaN(num) && num > maxChapterNum) {
+                    maxChapterNum = num;
+                }
+            }
+        }
+        const nextChapterNum = Math.max(maxChapterNum, chapterList.length) + 1;
+        const nextOrderIndex = Math.max(maxOrderIndex + 1, chapterList.length);
+
         const newChapter: NewChapter = {
             id: crypto.randomUUID(),
             projectId: currentProject.id,
-            title: `Chapter ${chapterList.length + 1}`,
+            title: `Chapter ${nextChapterNum}`,
             content: null,
             filePath: null,
-            orderIndex: chapterList.length,
+            orderIndex: nextOrderIndex,
             status: 'outline',
             outline: null,
             povCharacterId: null,
@@ -2474,9 +2942,48 @@ function App() {
         tabId: string,
         _category: CompendiumCategory
     ) {
-        setOpenTabs((prev) => prev.filter((t) => t.id !== tabId));
-        setActiveTabId((prev) => (prev === tabId ? null : prev));
+        setOpenTabs((prev) => {
+            const next = prev.filter((t) => t.id !== tabId);
+            setActiveTabId((curr) =>
+                curr === tabId ? (next.length > 0 ? next[0].id : null) : curr
+            );
+            return next;
+        });
     }
+
+    const handleCloseTab = (id: string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        setTileMenuState(null);
+        if (previewTabId === id) {
+            setPreviewTabId(null);
+        }
+        if (linkingSourceId === id) {
+            setLinkingSourceId(null);
+        }
+        handleUnlinkChapter(id);
+        delete tabRefs.current[id];
+        const tab = openTabs.find((t) => t.id === id);
+        if (
+            tab &&
+            tab.type !== 'chapter' &&
+            tab.type !== 'file' &&
+            tab.type !== 'plot-architecture'
+        ) {
+            handleCloseCompendiumTab(id, tab.type as CompendiumCategory);
+        } else {
+            const wasActive = activeTabId === id;
+            const newTabs = openTabs.filter((t) => t.id !== id);
+            setOpenTabs(newTabs);
+            setTabContents((prev) => {
+                const copy = { ...prev };
+                delete copy[id];
+                return copy;
+            });
+            if (wasActive) {
+                setActiveTabId(newTabs.length > 0 ? newTabs[0].id : null);
+            }
+        }
+    };
 
     async function handleDeleteCompendiumEntry(
         entryId: string,
@@ -2520,11 +3027,7 @@ function App() {
                 return copy;
             });
 
-            const wasActive = activeTabId === entryId;
-            setOpenTabs((prev) => prev.filter((t) => t.id !== entryId));
-            if (wasActive) {
-                setActiveTabId(null);
-            }
+            handleCloseTab(entryId);
         } catch (e) {
             console.error('Failed to delete entry:', e);
         }
@@ -3473,37 +3976,6 @@ function App() {
         [settings, updateAppearance]
     );
 
-    const handleCloseTab = (id: string, e?: React.MouseEvent) => {
-        if (e) e.stopPropagation();
-        setTileMenuState(null);
-        if (previewTabId === id) {
-            setPreviewTabId(null);
-        }
-        handleUnlinkChapter(id);
-        delete tabRefs.current[id];
-        const tab = openTabs.find((t) => t.id === id);
-        if (
-            tab &&
-            tab.type !== 'chapter' &&
-            tab.type !== 'file' &&
-            tab.type !== 'plot-architecture'
-        ) {
-            handleCloseCompendiumTab(id, tab.type as CompendiumCategory);
-        } else {
-            const wasActive = activeTabId === id;
-            const newTabs = openTabs.filter((t) => t.id !== id);
-            setOpenTabs(newTabs);
-            setTabContents((prev) => {
-                const copy = { ...prev };
-                delete copy[id];
-                return copy;
-            });
-            if (wasActive) {
-                setActiveTabId(newTabs.length > 0 ? newTabs[0].id : null);
-            }
-        }
-    };
-
     // Opens the Context Menu via Three-Dots click (in top-right action bar)
     const handleOpenTileMenu = (tabId: string, e: React.MouseEvent) => {
         e.stopPropagation();
@@ -3569,6 +4041,12 @@ function App() {
 
     return (
         <>
+            <style>{`
+                .sidebar-item-preview-italic,
+                .sidebar-item-preview-italic * {
+                    font-style: italic !important;
+                }
+            `}</style>
             <TitleBar
                 isCollapsed={isCollapsed}
                 isChatCollapsed={isChatCollapsed}
@@ -3618,101 +4096,106 @@ function App() {
             />
 
             <main className="editor-workspace flex-container">
-                <LeftPanel
-                    width={leftSidebarWidth}
-                    openTabIds={openTabIds}
-                    legacyBluePanel={
-                        settings?.appearance?.legacyBluePanel ?? false
-                    }
-                    isCollapsed={isCollapsed}
-                    isLeftHovered={isLeftHovered}
-                    enableAutoExpandLeft={
-                        settings?.appearance?.sidebarConstraints
-                            ?.enableAutoExpandLeft
-                    }
-                    onCollapseToggle={() => setLeftCollapsed(!isCollapsed)}
-                    onAutoExpandToggle={() => {
-                        const constraints =
-                            settings?.appearance?.sidebarConstraints;
-                        if (!constraints) return;
-                        updateAppearance('sidebarConstraints', {
-                            ...constraints,
-                            enableAutoExpandLeft:
-                                !constraints.enableAutoExpandLeft,
-                        });
-                    }}
-                    activeTabId={activeTabId}
-                    mode={mode}
-                    explorerTab={explorerTab}
-                    onModeChange={(newMode) => {
-                        setMode(newMode);
-                        if (newMode === 'manuscript')
-                            setExplorerTab('chapters');
-                        else setExplorerTab('character');
-                    }}
-                    onSubTabChange={(tab) => setExplorerTab(tab)}
-                    chapters={chapters}
-                    characters={characters}
-                    locations={locations}
-                    organizations={organizations}
-                    items={items}
-                    loreEntries={loreEntries}
-                    chaptersLoading={chaptersLoading}
-                    handleNewChapter={handleNewChapter}
-                    handleNewCompendiumEntry={handleNewCompendiumEntry}
-                    handleEditTemplate={() => handleEditTemplate()}
-                    openChapter={(c) => openChapterTab(c)}
-                    openCompendiumEntry={(id, cat) =>
-                        handleOpenCompendiumEntry(id, cat)
-                    }
-                    deleteChapter={(c) => {
-                        rpc.request['db:delete-chapter'](c.id).then(() => {
-                            loadChapters(currentProject!.id);
-                            if (activeTabId === c.id) {
-                                setActiveTabId(null);
-                                setOpenTabs((prev) =>
-                                    prev.filter((t) => t.id !== c.id)
+                <div
+                    ref={leftPanelContainerRef}
+                    style={{ display: 'contents' }}
+                    onDragStartCapture={handleLeftPanelDragStartCapture}
+                    onDragEndCapture={handleLeftPanelDragEndCapture}
+                >
+                    <LeftPanel
+                        width={leftSidebarWidth}
+                        openTabIds={openTabIds}
+                        previewTabId={previewTabId}
+                        legacyBluePanel={
+                            settings?.appearance?.legacyBluePanel ?? false
+                        }
+                        isCollapsed={isCollapsed}
+                        isLeftHovered={isLeftHovered}
+                        enableAutoExpandLeft={
+                            settings?.appearance?.sidebarConstraints
+                                ?.enableAutoExpandLeft
+                        }
+                        onCollapseToggle={() => setLeftCollapsed(!isCollapsed)}
+                        onAutoExpandToggle={() => {
+                            const constraints =
+                                settings?.appearance?.sidebarConstraints;
+                            if (!constraints) return;
+                            updateAppearance('sidebarConstraints', {
+                                ...constraints,
+                                enableAutoExpandLeft:
+                                    !constraints.enableAutoExpandLeft,
+                            });
+                        }}
+                        activeTabId={activeTabId}
+                        mode={mode}
+                        explorerTab={explorerTab}
+                        onModeChange={(newMode) => {
+                            setMode(newMode);
+                            if (newMode === 'manuscript')
+                                setExplorerTab('chapters');
+                            else setExplorerTab('character');
+                        }}
+                        onSubTabChange={(tab) => setExplorerTab(tab)}
+                        chapters={chapters}
+                        characters={characters}
+                        locations={locations}
+                        organizations={organizations}
+                        items={items}
+                        loreEntries={loreEntries}
+                        chaptersLoading={chaptersLoading}
+                        handleNewChapter={handleNewChapter}
+                        handleNewCompendiumEntry={handleNewCompendiumEntry}
+                        handleEditTemplate={() => handleEditTemplate()}
+                        openChapter={(c) => openChapterTab(c)}
+                        openCompendiumEntry={(id, cat) =>
+                            handleOpenCompendiumEntry(id, cat)
+                        }
+                        deleteChapter={(c) => {
+                            rpc.request['db:delete-chapter'](c.id).then(() => {
+                                loadChapters(currentProject!.id);
+                                handleCloseTab(c.id);
+                            });
+                        }}
+                        renameEntry={renameExplorerEntry}
+                        deleteCompendiumEntry={handleDeleteCompendiumEntry}
+                        isDragging={isDragging}
+                        onDragStart={(dir, x) => handleDragStart(dir, x)}
+                        onMouseEnter={() => {
+                            if (
+                                settings?.appearance?.sidebarConstraints
+                                    ?.enableAutoExpandLeft
+                            ) {
+                                if (hoverTimerRef.current)
+                                    clearTimeout(hoverTimerRef.current);
+                                hoverTimerRef.current = setTimeout(
+                                    () => setIsLeftHovered(true),
+                                    200
                                 );
                             }
-                        });
-                    }}
-                    renameEntry={renameExplorerEntry}
-                    deleteCompendiumEntry={handleDeleteCompendiumEntry}
-                    isDragging={isDragging}
-                    onDragStart={(dir, x) => handleDragStart(dir, x)}
-                    onMouseEnter={() => {
-                        if (
-                            settings?.appearance?.sidebarConstraints
-                                ?.enableAutoExpandLeft
-                        ) {
+                        }}
+                        onMouseLeave={() => {
                             if (hoverTimerRef.current)
                                 clearTimeout(hoverTimerRef.current);
-                            hoverTimerRef.current = setTimeout(
-                                () => setIsLeftHovered(true),
-                                200
-                            );
-                        }
-                    }}
-                    onMouseLeave={() => {
-                        if (hoverTimerRef.current)
-                            clearTimeout(hoverTimerRef.current);
-                        if (
-                            settings?.appearance?.sidebarConstraints
-                                ?.enableAutoExpandLeft
-                        ) {
-                            hoverTimerRef.current = setTimeout(
-                                () => setIsLeftHovered(false),
-                                200
-                            );
-                        }
-                    }}
-                />
+                            if (
+                                settings?.appearance?.sidebarConstraints
+                                    ?.enableAutoExpandLeft
+                            ) {
+                                hoverTimerRef.current = setTimeout(
+                                    () => setIsLeftHovered(false),
+                                    200
+                                );
+                            }
+                        }}
+                    />
+                </div>
 
                 <div className="app-editor">
                     {/* Top Tabs Bar Matching Native App UI */}
                     <div
                         className={styles.topContainer}
                         onClick={() => setTileMenuState(null)}
+                        onDragOver={handleTabsContainerDragOver}
+                        onDrop={handleTabsContainerDrop}
                     >
                         <button
                             className={`${styles.topTab} ${styles.scratchTabBtn} ${isScratchOpen ? styles.topTabActive : ''}`}
@@ -4175,8 +4658,8 @@ function App() {
                     >
                         {renderEditor()}
 
-                        {/* Drag-to-Editor Split / Full-Screen Drop Overlay */}
-                        {draggedTabId && editorDropZone && (
+                        {/* Drag-to-Editor Blue Layout Drop Overlay (No Text Labels) */}
+                        {activeDragId && editorDropZone && (
                             <div
                                 className={`${styles.editorDropOverlay} ${
                                     editorDropZone === 'left'
@@ -4185,15 +4668,7 @@ function App() {
                                           ? styles.editorDropRight
                                           : styles.editorDropCenter
                                 }`}
-                            >
-                                <span className={styles.editorDropLabel}>
-                                    {editorDropZone === 'left'
-                                        ? 'Split Left'
-                                        : editorDropZone === 'right'
-                                          ? 'Split Right'
-                                          : 'Open Full Screen'}
-                                </span>
-                            </div>
+                            />
                         )}
                     </div>
 
