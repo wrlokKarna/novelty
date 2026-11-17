@@ -7,6 +7,8 @@ import {
     type ReactNode,
 } from 'react';
 import {
+    IconArrowBarToLeft,
+    IconArrowBarToRight,
     IconBook,
     IconBuildingCastle,
     IconChevronLeft,
@@ -19,6 +21,7 @@ import {
     IconNotes,
     IconPlus,
     IconSwords,
+    IconTrash,
     IconUsers,
     IconX,
 } from '@tabler/icons-react';
@@ -254,7 +257,6 @@ function App() {
     const editorAreaRef = useRef<HTMLDivElement>(null);
 
     const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
-    // 'before' | 'after' = VS Code vertical insertion line; 'merge' = blue box highlight to split into Tile
     const [tabDropTarget, setTabDropTarget] = useState<{
         tabId: string;
         mode: 'before' | 'after' | 'merge';
@@ -348,7 +350,6 @@ function App() {
         promoteTabToPermanent(targetTab.id);
 
         if (currentMode === 'merge') {
-            // Dropped on the center of another tab -> Pair them in a split Tile workspace!
             setChapterLinks((prev) => {
                 const cleaned: Record<string, string | null> = {};
                 for (const [k, v] of Object.entries(prev)) {
@@ -371,7 +372,6 @@ function App() {
             return;
         }
 
-        // Dropped on left ('before') or right ('after') edge -> Reorder tab position in top bar
         setOpenTabs((prev) => {
             const sourceIndex = prev.findIndex((t) => t.id === sourceId);
             if (sourceIndex === -1) return prev;
@@ -552,7 +552,7 @@ function App() {
         };
     }, [isTileResizing]);
 
-    // Close the "Add Tile" dropdown menu when clicking anywhere outside (including on any tab in the top bar)
+    // Close the context menu when clicking anywhere outside
     useEffect(() => {
         if (!tileMenuState) return;
         const handlePointerDownOutside = (e: PointerEvent) => {
@@ -693,6 +693,82 @@ function App() {
         },
         [chapterLinks, openTabs]
     );
+
+    // =========================================================================
+    // CLOSE TAB, CLOSE RIGHT TABS, CLOSE LEFT TABS, CLOSE ALL TABS HANDLERS
+    // =========================================================================
+    const closeMultipleTabs = (idsToClose: string[]) => {
+        if (idsToClose.length === 0) {
+            setTileMenuState(null);
+            return;
+        }
+        const closeSet = new Set(idsToClose);
+
+        // Clean up links, preview state, and DOM refs for all closed tabs
+        setChapterLinks((prev) => {
+            const next: Record<string, string | null> = {};
+            for (const [k, v] of Object.entries(prev)) {
+                if (!closeSet.has(k) && (!v || !closeSet.has(v))) {
+                    next[k] = v;
+                }
+            }
+            return next;
+        });
+
+        if (previewTabId && closeSet.has(previewTabId)) {
+            setPreviewTabId(null);
+        }
+
+        idsToClose.forEach((id) => {
+            delete tabRefs.current[id];
+        });
+
+        setTabContents((prev) => {
+            const copy = { ...prev };
+            idsToClose.forEach((id) => {
+                delete copy[id];
+            });
+            return copy;
+        });
+
+        setCompendiumEntries((prev) => {
+            const copy = { ...prev };
+            idsToClose.forEach((id) => {
+                delete copy[id];
+            });
+            return copy;
+        });
+
+        const remainingTabs = openTabs.filter((t) => !closeSet.has(t.id));
+        setOpenTabs(remainingTabs);
+
+        if (activeTabId && closeSet.has(activeTabId)) {
+            setActiveTabId(
+                remainingTabs.length > 0 ? remainingTabs[0].id : null
+            );
+        }
+
+        setTileMenuState(null);
+    };
+
+    const handleCloseRightTabs = (targetTabId: string) => {
+        const idx = openTabs.findIndex((t) => t.id === targetTabId);
+        if (idx === -1) return;
+        const rightIds = openTabs.slice(idx + 1).map((t) => t.id);
+        closeMultipleTabs(rightIds);
+    };
+
+    const handleCloseLeftTabs = (targetTabId: string) => {
+        const idx = openTabs.findIndex((t) => t.id === targetTabId);
+        if (idx === -1) return;
+        const leftIds = openTabs.slice(0, idx).map((t) => t.id);
+        closeMultipleTabs(leftIds);
+    };
+
+    const handleCloseAllTabs = () => {
+        const allIds = openTabs.map((t) => t.id);
+        closeMultipleTabs(allIds);
+    };
 
     const handleReaderModeChange = (m: 'chapter' | 'book') => {
         setReaderMode(m);
@@ -3397,8 +3473,8 @@ function App() {
         [settings, updateAppearance]
     );
 
-    const handleCloseTab = (id: string, e: React.MouseEvent) => {
-        e.stopPropagation();
+    const handleCloseTab = (id: string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
         setTileMenuState(null);
         if (previewTabId === id) {
             setPreviewTabId(null);
@@ -3428,7 +3504,7 @@ function App() {
         }
     };
 
-    // Opens the "Add Tile" menu via Three-Dots click (in top-right action bar)
+    // Opens the Context Menu via Three-Dots click (in top-right action bar)
     const handleOpenTileMenu = (tabId: string, e: React.MouseEvent) => {
         e.stopPropagation();
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -3437,23 +3513,22 @@ function App() {
                 ? null
                 : {
                       chapterId: tabId,
-                      x: Math.min(rect.left, window.innerWidth - 170),
+                      x: Math.min(rect.left, window.innerWidth - 190),
                       y: rect.bottom + 6,
                   }
         );
     };
 
-    // Opens the "Add Tile" menu via Right-Click (Context Menu) on any Chapter/Character/Location/etc. Tab
+    // Opens the Context Menu via Right-Click on any Tab in the Top Bar
     const handleTabContextMenu = (
         tab: FileTab,
         e: React.MouseEvent<HTMLButtonElement>
     ) => {
-        if (tab.type === 'plot-architecture') return;
         e.preventDefault();
         e.stopPropagation();
         setTileMenuState({
             chapterId: tab.id,
-            x: Math.min(e.clientX, window.innerWidth - 170),
+            x: Math.min(e.clientX, window.innerWidth - 190),
             y: e.clientY + 4,
         });
     };
@@ -3464,6 +3539,19 @@ function App() {
         activeTabObj && activeTabObj.type !== 'plot-architecture'
             ? activeTabObj
             : null;
+
+    // Context Menu calculations for the currently right-clicked tab
+    const menuTabObj = tileMenuState
+        ? openTabs.find((t) => t.id === tileMenuState.chapterId)
+        : null;
+    const menuTabIndex = tileMenuState
+        ? openTabs.findIndex((t) => t.id === tileMenuState.chapterId)
+        : -1;
+    const hasLeftTabs = menuTabIndex > 0;
+    const hasRightTabs =
+        menuTabIndex !== -1 && menuTabIndex < openTabs.length - 1;
+    const canTileMenuTab =
+        menuTabObj && menuTabObj.type !== 'plot-architecture';
 
     // Helper to resolve display name during linking toast
     const getLinkingSourceName = (id: string) => {
@@ -3954,16 +4042,13 @@ function App() {
                             >
                                 <IconPlus size={16} />
                             </button>
-                            {canTileActiveTab && (
+                            {activeTabObj && (
                                 <button
                                     className={styles.addBtn}
                                     onClick={(e) =>
-                                        handleOpenTileMenu(
-                                            canTileActiveTab.id,
-                                            e
-                                        )
+                                        handleOpenTileMenu(activeTabObj.id, e)
                                     }
-                                    title="Tile Options"
+                                    title="Tab Options"
                                 >
                                     <IconDotsVertical size={16} />
                                 </button>
@@ -3971,7 +4056,7 @@ function App() {
                         </div>
                     </div>
 
-                    {/* Three-Dots & Right-Click Dropdown Menu ("Add Tile") */}
+                    {/* Right-Click & Three-Dots Context Menu (Add Tile + Close Options) */}
                     {tileMenuState && (
                         <div
                             className={styles.tileDropdownMenu}
@@ -3981,36 +4066,84 @@ function App() {
                             }}
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <button
-                                className={styles.tileDropdownItem}
-                                onClick={(e) =>
-                                    handleStartLinking(
-                                        tileMenuState.chapterId,
-                                        e
-                                    )
-                                }
-                            >
-                                <IconLayoutColumns size={15} />
-                                <span>Add Tile</span>
-                            </button>
-                            {getLinkedPartner(tileMenuState.chapterId) && (
+                            {canTileMenuTab && (
                                 <>
-                                    <div
-                                        className={styles.tileDropdownDivider}
-                                    />
                                     <button
                                         className={styles.tileDropdownItem}
-                                        onClick={() =>
-                                            handleUnlinkChapter(
-                                                tileMenuState.chapterId
+                                        onClick={(e) =>
+                                            handleStartLinking(
+                                                tileMenuState.chapterId,
+                                                e
                                             )
                                         }
                                     >
-                                        <IconLinkOff size={15} />
-                                        <span>Unlink Tile</span>
+                                        <IconLayoutColumns size={15} />
+                                        <span>Add Tile</span>
                                     </button>
+                                    {getLinkedPartner(
+                                        tileMenuState.chapterId
+                                    ) && (
+                                        <button
+                                            className={styles.tileDropdownItem}
+                                            onClick={() =>
+                                                handleUnlinkChapter(
+                                                    tileMenuState.chapterId
+                                                )
+                                            }
+                                        >
+                                            <IconLinkOff size={15} />
+                                            <span>Unlink Tile</span>
+                                        </button>
+                                    )}
+                                    <div
+                                        className={styles.tileDropdownDivider}
+                                    />
                                 </>
                             )}
+
+                            <button
+                                className={styles.tileDropdownItem}
+                                onClick={() =>
+                                    handleCloseTab(tileMenuState.chapterId)
+                                }
+                            >
+                                <IconX size={15} />
+                                <span>Close</span>
+                            </button>
+
+                            <button
+                                className={`${styles.tileDropdownItem} ${!hasRightTabs ? styles.tileDropdownItemDisabled : ''}`}
+                                disabled={!hasRightTabs}
+                                onClick={() =>
+                                    handleCloseRightTabs(
+                                        tileMenuState.chapterId
+                                    )
+                                }
+                            >
+                                <IconArrowBarToRight size={15} />
+                                <span>Close Right Tabs</span>
+                            </button>
+
+                            <button
+                                className={`${styles.tileDropdownItem} ${!hasLeftTabs ? styles.tileDropdownItemDisabled : ''}`}
+                                disabled={!hasLeftTabs}
+                                onClick={() =>
+                                    handleCloseLeftTabs(tileMenuState.chapterId)
+                                }
+                            >
+                                <IconArrowBarToLeft size={15} />
+                                <span>Close Left Tabs</span>
+                            </button>
+
+                            <div className={styles.tileDropdownDivider} />
+
+                            <button
+                                className={styles.tileDropdownItem}
+                                onClick={handleCloseAllTabs}
+                            >
+                                <IconTrash size={15} />
+                                <span>Close All Tabs</span>
+                            </button>
                         </div>
                     )}
 
