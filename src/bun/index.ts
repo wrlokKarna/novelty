@@ -21,7 +21,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
 import { mcpClient } from './services/mcp/client.js';
 import { mcpServer } from './services/mcp/server.js';
-import registerAllTools from './services/mcp/tools.js';
+//import registerAllTools from './services/mcp/tools.js';
 import type {
     NewAsset,
     NewItem,
@@ -93,6 +93,7 @@ import './services/mcp/tools/compendium_tools.js';
 import './services/mcp/tools/manuscript_tools.js';
 import './services/mcp/tools/plotThread_tools.js';
 import './services/mcp/tools/storyBeat_tools.js';
+import './services/mcp/tools/projectTemplate_tools';
 //registerAllTools();
 try {
     const [clientTransport, serverTransport] =
