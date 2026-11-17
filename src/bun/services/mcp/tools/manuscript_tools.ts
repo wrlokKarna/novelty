@@ -10,7 +10,7 @@ mcpServer.registerTool(
   {
     title: 'Create Chapter',
     description:
-      'Create a new Chapter inside a project using its fields based on project Id.',
+      "Creates a new Chapter within a project using the provided chapter fields (such as title, summary, status, or content). Requires projectId. Use this tool when adding a new narrative chapter or story section to an existing project.",
     inputSchema: z.object({
       title: z.string().describe('The primary title of the Chapter'),
       projectId: z.string().describe('The Project ID of the Chapter'),
@@ -63,7 +63,7 @@ mcpServer.registerTool(
   {
     title: 'Update Chapter',
     description:
-      'Update a Chapter based on project Id by using id or using list chapters tool to get details about the chapter.',
+      "Updates an existing Chapter within a project. Requires projectId and the chapter's id. Use this tool when modifying a chapter's fields (such as title, summary, status or content). If the chapter id is unknown, use the list chapters tool first to retrieve it.",
     inputSchema: z.object({
       id: z.string().describe('The id of the chapter'),
       title: z.string().describe('The primary title of the Chapter'),
@@ -124,12 +124,11 @@ mcpServer.registerTool(
   {
     title: 'Retreive Chapter',
     description:
-      'Retreive a Chapter based on project Id using id or title and name of the base type.',
+      "Retrieves the full details of a specific Chapter within a project. Requires projectId, baseType, and either the chapter's id or title. Use this tool when inspecting a single narrative chapter.",
     inputSchema: z.object({
       id: z.string().describe('The id of the chapter'),
       title: z.string().describe('The primary title of the Chapter'),
       projectId: z.string().describe('The Project ID of the Chapter'),
-      status: chapterStatusEnum.describe('Status of the chapter')
     }),
   },
   async ({ title, id }) => {
@@ -168,7 +167,7 @@ mcpServer.registerTool(
   {
     title: 'Retreive Chapter',
     description:
-      'Retreive Chapters details based on project Id using project id or current project id.',
+      "Retrieves all Chapters within a project. Requires either an explicit projectId or the active/current project context. Use this to browse existing narrative chapters or to find a chapter's id before updating or retrieving its individual details.",
     inputSchema: z.object({
       projectId: z.string().describe('The Project ID of the Chapter'),
     }),
@@ -209,7 +208,7 @@ mcpServer.registerTool(
   {
     title: 'Delete Chapter',
     description:
-      'Delete a Chapter based on project Id using id or title.',
+      "Permanently deletes a specific Chapter from a project. Requires projectId and either the chapter's id or title. Use only when explicitly removing an existing narrative chapter—if the ID or exact title is unknown, list the project's chapters first to confirm the target before deleting.",
     inputSchema: z.object({
       id: z.string().describe('The id of the chapter'),
       title: z.string().describe('The primary title of the Chapter'),

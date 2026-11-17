@@ -27,7 +27,7 @@ mcpServer.registerTool(
   {
     title: 'add Template fields',
     description:
-      'Add template entity(character, location, organization, item, lore) field details using project id or current project id and base type.',
+      "Adds custom template field definitions for a specific Compendium entity base type (character, location, organization, item, or lore) within a project. Requires baseType, the fieldDefinition , and either an explicit projectId or the active/current project context. Use this tool when extending the schema or adding new reusable attributes/properties to an entity template—not when creating or updating an individual Compendium entry.",
     inputSchema: z.object({
       projectId: z.string().describe('The ID of the project'),
       baseType: compendiumCategoryEnum.describe(
@@ -72,7 +72,7 @@ mcpServer.registerTool(
   {
     title: 'Update Template fields',
     description:
-      'Update template entity(character, location, organization, item, lore) field details using project id or current project id and base type.',
+      "Updates existing custom template fieldDefinition for a specific Compendium entity base type (character, location, organization, item, or lore) within a project. Requires baseType, the updated fieldDefinition, and either an explicit projectId or the active/current project context. Use this tool when modifying the schema, field names, data types, or validation rules of reusable entity attributes—not when editing an individual Compendium entry.",
     inputSchema: z.object({
       id: z.string().describe("The ID of the template"),
       projectId: z.string().describe('The ID of the project'),
@@ -124,7 +124,7 @@ mcpServer.registerTool(
   {
     title: 'Retrieve Template fields',
     description:
-      'Retrive template entity(character, location, organization, item, lore) field details using project id or current project id and base type.',
+      "Retrieves the custom template fieldDefinition for a specific Compendium entity base type (character, location, organization, item, or lore) within a project. Requires baseType and either an explicit projectId or the active/current project context. Use this tool when inspecting the schema or available custom attributes for an entity template—not when retrieving an individual Compendium entry.",
     inputSchema: z.object({
       projectId: z.string().describe('The ID of the project'),
       baseType: compendiumCategoryEnum.describe(
@@ -166,7 +166,7 @@ mcpServer.registerTool(
   {
     title: 'Retrieve all Template fields',
     description:
-      'Retrive all template entities for base types(character, location, organization, item, lore) field details using project id or current project id.',
+      "Retrieves the custom template fieldDefinition for all Compendium entity base types (character, location, organization, item, and lore) within a project in a single call. Requires either an explicit projectId or the active/current project context. Use this tool when inspecting the entire schema structure or reviewing all custom attribute configurations across every entity category—not when listing individual Compendium entries.",
     inputSchema: z.object({
       projectId: z.string().describe('The ID of the project'),
     }),
@@ -204,10 +204,10 @@ mcpServer.registerTool(
   {
     title: 'Delete Template fields',
     description:
-      'Delete template entity(character, location, organization, item, lore) field details using project id or current project id and base type.',
+      "Permanently deletes or removes custom template fieldDefinition for a specific Compendium entity base type (character, location, organization, item, or lore) within a project. Requires baseType, the specific field identifier to remove, and either an explicit projectId or the active/current project context. Use only when explicitly modifying the schema structure of an entity template—not when deleting an individual Compendium entry.",
     inputSchema: z.object({
       id: z.string().describe("The ID of the template"),
-      projectId: z.string().describe('The ID of the project'),
+      projectId: z.string().optional().describe('The ID of the project'),
       baseType: compendiumCategoryEnum.describe(
         'The category/base type of the entity'
       ),
