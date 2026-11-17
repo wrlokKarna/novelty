@@ -8,19 +8,18 @@ import {
 } from 'react';
 import {
     IconBook,
-    IconBuildings,
+    IconBuildingCastle,
     IconChevronLeft,
     IconDotsVertical,
     IconFiles,
     IconFileText,
-    IconHierarchy2,
     IconLayoutColumns,
     IconLinkOff,
     IconMapPin,
     IconNotes,
     IconPlus,
     IconSwords,
-    IconUser,
+    IconUsers,
     IconX,
 } from '@tabler/icons-react';
 import type {
@@ -235,10 +234,34 @@ function App() {
     const editorRef = useRef<RichTextEditorHandle>(null);
 
     // =========================================================================
-    // TOP TAB AUTO-SCROLL & MOUSE WHEEL HORIZONTAL SCROLL
+    // TEMPORARY PREVIEW TAB (ITALIC SINGLE-CLICK VS PERMANENT DOUBLE-CLICK)
+    // =========================================================================
+    const [previewTabId, setPreviewTabId] = useState<string | null>(null);
+    const lastSidebarClickRef = useRef<{ id: string; time: number }>({
+        id: '',
+        time: 0,
+    });
+
+    const promoteTabToPermanent = useCallback((tabId: string) => {
+        setPreviewTabId((prev) => (prev === tabId ? null : prev));
+    }, []);
+
+    // =========================================================================
+    // TOP TAB AUTO-SCROLL, MOUSE WHEEL SCROLL & VS CODE DRAG-AND-DROP
     // =========================================================================
     const tabsGroupRef = useRef<HTMLDivElement>(null);
     const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+    const editorAreaRef = useRef<HTMLDivElement>(null);
+
+    const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
+    // 'before' | 'after' = VS Code vertical insertion line; 'merge' = blue box highlight to split into Tile
+    const [tabDropTarget, setTabDropTarget] = useState<{
+        tabId: string;
+        mode: 'before' | 'after' | 'merge';
+    } | null>(null);
+    const [editorDropZone, setEditorDropZone] = useState<
+        'left' | 'right' | 'center' | null
+    >(null);
 
     useEffect(() => {
         if (!activeTabId || isScratchOpen) return;
@@ -260,21 +283,217 @@ function App() {
         }
     };
 
+    const handleTabDragStart = (
+        tabId: string,
+        e: React.DragEvent<HTMLElement>
+    ) => {
+        setDraggedTabId(tabId);
+        setTileMenuState(null);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', tabId);
+    };
+
+    const handleTabDragOver = (
+        targetTab: FileTab,
+        e: React.DragEvent<HTMLElement>
+    ) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (!draggedTabId || draggedTabId === targetTab.id) return;
+
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        const relX = (e.clientX - rect.left) / rect.width;
+
+        const draggedTab = openTabs.find((t) => t.id === draggedTabId);
+        const canMerge =
+            draggedTab &&
+            draggedTab.type !== 'plot-architecture' &&
+            targetTab.type !== 'plot-architecture';
+
+        let mode: 'before' | 'after' | 'merge';
+        if (relX < 0.28) {
+            mode = 'before';
+        } else if (relX > 0.72) {
+            mode = 'after';
+        } else {
+            mode = canMerge ? 'merge' : relX < 0.5 ? 'before' : 'after';
+        }
+
+        setTabDropTarget((prev) =>
+            prev?.tabId === targetTab.id && prev?.mode === mode
+                ? prev
+                : { tabId: targetTab.id, mode }
+        );
+    };
+
+    const handleTabDrop = (
+        targetTab: FileTab,
+        e: React.DragEvent<HTMLElement>
+    ) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const sourceId = draggedTabId || e.dataTransfer.getData('text/plain');
+        const currentMode =
+            tabDropTarget?.tabId === targetTab.id
+                ? tabDropTarget.mode
+                : 'before';
+
+        setTabDropTarget(null);
+        setDraggedTabId(null);
+        setEditorDropZone(null);
+
+        if (!sourceId || sourceId === targetTab.id) return;
+
+        promoteTabToPermanent(sourceId);
+        promoteTabToPermanent(targetTab.id);
+
+        if (currentMode === 'merge') {
+            // Dropped on the center of another tab -> Pair them in a split Tile workspace!
+            setChapterLinks((prev) => {
+                const cleaned: Record<string, string | null> = {};
+                for (const [k, v] of Object.entries(prev)) {
+                    if (
+                        k !== sourceId &&
+                        v !== sourceId &&
+                        k !== targetTab.id &&
+                        v !== targetTab.id
+                    ) {
+                        cleaned[k] = v;
+                    }
+                }
+                cleaned[sourceId] = targetTab.id;
+                return cleaned;
+            });
+            setTileSplitRatio(50);
+            setIsScratchOpen(false);
+            setActiveTabId(targetTab.id);
+            setFocusedTileSide('right');
+            return;
+        }
+
+        // Dropped on left ('before') or right ('after') edge -> Reorder tab position in top bar
+        setOpenTabs((prev) => {
+            const sourceIndex = prev.findIndex((t) => t.id === sourceId);
+            if (sourceIndex === -1) return prev;
+            const updated = [...prev];
+            const [moved] = updated.splice(sourceIndex, 1);
+            const newTargetIndex = updated.findIndex(
+                (t) => t.id === targetTab.id
+            );
+            if (newTargetIndex === -1) return prev;
+            const insertIdx =
+                currentMode === 'after' ? newTargetIndex + 1 : newTargetIndex;
+            updated.splice(insertIdx, 0, moved);
+            return updated;
+        });
+    };
+
+    const handleTabDragEnd = () => {
+        setDraggedTabId(null);
+        setTabDropTarget(null);
+        setEditorDropZone(null);
+    };
+
+    const handleEditorDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        if (!draggedTabId) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const container = editorAreaRef.current;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        const relX = (e.clientX - rect.left) / rect.width;
+        if (relX < 0.3) {
+            setEditorDropZone('left');
+        } else if (relX > 0.7) {
+            setEditorDropZone('right');
+        } else {
+            setEditorDropZone('center');
+        }
+    };
+
+    const handleEditorDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+            setEditorDropZone(null);
+        }
+    };
+
+    const handleEditorDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        if (!draggedTabId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const sourceId = draggedTabId;
+        const zone = editorDropZone || 'center';
+
+        setDraggedTabId(null);
+        setTabDropTarget(null);
+        setEditorDropZone(null);
+        promoteTabToPermanent(sourceId);
+
+        if (zone === 'center') {
+            handleUnlinkChapter(sourceId);
+            setIsScratchOpen(false);
+            setActiveTabId(sourceId);
+            return;
+        }
+
+        const currentAnchorId =
+            activeTabId && activeTabId !== sourceId
+                ? activeTabId
+                : openTabs.find(
+                      (t) => t.id !== sourceId && t.type !== 'plot-architecture'
+                  )?.id;
+
+        if (!currentAnchorId) {
+            setIsScratchOpen(false);
+            setActiveTabId(sourceId);
+            return;
+        }
+
+        setChapterLinks((prev) => {
+            const cleaned: Record<string, string | null> = {};
+            for (const [k, v] of Object.entries(prev)) {
+                if (
+                    k !== sourceId &&
+                    v !== sourceId &&
+                    k !== currentAnchorId &&
+                    v !== currentAnchorId
+                ) {
+                    cleaned[k] = v;
+                }
+            }
+            if (zone === 'left') {
+                cleaned[sourceId] = currentAnchorId;
+            } else {
+                cleaned[currentAnchorId] = sourceId;
+            }
+            return cleaned;
+        });
+
+        setTileSplitRatio(50);
+        setIsScratchOpen(false);
+        setActiveTabId(sourceId);
+        setFocusedTileSide(zone === 'left' ? 'left' : 'right');
+    };
+
     // Exact Category Icons matching the Left Sidebar Compendium Icons
     const renderTabIcon = (type: FileTab['type']) => {
         switch (type) {
             case 'character':
-                return <IconUser size={14} className={styles.tabIcon} />;
+                return <IconUsers size={14} className={styles.tabIcon} />;
             case 'location':
                 return <IconMapPin size={14} className={styles.tabIcon} />;
             case 'organization':
-                return <IconBuildings size={14} className={styles.tabIcon} />;
+                return (
+                    <IconBuildingCastle size={14} className={styles.tabIcon} />
+                );
             case 'item':
                 return <IconSwords size={14} className={styles.tabIcon} />;
             case 'lore':
                 return <IconBook size={14} className={styles.tabIcon} />;
             case 'plot-architecture':
-                return <IconHierarchy2 size={14} className={styles.tabIcon} />;
+                return (
+                    <IconLayoutColumns size={14} className={styles.tabIcon} />
+                );
             default:
                 return <IconFileText size={14} className={styles.tabIcon} />;
         }
@@ -358,7 +577,6 @@ function App() {
         const handleGlobalClick = (e: MouseEvent) => {
             const target = e.target as HTMLElement | null;
             if (!target) return;
-            // Allow clicks inside the left sidebar list so user can link any chapter/character/location
             if (target.closest('.app-panel-left') || target.closest('aside')) {
                 return;
             }
@@ -429,6 +647,8 @@ function App() {
             cleaned[linkingSourceId] = targetId;
             return cleaned;
         });
+        promoteTabToPermanent(linkingSourceId);
+        promoteTabToPermanent(targetId);
         setTileSplitRatio(50);
         setIsScratchOpen(false);
         setActiveTabId(targetId);
@@ -676,6 +896,7 @@ function App() {
             setCurrentProject(project);
             setOpenTabs(savedState?.tabs || []);
             setActiveTabId(savedState?.activeTabId || null);
+            setPreviewTabId(null);
             setTabContents({});
             setCompendiumEntries({});
             setIsScratchOpen(false);
@@ -977,6 +1198,12 @@ function App() {
     }
 
     async function openChapterTab(chapter: Chapter) {
+        const now = Date.now();
+        const isRapidDoubleClick =
+            lastSidebarClickRef.current.id === chapter.id &&
+            now - lastSidebarClickRef.current.time < 420;
+        lastSidebarClickRef.current = { id: chapter.id, time: now };
+
         const c = await rpc.request['db:get-chapter'](chapter.id);
         if (c?.content) {
             setTabContents((prev) => ({
@@ -1003,15 +1230,38 @@ function App() {
         }
 
         const existingTab = openTabs.find((t) => t.id === chapter.id);
-        if (!existingTab) {
-            const newTab = {
+        if (existingTab) {
+            if (isRapidDoubleClick) {
+                promoteTabToPermanent(chapter.id);
+            }
+        } else {
+            const newTab: FileTab = {
                 id: chapter.id,
                 name: chapter.title,
                 type: 'chapter' as const,
                 filePath: chapter.filePath || '',
                 isModified: false,
             };
-            setOpenTabs((prev) => [...prev, newTab]);
+
+            if (isRapidDoubleClick || linkingSourceId) {
+                setOpenTabs((prev) => [...prev, newTab]);
+                setPreviewTabId(null);
+            } else {
+                setOpenTabs((prev) => {
+                    if (previewTabId) {
+                        const previewIdx = prev.findIndex(
+                            (t) => t.id === previewTabId
+                        );
+                        if (previewIdx !== -1) {
+                            const updated = [...prev];
+                            updated[previewIdx] = newTab;
+                            return updated;
+                        }
+                    }
+                    return [...prev, newTab];
+                });
+                setPreviewTabId(chapter.id);
+            }
         }
 
         if (linkingSourceId) {
@@ -1177,6 +1427,12 @@ function App() {
         entryId: string,
         category: CompendiumCategory
     ) {
+        const now = Date.now();
+        const isRapidDoubleClick =
+            lastSidebarClickRef.current.id === entryId &&
+            now - lastSidebarClickRef.current.time < 420;
+        lastSidebarClickRef.current = { id: entryId, time: now };
+
         try {
             let entry: unknown;
             switch (category) {
@@ -1200,7 +1456,11 @@ function App() {
             if (entry && (entry as { id: string }).id) {
                 setCompendiumEntries((prev) => ({ ...prev, [entryId]: entry }));
                 const existingTab = openTabs.find((t) => t.id === entryId);
-                if (!existingTab) {
+                if (existingTab) {
+                    if (isRapidDoubleClick) {
+                        promoteTabToPermanent(entryId);
+                    }
+                } else {
                     const label =
                         category.charAt(0).toUpperCase() + category.slice(1);
                     const newTab: FileTab = {
@@ -1212,7 +1472,26 @@ function App() {
                         isModified: false,
                         category,
                     };
-                    setOpenTabs((prev) => [...prev, newTab]);
+
+                    if (isRapidDoubleClick || linkingSourceId) {
+                        setOpenTabs((prev) => [...prev, newTab]);
+                        setPreviewTabId(null);
+                    } else {
+                        setOpenTabs((prev) => {
+                            if (previewTabId) {
+                                const previewIdx = prev.findIndex(
+                                    (t) => t.id === previewTabId
+                                );
+                                if (previewIdx !== -1) {
+                                    const updated = [...prev];
+                                    updated[previewIdx] = newTab;
+                                    return updated;
+                                }
+                            }
+                            return [...prev, newTab];
+                        });
+                        setPreviewTabId(entryId);
+                    }
                 }
 
                 if (linkingSourceId) {
@@ -1312,6 +1591,7 @@ function App() {
         field: string,
         value: unknown
     ) {
+        promoteTabToPermanent(entryId);
         try {
             let updated: unknown;
             switch (category) {
@@ -2613,6 +2893,7 @@ function App() {
                         tabId={chapterId}
                         initialContent={tabContents[chapterId] || ''}
                         onChange={(content) => {
+                            promoteTabToPermanent(chapterId);
                             setTabContents((prev) => ({
                                 ...prev,
                                 [chapterId]: content,
@@ -2652,6 +2933,7 @@ function App() {
                     tabId={tab.id}
                     initialContent={tabContents[tab.id] || ''}
                     onChange={(content) => {
+                        promoteTabToPermanent(tab.id);
                         setTabContents((prev) => ({
                             ...prev,
                             [tab.id]: content,
@@ -3118,6 +3400,9 @@ function App() {
     const handleCloseTab = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         setTileMenuState(null);
+        if (previewTabId === id) {
+            setPreviewTabId(null);
+        }
         handleUnlinkChapter(id);
         delete tabRefs.current[id];
         const tab = openTabs.find((t) => t.id === id);
@@ -3341,22 +3626,24 @@ function App() {
                         className={styles.topContainer}
                         onClick={() => setTileMenuState(null)}
                     >
+                        <button
+                            className={`${styles.topTab} ${styles.scratchTabBtn} ${isScratchOpen ? styles.topTabActive : ''}`}
+                            onClick={() => {
+                                setTileMenuState(null);
+                                setIsScratchOpen(!isScratchOpen);
+                            }}
+                            title="Scratchpad"
+                        >
+                            <IconNotes size={15} />
+                        </button>
+
+                        <div className={styles.topBarDivider} />
+
                         <div
                             ref={tabsGroupRef}
                             onWheel={handleTabsWheel}
                             className={styles.tabsGroupDiv}
                         >
-                            <button
-                                className={`${styles.topTab} ${isScratchOpen ? styles.topTabActive : ''}`}
-                                onClick={() => {
-                                    setTileMenuState(null);
-                                    setIsScratchOpen(!isScratchOpen);
-                                }}
-                                title="Scratchpad"
-                            >
-                                <IconNotes size={15} />
-                            </button>
-
                             {openTabs.map((tab) => {
                                 if (renderedTabIds.has(tab.id)) return null;
 
@@ -3375,6 +3662,17 @@ function App() {
                                         !isScratchOpen &&
                                         activeTabId === partner.target.id;
 
+                                    const sourceDropMode =
+                                        tabDropTarget?.tabId ===
+                                        partner.source.id
+                                            ? tabDropTarget.mode
+                                            : null;
+                                    const targetDropMode =
+                                        tabDropTarget?.tabId ===
+                                        partner.target.id
+                                            ? tabDropTarget.mode
+                                            : null;
+
                                     return (
                                         <div
                                             key={`pair-${partner.source.id}-${partner.target.id}`}
@@ -3386,7 +3684,42 @@ function App() {
                                                         partner.source.id
                                                     ] = el;
                                                 }}
-                                                className={`${styles.topTab} ${isSourceActive ? styles.topTabPairedActive : ''}`}
+                                                draggable
+                                                onDragStart={(e) =>
+                                                    handleTabDragStart(
+                                                        partner.source.id,
+                                                        e
+                                                    )
+                                                }
+                                                onDragOver={(e) =>
+                                                    handleTabDragOver(
+                                                        partner.source,
+                                                        e
+                                                    )
+                                                }
+                                                onDrop={(e) =>
+                                                    handleTabDrop(
+                                                        partner.source,
+                                                        e
+                                                    )
+                                                }
+                                                onDragEnd={handleTabDragEnd}
+                                                onDoubleClick={() =>
+                                                    promoteTabToPermanent(
+                                                        partner.source.id
+                                                    )
+                                                }
+                                                className={`${styles.topTab} ${isSourceActive ? styles.topTabPairedActive : ''} ${
+                                                    sourceDropMode === 'before'
+                                                        ? styles.topTabInsertBefore
+                                                        : sourceDropMode ===
+                                                            'after'
+                                                          ? styles.topTabInsertAfter
+                                                          : sourceDropMode ===
+                                                              'merge'
+                                                            ? styles.topTabMergeHighlight
+                                                            : ''
+                                                }`}
                                                 onContextMenu={(e) =>
                                                     handleTabContextMenu(
                                                         partner.source,
@@ -3452,7 +3785,42 @@ function App() {
                                                         partner.target.id
                                                     ] = el;
                                                 }}
-                                                className={`${styles.topTab} ${isTargetActive ? styles.topTabPairedActive : ''}`}
+                                                draggable
+                                                onDragStart={(e) =>
+                                                    handleTabDragStart(
+                                                        partner.target.id,
+                                                        e
+                                                    )
+                                                }
+                                                onDragOver={(e) =>
+                                                    handleTabDragOver(
+                                                        partner.target,
+                                                        e
+                                                    )
+                                                }
+                                                onDrop={(e) =>
+                                                    handleTabDrop(
+                                                        partner.target,
+                                                        e
+                                                    )
+                                                }
+                                                onDragEnd={handleTabDragEnd}
+                                                onDoubleClick={() =>
+                                                    promoteTabToPermanent(
+                                                        partner.target.id
+                                                    )
+                                                }
+                                                className={`${styles.topTab} ${isTargetActive ? styles.topTabPairedActive : ''} ${
+                                                    targetDropMode === 'before'
+                                                        ? styles.topTabInsertBefore
+                                                        : targetDropMode ===
+                                                            'after'
+                                                          ? styles.topTabInsertAfter
+                                                          : targetDropMode ===
+                                                              'merge'
+                                                            ? styles.topTabMergeHighlight
+                                                            : ''
+                                                }`}
                                                 onContextMenu={(e) =>
                                                     handleTabContextMenu(
                                                         partner.target,
@@ -3504,6 +3872,11 @@ function App() {
                                         activeTabId === tab.id;
                                     const isLinkingSource =
                                         linkingSourceId === tab.id;
+                                    const isPreview = previewTabId === tab.id;
+                                    const dropMode =
+                                        tabDropTarget?.tabId === tab.id
+                                            ? tabDropTarget.mode
+                                            : null;
 
                                     return (
                                         <button
@@ -3511,7 +3884,29 @@ function App() {
                                             ref={(el) => {
                                                 tabRefs.current[tab.id] = el;
                                             }}
-                                            className={`${styles.topTab} ${isActive ? styles.topTabActive : ''} ${isLinkingSource ? styles.topTabLinkingSource : ''}`}
+                                            draggable
+                                            onDragStart={(e) =>
+                                                handleTabDragStart(tab.id, e)
+                                            }
+                                            onDragOver={(e) =>
+                                                handleTabDragOver(tab, e)
+                                            }
+                                            onDrop={(e) =>
+                                                handleTabDrop(tab, e)
+                                            }
+                                            onDragEnd={handleTabDragEnd}
+                                            onDoubleClick={() =>
+                                                promoteTabToPermanent(tab.id)
+                                            }
+                                            className={`${styles.topTab} ${isActive ? styles.topTabActive : ''} ${isLinkingSource ? styles.topTabLinkingSource : ''} ${isPreview ? styles.topTabPreview : ''} ${
+                                                dropMode === 'before'
+                                                    ? styles.topTabInsertBefore
+                                                    : dropMode === 'after'
+                                                      ? styles.topTabInsertAfter
+                                                      : dropMode === 'merge'
+                                                        ? styles.topTabMergeHighlight
+                                                        : ''
+                                            }`}
                                             onContextMenu={(e) =>
                                                 handleTabContextMenu(tab, e)
                                             }
@@ -3525,6 +3920,11 @@ function App() {
                                                     setActiveTabId(tab.id);
                                                 }
                                             }}
+                                            title={
+                                                isPreview
+                                                    ? 'Preview tab (Double-click to keep open)'
+                                                    : tab.name
+                                            }
                                         >
                                             {renderTabIcon(tab.type)}
                                             <span>{tab.name}</span>
@@ -3627,6 +4027,10 @@ function App() {
                         </div>
                     )}
                     <div
+                        ref={editorAreaRef}
+                        onDragOver={handleEditorDragOver}
+                        onDragLeave={handleEditorDragLeave}
+                        onDrop={handleEditorDrop}
                         className={`editor-container ${previewActive ? 'with-preview' : ''} ${
                             previewActive &&
                             (settings?.appearance?.previewPosition ??
@@ -3634,8 +4038,30 @@ function App() {
                                 ? 'preview-left'
                                 : ''
                         }`}
+                        style={{ position: 'relative' }}
                     >
                         {renderEditor()}
+
+                        {/* Drag-to-Editor Split / Full-Screen Drop Overlay */}
+                        {draggedTabId && editorDropZone && (
+                            <div
+                                className={`${styles.editorDropOverlay} ${
+                                    editorDropZone === 'left'
+                                        ? styles.editorDropLeft
+                                        : editorDropZone === 'right'
+                                          ? styles.editorDropRight
+                                          : styles.editorDropCenter
+                                }`}
+                            >
+                                <span className={styles.editorDropLabel}>
+                                    {editorDropZone === 'left'
+                                        ? 'Split Left'
+                                        : editorDropZone === 'right'
+                                          ? 'Split Right'
+                                          : 'Open Full Screen'}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     {/* Bottom Floating Notification Toast (Dismisses on any display click) */}

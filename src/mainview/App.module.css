@@ -85,16 +85,31 @@
 .topContainer {
     width: auto;
     margin: 0 14px;
+    height: 36px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     background-color: transparent;
     border-bottom: 1px solid #222225;
-    padding: 4px 12px;
+    padding: 4px 0;
     box-sizing: border-box;
     flex-shrink: 0;
     position: relative;
     z-index: 20;
+    overflow: hidden;
+}
+
+.scratchTabBtn {
+    padding: 5px 8px;
+    flex-shrink: 0;
+}
+
+.topBarDivider {
+    width: 1px;
+    height: 16px;
+    background-color: #26262a;
+    margin: 0 8px 0 6px;
+    flex-shrink: 0;
 }
 
 .tabsGroupDiv {
@@ -102,7 +117,10 @@
     align-items: center;
     gap: 6px;
     overflow-x: auto;
-    flex: 1;
+    overflow-y: hidden;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-right: 6px;
     scrollbar-width: none;
 }
 
@@ -115,6 +133,7 @@
     align-items: center;
     gap: 4px;
     margin-left: 8px;
+    flex-shrink: 0;
     background-color: transparent;
     position: relative;
 }
@@ -166,6 +185,46 @@
 .topTabActive {
     background-color: #252528 !important;
     color: #ffffff !important;
+}
+
+/* Temporary Single-Click Preview Tab (Italicized Text) */
+.topTabPreview {
+    font-style: italic;
+}
+
+/* VS Code Style Vertical Line Insertion Indicator (Left or Right Edge of Target Tab) */
+.topTabInsertBefore::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: 2px;
+    bottom: 2px;
+    width: 2px;
+    background-color: #2b7de9;
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(43, 125, 233, 0.8);
+    z-index: 30;
+}
+
+.topTabInsertAfter::after {
+    content: '';
+    position: absolute;
+    right: -4px;
+    top: 2px;
+    bottom: 2px;
+    width: 2px;
+    background-color: #2b7de9;
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(43, 125, 233, 0.8);
+    z-index: 30;
+}
+
+/* Blue Box Highlight when Dragging Tab onto Center of Another Tab to Split into Tile */
+.topTabMergeHighlight {
+    background-color: rgba(43, 125, 233, 0.22) !important;
+    border: 1px solid #2b7de9 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 8px rgba(43, 125, 233, 0.45);
 }
 
 /* Blue Theme Highlight for Selected/Active Tab inside a Paired Tile (Matching "Outline" Button Style) */
@@ -269,6 +328,48 @@
     height: 1px;
     background: #2a2a30;
     margin: 3px 0;
+}
+
+/* Drag-to-Editor Split / Full-Screen Drop Zone Overlay */
+.editorDropOverlay {
+    position: absolute;
+    top: 10px;
+    bottom: 10px;
+    background: rgba(43, 125, 233, 0.14);
+    border: 2px dashed #2b7de9;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 50;
+    transition: all 0.12s ease;
+}
+
+.editorDropLeft {
+    left: 14px;
+    width: calc(50% - 18px);
+}
+
+.editorDropRight {
+    right: 14px;
+    width: calc(50% - 18px);
+}
+
+.editorDropCenter {
+    left: 14px;
+    right: 14px;
+}
+
+.editorDropLabel {
+    background: #131d2b;
+    border: 1px solid #2b7de9;
+    color: #ffffff;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
 }
 
 /* Bottom Floating Notification Toast (When Add Tile is Active) */
