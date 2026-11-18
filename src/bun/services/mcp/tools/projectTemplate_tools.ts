@@ -60,7 +60,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: `Successfully created ${baseType} "${name}" custom attributes.`,
+          text: `Successfully created ${JSON.stringify(template, null, 2)}.`,
         },
       ],
     };

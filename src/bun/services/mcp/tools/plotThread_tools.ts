@@ -45,7 +45,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: `Successfully created with ${result} plot thread`,
+          text: `Successfully created with ${JSON.stringify(result, null, 2)} plot thread`,
         },
       ],
     };
@@ -157,7 +157,7 @@ mcpServer.registerTool(
   },
   async ({ title, description, id, projectId, color, threadType }) => {
     const newPlotThread = {
-      id: crypto.randomUUID(),
+      id: id,
       projectId: projectId,
       color: color ?? 'blue',
       name: title,
@@ -186,7 +186,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: `Successfully updated ${result} plot thread`,
+          text: `Successfully updated ${JSON.stringify(result, null, 2)} plot thread`,
         },
       ],
     };
@@ -210,7 +210,7 @@ mcpServer.registerTool(
         .describe('Project Id of the plot thread'),
     }),
   },
-  async ({ id }) => {
+  async ({ id, title }) => {
     await plotthreadDB.deleteThread(db, id);
 
     try {
@@ -222,7 +222,7 @@ mcpServer.registerTool(
         content: [
           {
             type: 'text',
-            text: `Successfully deleted plot thread ${id}`,
+            text: `Successfully deleted plot thread ${id}, title ${title}`,
           },
         ],
       };

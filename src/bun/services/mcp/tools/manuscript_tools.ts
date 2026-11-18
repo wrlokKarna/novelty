@@ -51,7 +51,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: `Successfully created "${title}".`,
+          text: `Successfully created "${JSON.stringify(template, null, 2)}".`,
         },
       ],
     };
@@ -112,7 +112,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: `Successfully Updated "${title}".`,
+          text: `Successfully Updated "${JSON.stringify(template, null, 2)}".`,
         },
       ],
     };
@@ -131,7 +131,7 @@ mcpServer.registerTool(
       projectId: z.string().describe('The Project ID of the Chapter'),
     }),
   },
-  async ({ title, id }) => {
+  async ({ id }) => {
 
     const template = await chapterDB.getChapterById(
       db,
@@ -155,7 +155,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: `Successfully Retreived "${title}".`,
+          text: `Successfully Retreived "${JSON.stringify(template, null, 2)}".`,
         },
       ],
     };
@@ -230,7 +230,7 @@ mcpServer.registerTool(
         content: [
           {
             type: 'text',
-            text: `Successfully Deleted ${title}${id}.`,
+            text: `Successfully Deleted chapter with ${id}, title ${title}.`,
           },
         ],
       };

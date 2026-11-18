@@ -42,7 +42,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: `Successfully created with ${result} storybeat`,
+          text: `Successfully created with ${JSON.stringify(result, null, 2)} storybeat`,
         },
       ],
     };
@@ -159,7 +159,7 @@ mcpServer.registerTool(
 
   async ({ id, projectId, description, title, beatType }) => {
     const newStoryBeat = {
-      id: crypto.randomUUID(),
+      id: id,
       projectId: projectId,
       chapterId: 'null',
       orderIndex: 1,
@@ -188,7 +188,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: `Successfully updated story beat ${id}`,
+          text: `Successfully updated story beat ${JSON.stringify(UpdateBeat, null, 2)}`,
         },
       ],
     };
@@ -213,7 +213,7 @@ mcpServer.registerTool(
     }),
   },
 
-  async ({ id }) => {
+  async ({ id, title }) => {
     try {
       await storybeatDB.deleteBeat(db, id);
 
@@ -223,7 +223,7 @@ mcpServer.registerTool(
         content: [
           {
             type: 'text',
-            text: `Successfully deleted story beat ${id}`,
+            text: `Successfully deleted story beat ${id}, title ${title}`,
           },
         ],
       };

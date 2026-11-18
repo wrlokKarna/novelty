@@ -59,7 +59,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: `Successfully created ${baseType} "${name}".`,
+          text: `Successfully created ${JSON.stringify(template, null, 2)}".`,
         },
       ],
     };
@@ -120,7 +120,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: `Successfully updated ${baseType} "${name}".`,
+          text: `Successfully updated ${JSON.stringify(template, null, 2)}.`,
         },
       ],
     };
@@ -212,7 +212,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: `Successfully Retreived ${baseType}`,
+          text: `Successfully Retreived ${JSON.stringify(template, null, 2)}`,
         },
       ],
     };
@@ -251,7 +251,7 @@ mcpServer.registerTool(
         content: [
           {
             type: 'text',
-            text: `Successfully Deleted ${baseType} "${name}".`,
+            text: `Successfully Deleted ${baseType}'s "${id}, name ${name}".`,
           },
         ],
       };
