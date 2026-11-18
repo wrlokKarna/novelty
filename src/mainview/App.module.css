@@ -130,7 +130,7 @@
 }
 
 .rightActionsGroup {
-    display: flex;
+    display: none;
     align-items: center;
     gap: 4px;
     margin-left: 8px;
@@ -184,8 +184,8 @@
 }
 
 .topTabActive {
-    background-color: #252528 !important;
-    color: #ffffff !important;
+    background-color: #252528;
+    color: #ffffff;
 }
 
 /* Temporary Single-Click Preview Tab (Italicized Text) */
@@ -224,28 +224,28 @@
 
 /* Blue Box Highlight when Dragging Tab onto Center of Another Tab to Split into Tile */
 .topTabMergeHighlight {
-    background-color: rgba(43, 125, 233, 0.22) !important;
-    border: 1px solid #2b7de9 !important;
-    color: #ffffff !important;
+    background-color: rgba(43, 125, 233, 0.22);
+    border: 1px solid #2b7de9;
+    color: #ffffff;
     box-shadow: 0 0 8px rgba(43, 125, 233, 0.45);
 }
 
 /* Blue Theme Highlight for Selected/Active Tab inside a Paired Tile (Matching "Outline" Button Style) */
 .topTabPairedActive {
-    background-color: rgba(43, 125, 233, 0.14) !important;
-    border: 1px solid #2b7de9 !important;
-    color: #5294ff !important;
+    background-color: rgba(43, 125, 233, 0.14);
+    border: 1px solid #2b7de9;
+    color: #5294ff;
 }
 
 .topTabPairedActive .tabIcon {
-    color: #5294ff !important;
+    color: #5294ff;
     opacity: 1;
 }
 
 .topTabLinkingSource {
-    border: 1px dashed #2b7de9 !important;
-    background-color: rgba(43, 125, 233, 0.12) !important;
-    color: #ffffff !important;
+    border: 1px dashed #2b7de9;
+    background-color: rgba(43, 125, 233, 0.12);
+    color: #ffffff;
 }
 
 .tabIcon {
@@ -254,19 +254,32 @@
     flex-shrink: 0;
 }
 
+/* Close (X) icon hidden by default; visible only when tab is active/open, italic preview, or hovered */
 .tabCloseIcon {
     margin-left: 6px;
-    opacity: 0.55;
+    opacity: 0;
+    pointer-events: none;
     border-radius: 4px;
     padding: 2px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    transition:
+        opacity 0.12s ease,
+        background-color 0.12s ease;
+}
+
+.topTab:hover .tabCloseIcon,
+.topTabActive .tabCloseIcon,
+.topTabPairedActive .tabCloseIcon,
+.topTabPreview .tabCloseIcon {
+    opacity: 0.75;
+    pointer-events: auto;
 }
 
 .tabCloseIcon:hover {
-    opacity: 1;
-    background-color: rgba(255, 255, 255, 0.1);
+    opacity: 1 !important;
+    background-color: rgba(255, 255, 255, 0.12);
 }
 
 .addBtn {

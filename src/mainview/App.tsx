@@ -310,7 +310,7 @@ function App() {
     }, [activeDragId]);
 
     // Ensure every LeftPanel item row (Chapters, Characters, Locations, Organizations, Items, Lore)
-    // has draggable="true" and syncs italic preview state by exact list order (even when multiple entries share the same name like "Untitled Character")
+    // has draggable="true" and syncs italic preview state by exact list order
     useEffect(() => {
         const container = leftPanelContainerRef.current;
         if (!container) return;
@@ -344,7 +344,6 @@ function App() {
 
             if (entries.length === 0) return;
 
-            // Build per-name FIFO queues so duplicate names ("Untitled Character", etc.) map 1-to-1 in exact DOM order
             const queuesByName = new Map<
                 string,
                 { id: string; name: string }[]
@@ -4268,6 +4267,13 @@ function App() {
                 .left-sidebar-no-scrollbar * {
                     scrollbar-width: none !important;
                     -ms-overflow-style: none !important;
+                    user-select: none !important;
+                    -webkit-user-select: none !important;
+                }
+                .left-sidebar-no-scrollbar input,
+                .left-sidebar-no-scrollbar textarea {
+                    user-select: text !important;
+                    -webkit-user-select: text !important;
                 }
                 .left-sidebar-no-scrollbar::-webkit-scrollbar,
                 .left-sidebar-no-scrollbar *::-webkit-scrollbar {
@@ -4747,8 +4753,11 @@ function App() {
                             })}
                         </div>
 
-                        {/* Top-Right Action Buttons: Plus (+) on the left, Three-Dots (⋮) on the right */}
-                        <div className={styles.rightActionsGroup}>
+                        {/* Top-Right Action Buttons (Hidden via display: none, logic preserved) */}
+                        <div
+                            className={styles.rightActionsGroup}
+                            style={{ display: 'none' }}
+                        >
                             <button
                                 className={styles.addBtn}
                                 onClick={() => {
