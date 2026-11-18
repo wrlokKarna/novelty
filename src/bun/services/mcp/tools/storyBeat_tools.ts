@@ -54,7 +54,7 @@ mcpServer.registerTool(
   {
     title: 'Retrieve all story beats',
     description:
-      "Retrieves all available Story Beats within a project. Requires either an explicit projectId or the active/current project context. Use this to browse existing plot points, scene milestones, or narrative events, or to find a story beat's id before updating or retrieving its individual details.",
+      "Retrieves full details of all available Story Beats within a project. Requires either an explicit projectId or the active/current projectId. Use this to browse existing plot points, scene milestones, or narrative events, or to find a story beat's id before updating or retrieving its individual details.",
     inputSchema: z.object({
       projectId: z.string().describe('The ID of the project'),
     }),
@@ -95,7 +95,7 @@ mcpServer.registerTool(
   {
     title: 'Retrieve story_beat',
     description:
-      "Retrieves the full details of a specific Story Beat within a project. Requires projectId and either the story beat's id or title. Use this tool when inspecting a single plot point, scene milestone, or narrative event.",
+      "Retrieves the full details of a specific Story Beat within a project. Requires projectId or take current projectId if not provided and either the story beat's id or title. Use this tool when inspecting a single plot point, scene milestone, or narrative event.If the ID or exact title is unknown, list the project's story beats first.",
     inputSchema: z.object({
       id: z.string().describe('The ID of the story beat'),
       title: z.string().describe('The title of the story beat'),
@@ -136,7 +136,7 @@ mcpServer.registerTool(
   'update_story_beat',
   {
     title: 'Update Story beat',
-    description: "Updates an existing Story Beat within a project. Requires projectId and either the story beat's id or title. Use this tool when modifying a plot point, scene milestone, or narrative event (such as its beat type, title, or description). If the id or exact title is unknown, use the list story beats tool first to retrieve it.",
+    description: "Updates an existing Story Beat within a project. Requires projectId or take current projectId if not provided and either the story beat's id or title. Use this tool when modifying a plot point, scene milestone, or narrative event (such as its beat type, title, or description). If the id or exact title is unknown, use the list story beats tool first to retrieve it.",
     inputSchema: z.object({
       id: z
         .string()
@@ -200,7 +200,7 @@ mcpServer.registerTool(
   {
     title: 'Delete Story beat',
     description:
-      "Permanently deletes a specific Story Beat from a project. Requires projectId and either the story beat's id or title. Use only when explicitly removing an existing plot point, scene milestone, or narrative event—if the ID or exact title is unknown, list the project's story beats first to confirm the target before deleting.",
+      "Permanently deletes a specific Story Beat from a project. Requires projectId and either the story beat's id or title. Use only when explicitly removing an existing plot point, scene milestone, or narrative event.If the ID or exact title is unknown, list the project's story beats first to confirm the target before deleting.",
     inputSchema: z.object({
       id: z
         .string()

@@ -56,7 +56,7 @@ mcpServer.registerTool(
   'get_plot_thread',
   {
     title: 'Retreive Plot Thread',
-    description: "Retrieves the full details of a specific Plot Thread within a project. Requires projectId and either the plot thread's id or title. Use this tool when inspecting a single storyline, subplot, or narrative arc.",
+    description: "Retrieves the full details of a specific Plot Thread within a project. Requires projectId or take current projectId if not provided and either the plot thread's id or title. Use this tool when inspecting a single storyline, subplot, or narrative arc.If the id or exact title is unknown, use the list plot threads tool first to retrieve it.",
     inputSchema: z.object({
       id: z.string().describe('The id of the plot thread'),
       title: z.string().describe('The title of the plot thread')
@@ -92,7 +92,7 @@ mcpServer.registerTool(
   'list_plot_threads',
   {
     title: 'Retreive Plot Thread',
-    description: "Retrieves all available Plot Threads within a project. Requires either an explicit projectId or the active/current project context. Use this to browse existing storylines, subplots, and narrative arcs, or to find a plot thread's id before updating or retrieving its individual details.",
+    description: "Retrieves full details of all available Plot Threads within a project. Requires either an explicit projectId or the active/current projectId. Use this to browse existing storylines, subplots, and narrative arcs, or to find a plot thread's id before updating or retrieving its individual details.",
     inputSchema: z.object({
       projectId: z.string().describe('The id of the project'),
     }),
@@ -130,7 +130,7 @@ mcpServer.registerTool(
   'update_plot_thread',
   {
     title: 'Update Plot Thread',
-    description: "Updates an existing Plot Thread within a project. Requires projectId and either the color,threadType,plot thread's id or title. Use this tool when modifying a storyline, subplot, character arc, or narrative thread (such as its thread type, title, or description). If the id or exact title is unknown, use the list plot threads tool first to retrieve it.",
+    description: "Updates an existing Plot Thread within a project. Requires projectId or take current projectId if not provided and either the color,threadType,plot thread's id or title. Use this tool when modifying a storyline, subplot, character arc, or narrative thread (such as its thread type, title, or description). If the id or exact title is unknown, use the list plot threads tool first to retrieve it.",
     inputSchema: z.object({
       title: z
         .string()
@@ -197,7 +197,7 @@ mcpServer.registerTool(
   'delete_plot_thread',
   {
     title: 'Delete Plot Thread',
-    description: "Permanently deletes a specific Plot Thread from a project. Requires projectId and either the plot thread's id or title. Use only when explicitly removing an existing storyline, subplot, or narrative arc—if the ID or exact title is unknown, list the project's plot threads first to confirm the target before deleting.",
+    description: "Permanently deletes a specific Plot Thread from a project. Requires projectId and either the plot thread's id or title. Use only when explicitly removing an existing storyline, subplot, or narrative arc.If the ID or exact title is unknown, list the project's plot threads first to confirm the target before deleting.",
     inputSchema: z.object({
       id: z.string().describe('The id of the plot thread'),
       title: z

@@ -71,7 +71,7 @@ mcpServer.registerTool(
   {
     title: 'Update Compendium',
     description:
-      "Updates an existing Compendium entity (character, location, organization, item, or lore) within a project. Requires the name,projectId, entity base type, and id. Use when modifying existing world-building entries. If the entity ID is unknown, use the list compendium tool first to retrieve it.",
+      "Updates an existing Compendium entity (character, location, organization, item, or lore) within a project. Requires the name,projectId or take current projectId if not provided, entity base type, and id. Use when modifying existing world-building entries. If the entity ID is unknown, use the list compendium tool first to retrieve it.",
     inputSchema: z.object({
       name: z.string().describe('The primary name of the Compendium'),
       projectId: z.string().describe('The ID of the project'),
@@ -132,13 +132,12 @@ mcpServer.registerTool(
   {
     title: 'Retrive Compendium',
     description:
-      "Retrieves the full details of a specific Compendium entity (character, location, organization, item, or lore) within a project. Requires projectId, baseType, and either the id or name. Use this when inspecting a single world-building entry.",
+      "Retrieves the full details of a specific Compendium entity (character, location, organization, item, or lore) within a project. Requires projectId or take current projectId if not provided, baseType, and either the id or name. Use this when inspecting a single world-building entry.If the entity ID is unknown, use the list compendium entities tool first to retrieve it",
     inputSchema: z.object({
       name: z
         .string()
         .optional()
         .describe('The primary name of the Compendium'),
-      projectId: z.string().describe('The ID of the project'),
       id: z
         .string()
         .describe('The unique ID of the Compendium to update'),
@@ -147,10 +146,7 @@ mcpServer.registerTool(
       ),
     }),
   },
-  async ({ id, projectId, name, baseType }) => {
-    console.log(
-      `[calling getCompendium] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
-    );
+  async ({ id, name, baseType }) => {
 
     const template = await getCompendiumById(id, baseType);
 
@@ -182,7 +178,7 @@ mcpServer.registerTool(
   {
     title: 'Retrive Compendium',
     description:
-      "Retrieves all Compendium entities of a specific base type (character, location, organization, item, or lore) within a project. Requires baseType and either an explicit projectId or the active/current project context. Use this to browse existing entries or to find an entity's id before updating or retrieving its individual details.",
+      "Retrieves full details of all Compendium entities of a specific base type (character, location, organization, item, or lore) within a project. Requires baseType and either an explicit projectId or the active/current projectId. Use this to browse existing entries or to find an entity's id before updating or retrieving its individual details.",
     inputSchema: z.object({
       projectId: z.string().describe('The ID of the project'),
       baseType: compendiumCategoryEnum.describe(
