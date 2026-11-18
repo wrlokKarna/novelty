@@ -10,7 +10,7 @@ import {
     IconArrowBarToLeft,
     IconArrowBarToRight,
     IconBook,
-    IconBuildingCastle,
+    IconBuilding,
     IconChevronLeft,
     IconDotsVertical,
     IconFiles,
@@ -22,7 +22,7 @@ import {
     IconPlus,
     IconSwords,
     IconTrash,
-    IconUsers,
+    IconUser,
     IconX,
 } from '@tabler/icons-react';
 import type {
@@ -148,6 +148,18 @@ function App() {
     const [currentProject, setCurrentProject] = useState<Project | null>(null);
     const [openTabs, setOpenTabs] = useState<FileTab[]>([]);
     const [activeTabId, setActiveTabId] = useState<string | null>(null);
+    const tabActivationHistoryRef = useRef<string[]>([]);
+
+    // Record every tab visit in most-recently-visited order so closing/deleting returns to the exact previously viewed tab
+    useEffect(() => {
+        if (!activeTabId) return;
+        const hist = tabActivationHistoryRef.current.filter(
+            (id) => id !== activeTabId
+        );
+        hist.push(activeTabId);
+        tabActivationHistoryRef.current = hist;
+    }, [activeTabId]);
+
     const openTabIds = useMemo(
         () => new Set(openTabs.map((tab) => tab.id)),
         [openTabs]
@@ -263,6 +275,7 @@ function App() {
     const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
     const editorAreaRef = useRef<HTMLDivElement>(null);
     const leftPanelContainerRef = useRef<HTMLDivElement>(null);
+    const tabDragScrollDirRef = useRef<-1 | 0 | 1>(0);
 
     const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
     const [draggedSidebarItem, setDraggedSidebarItem] =
@@ -277,7 +290,27 @@ function App() {
 
     const activeDragId = draggedTabId || draggedSidebarItem?.id || null;
 
-    // Ensure every LeftPanel item row has draggable="true" and syncs italic preview state on single-click vs normal on double-click
+    // Continuous smooth edge-scroll when dragging a tab near the left or right edge of the top tab bar
+    useEffect(() => {
+        if (!activeDragId) {
+            tabDragScrollDirRef.current = 0;
+            return;
+        }
+        let animId: number;
+        const step = () => {
+            const dir = tabDragScrollDirRef.current;
+            const container = tabsGroupRef.current;
+            if (dir !== 0 && container) {
+                container.scrollLeft += dir * 9;
+            }
+            animId = requestAnimationFrame(step);
+        };
+        animId = requestAnimationFrame(step);
+        return () => cancelAnimationFrame(animId);
+    }, [activeDragId]);
+
+    // Ensure every LeftPanel item row (Chapters, Characters, Locations, Organizations, Items, Lore)
+    // has draggable="true" and syncs italic preview state by exact list order (even when multiple entries share the same name like "Untitled Character")
     useEffect(() => {
         const container = leftPanelContainerRef.current;
         if (!container) return;
@@ -287,7 +320,7 @@ function App() {
                 explorerTab === 'chapters'
                     ? chapters.map((c) => ({
                           id: c.id,
-                          name: c.title.trim(),
+                          name: (c.title || '').trim(),
                       }))
                     : (
                           {
@@ -299,10 +332,9 @@ function App() {
                           }[explorerTab] || []
                       ).map((e) => ({
                           id: e.id,
-                          name: e.name.trim(),
+                          name: (e.name || '').trim(),
                       }));
 
-            // Clear old italic markers first
             container
                 .querySelectorAll<HTMLElement>('.sidebar-item-preview-italic')
                 .forEach((el) => {
@@ -312,7 +344,19 @@ function App() {
 
             if (entries.length === 0) return;
 
-            // Walk text nodes inside LeftPanel so icons/badges inside the row don't break matching
+            // Build per-name FIFO queues so duplicate names ("Untitled Character", etc.) map 1-to-1 in exact DOM order
+            const queuesByName = new Map<
+                string,
+                { id: string; name: string }[]
+            >();
+            for (const entry of entries) {
+                if (!entry.name) continue;
+                const q = queuesByName.get(entry.name) || [];
+                q.push(entry);
+                queuesByName.set(entry.name, q);
+            }
+
+            const seenRows = new Set<HTMLElement>();
             const walker = document.createTreeWalker(
                 container,
                 NodeFilter.SHOW_TEXT
@@ -322,18 +366,25 @@ function App() {
                 const text = node.nodeValue?.trim();
                 if (!text) continue;
 
-                const matched = entries.find((e) => e.name === text);
-                if (!matched) continue;
+                const queue = queuesByName.get(text);
+                if (!queue || queue.length === 0) continue;
 
                 const textParent = node.parentElement;
                 if (!textParent || textParent.closest('input, textarea'))
                     continue;
 
-                // Find the clickable row wrapper
                 const rowEl =
                     (textParent.closest(
                         'li, [role="treeitem"], [role="button"], button, a, [data-item-id]'
                     ) as HTMLElement | null) || textParent;
+
+                if (seenRows.has(rowEl)) continue;
+                seenRows.add(rowEl);
+
+                const explicitId = rowEl.getAttribute('data-item-id');
+                const matched = explicitId
+                    ? entries.find((e) => e.id === explicitId) || queue.shift()!
+                    : queue.shift()!;
 
                 if (rowEl.getAttribute('draggable') !== 'true') {
                     rowEl.setAttribute('draggable', 'true');
@@ -366,9 +417,38 @@ function App() {
         loreEntries,
         explorerTab,
         previewTabId,
-        activeTabId,
         isCollapsed,
         isLeftHovered,
+    ]);
+
+    // Keep sidebar scroll/cursor focused on the last clicked/previewed item after deleting another item
+    useEffect(() => {
+        const targetId = previewTabId || activeTabId;
+        if (!targetId) return;
+        const container = leftPanelContainerRef.current;
+        if (!container) return;
+
+        const rafId = requestAnimationFrame(() => {
+            const targetRow = container.querySelector<HTMLElement>(
+                `[data-sidebar-bound-id="${targetId}"], [data-item-id="${targetId}"]`
+            );
+            if (targetRow) {
+                targetRow.scrollIntoView({
+                    block: 'nearest',
+                    inline: 'nearest',
+                });
+            }
+        });
+        return () => cancelAnimationFrame(rafId);
+    }, [
+        chapters.length,
+        characters.length,
+        locations.length,
+        organizations.length,
+        items.length,
+        loreEntries.length,
+        previewTabId,
+        activeTabId,
     ]);
 
     // Only scroll the tab bar when activeTabId actually changes and is clipped out of view
@@ -493,7 +573,6 @@ function App() {
         const target = e.target as HTMLElement | null;
         if (!target) return;
 
-        // 1. Check explicit data attributes (from LeftPanel or MutationObserver)
         const dataEl = target.closest(
             '[data-item-id], [data-sidebar-bound-id]'
         ) as HTMLElement | null;
@@ -525,7 +604,6 @@ function App() {
             }
         }
 
-        // 2. Fallback: match rendered label text against current explorerTab list
         const draggableEl = target.closest(
             '[draggable="true"]'
         ) as HTMLElement | null;
@@ -583,6 +661,7 @@ function App() {
     };
 
     const handleLeftPanelDragEndCapture = () => {
+        tabDragScrollDirRef.current = 0;
         setDraggedSidebarItem(null);
         setTabDropTarget(null);
         setEditorDropZone(null);
@@ -599,13 +678,35 @@ function App() {
         e.dataTransfer.setData('text/plain', tabId);
     };
 
+    const updateTabDragAutoScroll = (clientX: number) => {
+        const container = tabsGroupRef.current;
+        if (!container) {
+            tabDragScrollDirRef.current = 0;
+            return;
+        }
+        const rect = container.getBoundingClientRect();
+        const edgeThreshold = 48;
+        if (clientX - rect.left < edgeThreshold) {
+            tabDragScrollDirRef.current = -1;
+        } else if (rect.right - clientX < edgeThreshold) {
+            tabDragScrollDirRef.current = 1;
+        } else {
+            tabDragScrollDirRef.current = 0;
+        }
+    };
+
     const handleTabDragOver = (
         targetTab: FileTab,
         e: React.DragEvent<HTMLElement>
     ) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        if (!activeDragId || activeDragId === targetTab.id) return;
+        updateTabDragAutoScroll(e.clientX);
+
+        if (!activeDragId || activeDragId === targetTab.id) {
+            if (tabDropTarget) setTabDropTarget(null);
+            return;
+        }
 
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         const relX = (e.clientX - rect.left) / rect.width;
@@ -642,6 +743,7 @@ function App() {
         e.preventDefault();
         e.stopPropagation();
 
+        tabDragScrollDirRef.current = 0;
         const currentMode =
             tabDropTarget?.tabId === targetTab.id
                 ? tabDropTarget.mode
@@ -716,32 +818,78 @@ function App() {
         });
     };
 
-    // Allow dropping a left-sidebar item anywhere on the top tab bar
+    // Enable edge auto-scroll across the whole top tab bar & allow dropping tabs/sidebar items into the end/empty area of the tab bar
     const handleTabsContainerDragOver = (
         e: React.DragEvent<HTMLDivElement>
     ) => {
-        if (!draggedSidebarItem) return;
+        if (!activeDragId) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
+        updateTabDragAutoScroll(e.clientX);
+
+        const lastTab = openTabs[openTabs.length - 1];
+        if (
+            lastTab &&
+            lastTab.id !== activeDragId &&
+            e.target === tabsGroupRef.current
+        ) {
+            setTabDropTarget((prev) =>
+                prev?.tabId === lastTab.id && prev?.mode === 'after'
+                    ? prev
+                    : { tabId: lastTab.id, mode: 'after' }
+            );
+        }
+    };
+
+    const handleTabsContainerDragLeave = (
+        e: React.DragEvent<HTMLDivElement>
+    ) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+            tabDragScrollDirRef.current = 0;
+            setTabDropTarget(null);
+        }
     };
 
     const handleTabsContainerDrop = async (
         e: React.DragEvent<HTMLDivElement>
     ) => {
-        if (!draggedSidebarItem) return;
-        e.preventDefault();
-        e.stopPropagation();
+        tabDragScrollDirRef.current = 0;
         const sidebarItem = draggedSidebarItem;
+        const sourceTabId =
+            draggedTabId || e.dataTransfer.getData('text/plain');
+
         setDraggedSidebarItem(null);
+        setDraggedTabId(null);
         setTabDropTarget(null);
         setEditorDropZone(null);
 
-        const openedId = await ensureSidebarItemOpenedAsTab(sidebarItem);
-        setIsScratchOpen(false);
-        setActiveTabId(openedId);
+        if (sidebarItem) {
+            e.preventDefault();
+            e.stopPropagation();
+            const openedId = await ensureSidebarItemOpenedAsTab(sidebarItem);
+            setIsScratchOpen(false);
+            setActiveTabId(openedId);
+            return;
+        }
+
+        if (sourceTabId) {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpenTabs((prev) => {
+                const sourceIndex = prev.findIndex((t) => t.id === sourceTabId);
+                if (sourceIndex === -1 || sourceIndex === prev.length - 1) {
+                    return prev;
+                }
+                const updated = [...prev];
+                const [moved] = updated.splice(sourceIndex, 1);
+                updated.push(moved);
+                return updated;
+            });
+        }
     };
 
     const handleTabDragEnd = () => {
+        tabDragScrollDirRef.current = 0;
         setDraggedTabId(null);
         setDraggedSidebarItem(null);
         setTabDropTarget(null);
@@ -752,8 +900,8 @@ function App() {
         if (!activeDragId) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
+        tabDragScrollDirRef.current = 0;
 
-        // If dragging the currently active single tab while viewing it, only allow center full-screen (no left/right split)
         const currentTab = getActiveTab();
         const isCurrentSingleTab =
             !isScratchOpen &&
@@ -790,9 +938,17 @@ function App() {
         e.preventDefault();
         e.stopPropagation();
 
+        tabDragScrollDirRef.current = 0;
         const sidebarItem = draggedSidebarItem;
         const sourceId = activeDragId;
         const zone = editorDropZone || 'center';
+
+        const currentTab = getActiveTab();
+        const isCurrentSingleTab =
+            !isScratchOpen &&
+            currentTab &&
+            currentTab.id === sourceId &&
+            !getLinkedPartner(currentTab.id);
 
         setDraggedTabId(null);
         setDraggedSidebarItem(null);
@@ -804,13 +960,18 @@ function App() {
         }
         promoteTabToPermanent(sourceId);
 
-        const currentTab = getActiveTab();
+        // Dragging the active single tab into the middle of the editor activates "Add Tile" linking mode!
+        if (isCurrentSingleTab && zone === 'center') {
+            if (currentTab.type !== 'plot-architecture') {
+                handleStartLinking(sourceId);
+            }
+            return;
+        }
+
         const existingPair = currentTab
             ? getLinkedPartner(currentTab.id)
             : null;
 
-        // If two tabs are currently tiled side-by-side and user drops a sidebar/tab item onto left/right tile,
-        // replace that specific tile pane while keeping the other tile intact!
         if (existingPair && (zone === 'left' || zone === 'right')) {
             const keptId =
                 zone === 'left'
@@ -903,13 +1064,11 @@ function App() {
     const renderTabIcon = (type: FileTab['type']) => {
         switch (type) {
             case 'character':
-                return <IconUsers size={14} className={styles.tabIcon} />;
+                return <IconUser size={14} className={styles.tabIcon} />;
             case 'location':
                 return <IconMapPin size={14} className={styles.tabIcon} />;
             case 'organization':
-                return (
-                    <IconBuildingCastle size={14} className={styles.tabIcon} />
-                );
+                return <IconBuilding size={14} className={styles.tabIcon} />;
             case 'item':
                 return <IconSwords size={14} className={styles.tabIcon} />;
             case 'lore':
@@ -1121,6 +1280,47 @@ function App() {
     // =========================================================================
     // CLOSE TAB, CLOSE RIGHT TABS, CLOSE LEFT TABS, CLOSE ALL TABS HANDLERS
     // =========================================================================
+    // Returns to the most recently visited open tab (e.g., clicked Ch 8 -> clicked Ch 10 -> delete Ch 10 -> returns to Ch 8)
+    const getNextActiveTabIdAfterClosing = (
+        currentTabs: FileTab[],
+        closeSet: Set<string>,
+        currentActiveId: string | null
+    ): string | null => {
+        tabActivationHistoryRef.current =
+            tabActivationHistoryRef.current.filter((id) => !closeSet.has(id));
+
+        if (!currentActiveId || !closeSet.has(currentActiveId)) {
+            return currentActiveId;
+        }
+
+        const remainingIds = new Set(
+            currentTabs.filter((t) => !closeSet.has(t.id)).map((t) => t.id)
+        );
+
+        // 1. Check most-recently-visited history first
+        for (let i = tabActivationHistoryRef.current.length - 1; i >= 0; i--) {
+            const candidateId = tabActivationHistoryRef.current[i];
+            if (remainingIds.has(candidateId)) {
+                return candidateId;
+            }
+        }
+
+        // 2. Fallback to the tab immediately before the closed tab
+        const closedIdx = currentTabs.findIndex(
+            (t) => t.id === currentActiveId
+        );
+        if (closedIdx > 0) {
+            for (let i = closedIdx - 1; i >= 0; i--) {
+                if (!closeSet.has(currentTabs[i].id)) {
+                    return currentTabs[i].id;
+                }
+            }
+        }
+
+        const remaining = currentTabs.filter((t) => !closeSet.has(t.id));
+        return remaining.length > 0 ? remaining[0].id : null;
+    };
+
     const closeMultipleTabs = (idsToClose: string[]) => {
         if (idsToClose.length === 0) {
             setTileMenuState(null);
@@ -1139,9 +1339,7 @@ function App() {
             return next;
         });
 
-        if (previewTabId && closeSet.has(previewTabId)) {
-            setPreviewTabId(null);
-        }
+        setPreviewTabId((prev) => (prev && closeSet.has(prev) ? null : prev));
 
         idsToClose.forEach((id) => {
             delete tabRefs.current[id];
@@ -1163,14 +1361,15 @@ function App() {
             return copy;
         });
 
-        const remainingTabs = openTabs.filter((t) => !closeSet.has(t.id));
-        setOpenTabs(remainingTabs);
-
-        if (activeTabId && closeSet.has(activeTabId)) {
-            setActiveTabId(
-                remainingTabs.length > 0 ? remainingTabs[0].id : null
+        setOpenTabs((prevTabs) => {
+            const updatedTabs = prevTabs.filter((t) => !closeSet.has(t.id));
+            setActiveTabId((prevActiveId) =>
+                getNextActiveTabIdAfterClosing(prevTabs, closeSet, prevActiveId)
             );
-        }
+            return updatedTabs.length === prevTabs.length
+                ? prevTabs
+                : updatedTabs;
+        });
 
         setTileMenuState(null);
     };
@@ -1414,6 +1613,7 @@ function App() {
         if (project) {
             const savedState = loadProjectTabs(project.id);
 
+            tabActivationHistoryRef.current = [];
             setCurrentProject(project);
             setOpenTabs(savedState?.tabs || []);
             setActiveTabId(savedState?.activeTabId || null);
@@ -1791,10 +1991,11 @@ function App() {
                 setOpenTabs((prev) => [...prev, newTab]);
                 setPreviewTabId(null);
             } else {
+                const replacedPreviewId = previewTabId;
                 setOpenTabs((prev) => {
-                    if (previewTabId) {
+                    if (replacedPreviewId) {
                         const previewIdx = prev.findIndex(
-                            (t) => t.id === previewTabId
+                            (t) => t.id === replacedPreviewId
                         );
                         if (previewIdx !== -1) {
                             const updated = [...prev];
@@ -1804,6 +2005,12 @@ function App() {
                     }
                     return [...prev, newTab];
                 });
+                if (replacedPreviewId) {
+                    tabActivationHistoryRef.current =
+                        tabActivationHistoryRef.current.filter(
+                            (id) => id !== replacedPreviewId
+                        );
+                }
                 setPreviewTabId(chapter.id);
             }
         }
@@ -1843,9 +2050,17 @@ function App() {
             return;
         }
         if (activeTabId === existing.id) {
-            const newTabs = openTabs.filter((t) => t.id !== existing.id);
-            setOpenTabs(newTabs);
-            setActiveTabId(newTabs.length > 0 ? newTabs[0].id : null);
+            const closeSet = new Set([existing.id]);
+            setOpenTabs((prevTabs) => {
+                setActiveTabId((prevActiveId) =>
+                    getNextActiveTabIdAfterClosing(
+                        prevTabs,
+                        closeSet,
+                        prevActiveId
+                    )
+                );
+                return prevTabs.filter((t) => t.id !== existing.id);
+            });
         } else {
             setIsScratchOpen(false);
             setActiveTabId(existing.id);
@@ -2021,10 +2236,11 @@ function App() {
                         setOpenTabs((prev) => [...prev, newTab]);
                         setPreviewTabId(null);
                     } else {
+                        const replacedPreviewId = previewTabId;
                         setOpenTabs((prev) => {
-                            if (previewTabId) {
+                            if (replacedPreviewId) {
                                 const previewIdx = prev.findIndex(
-                                    (t) => t.id === previewTabId
+                                    (t) => t.id === replacedPreviewId
                                 );
                                 if (previewIdx !== -1) {
                                     const updated = [...prev];
@@ -2034,6 +2250,12 @@ function App() {
                             }
                             return [...prev, newTab];
                         });
+                        if (replacedPreviewId) {
+                            tabActivationHistoryRef.current =
+                                tabActivationHistoryRef.current.filter(
+                                    (id) => id !== replacedPreviewId
+                                );
+                        }
                         setPreviewTabId(entryId);
                     }
                 }
@@ -2942,47 +3164,41 @@ function App() {
         tabId: string,
         _category: CompendiumCategory
     ) {
-        setOpenTabs((prev) => {
-            const next = prev.filter((t) => t.id !== tabId);
-            setActiveTabId((curr) =>
-                curr === tabId ? (next.length > 0 ? next[0].id : null) : curr
+        const closeSet = new Set([tabId]);
+        setOpenTabs((prevTabs) => {
+            const updatedTabs = prevTabs.filter((t) => t.id !== tabId);
+            if (updatedTabs.length === prevTabs.length) return prevTabs;
+            setActiveTabId((prevActiveId) =>
+                getNextActiveTabIdAfterClosing(prevTabs, closeSet, prevActiveId)
             );
-            return next;
+            return updatedTabs;
         });
     }
 
     const handleCloseTab = (id: string, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
         setTileMenuState(null);
-        if (previewTabId === id) {
-            setPreviewTabId(null);
-        }
-        if (linkingSourceId === id) {
-            setLinkingSourceId(null);
-        }
+        setPreviewTabId((prev) => (prev === id ? null : prev));
+        setLinkingSourceId((prev) => (prev === id ? null : prev));
         handleUnlinkChapter(id);
         delete tabRefs.current[id];
-        const tab = openTabs.find((t) => t.id === id);
-        if (
-            tab &&
-            tab.type !== 'chapter' &&
-            tab.type !== 'file' &&
-            tab.type !== 'plot-architecture'
-        ) {
-            handleCloseCompendiumTab(id, tab.type as CompendiumCategory);
-        } else {
-            const wasActive = activeTabId === id;
-            const newTabs = openTabs.filter((t) => t.id !== id);
-            setOpenTabs(newTabs);
-            setTabContents((prev) => {
-                const copy = { ...prev };
-                delete copy[id];
-                return copy;
-            });
-            if (wasActive) {
-                setActiveTabId(newTabs.length > 0 ? newTabs[0].id : null);
-            }
-        }
+
+        const closeSet = new Set([id]);
+        setTabContents((prev) => {
+            if (!(id in prev)) return prev;
+            const copy = { ...prev };
+            delete copy[id];
+            return copy;
+        });
+
+        setOpenTabs((prevTabs) => {
+            const updatedTabs = prevTabs.filter((t) => t.id !== id);
+            if (updatedTabs.length === prevTabs.length) return prevTabs;
+            setActiveTabId((prevActiveId) =>
+                getNextActiveTabIdAfterClosing(prevTabs, closeSet, prevActiveId)
+            );
+            return updatedTabs;
+        });
     };
 
     async function handleDeleteCompendiumEntry(
@@ -3027,7 +3243,9 @@ function App() {
                 return copy;
             });
 
-            handleCloseTab(entryId);
+            if (openTabIds.has(entryId)) {
+                handleCloseTab(entryId);
+            }
         } catch (e) {
             console.error('Failed to delete entry:', e);
         }
@@ -4046,6 +4264,18 @@ function App() {
                 .sidebar-item-preview-italic * {
                     font-style: italic !important;
                 }
+                .left-sidebar-no-scrollbar,
+                .left-sidebar-no-scrollbar * {
+                    scrollbar-width: none !important;
+                    -ms-overflow-style: none !important;
+                }
+                .left-sidebar-no-scrollbar::-webkit-scrollbar,
+                .left-sidebar-no-scrollbar *::-webkit-scrollbar {
+                    width: 0 !important;
+                    height: 0 !important;
+                    display: none !important;
+                    background: transparent !important;
+                }
             `}</style>
             <TitleBar
                 isCollapsed={isCollapsed}
@@ -4098,6 +4328,7 @@ function App() {
             <main className="editor-workspace flex-container">
                 <div
                     ref={leftPanelContainerRef}
+                    className="left-sidebar-no-scrollbar"
                     style={{ display: 'contents' }}
                     onDragStartCapture={handleLeftPanelDragStartCapture}
                     onDragEndCapture={handleLeftPanelDragEndCapture}
@@ -4153,7 +4384,9 @@ function App() {
                         deleteChapter={(c) => {
                             rpc.request['db:delete-chapter'](c.id).then(() => {
                                 loadChapters(currentProject!.id);
-                                handleCloseTab(c.id);
+                                if (openTabIds.has(c.id)) {
+                                    handleCloseTab(c.id);
+                                }
                             });
                         }}
                         renameEntry={renameExplorerEntry}
@@ -4195,6 +4428,7 @@ function App() {
                         className={styles.topContainer}
                         onClick={() => setTileMenuState(null)}
                         onDragOver={handleTabsContainerDragOver}
+                        onDragLeave={handleTabsContainerDragLeave}
                         onDrop={handleTabsContainerDrop}
                     >
                         <button

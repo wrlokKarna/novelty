@@ -108,7 +108,7 @@
     width: 1px;
     height: 16px;
     background-color: #26262a;
-    margin: 0 8px 0 6px;
+    margin: 0 4px 0 6px;
     flex-shrink: 0;
 }
 
@@ -120,7 +120,8 @@
     overflow-y: hidden;
     flex: 1 1 auto;
     min-width: 0;
-    padding-right: 6px;
+    padding-left: 6px;
+    padding-right: 14px;
     scrollbar-width: none;
 }
 
@@ -196,27 +197,29 @@
 .topTabInsertBefore::before {
     content: '';
     position: absolute;
-    left: -4px;
+    left: -5px;
     top: 2px;
     bottom: 2px;
-    width: 2px;
+    width: 3px;
     background-color: #2b7de9;
     border-radius: 2px;
-    box-shadow: 0 0 6px rgba(43, 125, 233, 0.8);
+    box-shadow: 0 0 8px rgba(43, 125, 233, 0.95);
     z-index: 30;
+    pointer-events: none;
 }
 
 .topTabInsertAfter::after {
     content: '';
     position: absolute;
-    right: -4px;
+    right: -5px;
     top: 2px;
     bottom: 2px;
-    width: 2px;
+    width: 3px;
     background-color: #2b7de9;
     border-radius: 2px;
-    box-shadow: 0 0 6px rgba(43, 125, 233, 0.8);
+    box-shadow: 0 0 8px rgba(43, 125, 233, 0.95);
     z-index: 30;
+    pointer-events: none;
 }
 
 /* Blue Box Highlight when Dragging Tab onto Center of Another Tab to Split into Tile */
