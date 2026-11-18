@@ -1105,7 +1105,6 @@ function App() {
 
     const leftScrollRef = useRef<HTMLDivElement>(null);
     const rightScrollRef = useRef<HTMLDivElement>(null);
-    const isScrollingRef = useRef<boolean>(false);
 
     useEffect(() => {
         if (!isTileResizing) return;
@@ -1172,36 +1171,6 @@ function App() {
             window.removeEventListener('click', handleGlobalClick);
         };
     }, [linkingSourceId]);
-
-    const handleScrollSync = (source: 'left' | 'right') => {
-        if (isScrollingRef.current) return;
-        isScrollingRef.current = true;
-
-        const leftElem = leftScrollRef.current;
-        const rightElem = rightScrollRef.current;
-
-        if (leftElem && rightElem) {
-            if (source === 'left') {
-                const maxLeft =
-                    leftElem.scrollHeight - leftElem.clientHeight || 1;
-                const percentage = leftElem.scrollTop / maxLeft;
-                rightElem.scrollTop =
-                    percentage *
-                    (rightElem.scrollHeight - rightElem.clientHeight);
-            } else {
-                const maxRight =
-                    rightElem.scrollHeight - rightElem.clientHeight || 1;
-                const percentage = rightElem.scrollTop / maxRight;
-                leftElem.scrollTop =
-                    percentage *
-                    (leftElem.scrollHeight - leftElem.clientHeight);
-            }
-        }
-
-        setTimeout(() => {
-            isScrollingRef.current = false;
-        }, 50);
-    };
 
     const handleStartLinking = (itemId: string, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
@@ -3963,7 +3932,6 @@ function App() {
                                     setActiveTabId(linkedPair.source.id);
                                 }
                             }}
-                            onScroll={() => handleScrollSync('left')}
                         >
                             <div className={styles.paneHeaderRow}>
                                 <span className={styles.paneTitleBadge}>
@@ -3972,6 +3940,7 @@ function App() {
                                 {focusedTileSide === 'left' && (
                                     <button
                                         className={styles.paneUnlinkSmallBtn}
+                                        style={{ display: 'none' }}
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleUnlinkChapter(
@@ -4003,6 +3972,7 @@ function App() {
                             {isCenterHovered && !isTileResizing && (
                                 <button
                                     className={styles.hoverUnlinkBtn}
+                                    style={{ display: 'none' }}
                                     onMouseDown={(e) => e.stopPropagation()}
                                     onClick={() =>
                                         handleUnlinkChapter(
@@ -4027,7 +3997,6 @@ function App() {
                                     setActiveTabId(linkedPair.target.id);
                                 }
                             }}
-                            onScroll={() => handleScrollSync('right')}
                         >
                             <div className={styles.paneHeaderRow}>
                                 <span className={styles.paneTitleBadge}>
@@ -4036,6 +4005,7 @@ function App() {
                                 {focusedTileSide === 'right' && (
                                     <button
                                         className={styles.paneUnlinkSmallBtn}
+                                        style={{ display: 'none' }}
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleUnlinkChapter(

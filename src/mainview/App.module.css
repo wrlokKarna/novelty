@@ -496,7 +496,9 @@
     width: 3px;
 }
 
+/* Hidden inside tiled workspace per user request */
 .hoverUnlinkBtn {
+    display: none;
     position: absolute;
     background: #1e1e22;
     border: 1px solid #2b7de9;
@@ -563,7 +565,9 @@
     letter-spacing: 0.5px;
 }
 
+/* Hidden inside tiled workspace per user request */
 .paneUnlinkSmallBtn {
+    display: none;
     background: #1e1e22;
     border: 1px solid #323238;
     color: #98989f;
