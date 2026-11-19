@@ -211,6 +211,23 @@ mcpServer.registerTool(
     );
     console.log('Compendium Retreived ', result);
 
+    result?.forEach((et => {
+
+      for (const r in et.templateData) {
+        const value = et.templateData[r];
+
+        if (typeof value === "string" && value.startsWith("data:image/png;base64")) {
+          // Replace the value for that specific key
+          et.templateData[r] = "image";
+          console.log(r)
+        }
+        if (Array.isArray(value) && value.some(item => typeof item === "string" && item.startsWith("data:image/png;base64"))) {
+          et.templateData[r] = "image";
+          console.log(r)
+        }
+      }
+    }))
+
     if (!result) {
       return {
         content: [

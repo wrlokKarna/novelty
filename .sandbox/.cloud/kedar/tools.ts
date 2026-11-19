@@ -86,6 +86,69 @@ mcpServer.registerTool(
 );
 
 mcpServer.registerTool(
+    'list_compendium_entities',
+    {
+        title: 'Retrive Compendium',
+        description:
+            "Retrieves full details of all Compendium entities of a specific base type (character, location, organization, item, or lore) within a project. Requires baseType and either an explicit projectId or the active/current projectId. Use this to browse existing entries or to find an entity's id before updating or retrieving its individual details.",
+        inputSchema: z.object({
+            projectId: z.string().describe('The ID of the project'),
+            baseType: compendiumCategoryEnum.describe(
+                'The category/base type of the Compendium entity'
+            ),
+        }),
+    },
+    async ({ projectId, baseType }) => {
+        console.log(
+            `[calling getCompendium] Project: ${projectId}, Type: ${baseType}`
+        );
+
+        const result = await getCompendiumByProjectId(
+            projectId,
+            baseType
+        );
+        console.log('Compendium Retreived ', result);
+
+        result?.forEach((et => {
+
+            for (const r in et.templateData) {
+                const value = et.templateData[r];
+
+                if (typeof value === "string" && value.startsWith("data:image/png;base64")) {
+                    // Replace the value for that specific key
+                    et.templateData[r] = "image";
+                    console.log(r)
+                }
+                if (Array.isArray(value) && value.some(item => typeof item === "string" && item.startsWith("data:image/png;base64"))) {
+                    et.templateData[r] = "image";
+                    console.log(r)
+                }
+            }
+        }))
+
+        if (!result) {
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Error: project with ID ${projectId} was not found`,
+                    },
+                ],
+            };
+        }
+
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `Successfully Retreived ${JSON.stringify(result, null, 2)}`,
+                },
+            ],
+        };
+    }
+);
+
+mcpServer.registerTool(
     'create_entry',
     {
         title: 'Create Entry',
@@ -912,6 +975,32 @@ mcpServer.registerTool(
     }
 );
 
+async function getCompendiumByProjectId(
+    projecIid: string,
+    baseType?: CompendiumCategory
+) {
+    // If baseType is provided, route query to specific category tables/handlers
+    switch (baseType) {
+        case 'character':
+            return await charactersDB.getCharactersByProject(db, projecIid);
+        case 'location':
+            return await locationsDB.getLocationsByProject(db, projecIid);
+        case 'organization':
+            return await organizationsDB.getOrganizationsByProject(
+                db,
+                projecIid
+            );
+        case 'item':
+            return await itemsDB.getItemsByProject(db, projecIid);
+        case 'lore':
+            return await loreDB.getLoreEntriesByProject(db, projecIid);
+        default:
+            // Fallback if baseType is omitted: query unified entities table or search across categories
+            return null;
+    }
+}
+
+
 async function getCompendiumById(id: string, baseType?: CompendiumCategory) {
     // If baseType is provided, route query to specific category tables/handlers
     switch (baseType) {
@@ -930,6 +1019,8 @@ async function getCompendiumById(id: string, baseType?: CompendiumCategory) {
             return null;
     }
 }
+
+
 
 async function createCompendium(
     entityData: Character | Location | Organization | Item | LoreEntry,

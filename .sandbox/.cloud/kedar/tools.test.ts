@@ -67,9 +67,9 @@ async function runTest() {
         );
 
         const createEntity = await client.callTool({
-            name: 'get_compendium_entity',
+            name: 'list_compendium_entities',
             arguments: {
-                id: '2feb4258-b338-4397-8b1f-c534bf142004',
+                projectId: '2feb4258-b338-4397-8b1f-c534bf142004',
                 baseType: 'character',
             },
         })
