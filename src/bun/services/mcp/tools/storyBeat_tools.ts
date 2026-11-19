@@ -42,7 +42,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: `Successfully created with ${JSON.stringify(result, null, 2)} storybeat`,
+          text: `Successfully created ${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
@@ -61,12 +61,12 @@ mcpServer.registerTool(
   },
   async ({ projectId }) => {
     console.log(`[Calling list_story_beats] for Project: ${projectId}`);
-    const template = await storybeatDB.getBeatsByProject(
+    const result = await storybeatDB.getBeatsByProject(
       db,
       projectId
     );
 
-    if (!template) {
+    if (!result) {
       return {
         content: [
           {
@@ -77,13 +77,13 @@ mcpServer.registerTool(
       };
     }
 
-    console.log('[Story Beats:', template);
+    console.log('[Story Beats:', result);
 
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(template),
+          text: `Successfully listed ${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
@@ -107,10 +107,10 @@ mcpServer.registerTool(
   },
   async ({ id }) => {
     console.log(`[Calling get_story_beat] for Id: ${id}`);
-    const storyBeat = await storybeatDB.getBeatById(db, id);
-    console.log('[Get Story Beat:', storyBeat);
+    const result = await storybeatDB.getBeatById(db, id);
+    console.log('[Get Story Beat:', result);
 
-    if (!storyBeat) {
+    if (!result) {
       return {
         content: [
           {
@@ -125,7 +125,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: JSON.stringify(storyBeat),
+          text: `Successfully listed ${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
@@ -168,13 +168,13 @@ mcpServer.registerTool(
       description: description,
     };
     console.log(`[story beat update with] ${id} and ${title}`);
-    const UpdateBeat = await storybeatDB.updateBeat(
+    const result = await storybeatDB.updateBeat(
       db,
       id,
       newStoryBeat
     );
 
-    if (!UpdateBeat) {
+    if (!result) {
       return {
         content: [
           {
@@ -188,7 +188,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: `Successfully updated story beat ${JSON.stringify(UpdateBeat, null, 2)}`,
+          text: `Successfully updated ${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
@@ -233,7 +233,7 @@ mcpServer.registerTool(
         content: [
           {
             type: 'text',
-            text: `Error: ID ${id} was not found`,
+            text: `Error: ID ${id}, ${title} was not found`,
           },
         ],
       };

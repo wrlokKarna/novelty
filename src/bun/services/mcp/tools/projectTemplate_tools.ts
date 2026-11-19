@@ -50,17 +50,17 @@ mcpServer.registerTool(
       `[calling create_entity] Project: ${projectId}, Type: ${baseType}`
     );
 
-    const template = await createEntity(newEntityTemplate, baseType);
+    const result = await createEntity(newEntityTemplate, baseType);
     console.log(
-      `[CRUD: Create] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
+      `[CRUD: Create] Project: ${projectId}, Type: ${baseType}`
     );
-    console.log('Entity created ', template);
+    console.log('Entity created ', result);
 
     return {
       content: [
         {
           type: 'text',
-          text: `Successfully created ${JSON.stringify(template, null, 2)}.`,
+          text: `Successfully created ${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
@@ -96,9 +96,9 @@ mcpServer.registerTool(
       `[calling update_entity] Project: ${projectId}, Type: ${baseType}`
     );
 
-    const template = await updateEntity(id, newEntityTemplate, baseType);
+    const result = await updateEntity(id, newEntityTemplate, baseType);
 
-    if (!template) {
+    if (!result) {
       return {
         content: [
           {
@@ -112,7 +112,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: JSON.stringify(template, null, 2),
+          text: `Successfully updated ${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
@@ -136,10 +136,10 @@ mcpServer.registerTool(
     console.log(
       `[Calling get_template] for Project: ${projectId}, Type: ${baseType}`
     );
-    const template = await getTemplateByType(projectId, baseType);
-    console.log(`[CRUD: Read] Template:`, template);
+    const result = await getTemplateByType(projectId, baseType);
+    console.log(`[CRUD: Read] Template:`, result);
 
-    if (!template) {
+    if (!result) {
       return {
         content: [
           {
@@ -153,7 +153,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: JSON.stringify(template, null, 2),
+          text: `Successfully listed ${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
@@ -175,10 +175,10 @@ mcpServer.registerTool(
     console.log(
       `[Calling get_all_templates] for Project: ${projectId}`
     );
-    const template = await getAllTemplates(projectId);
-    console.log(`[CRUD: Read] Template:`, template);
+    const result = await getAllTemplates(projectId);
+    console.log(`[CRUD: Read] Template:`, result);
 
-    if (!template) {
+    if (!result) {
       return {
         content: [
           {
@@ -192,7 +192,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: JSON.stringify(template, null, 2),
+          text: `Successfully listed ${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
@@ -214,30 +214,33 @@ mcpServer.registerTool(
     }),
   },
   async ({ id, projectId, baseType }) => {
-    console.log(
-      `[Calling delete_template] for Project: ${projectId}, Type: ${baseType}`
-    );
-    const template = await deleteTemplateByid(id, baseType);
-    console.log(`[CRUD: Read] Template:`, template);
 
-    if (!template) {
+    try {
+      await deleteTemplateByid(id, baseType);
+
+      console.log(
+        `[Calling delete_template] for Project: ${projectId}, Type: ${baseType}`
+      );
+
       return {
         content: [
           {
             type: 'text',
-            text: `Error: Template for compendium category ${baseType} for project ${projectId} was not found.`,
+            text: `Successfully deleted plot thread ${id}, basetype ${baseType}`,
+          },
+        ],
+      };
+    } catch (err) {
+      console.log('[tools.ts]', err);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error: ID ${id} was not found for basetype ${baseType}`,
           },
         ],
       };
     }
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(template, null, 2),
-        },
-      ],
-    };
   }
 );
 

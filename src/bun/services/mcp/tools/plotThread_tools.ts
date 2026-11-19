@@ -45,7 +45,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: `Successfully created with ${JSON.stringify(result, null, 2)} plot thread`,
+          text: `Successfully created ${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
@@ -81,7 +81,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: JSON.stringify(result),
+          text: `Successfully listed ${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
@@ -119,7 +119,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: JSON.stringify(result),
+          text: `Successfully listed ${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
@@ -186,7 +186,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: `Successfully updated ${JSON.stringify(result, null, 2)} plot thread`,
+          text: `Successfully updated ${JSON.stringify(result, null, 2)}`,
         },
       ],
     };

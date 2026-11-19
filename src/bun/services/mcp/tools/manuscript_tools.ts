@@ -38,20 +38,20 @@ mcpServer.registerTool(
       `[calling createChapters] Project: ${projectId}, Name: ${title}`
     );
 
-    const template = await chapterDB.createChapter(
+    const result = await chapterDB.createChapter(
       db,
       newChapter
     );
     console.log(
       `[CRUD: Create] Project: ${projectId}, Name: ${title}`
     );
-    console.log('Chapter created ', template);
+    console.log('Chapter created ', result);
 
     return {
       content: [
         {
           type: 'text',
-          text: `Successfully created "${JSON.stringify(template, null, 2)}".`,
+          text: `Successfully created "${JSON.stringify(result, null, 2)}".`,
         },
       ],
     };
@@ -89,13 +89,13 @@ mcpServer.registerTool(
       updatedAt: new Date()
     }
 
-    const template = await chapterDB.updateChapter(
+    const result = await chapterDB.updateChapter(
       db,
       id,
       newChapter
     );
 
-    if (!template) {
+    if (!result) {
       return {
         content: [
           {
@@ -106,13 +106,13 @@ mcpServer.registerTool(
       };
     }
 
-    console.log('Chapter Updated ', template);
+    console.log('Chapter Updated ', result);
 
     return {
       content: [
         {
           type: 'text',
-          text: `Successfully Updated "${JSON.stringify(template, null, 2)}".`,
+          text: `Successfully Updated "${JSON.stringify(result, null, 2)}".`,
         },
       ],
     };
@@ -133,12 +133,12 @@ mcpServer.registerTool(
   },
   async ({ id }) => {
 
-    const template = await chapterDB.getChapterById(
+    const result = await chapterDB.getChapterById(
       db,
       id
     );
 
-    if (!template) {
+    if (!result) {
       return {
         content: [
           {
@@ -155,7 +155,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: `Successfully Retreived "${JSON.stringify(template, null, 2)}".`,
+          text: `Successfully Retreived "${JSON.stringify(result, null, 2)}".`,
         },
       ],
     };
@@ -174,12 +174,12 @@ mcpServer.registerTool(
   },
   async ({ projectId }) => {
 
-    const template = await chapterDB.getChaptersByProject(
+    const result = await chapterDB.getChaptersByProject(
       db,
       projectId
     );
 
-    if (!template) {
+    if (!result) {
       return {
         content: [
           {
@@ -190,7 +190,7 @@ mcpServer.registerTool(
       };
     }
 
-    console.log('Chapters Retreived by Project ID', template);
+    console.log('Chapters Retreived by Project ID', result);
 
     return {
       content: [

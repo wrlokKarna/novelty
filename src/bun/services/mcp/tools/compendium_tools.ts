@@ -46,20 +46,20 @@ mcpServer.registerTool(
       `[calling createCompendium] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
     );
 
-    const template = await createCompendium(
+    const result = await createCompendium(
       newEntityTemplate,
       baseType
     );
     console.log(
       `[CRUD: Create] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
     );
-    console.log('Compendium created ', template);
+    console.log('Compendium created ', result);
 
     return {
       content: [
         {
           type: 'text',
-          text: `Successfully created ${JSON.stringify(template, null, 2)}".`,
+          text: `Successfully created ${JSON.stringify(result, null, 2)}".`,
         },
       ],
     };
@@ -97,13 +97,13 @@ mcpServer.registerTool(
       `[calling updateCompendium] Project: ${projectId}, Type: ${baseType}, Name: ${name}`
     );
 
-    const template = await updateCompendium(
+    const result = await updateCompendium(
       id,
       newEntityTemplate,
       baseType
     );
 
-    if (!template) {
+    if (!result) {
       return {
         content: [
           {
@@ -114,13 +114,13 @@ mcpServer.registerTool(
       };
     }
 
-    console.log('Compendium updated ', template);
+    console.log('Compendium updated ', result);
 
     return {
       content: [
         {
           type: 'text',
-          text: `Successfully updated ${JSON.stringify(template, null, 2)}.`,
+          text: `Successfully updated ${JSON.stringify(result, null, 2)}.`,
         },
       ],
     };
@@ -146,11 +146,11 @@ mcpServer.registerTool(
       ),
     }),
   },
-  async ({ id, name, baseType }) => {
+  async ({ id, baseType }) => {
 
-    const template = await getCompendiumById(id, baseType);
+    const result = await getCompendiumById(id, baseType);
 
-    if (!template) {
+    if (!result) {
       return {
         content: [
           {
@@ -160,13 +160,13 @@ mcpServer.registerTool(
         ],
       };
     }
-    console.log('Compendium Retreived ', template);
+    console.log('Compendium Retreived ', result);
 
     return {
       content: [
         {
           type: 'text',
-          text: `Successfully Retreived ${baseType} "${name}".`,
+          text: `Successfully listed ${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
@@ -191,13 +191,13 @@ mcpServer.registerTool(
       `[calling getCompendium] Project: ${projectId}, Type: ${baseType}`
     );
 
-    const template = await getCompendiumByProjectId(
+    const result = await getCompendiumByProjectId(
       projectId,
       baseType
     );
-    console.log('Compendium Retreived ', template);
+    console.log('Compendium Retreived ', result);
 
-    if (!template) {
+    if (!result) {
       return {
         content: [
           {
@@ -212,7 +212,7 @@ mcpServer.registerTool(
       content: [
         {
           type: 'text',
-          text: `Successfully Retreived ${JSON.stringify(template, null, 2)}`,
+          text: `Successfully Retreived ${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
@@ -261,7 +261,7 @@ mcpServer.registerTool(
         content: [
           {
             type: 'text',
-            text: `Error: ID ${id} was not found`,
+            text: `Error: ID ${id} was not found for baseType ${baseType}`,
           },
         ],
       };
