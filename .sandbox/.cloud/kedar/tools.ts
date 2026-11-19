@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { output, z } from 'zod';
 //import * as schema from '../../schema/index.js';
 //import { Database } from 'bun:sqlite';
 //import { db } from '../../database/index.js';
@@ -25,6 +25,65 @@ const compendiumCategoryEnum = z.enum([
     'item',
     'lore',
 ]);
+
+mcpServer.registerTool(
+    'get_compendium_entity',
+    {
+        title: 'Retrive Compendium',
+        description:
+            "Retrieves the full details of a specific Compendium entity (character, location, organization, item, or lore) within a project. Requires projectId or take current projectId if not provided, baseType, and either the id or name. Use this when inspecting a single world-building entry.If the entity ID is unknown, use the list compendium entities tool first to retrieve it",
+        inputSchema: z.object({
+            name: z
+                .string()
+                .optional()
+                .describe('The primary name of the Compendium entity'),
+            id: z
+                .string()
+                .describe('The unique ID of the Compendium entity'),
+            baseType: compendiumCategoryEnum.describe(
+                'The category/base type of the Compendium entity'
+            ),
+        }),
+    },
+    async ({ id, baseType }) => {
+
+        const result = await getCompendiumById(id, baseType);
+
+        if (!result) {
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Error: ID ${id} was not found`,
+                    },
+                ],
+            };
+        }
+
+        for (const r in result.templateData) {
+            const value = result.templateData[r];
+
+            if (Array.isArray(value) && value.some(item => typeof item === "string" && item.startsWith("data:image/png;base64"))) {
+                result.templateData[r] = "image";
+                console.log(r)
+            }
+            if (typeof value === "string" && value.startsWith("data:image/png;base64")) {
+                // Replace the value for that specific key
+                result.templateData[r] = "image";
+                console.log(r)
+            }
+        }
+
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: `Successfully listed ${JSON.stringify(result, null, 2)}`
+                },
+            ],
+        };
+    }
+);
 
 mcpServer.registerTool(
     'create_entry',
@@ -852,6 +911,25 @@ mcpServer.registerTool(
         };
     }
 );
+
+async function getCompendiumById(id: string, baseType?: CompendiumCategory) {
+    // If baseType is provided, route query to specific category tables/handlers
+    switch (baseType) {
+        case 'character':
+            return await charactersDB.getCharacterById(db, id);
+        case 'location':
+            return await locationsDB.getLocationById(db, id);
+        case 'organization':
+            return await organizationsDB.getOrganizationById(db, id);
+        case 'item':
+            return await itemsDB.getItemById(db, id);
+        case 'lore':
+            return await loreDB.getLoreEntryById(db, id);
+        default:
+            // Fallback if baseType is omitted: query unified entities table or search across categories
+            return null;
+    }
+}
 
 async function createCompendium(
     entityData: Character | Location | Organization | Item | LoreEntry,

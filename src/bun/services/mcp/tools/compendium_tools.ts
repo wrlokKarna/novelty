@@ -73,13 +73,13 @@ mcpServer.registerTool(
     description:
       "Updates an existing Compendium entity (character, location, organization, item, or lore) within a project. Requires the name,projectId or take current projectId if not provided, entity base type, and id. Use when modifying existing world-building entries. If the entity ID is unknown, use the list compendium tool first to retrieve it.",
     inputSchema: z.object({
-      name: z.string().describe('The primary name of the Compendium'),
+      name: z.string().describe('The primary name of the Compendium entity'),
       projectId: z.string().describe('The ID of the project'),
       id: z
         .string()
-        .describe('The unique ID of the Compendium to update'),
+        .describe('The unique ID of the Compendium to update entity'),
       baseType: compendiumCategoryEnum.describe(
-        'The category/base type of the Compendium'
+        'The category/base type of the Compendium entity'
       ),
     }),
   },
@@ -132,17 +132,17 @@ mcpServer.registerTool(
   {
     title: 'Retrive Compendium',
     description:
-      "Retrieves the full details of a specific Compendium entity (character, location, organization, item, or lore) within a project. Requires projectId or take current projectId if not provided, baseType, and either the id or name. Use this when inspecting a single world-building entry.If the entity ID is unknown, use the list compendium entities tool first to retrieve it",
+      "Retrieves the full details of a specific Compendium entity (character, location, organization, item, or lore) within a project. Requires projectId or take current projectId if not provided, baseType, and either the id or name. Use this when inspecting a single world-building entry.If the entity ID is unknown, use the list compendium entities tool first to retrieve it.",
     inputSchema: z.object({
       name: z
         .string()
         .optional()
-        .describe('The primary name of the Compendium'),
+        .describe('The primary name of the Compendium entity'),
       id: z
         .string()
-        .describe('The unique ID of the Compendium to update'),
+        .describe('The unique ID of the Compendium entity'),
       baseType: compendiumCategoryEnum.describe(
-        'The category/base type of the Compendium'
+        'The category/base type of the Compendium entity'
       ),
     }),
   },
@@ -161,6 +161,20 @@ mcpServer.registerTool(
       };
     }
     console.log('Compendium Retreived ', result);
+
+    for (const r in result.templateData) {
+      const value = result.templateData[r];
+
+      if (typeof value === "string" && value.startsWith("data:image/png;base64")) {
+        // Replace the value for that specific key
+        result.templateData[r] = "image";
+        console.log(r)
+      }
+      if (Array.isArray(value) && value.some(item => typeof item === "string" && item.startsWith("data:image/png;base64"))) {
+        result.templateData[r] = "image";
+        console.log(r)
+      }
+    }
 
     return {
       content: [
@@ -182,7 +196,7 @@ mcpServer.registerTool(
     inputSchema: z.object({
       projectId: z.string().describe('The ID of the project'),
       baseType: compendiumCategoryEnum.describe(
-        'The category/base type of the Compendium'
+        'The category/base type of the Compendium entity'
       ),
     }),
   },
@@ -229,13 +243,13 @@ mcpServer.registerTool(
       name: z
         .string()
         .optional()
-        .describe('The primary name of the Compendium'),
+        .describe('The primary name of the Compendium entity'),
       projectId: z.string().describe('The ID of the project'),
       id: z
         .string()
-        .describe('The unique ID of the Compendium to delete'),
+        .describe('The unique ID of the Compendium entity to delete'),
       baseType: compendiumCategoryEnum.describe(
-        'The category/base type of the Compendium'
+        'The category/base type of the Compendium entity'
       ),
     }),
   },

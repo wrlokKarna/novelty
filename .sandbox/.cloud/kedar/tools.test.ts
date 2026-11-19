@@ -67,12 +67,10 @@ async function runTest() {
         );
 
         const createEntity = await client.callTool({
-            name: 'delete_entity',
+            name: 'get_compendium_entity',
             arguments: {
+                id: '2feb4258-b338-4397-8b1f-c534bf142004',
                 baseType: 'character',
-                projectId: '12',
-                id: 'abd1abe7-7ed1-4a28-bcfd-88d7dd4ad29b',
-                filePath: ''
             },
         })
 
