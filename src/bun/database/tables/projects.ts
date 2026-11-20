@@ -11,7 +11,7 @@ import {
     tags,
     themes,
 } from '../../../shared/schema';
-import { getAllSettings, setSetting } from './../../services/settings/settings';
+//import { getAllSettings, setSetting } from './../../services/settings/settings';
 import type {
     NewProject,
     PacingType,
@@ -25,6 +25,10 @@ import type {
 } from '@/shared/types';
 import type { SeriesArchitecture } from '@/shared/types/series';
 import type { SQLiteDB } from '@/shared/types/db';
+import type {
+    ProjectSettings,
+    Settings,
+} from '@/shared/types/project/settings';
 
 function safeParse(val: string | null) {
     if (!val || val === 'null') return [];
@@ -130,9 +134,11 @@ export async function getProjectById(
 
 export async function createProject(
     db: SQLiteDB,
+    settings: Settings,
+    setSetting: (key: 'projects', value: ProjectSettings) => void,
     project: NewProject
 ): Promise<Project> {
-    const settings = getAllSettings();
+    //const settings = getAllSettings();
     const projectsDir = settings.projects.defaultProjectsDir;
 
     let projectPath: string | undefined;
@@ -166,13 +172,14 @@ export async function createProject(
     }
 
     const {
-        genres: _pg,
-        tags: _pt,
-        themes: _pth,
-        primaryGenre: _pG,
-        primaryTheme: _pT,
+        //genres: pg,
+        //tags: pt,
+        //themes: pth,
+        //primaryGenre: pG,
+        //primaryTheme: pT,
         ...projectRest
     } = project;
+
     await db.insert(projects).values({
         ...projectRest,
         path: projectPath,

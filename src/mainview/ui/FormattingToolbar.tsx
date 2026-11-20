@@ -1,4 +1,3 @@
-import { useEditor } from 'novel';
 import {
     IconBold,
     IconItalic,
@@ -10,8 +9,28 @@ import {
     IconBlockquote,
     IconCode,
 } from '@tabler/icons-react';
+import { KEYS, type SlateEditor } from 'platejs';
+import {
+    useEditorReadOnly,
+    useEditorRef,
+    useSelectionVersion,
+} from 'platejs/react';
 import styles from '../App.module.css';
 import { EditorToolbarRight } from './EditorToolbarRight';
+import {
+    isBlockActive,
+    toggleBlockquote,
+    toggleBulletedList,
+    toggleCodeBlock,
+    toggleNumberedList,
+} from '../components/editor/transforms';
+
+type ToolbarButton = {
+    icon: typeof IconBold;
+    action: (editor: SlateEditor) => void;
+    isActive: (editor: SlateEditor) => boolean;
+    title: string;
+};
 
 export function FormattingToolbar({
     editable,
@@ -26,75 +45,75 @@ export function FormattingToolbar({
     onTogglePreview?: () => void;
     showPreview?: boolean;
 }) {
-    const { editor } = useEditor();
-    if (!editor) return null;
+    const editor = useEditorRef();
+    const readOnly = useEditorReadOnly();
 
-    const isReadingMode =
-        typeof editable === 'boolean' ? !editable : !editor.isEditable;
+    // Re-render active states whenever the selection moves.
+    useSelectionVersion();
 
-    const groups = [
+    const isReadingMode = typeof editable === 'boolean' ? !editable : readOnly;
+    const disabled = isReadingMode;
+
+    const groups: ToolbarButton[][] = [
         [
             {
                 icon: IconBold,
-                action: () => editor.chain().focus().toggleBold().run(),
-                isActive: editor.isActive('bold'),
+                action: (editor) => editor.tf.toggleMark(KEYS.bold),
+                isActive: (editor) => !!editor.api.mark(KEYS.bold),
                 title: 'Bold',
             },
             {
                 icon: IconItalic,
-                action: () => editor.chain().focus().toggleItalic().run(),
-                isActive: editor.isActive('italic'),
+                action: (editor) => editor.tf.toggleMark(KEYS.italic),
+                isActive: (editor) => !!editor.api.mark(KEYS.italic),
                 title: 'Italic',
             },
         ],
         [
             {
                 icon: IconH1,
-                action: () =>
-                    editor.chain().focus().toggleHeading({ level: 1 }).run(),
-                isActive: editor.isActive('heading', { level: 1 }),
+                action: (editor) => editor.tf.toggleBlock(KEYS.h1),
+                isActive: (editor) => isBlockActive(editor, KEYS.h1),
                 title: 'Heading 1',
             },
             {
                 icon: IconH2,
-                action: () =>
-                    editor.chain().focus().toggleHeading({ level: 2 }).run(),
-                isActive: editor.isActive('heading', { level: 2 }),
+                action: (editor) => editor.tf.toggleBlock(KEYS.h2),
+                isActive: (editor) => isBlockActive(editor, KEYS.h2),
                 title: 'Heading 2',
             },
             {
                 icon: IconH3,
-                action: () =>
-                    editor.chain().focus().toggleHeading({ level: 3 }).run(),
-                isActive: editor.isActive('heading', { level: 3 }),
+                action: (editor) => editor.tf.toggleBlock(KEYS.h3),
+                isActive: (editor) => isBlockActive(editor, KEYS.h3),
                 title: 'Heading 3',
             },
         ],
         [
             {
                 icon: IconList,
-                action: () => editor.chain().focus().toggleBulletList().run(),
-                isActive: editor.isActive('bulletList'),
+                action: (editor) => toggleBulletedList(editor),
+                isActive: (editor) => isBlockActive(editor, KEYS.ulClassic),
                 title: 'Bullet List',
             },
             {
                 icon: IconListNumbers,
-                action: () => editor.chain().focus().toggleOrderedList().run(),
-                isActive: editor.isActive('orderedList'),
+                action: (editor) => toggleNumberedList(editor),
+                isActive: (editor) => isBlockActive(editor, KEYS.olClassic),
                 title: 'Ordered List',
             },
         ],
         [
             {
                 icon: IconBlockquote,
-                action: () => editor.chain().focus().toggleBlockquote().run(),
-                isActive: editor.isActive('blockquote'),
+                action: (editor) => toggleBlockquote(editor),
+                isActive: (editor) => isBlockActive(editor, KEYS.blockquote),
                 title: 'Blockquote',
             },
             {
                 icon: IconCode,
-                action: () => editor.chain().focus().toggleCodeBlock().run(),
-                isActive: editor.isActive('codeBlock'),
+                action: (editor) => toggleCodeBlock(editor),
+                isActive: (editor) => isBlockActive(editor, KEYS.codeBlock),
                 title: 'Code Block',
             },
         ],
@@ -136,21 +155,25 @@ export function FormattingToolbar({
                     )}
                     {group.map((btn) => {
                         const Icon = btn.icon;
-                        const disabled = !editor.isEditable;
+                        const active = !disabled && btn.isActive(editor);
                         return (
                             <button
                                 key={btn.title}
                                 className={styles.iconBtn}
-                                onClick={disabled ? undefined : btn.action}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={
+                                    disabled
+                                        ? undefined
+                                        : () => {
+                                              btn.action(editor);
+                                              editor.tf.focus();
+                                          }
+                                }
                                 title={btn.title}
                                 disabled={disabled}
                                 style={{
-                                    color: btn.isActive ? '#fff' : undefined,
-                                    opacity: disabled
-                                        ? 0.3
-                                        : btn.isActive
-                                          ? 1
-                                          : 0.6,
+                                    color: active ? '#fff' : undefined,
+                                    opacity: disabled ? 0.3 : active ? 1 : 0.6,
                                     cursor: disabled ? 'default' : 'pointer',
                                     pointerEvents: disabled
                                         ? 'none'
@@ -165,10 +188,7 @@ export function FormattingToolbar({
             ))}
             <EditorToolbarRight
                 isReadingMode={isReadingMode}
-                onToggleMode={() => {
-                    editor.setEditable(!editor.isEditable);
-                    onToggleEditable?.();
-                }}
+                onToggleMode={() => onToggleEditable?.()}
                 isPreviewOpen={isPreviewOpen}
                 onTogglePreview={onTogglePreview}
                 showPreview={showPreview}
