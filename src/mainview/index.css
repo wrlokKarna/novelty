@@ -1124,41 +1124,6 @@ select {
 	*/
 }
 
-.novel-editor-content {
-    font-family: var(--serif);
-    font-size: 20px;
-    font-size: 22px;
-    line-height: 1.78;
-    font-weight: 340;
-
-    p {
-        margin-bottom: 16px;
-        text-indent: 1.4em;
-        color: #e6ddcd;
-        color: #727373;
-        color: #bbbebf;
-
-        &:last-child {
-            padding-bottom: 80px;
-        }
-    }
-}
-
-.novel-editor-content.ProseMirror {
-    min-height: 500px;
-    height: 100%;
-    outline: none;
-    color: var(--editor-text);
-}
-
-.novel-editor-content.ProseMirror p.is-editor-empty:first-child::before {
-    color: var(--editor-placeholder);
-    content: attr(data-placeholder);
-    float: left;
-    height: 0;
-    pointer-events: none;
-}
-
 .empty-editor {
     display: flex;
     flex-direction: column;
@@ -1169,39 +1134,232 @@ select {
     gap: 12px;
 }
 
-.novel-editor-container {
+.plate-editor-content {
     min-height: 100%;
-}
-
-.editor-container .novel-editor-container {
-    min-height: 100%;
-    height: 100%;
-}
-
-.editor-container .novel-editor-container .tiptap {
-    min-height: 100%;
-    height: 100%;
     padding: 12px;
-}
-
-.editor-container .novel-editor-container .tiptap p {
-    margin: 0 0 0.5em 0;
-}
-
-.editor-container .novel-editor-container .tiptap:focus {
     outline: none;
+    font-family: var(--serif);
+    font-size: 22px;
+    line-height: 1.78;
+    font-weight: 340;
+    color: var(--editor-text);
+    caret-color: var(--editor-text);
+
+    p {
+        margin: 0 0 0.5em 0;
+        text-indent: 1.4em;
+        color: #bbbebf;
+
+        &:last-child {
+            padding-bottom: 80px;
+        }
+    }
+
+    h1,
+    h2,
+    h3 {
+        font-weight: 600;
+        line-height: 1.3;
+        text-indent: 0;
+        color: var(--editor-heading);
+        margin: 1.2em 0 0.6em 0;
+    }
+
+    h1 {
+        font-size: 1.6em;
+    }
+
+    h2 {
+        font-size: 1.35em;
+    }
+
+    h3 {
+        font-size: 1.15em;
+    }
+
+    blockquote {
+        margin: 0 0 0.5em 0;
+        padding-left: 1em;
+        border-left: 3px solid var(--editor-toolbar-border);
+        color: var(--editor-placeholder);
+        text-indent: 0;
+
+        p {
+            text-indent: 0;
+            color: inherit;
+        }
+    }
+
+    ul,
+    ol {
+        margin: 0 0 0.5em 0;
+        padding-left: 1.5em;
+        text-indent: 0;
+    }
+
+    li {
+        text-indent: 0;
+
+        p {
+            text-indent: 0;
+            margin: 0;
+            color: inherit;
+        }
+    }
+
+    pre {
+        background-color: var(--editor-code-bg);
+        color: var(--editor-code-text);
+        border-radius: 4px;
+        padding: 12px;
+        margin: 0 0 0.5em 0;
+        overflow-x: auto;
+        font-family: var(--mono);
+        font-size: 0.8em;
+        line-height: 1.5;
+        white-space: pre-wrap;
+    }
+
+    pre > span[data-slate-node='element'] {
+        display: block;
+    }
+
+    code {
+        font-family: var(--mono);
+        font-size: 0.9em;
+    }
+
+    a {
+        color: var(--editor-heading);
+    }
+
+    [data-slate-placeholder] {
+        color: var(--editor-placeholder);
+        text-indent: 1.4em;
+        pointer-events: none;
+        user-select: none;
+    }
+
+    [data-slate-node='element'] {
+        position: relative;
+    }
+
+    /* Plate renders marks as spans classed `slate-<mark>`. */
+    .slate-bold {
+        font-weight: 700;
+    }
+
+    .slate-italic {
+        font-style: italic;
+    }
+
+    .slate-underline {
+        text-decoration: underline;
+    }
+
+    .slate-strikethrough {
+        text-decoration: line-through;
+    }
+
+    .slate-code {
+        font-family: var(--mono);
+        font-size: 0.9em;
+        background-color: var(--editor-code-bg);
+        color: var(--editor-code-text);
+        border-radius: 3px;
+        padding: 2px 4px;
+    }
+
+    .slate-highlight {
+        background-color: #f7e07a;
+        color: #202022;
+    }
 }
 
-.editor-container .novel-editor-container .tiptap.ProseMirror {
-    min-height: 100%;
+.plate-combobox-input {
+    min-width: 1px;
     outline: none;
+    background: transparent;
+    border: none;
+    color: inherit;
+    font: inherit;
+    padding: 0;
 }
 
-.editor-container .novel-editor-container .tiptap pre {
-    background-color: var(--editor-code-bg);
-    color: var(--editor-code-text);
-    border-radius: 4px;
-    padding: 12px;
+.plate-combobox-input-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.plate-combobox-input-ghost {
+    visibility: hidden;
+    white-space: pre;
+    padding-right: 2px;
+}
+
+.plate-combobox-popover {
+    z-index: 100;
+    min-width: 260px;
+    max-height: 330px;
+    overflow-y: auto;
+    background-color: var(--editor-slash-bg);
+    border: 1px solid var(--editor-slash-border);
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.plate-combobox-group {
+    padding: 2px 0;
+}
+
+.plate-combobox-group-label {
+    padding: 6px 8px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--editor-slash-desc);
+}
+
+.plate-combobox-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--editor-slash-text);
+    transition: background-color 0.1s;
+}
+
+.plate-combobox-item[data-active-item='true'],
+.plate-combobox-item:hover {
+    background-color: var(--editor-slash-hover);
+}
+
+.plate-combobox-item.is-static {
+    cursor: default;
+    color: var(--editor-slash-desc);
+}
+
+.plate-combobox-item.is-static:hover {
+    background-color: transparent;
+}
+
+.plate-combobox-item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--editor-slash-border);
+    background-color: var(--editor-bg);
+    flex-shrink: 0;
 }
 
 .editor-width-cap {
@@ -1390,79 +1548,6 @@ select {
 .book-reader .book-reader-chapter ol {
     margin: 0 0 1em 0;
     padding-left: 1.5em;
-}
-
-/* Slash Command Menu */
-.tippy-box[data-theme~='novel-slash'] {
-    background-color: transparent;
-}
-
-.slash-command-menu {
-    background-color: var(--editor-slash-bg);
-    border: 1px solid var(--editor-slash-border);
-    border-radius: 8px;
-    padding: 4px;
-    width: 260px;
-    max-height: 330px;
-    overflow: hidden;
-}
-
-.slash-command-menu [cmdk-list] {
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.slash-command-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
-    border-radius: 6px;
-    cursor: pointer;
-    user-select: none;
-    color: var(--editor-slash-text);
-    transition: background-color 0.1s;
-}
-
-.slash-command-item[aria-selected='true'],
-.slash-command-item[data-selected='true'] {
-    background-color: var(--editor-slash-hover);
-}
-
-.slash-command-item[aria-disabled='true'] {
-    opacity: 0.4;
-    pointer-events: none;
-}
-
-.slash-command-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 6px;
-    border: 1px solid var(--editor-slash-border);
-    background-color: var(--editor-bg);
-    flex-shrink: 0;
-}
-
-.slash-command-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.slash-command-title {
-    margin: 0;
-    font-size: 14px;
-    font-weight: 500;
-    line-height: 1.3;
-}
-
-.slash-command-desc {
-    margin: 2px 0 0;
-    font-size: 12px;
-    color: var(--editor-slash-desc);
-    line-height: 1.3;
 }
 
 /* File Tabs */

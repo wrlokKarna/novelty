@@ -1,32 +1,23 @@
 import {
     forwardRef,
+    useCallback,
+    useEffect,
     useImperativeHandle,
     useRef,
-    useEffect,
-    useCallback,
-    useState,
+    type ForwardedRef,
 } from 'react';
+import { RangeApi, type Value } from 'platejs';
 import {
-    EditorContent,
-    EditorRoot,
-    EditorBubble,
-    EditorBubbleItem,
-    StarterKit,
-    Command,
-    renderItems,
-    handleCommandNavigation,
-    useEditor,
-} from 'novel';
-import {
-    IconBold,
-    IconItalic,
-    IconH1,
-    IconH2,
-    IconH3,
-} from '@tabler/icons-react';
+    Plate,
+    PlateContent,
+    usePlateEditor,
+    type PlateEditor,
+} from 'platejs/react';
+
 import { FormattingToolbar } from '../ui/FormattingToolbar';
-import { suggestionItems } from '../ui/slash-commands';
-import { SlashCommandMenu } from '../ui/SlashCommandMenu';
+import { BubbleToolbar } from './editor/BubbleToolbar';
+import { slateToHtml, toEditorValue } from './editor/htmlSerializer';
+import { editorPlugins } from './editor/plugins';
 
 interface RichTextEditorProps {
     tabId: string;
@@ -48,267 +39,181 @@ export interface RichTextEditorHandle {
     getSelectedText: () => string;
 }
 
-const bubbleItems = [
-    {
-        id: 'bold',
-        icon: IconBold,
-        action: (editor: any) => editor.chain().focus().toggleBold().run(),
-        isActive: (editor: any) => editor.isActive('bold'),
-    },
-    {
-        id: 'italic',
-        icon: IconItalic,
-        action: (editor: any) => editor.chain().focus().toggleItalic().run(),
-        isActive: (editor: any) => editor.isActive('italic'),
-    },
-    {
-        id: 'h1',
-        icon: IconH1,
-        action: (editor: any) =>
-            editor.chain().focus().toggleHeading({ level: 1 }).run(),
-        isActive: (editor: any) => editor.isActive('heading', { level: 1 }),
-    },
-    {
-        id: 'h2',
-        icon: IconH2,
-        action: (editor: any) =>
-            editor.chain().focus().toggleHeading({ level: 2 }).run(),
-        isActive: (editor: any) => editor.isActive('heading', { level: 2 }),
-    },
-    {
-        id: 'h3',
-        icon: IconH3,
-        action: (editor: any) =>
-            editor.chain().focus().toggleHeading({ level: 3 }).run(),
-        isActive: (editor: any) => editor.isActive('heading', { level: 3 }),
-    },
-];
+function reportCursorPosition(
+    editor: PlateEditor,
+    notify: (line: number, col: number) => void
+) {
+    const { selection } = editor;
+    if (!selection) return;
 
-function EditorRefCapture({ onReady }: { onReady: (e: any) => void }) {
-    const { editor } = useEditor();
-    useEffect(() => {
-        if (editor) onReady(editor);
-    }, [editor, onReady]);
-    return null;
+    const start = editor.api.start([]);
+    if (!start) return;
+
+    // Everything before the caret, so line/col can be counted from it.
+    const text = editor.api.string({
+        anchor: start,
+        focus: selection.anchor,
+    });
+    const lines = text.split('\n');
+
+    notify(lines.length, lines[lines.length - 1].length + 1);
 }
 
-function BubbleMenu() {
-    const { editor } = useEditor();
-    if (!editor) return null;
+function deserialize(editor: PlateEditor, html: string) {
+    const source = toEditorValue(html);
+    if (!source) return editor.api.create.value();
+
+    return editor.api.html.deserialize({ element: source });
+}
+
+interface EditorBodyProps extends RichTextEditorProps {
+    forwardedRef: ForwardedRef<RichTextEditorHandle>;
+}
+
+function EditorBody({
+    initialContent,
+    onChange,
+    showToolbar,
+    showBubbleMenu,
+    onCursorPosition,
+    editable,
+    onToggleEditable,
+    isPreviewOpen,
+    onTogglePreview,
+    showPreview,
+    forwardedRef,
+}: EditorBodyProps) {
+    const value = toEditorValue(initialContent);
+
+    const editor = usePlateEditor({
+        plugins: editorPlugins,
+        value,
+    });
+
+    // Keep the latest callbacks without re-creating the editor bindings.
+    const onChangeRef = useRef(onChange);
+    onChangeRef.current = onChange;
+
+    const onCursorPositionRef = useRef(onCursorPosition);
+    onCursorPositionRef.current = onCursorPosition;
+
+    // HTML last handed to (or received from) the parent. Used to distinguish
+    // external content updates from our own onChange echo.
+    const lastSynced = useRef(value);
+
+    useEffect(() => {
+        const incoming = toEditorValue(initialContent);
+        if (incoming === lastSynced.current) return;
+
+        lastSynced.current = incoming;
+        editor.tf.setValue(incoming || undefined);
+    }, [editor, initialContent]);
+
+    const handleChange = useCallback(({ value }: { value: Value }) => {
+        const html = slateToHtml(value);
+        lastSynced.current = html;
+        onChangeRef.current(html);
+    }, []);
+
+    const handleSelectionChange = useCallback(
+        ({ editor: currentEditor }: { editor: PlateEditor }) => {
+            const notify = onCursorPositionRef.current;
+            if (notify) reportCursorPosition(currentEditor, notify);
+        },
+        []
+    );
+
+    useImperativeHandle(
+        forwardedRef,
+        () => ({
+            insertContent(html: string) {
+                const nodes = deserialize(editor, html);
+                editor.tf.insertNodes(nodes, { select: true });
+                editor.tf.focus();
+            },
+            replaceSelection(html: string) {
+                const { selection } = editor;
+                const expanded =
+                    !!selection && !RangeApi.isCollapsed(selection);
+                const nodes = deserialize(editor, html);
+
+                if (!selection || nodes.length === 0) {
+                    if (expanded) editor.tf.delete();
+                    if (nodes.length > 0) {
+                        editor.tf.insertNodes(nodes, { select: true });
+                    }
+                    editor.tf.focus();
+                    return;
+                }
+
+                if (expanded) {
+                    editor.tf.delete();
+
+                    // Deleting the whole block leaves an empty paragraph
+                    // behind; reuse its path so the replacement takes its
+                    // place instead of adding a blank line above it.
+                    const block = editor.api.block();
+                    if (block && editor.api.isEmpty(block[0])) {
+                        editor.tf.removeNodes({ at: block[1] });
+                        editor.tf.insertNodes(nodes, {
+                            at: block[1],
+                            select: true,
+                        });
+                        editor.tf.focus();
+                        return;
+                    }
+                }
+
+                editor.tf.insertNodes(nodes, { select: true });
+                editor.tf.focus();
+            },
+            getSelectedText() {
+                const { selection } = editor;
+                if (!selection) return '';
+
+                const [start, end] = RangeApi.edges(selection);
+                return editor.api.string({ anchor: start, focus: end });
+            },
+        }),
+        [editor]
+    );
 
     return (
-        <EditorBubble>
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '2px',
-                    background: '#222',
-                    border: '1px solid #444',
-                    borderRadius: '6px',
-                    padding: '4px',
-                }}
-            >
-                {bubbleItems.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                        <EditorBubbleItem
-                            key={item.id}
-                            onSelect={item.action}
-                            style={{
-                                padding: '4px',
-                                cursor: 'pointer',
-                                color: item.isActive(editor) ? '#fff' : '#888',
-                                opacity: item.isActive(editor) ? 1 : 0.6,
-                            }}
-                        >
-                            <Icon size={16} stroke={2} />
-                        </EditorBubbleItem>
-                    );
-                })}
-            </div>
-        </EditorBubble>
+        <Plate
+            editor={editor}
+            readOnly={editable === false}
+            onChange={handleChange}
+            onSelectionChange={handleSelectionChange}
+        >
+            {showToolbar ? (
+                <FormattingToolbar
+                    editable={editable}
+                    onToggleEditable={onToggleEditable}
+                    isPreviewOpen={isPreviewOpen}
+                    onTogglePreview={onTogglePreview}
+                    showPreview={showPreview}
+                />
+            ) : null}
+
+            <PlateContent
+                className="plate-editor-content"
+                placeholder="Start writing…"
+            />
+
+            {showBubbleMenu ? <BubbleToolbar /> : null}
+        </Plate>
     );
 }
-
-const parseContent = (html: string) => {
-    if (!html) return undefined;
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const body = doc.body;
-    if (body.children.length === 0) return undefined;
-    const content: any[] = [];
-    for (let i = 0; i < body.children.length; i++) {
-        const child = body.children[i];
-        if (child.tagName === 'P') {
-            content.push({
-                type: 'paragraph',
-                content: child.textContent
-                    ? [{ type: 'text', text: child.textContent }]
-                    : [],
-            });
-        } else if (child.tagName === 'H1') {
-            content.push({
-                type: 'heading',
-                attrs: { level: 1 },
-                content: child.textContent
-                    ? [{ type: 'text', text: child.textContent }]
-                    : [],
-            });
-        } else if (child.tagName === 'H2') {
-            content.push({
-                type: 'heading',
-                attrs: { level: 2 },
-                content: child.textContent
-                    ? [{ type: 'text', text: child.textContent }]
-                    : [],
-            });
-        } else if (child.tagName === 'H3') {
-            content.push({
-                type: 'heading',
-                attrs: { level: 3 },
-                content: child.textContent
-                    ? [{ type: 'text', text: child.textContent }]
-                    : [],
-            });
-        }
-    }
-    return content.length > 0 ? { type: 'doc', content } : undefined;
-};
 
 export const RichTextEditor = forwardRef<
     RichTextEditorHandle,
     RichTextEditorProps
->(
-    (
-        {
-            tabId,
-            initialContent,
-            onChange,
-            showToolbar,
-            showBubbleMenu,
-            onCursorPosition,
-            editable,
-            onToggleEditable,
-            isPreviewOpen,
-            onTogglePreview,
-            showPreview,
-        },
-        forwardedRef
-    ) => {
-        const editorRef = useRef<any>(null);
-        const [editorInstance, setEditorInstance] = useState<any>(null);
-
-        useEffect(() => {
-            if (editorInstance && typeof editable === 'boolean') {
-                if (editorInstance.isEditable !== editable) {
-                    editorInstance.setEditable(editable);
-                }
-            }
-        }, [editorInstance, editable, tabId]);
-
-        const handleEditorReady = useCallback(
-            (editor: any) => {
-                editorRef.current = editor;
-                setEditorInstance(editor);
-                editor.on('selectionUpdate', () => {
-                    if (onCursorPosition) {
-                        const textBefore = editor.state.doc.textBetween(
-                            0,
-                            editor.state.selection.anchor
-                        );
-                        const lines = textBefore.split('\n');
-                        onCursorPosition(
-                            lines.length,
-                            lines[lines.length - 1].length + 1
-                        );
-                    }
-                });
-            },
-            [onCursorPosition]
-        );
-
-        useImperativeHandle(
-            forwardedRef,
-            () => ({
-                insertContent(html: string) {
-                    if (!editorRef.current || editorRef.current.isDestroyed)
-                        return;
-                    editorRef.current.chain().focus().insertContent(html).run();
-                },
-                replaceSelection(html: string) {
-                    if (!editorRef.current || editorRef.current.isDestroyed)
-                        return;
-                    const { from, to } = editorRef.current.state.selection;
-                    if (from === to) {
-                        editorRef.current
-                            .chain()
-                            .focus()
-                            .insertContent(html)
-                            .run();
-                    } else {
-                        editorRef.current
-                            .chain()
-                            .focus()
-                            .deleteSelection()
-                            .insertContent(html)
-                            .run();
-                    }
-                },
-                getSelectedText() {
-                    if (!editorRef.current || editorRef.current.isDestroyed)
-                        return '';
-                    const { from, to } = editorRef.current.state.selection;
-                    return editorRef.current.state.doc.textBetween(from, to);
-                },
-            }),
-            []
-        );
-
-        return (
-            <EditorRoot>
-                <EditorContent
-                    key={tabId}
-                    extensions={[
-                        StarterKit,
-                        Command.configure({
-                            suggestion: {
-                                items: () => suggestionItems,
-                                render: renderItems,
-                            },
-                        }),
-                    ]}
-                    editorProps={{
-                        attributes: {
-                            class: 'novel-editor-content',
-                        },
-                        handleKeyDown: (_, event) =>
-                            handleCommandNavigation(event),
-                    }}
-                    initialContent={parseContent(initialContent || '')}
-                    onUpdate={({ editor }: { editor: any }) => {
-                        editorRef.current = editor;
-                        onChange(editor?.getHTML() || '');
-                    }}
-                    slotBefore={
-                        showToolbar ? (
-                            <FormattingToolbar
-                                editable={editable}
-                                onToggleEditable={onToggleEditable}
-                                isPreviewOpen={isPreviewOpen}
-                                onTogglePreview={onTogglePreview}
-                                showPreview={showPreview}
-                            />
-                        ) : null
-                    }
-                >
-                    <EditorRefCapture onReady={handleEditorReady} />
-                    {showBubbleMenu && <BubbleMenu />}
-                    <SlashCommandMenu items={suggestionItems} />
-                </EditorContent>
-            </EditorRoot>
-        );
-    }
-);
+>(function RichTextEditor(props, forwardedRef) {
+    // Remounting per tab gives `usePlateEditor` a fresh initial value when the
+    // active chapter/file changes.
+    return (
+        <EditorBody key={props.tabId} {...props} forwardedRef={forwardedRef} />
+    );
+});
 
 export default RichTextEditor;
