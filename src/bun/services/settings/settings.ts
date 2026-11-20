@@ -1,20 +1,20 @@
-import { Utils } from 'electrobun/main';
-import { join } from 'path';
-import {
-    readFileSync,
-    writeFileSync,
-    existsSync,
-    mkdirSync,
-    readdirSync,
-    statSync,
-    rmSync,
-} from 'fs';
 import {
     createCipheriv,
     createDecipheriv,
     randomBytes,
     scryptSync,
 } from 'crypto';
+import {
+    existsSync,
+    mkdirSync,
+    readdirSync,
+    readFileSync,
+    rmSync,
+    statSync,
+    writeFileSync,
+} from 'fs';
+import { join } from 'path';
+import { Utils } from 'electrobun/main';
 import type {
     ProviderSettings,
     Settings,
@@ -45,7 +45,6 @@ const defaultSettings: Settings = {
         autoSyncInterval: 1,
         enableAutoUpdate: true,
         autoUpdateInterval: 1,
-        theme: 'system',
         chatViewMode: 'full',
         confirmBeforeDelete: true,
         autoNamingMethod: 'ai-summarizer',
@@ -57,7 +56,12 @@ const defaultSettings: Settings = {
         monthlyRequestLimit: 2000,
     },
     appearance: {
-        theme: 'system',
+        theme: {
+            mode: 'system',
+            active: 'midnight-gold',
+            shape: 'pill',
+            density: 'comfortable',
+        },
         fontSize: 14,
         fontFamily: 'Inter',
         lineHeight: 1.5,
@@ -238,7 +242,12 @@ export function getAllSettings(): Settings {
 function migrateSidebarConstraints(settings: Settings): void {
     if (!settings.appearance) {
         settings.appearance = {
-            theme: 'system',
+            theme: {
+                mode: 'system',
+                active: 'midnight-gold',
+                shape: 'pill',
+                density: 'comfortable',
+            },
             fontSize: 14,
             fontFamily: 'Inter',
             lineHeight: 1.5,
@@ -283,7 +292,12 @@ function migrateSidebarConstraints(settings: Settings): void {
 function migrateEditorWidth(settings: Settings): void {
     if (!settings.appearance) {
         settings.appearance = {
-            theme: 'system',
+            theme: {
+                mode: 'system',
+                active: 'midnight-gold',
+                shape: 'pill',
+                density: 'comfortable',
+            },
             fontSize: 14,
             fontFamily: 'Inter',
             lineHeight: 1.5,
