@@ -1,4 +1,6 @@
 @import './variables.css';
+/*
+
 
 * {
     box-sizing: border-box;
@@ -203,4 +205,9 @@ code {
     .stack-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+}
+
+*/
+body {
+    background-color: var(--color-background);
 }
