@@ -13,9 +13,13 @@ import {
     IconBuilding,
     IconChevronLeft,
     IconDotsVertical,
+    IconEye,
     IconFiles,
     IconFileText,
     IconLayoutColumns,
+    IconLayoutSidebarLeftExpand,
+    IconLayoutSidebarRightExpand,
+    IconLink,
     IconLinkOff,
     IconMapPin,
     IconNotes,
@@ -98,6 +102,44 @@ interface SidebarDragPayload {
     category?: CompendiumCategory;
 }
 
+function findScrollableDescendant(
+    root: HTMLElement | null
+): HTMLElement | null {
+    if (!root) return null;
+    if (root.scrollHeight > root.clientHeight + 2) {
+        const style = window.getComputedStyle(root);
+        if (
+            style.overflowY === 'auto' ||
+            style.overflowY === 'scroll' ||
+            style.overflowY === 'overlay'
+        ) {
+            return root;
+        }
+    }
+    const candidates = root.querySelectorAll<HTMLElement>(
+        '.ProseMirror, .tiptap, .editor-content, .preview-pane-body, [class*="scroll"], [class*="editor"]'
+    );
+    for (const el of candidates) {
+        if (el.scrollHeight > el.clientHeight + 2) {
+            return el;
+        }
+    }
+    const all = root.querySelectorAll<HTMLElement>('*');
+    for (const el of all) {
+        if (el.scrollHeight > el.clientHeight + 2) {
+            const style = window.getComputedStyle(el);
+            if (
+                style.overflowY === 'auto' ||
+                style.overflowY === 'scroll' ||
+                style.overflowY === 'overlay'
+            ) {
+                return el;
+            }
+        }
+    }
+    return root.scrollHeight > root.clientHeight + 2 ? root : null;
+}
+
 function App() {
     const [isLeftHovered, setIsLeftHovered] = useState(false);
     const hoverTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -123,6 +165,14 @@ function App() {
     const [isReadingMode, setIsReadingMode] = useState(false);
     const [readerMode, setReaderMode] = useState<'chapter' | 'book'>('chapter');
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
+    const [isScrollLinked, setIsScrollLinked] = useState(false);
+    const [previewTargetChapterId, setPreviewTargetChapterId] = useState<
+        string | null
+    >(null);
+    const [previewSide, setPreviewSide] = useState<'left' | 'right'>(
+        settings?.appearance?.previewPosition ?? 'right'
+    );
     const [previewWidth, setPreviewWidth] = useState(
         settings?.appearance?.previewWidth ?? 420
     );
@@ -131,6 +181,17 @@ function App() {
         null
     );
     const [chapterTitleDraft, setChapterTitleDraft] = useState('');
+
+    const [toolbarSplitMenu, setToolbarSplitMenu] = useState<{
+        x: number;
+        y: number;
+    } | null>(null);
+
+    const editorSplitPaneRef = useRef<HTMLDivElement>(null);
+    const previewPaneContainerRef = useRef<HTMLDivElement>(null);
+    const previewBodyScrollRef = useRef<HTMLDivElement>(null);
+    const isSyncingScrollRef = useRef<'editor' | 'preview' | null>(null);
+    const scrollLockTimerRef = useRef<number | null>(null);
 
     const [explorerTab, setExplorerTab] = useState<
         'chapters' | CompendiumCategory
@@ -150,7 +211,6 @@ function App() {
     const [activeTabId, setActiveTabId] = useState<string | null>(null);
     const tabActivationHistoryRef = useRef<string[]>([]);
 
-    // Record every tab visit in most-recently-visited order so closing/deleting returns to the exact previously viewed tab
     useEffect(() => {
         if (!activeTabId) return;
         const hist = tabActivationHistoryRef.current.filter(
@@ -269,6 +329,232 @@ function App() {
     }, []);
 
     // =========================================================================
+    // UNIVERSAL TILE LINKING (CHAPTERS, CHARACTERS, LOCATIONS, ETC.) & RESIZE
+    // =========================================================================
+    const [chapterLinks, setChapterLinks] = useState<
+        Record<string, string | null>
+    >({});
+    const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
+    const [isCenterHovered, setIsCenterHovered] = useState<boolean>(false);
+    const [focusedTileSide, setFocusedTileSide] = useState<'left' | 'right'>(
+        'left'
+    );
+    const [tileMenuState, setTileMenuState] = useState<{
+        chapterId: string;
+        x: number;
+        y: number;
+    } | null>(null);
+
+    const [tileSplitRatio, setTileSplitRatio] = useState<number>(50);
+    const [isTileResizing, setIsTileResizing] = useState<boolean>(false);
+    const workspaceRef = useRef<HTMLDivElement>(null);
+
+    const leftScrollRef = useRef<HTMLDivElement>(null);
+    const rightScrollRef = useRef<HTMLDivElement>(null);
+
+    const getLinkedPartner = useCallback(
+        (tabId: string) => {
+            const targetId = chapterLinks[tabId];
+            if (targetId) {
+                const sourceTab = openTabs.find((t) => t.id === tabId);
+                const targetTab = openTabs.find((t) => t.id === targetId);
+                if (sourceTab && targetTab) {
+                    return { source: sourceTab, target: targetTab };
+                }
+            }
+            for (const [k, v] of Object.entries(chapterLinks)) {
+                if (v === tabId) {
+                    const sourceTab = openTabs.find((t) => t.id === k);
+                    const targetTab = openTabs.find((t) => t.id === tabId);
+                    if (sourceTab && targetTab) {
+                        return { source: sourceTab, target: targetTab };
+                    }
+                }
+            }
+            return null;
+        },
+        [chapterLinks, openTabs]
+    );
+
+    const openChapterSplitPreview = useCallback(
+        (chapterId: string, modeOverride?: 'chapter' | 'book') => {
+            promoteTabToPermanent(chapterId);
+            setIsScratchOpen(false);
+            setActiveTabId(chapterId);
+            setPreviewTargetChapterId(chapterId);
+            if (modeOverride) {
+                setReaderMode(modeOverride);
+            }
+
+            const paired = getLinkedPartner(chapterId);
+            let targetPreviewSide: 'left' | 'right' = 'right';
+            if (paired) {
+                targetPreviewSide =
+                    paired.target.id === chapterId ? 'left' : 'right';
+            }
+
+            setPreviewSide(targetPreviewSide);
+            setIsPreviewOpen(true);
+            setIsPreviewFullscreen(false);
+            setTileSplitRatio(50);
+            setFocusedTileSide(
+                targetPreviewSide === 'right' ? 'left' : 'right'
+            );
+        },
+        [promoteTabToPermanent, getLinkedPartner]
+    );
+
+    const closeChapterSplitPreview = useCallback(() => {
+        setIsPreviewOpen(false);
+        setIsPreviewFullscreen(false);
+        setPreviewTargetChapterId(null);
+    }, []);
+
+    const handleEditorToolbarClickCapture = useCallback(
+        (e: React.MouseEvent<HTMLDivElement>) => {
+            const target = e.target as HTMLElement | null;
+            if (!target) return;
+            const btn = target.closest('button');
+            if (!btn) return;
+
+            const hasDotsIcon =
+                btn.querySelector('.tabler-icon-dots-vertical') ||
+                btn.querySelector('svg.lucide-more-vertical') ||
+                btn
+                    .getAttribute('aria-label')
+                    ?.toLowerCase()
+                    .includes('more') ||
+                btn.title?.toLowerCase().includes('more') ||
+                btn.title?.toLowerCase().includes('options');
+
+            const toolbar = btn.closest(
+                '[class*="toolbar"], [role="toolbar"], .ProseMirror-menubar'
+            );
+            const isLastToolbarBtn =
+                toolbar &&
+                toolbar.lastElementChild &&
+                (toolbar.lastElementChild === btn ||
+                    toolbar.lastElementChild.contains(btn));
+
+            if (hasDotsIcon || isLastToolbarBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const rect = btn.getBoundingClientRect();
+                setToolbarSplitMenu((prev) =>
+                    prev
+                        ? null
+                        : {
+                              x: Math.min(rect.left, window.innerWidth - 160),
+                              y: rect.bottom + 6,
+                          }
+                );
+            }
+        },
+        []
+    );
+
+    useEffect(() => {
+        if (!toolbarSplitMenu) return;
+        const closeMenu = (e: PointerEvent) => {
+            const target = e.target as HTMLElement | null;
+            if (target?.closest(`.${styles.tileDropdownMenu}`)) return;
+            setToolbarSplitMenu(null);
+        };
+        window.addEventListener('pointerdown', closeMenu, true);
+        return () => window.removeEventListener('pointerdown', closeMenu, true);
+    }, [toolbarSplitMenu]);
+
+    // Synchronized scrolling (only active when isScrollLinked is true AND readerMode === 'chapter')
+    const handleEditorScrollCapture = useCallback(
+        (e: React.UIEvent<HTMLDivElement>) => {
+            if (!isScrollLinked || !isPreviewOpen || readerMode !== 'chapter') {
+                return;
+            }
+            if (isSyncingScrollRef.current === 'preview') return;
+
+            const target = e.target as HTMLElement;
+            const editorEl =
+                target && target.scrollHeight > target.clientHeight + 2
+                    ? target
+                    : findScrollableDescendant(editorSplitPaneRef.current);
+            const previewEl =
+                previewBodyScrollRef.current &&
+                previewBodyScrollRef.current.scrollHeight >
+                    previewBodyScrollRef.current.clientHeight + 2
+                    ? previewBodyScrollRef.current
+                    : findScrollableDescendant(previewPaneContainerRef.current);
+
+            if (!editorEl || !previewEl) return;
+
+            const maxEditorScroll =
+                editorEl.scrollHeight - editorEl.clientHeight;
+            const maxPreviewScroll =
+                previewEl.scrollHeight - previewEl.clientHeight;
+            if (maxEditorScroll <= 0 || maxPreviewScroll <= 0) return;
+
+            isSyncingScrollRef.current = 'editor';
+            if (scrollLockTimerRef.current) {
+                window.clearTimeout(scrollLockTimerRef.current);
+            }
+            const ratio = Math.min(
+                1,
+                Math.max(0, editorEl.scrollTop / maxEditorScroll)
+            );
+            previewEl.scrollTop = ratio * maxPreviewScroll;
+            scrollLockTimerRef.current = window.setTimeout(() => {
+                isSyncingScrollRef.current = null;
+            }, 40);
+        },
+        [isScrollLinked, isPreviewOpen, readerMode]
+    );
+
+    const handlePreviewScrollCapture = useCallback(
+        (e: React.UIEvent<HTMLDivElement>) => {
+            if (!isScrollLinked || !isPreviewOpen || readerMode !== 'chapter') {
+                return;
+            }
+            if (isSyncingScrollRef.current === 'editor') return;
+
+            const target = e.target as HTMLElement;
+            const previewEl =
+                target && target.scrollHeight > target.clientHeight + 2
+                    ? target
+                    : previewBodyScrollRef.current &&
+                        previewBodyScrollRef.current.scrollHeight >
+                            previewBodyScrollRef.current.clientHeight + 2
+                      ? previewBodyScrollRef.current
+                      : findScrollableDescendant(
+                            previewPaneContainerRef.current
+                        );
+            const editorEl = findScrollableDescendant(
+                editorSplitPaneRef.current
+            );
+
+            if (!editorEl || !previewEl) return;
+
+            const maxEditorScroll =
+                editorEl.scrollHeight - editorEl.clientHeight;
+            const maxPreviewScroll =
+                previewEl.scrollHeight - previewEl.clientHeight;
+            if (maxEditorScroll <= 0 || maxPreviewScroll <= 0) return;
+
+            isSyncingScrollRef.current = 'preview';
+            if (scrollLockTimerRef.current) {
+                window.clearTimeout(scrollLockTimerRef.current);
+            }
+            const ratio = Math.min(
+                1,
+                Math.max(0, previewEl.scrollTop / maxPreviewScroll)
+            );
+            editorEl.scrollTop = ratio * maxEditorScroll;
+            scrollLockTimerRef.current = window.setTimeout(() => {
+                isSyncingScrollRef.current = null;
+            }, 40);
+        },
+        [isScrollLinked, isPreviewOpen, readerMode]
+    );
+
+    // =========================================================================
     // TOP TAB AUTO-SCROLL, MOUSE WHEEL SCROLL & DRAG-AND-DROP (TABS + SIDEBAR)
     // =========================================================================
     const tabsGroupRef = useRef<HTMLDivElement>(null);
@@ -290,7 +576,6 @@ function App() {
 
     const activeDragId = draggedTabId || draggedSidebarItem?.id || null;
 
-    // Continuous smooth edge-scroll when dragging a tab near the left or right edge of the top tab bar
     useEffect(() => {
         if (!activeDragId) {
             tabDragScrollDirRef.current = 0;
@@ -309,8 +594,6 @@ function App() {
         return () => cancelAnimationFrame(animId);
     }, [activeDragId]);
 
-    // Ensure every LeftPanel item row (Chapters, Characters, Locations, Organizations, Items, Lore)
-    // has draggable="true" and syncs italic preview state by exact list order
     useEffect(() => {
         const container = leftPanelContainerRef.current;
         if (!container) return;
@@ -420,7 +703,6 @@ function App() {
         isLeftHovered,
     ]);
 
-    // Keep sidebar scroll/cursor focused on the last clicked/previewed item after deleting another item
     useEffect(() => {
         const targetId = previewTabId || activeTabId;
         if (!targetId) return;
@@ -450,7 +732,6 @@ function App() {
         activeTabId,
     ]);
 
-    // Only scroll the tab bar when activeTabId actually changes and is clipped out of view
     useEffect(() => {
         if (!activeTabId || isScratchOpen) return;
         const rafId = requestAnimationFrame(() => {
@@ -492,7 +773,6 @@ function App() {
         }
     };
 
-    // Helper: Ensure a dragged sidebar item is loaded & present in openTabs
     const ensureSidebarItemOpenedAsTab = async (
         item: SidebarDragPayload,
         insertAt?: { targetTabId: string; mode: 'before' | 'after' }
@@ -565,7 +845,6 @@ function App() {
         return item.id;
     };
 
-    // Capture drag start from any chapter or compendium item in LeftPanel
     const handleLeftPanelDragStartCapture = (
         e: React.DragEvent<HTMLDivElement>
     ) => {
@@ -773,25 +1052,54 @@ function App() {
         promoteTabToPermanent(targetTab.id);
 
         if (currentMode === 'merge') {
+            closeChapterSplitPreview();
+
+            const sourceIdx = openTabs.findIndex((t) => t.id === sourceId);
+            const targetIdx = openTabs.findIndex((t) => t.id === targetTab.id);
+            const isSourceRightOfTarget =
+                sourceIdx !== -1 && targetIdx !== -1 && sourceIdx > targetIdx;
+            const leftId = isSourceRightOfTarget ? targetTab.id : sourceId;
+            const rightId = isSourceRightOfTarget ? sourceId : targetTab.id;
+
             setChapterLinks((prev) => {
                 const cleaned: Record<string, string | null> = {};
                 for (const [k, v] of Object.entries(prev)) {
                     if (
-                        k !== sourceId &&
-                        v !== sourceId &&
-                        k !== targetTab.id &&
-                        v !== targetTab.id
+                        k !== leftId &&
+                        v !== leftId &&
+                        k !== rightId &&
+                        v !== rightId
                     ) {
                         cleaned[k] = v;
                     }
                 }
-                cleaned[sourceId] = targetTab.id;
+                cleaned[leftId] = rightId;
                 return cleaned;
             });
+
+            setOpenTabs((prev) => {
+                const leftTab = prev.find((t) => t.id === leftId);
+                const rightTab = prev.find((t) => t.id === rightId);
+                if (!leftTab || !rightTab) return prev;
+                const withoutSource = prev.filter((t) => t.id !== sourceId);
+                const anchorIdx = withoutSource.findIndex(
+                    (t) => t.id === targetTab.id
+                );
+                if (anchorIdx === -1) return prev;
+                const next = [...withoutSource];
+                const sourceTabObj = prev.find((t) => t.id === sourceId)!;
+                if (isSourceRightOfTarget) {
+                    next.splice(anchorIdx + 1, 0, sourceTabObj);
+                } else {
+                    next.splice(anchorIdx, 0, sourceTabObj);
+                }
+                return next;
+            });
+
             setTileSplitRatio(50);
             setIsScratchOpen(false);
-            setActiveTabId(targetTab.id);
-            setFocusedTileSide('right');
+            setActiveTabId(sourceId);
+            setFocusedTileSide(sourceId === leftId ? 'left' : 'right');
             return;
         }
 
@@ -817,7 +1125,6 @@ function App() {
         });
     };
 
-    // Enable edge auto-scroll across the whole top tab bar & allow dropping tabs/sidebar items into the end/empty area of the tab bar
     const handleTabsContainerDragOver = (
         e: React.DragEvent<HTMLDivElement>
     ) => {
@@ -959,7 +1266,6 @@ function App() {
         }
         promoteTabToPermanent(sourceId);
 
-        // Dragging the active single tab into the middle of the editor activates "Add Tile" linking mode!
         if (isCurrentSingleTab && zone === 'center') {
             if (currentTab.type !== 'plot-architecture') {
                 handleStartLinking(sourceId);
@@ -972,6 +1278,7 @@ function App() {
             : null;
 
         if (existingPair && (zone === 'left' || zone === 'right')) {
+            closeChapterSplitPreview();
             const keptId =
                 zone === 'left'
                     ? existingPair.target.id
@@ -1033,24 +1340,40 @@ function App() {
             return;
         }
 
+        closeChapterSplitPreview();
+        const leftId = zone === 'left' ? sourceId : currentAnchorId;
+        const rightId = zone === 'left' ? currentAnchorId : sourceId;
+
         setChapterLinks((prev) => {
             const cleaned: Record<string, string | null> = {};
             for (const [k, v] of Object.entries(prev)) {
                 if (
-                    k !== sourceId &&
-                    v !== sourceId &&
-                    k !== currentAnchorId &&
-                    v !== currentAnchorId
+                    k !== leftId &&
+                    v !== leftId &&
+                    k !== rightId &&
+                    v !== rightId
                 ) {
                     cleaned[k] = v;
                 }
             }
-            if (zone === 'left') {
-                cleaned[sourceId] = currentAnchorId;
-            } else {
-                cleaned[currentAnchorId] = sourceId;
-            }
+            cleaned[leftId] = rightId;
             return cleaned;
+        });
+
+        setOpenTabs((prev) => {
+            const withoutSource = prev.filter((t) => t.id !== sourceId);
+            const anchorIdx = withoutSource.findIndex(
+                (t) => t.id === currentAnchorId
+            );
+            const sourceTabObj = prev.find((t) => t.id === sourceId);
+            if (anchorIdx === -1 || !sourceTabObj) return prev;
+            const next = [...withoutSource];
+            next.splice(
+                zone === 'left' ? anchorIdx : anchorIdx + 1,
+                0,
+                sourceTabObj
+            );
+            return next;
         });
 
         setTileSplitRatio(50);
@@ -1059,9 +1382,18 @@ function App() {
         setFocusedTileSide(zone === 'left' ? 'left' : 'right');
     };
 
-    // Exact Category Icons matching the Left Sidebar Compendium Icons
-    const renderTabIcon = (type: FileTab['type']) => {
-        switch (type) {
+    const renderTabIcon = (tab: FileTab) => {
+        const isTabInPreview =
+            isPreviewOpen &&
+            !isScratchOpen &&
+            tab.type === 'chapter' &&
+            previewTargetChapterId === tab.id;
+
+        if (isTabInPreview) {
+            return <IconEye size={14} className={styles.tabIcon} />;
+        }
+
+        switch (tab.type) {
             case 'character':
                 return <IconUser size={14} className={styles.tabIcon} />;
             case 'location':
@@ -1080,31 +1412,6 @@ function App() {
                 return <IconFileText size={14} className={styles.tabIcon} />;
         }
     };
-
-    // =========================================================================
-    // UNIVERSAL TILE LINKING (CHAPTERS, CHARACTERS, LOCATIONS, ETC.) & RESIZE
-    // =========================================================================
-    const [chapterLinks, setChapterLinks] = useState<
-        Record<string, string | null>
-    >({});
-    const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
-    const [isCenterHovered, setIsCenterHovered] = useState<boolean>(false);
-    const [focusedTileSide, setFocusedTileSide] = useState<'left' | 'right'>(
-        'left'
-    );
-    const [tileMenuState, setTileMenuState] = useState<{
-        chapterId: string;
-        x: number;
-        y: number;
-    } | null>(null);
-
-    // Split workspace resizable ratio (strictly clamped between 40% and 60%)
-    const [tileSplitRatio, setTileSplitRatio] = useState<number>(50);
-    const [isTileResizing, setIsTileResizing] = useState<boolean>(false);
-    const workspaceRef = useRef<HTMLDivElement>(null);
-
-    const leftScrollRef = useRef<HTMLDivElement>(null);
-    const rightScrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (!isTileResizing) return;
@@ -1133,7 +1440,6 @@ function App() {
         };
     }, [isTileResizing]);
 
-    // Close the context menu when clicking anywhere outside
     useEffect(() => {
         if (!tileMenuState) return;
         const handlePointerDownOutside = (e: PointerEvent) => {
@@ -1152,7 +1458,6 @@ function App() {
             );
     }, [tileMenuState]);
 
-    // Dismiss the bottom linking notification banner when clicking anywhere on the display
     useEffect(() => {
         if (!linkingSourceId) return;
         const handleGlobalClick = (e: MouseEvent) => {
@@ -1183,27 +1488,41 @@ function App() {
             setLinkingSourceId(null);
             return;
         }
+        const sourceId = linkingSourceId;
+        closeChapterSplitPreview();
+
         setChapterLinks((prev) => {
             const cleaned: Record<string, string | null> = {};
             for (const [k, v] of Object.entries(prev)) {
                 if (
-                    k !== linkingSourceId &&
-                    v !== linkingSourceId &&
+                    k !== sourceId &&
+                    v !== sourceId &&
                     k !== targetId &&
                     v !== targetId
                 ) {
                     cleaned[k] = v;
                 }
             }
-            cleaned[linkingSourceId] = targetId;
+            cleaned[sourceId] = targetId;
             return cleaned;
         });
-        promoteTabToPermanent(linkingSourceId);
+
+        setOpenTabs((prev) => {
+            const withoutTarget = prev.filter((t) => t.id !== targetId);
+            const sourceIdx = withoutTarget.findIndex((t) => t.id === sourceId);
+            const targetTabObj = prev.find((t) => t.id === targetId);
+            if (sourceIdx === -1 || !targetTabObj) return prev;
+            const next = [...withoutTarget];
+            next.splice(sourceIdx + 1, 0, targetTabObj);
+            return next;
+        });
+
+        promoteTabToPermanent(sourceId);
         promoteTabToPermanent(targetId);
         setTileSplitRatio(50);
         setIsScratchOpen(false);
-        setActiveTabId(targetId);
-        setFocusedTileSide('right');
+        setActiveTabId(sourceId);
+        setFocusedTileSide('left');
         setTileMenuState(null);
         setLinkingSourceId(null);
     };
@@ -1221,34 +1540,9 @@ function App() {
         setTileMenuState(null);
     };
 
-    const getLinkedPartner = useCallback(
-        (tabId: string) => {
-            const targetId = chapterLinks[tabId];
-            if (targetId) {
-                const sourceTab = openTabs.find((t) => t.id === tabId);
-                const targetTab = openTabs.find((t) => t.id === targetId);
-                if (sourceTab && targetTab) {
-                    return { source: sourceTab, target: targetTab };
-                }
-            }
-            for (const [k, v] of Object.entries(chapterLinks)) {
-                if (v === tabId) {
-                    const sourceTab = openTabs.find((t) => t.id === k);
-                    const targetTab = openTabs.find((t) => t.id === tabId);
-                    if (sourceTab && targetTab) {
-                        return { source: sourceTab, target: targetTab };
-                    }
-                }
-            }
-            return null;
-        },
-        [chapterLinks, openTabs]
-    );
-
     // =========================================================================
     // CLOSE TAB, CLOSE RIGHT TABS, CLOSE LEFT TABS, CLOSE ALL TABS HANDLERS
     // =========================================================================
-    // Returns to the most recently visited open tab (e.g., clicked Ch 8 -> clicked Ch 10 -> delete Ch 10 -> returns to Ch 8)
     const getNextActiveTabIdAfterClosing = (
         currentTabs: FileTab[],
         closeSet: Set<string>,
@@ -1265,7 +1559,6 @@ function App() {
             currentTabs.filter((t) => !closeSet.has(t.id)).map((t) => t.id)
         );
 
-        // 1. Check most-recently-visited history first
         for (let i = tabActivationHistoryRef.current.length - 1; i >= 0; i--) {
             const candidateId = tabActivationHistoryRef.current[i];
             if (remainingIds.has(candidateId)) {
@@ -1273,7 +1566,6 @@ function App() {
             }
         }
 
-        // 2. Fallback to the tab immediately before the closed tab
         const closedIdx = currentTabs.findIndex(
             (t) => t.id === currentActiveId
         );
@@ -1296,7 +1588,10 @@ function App() {
         }
         const closeSet = new Set(idsToClose);
 
-        // Clean up links, preview state, and DOM refs for all closed tabs
+        if (previewTargetChapterId && closeSet.has(previewTargetChapterId)) {
+            closeChapterSplitPreview();
+        }
+
         setChapterLinks((prev) => {
             const next: Record<string, string | null> = {};
             for (const [k, v] of Object.entries(prev)) {
@@ -1416,7 +1711,20 @@ function App() {
         tabs: FileTab[],
         activeTabId: string | null,
         links: Record<string, string | null> = {},
-        splitRatio: number = 50
+        splitRatio: number = 50,
+        previewState: {
+            isPreviewOpen: boolean;
+            previewTargetChapterId: string | null;
+            readerMode: 'chapter' | 'book';
+            previewSide: 'left' | 'right';
+            isScrollLinked: boolean;
+        } = {
+            isPreviewOpen: false,
+            previewTargetChapterId: null,
+            readerMode: 'chapter',
+            previewSide: 'right',
+            isScrollLinked: false,
+        }
     ) {
         try {
             localStorage.setItem(
@@ -1426,6 +1734,7 @@ function App() {
                     activeTabId,
                     chapterLinks: links,
                     tileSplitRatio: splitRatio,
+                    ...previewState,
                 })
             );
         } catch (e) {
@@ -1529,7 +1838,14 @@ function App() {
                 openTabs,
                 activeTabId,
                 chapterLinks,
-                tileSplitRatio
+                tileSplitRatio,
+                {
+                    isPreviewOpen,
+                    previewTargetChapterId,
+                    readerMode,
+                    previewSide,
+                    isScrollLinked,
+                }
             );
         }
     }, [
@@ -1538,6 +1854,11 @@ function App() {
         activeTabId,
         chapterLinks,
         tileSplitRatio,
+        isPreviewOpen,
+        previewTargetChapterId,
+        readerMode,
+        previewSide,
+        isScrollLinked,
     ]);
 
     useEffect(() => {
@@ -1561,11 +1882,43 @@ function App() {
 
                 const savedState = loadProjectTabs(project.id);
                 if (savedState) {
-                    setOpenTabs(savedState.tabs || []);
-                    setActiveTabId(savedState.activeTabId || null);
+                    const restoredTabs: FileTab[] = savedState.tabs || [];
+                    const restoredActiveId: string | null =
+                        savedState.activeTabId || null;
+                    setOpenTabs(restoredTabs);
+                    setActiveTabId(restoredActiveId);
                     setChapterLinks(savedState.chapterLinks || {});
                     setTileSplitRatio(savedState.tileSplitRatio ?? 50);
-                    await restoreTabContents(savedState.tabs || []);
+
+                    if (savedState.isPreviewOpen) {
+                        const targetPreviewId =
+                            savedState.previewTargetChapterId ||
+                            restoredActiveId;
+                        const hasValidChapter = restoredTabs.some(
+                            (t) =>
+                                t.id === targetPreviewId && t.type === 'chapter'
+                        );
+                        if (hasValidChapter && targetPreviewId) {
+                            setPreviewTargetChapterId(targetPreviewId);
+                            setIsPreviewOpen(true);
+                            setReaderMode(
+                                savedState.readerMode === 'book'
+                                    ? 'book'
+                                    : 'chapter'
+                            );
+                            if (
+                                savedState.previewSide === 'left' ||
+                                savedState.previewSide === 'right'
+                            ) {
+                                setPreviewSide(savedState.previewSide);
+                            }
+                            setIsScrollLinked(
+                                Boolean(savedState.isScrollLinked)
+                            );
+                        }
+                    }
+
+                    await restoreTabContents(restoredTabs);
                 }
             } else {
                 setShowProjectSelection(true);
@@ -1580,11 +1933,14 @@ function App() {
         const project = await rpc.request['project:set-current'](projectId);
         if (project) {
             const savedState = loadProjectTabs(project.id);
+            const restoredTabs: FileTab[] = savedState?.tabs || [];
+            const restoredActiveId: string | null =
+                savedState?.activeTabId || null;
 
             tabActivationHistoryRef.current = [];
             setCurrentProject(project);
-            setOpenTabs(savedState?.tabs || []);
-            setActiveTabId(savedState?.activeTabId || null);
+            setOpenTabs(restoredTabs);
+            setActiveTabId(restoredActiveId);
             setChapterLinks(savedState?.chapterLinks || {});
             setTileSplitRatio(savedState?.tileSplitRatio ?? 50);
             setPreviewTabId(null);
@@ -1593,9 +1949,33 @@ function App() {
             setIsScratchOpen(false);
             setScratchContent('');
             setIsReadingMode(false);
-            setReaderMode('chapter');
-            setIsPreviewOpen(false);
+            setIsPreviewFullscreen(false);
             setShowProjectSelection(false);
+
+            const targetPreviewId =
+                savedState?.previewTargetChapterId || restoredActiveId;
+            const hasValidChapter =
+                Boolean(savedState?.isPreviewOpen) &&
+                restoredTabs.some(
+                    (t) => t.id === targetPreviewId && t.type === 'chapter'
+                );
+
+            if (hasValidChapter && targetPreviewId) {
+                setPreviewTargetChapterId(targetPreviewId);
+                setIsPreviewOpen(true);
+                setReaderMode(
+                    savedState?.readerMode === 'book' ? 'book' : 'chapter'
+                );
+                setPreviewSide(
+                    savedState?.previewSide === 'left' ? 'left' : 'right'
+                );
+                setIsScrollLinked(Boolean(savedState?.isScrollLinked));
+            } else {
+                setReaderMode('chapter');
+                setIsPreviewOpen(false);
+                setPreviewTargetChapterId(null);
+                setIsScrollLinked(false);
+            }
 
             loadChapters(project.id);
             loadCompendium(project.id);
@@ -1778,6 +2158,8 @@ function App() {
                 clearTimeout(scratchSaveTimeoutRef.current);
             if (justSavedTimerRef.current)
                 clearTimeout(justSavedTimerRef.current);
+            if (scrollLockTimerRef.current)
+                window.clearTimeout(scrollLockTimerRef.current);
         };
     }, []);
 
@@ -1990,6 +2372,12 @@ function App() {
 
         setIsScratchOpen(false);
         setActiveTabId(chapter.id);
+
+        if (isPreviewOpen) {
+            openChapterSplitPreview(chapter.id);
+        } else if (isRapidDoubleClick) {
+            openChapterSplitPreview(chapter.id, 'chapter');
+        }
     }
 
     function openPlotArchitectureTab() {
@@ -3148,6 +3536,9 @@ function App() {
         setTileMenuState(null);
         setPreviewTabId((prev) => (prev === id ? null : prev));
         setLinkingSourceId((prev) => (prev === id ? null : prev));
+        if (previewTargetChapterId === id) {
+            closeChapterSplitPreview();
+        }
         handleUnlinkChapter(id);
         delete tabRefs.current[id];
 
@@ -3277,13 +3668,19 @@ function App() {
         return 'Compendium Entry';
     }
 
+    const activeTabForPreview = getActiveTab();
+    const resolvedPreviewChapterId =
+        previewTargetChapterId ||
+        (activeTabForPreview?.type === 'chapter'
+            ? activeTabForPreview.id
+            : null);
+
     const previewActive =
         isPreviewOpen &&
         !isScratchOpen &&
-        getActiveTab()?.type === 'chapter' &&
-        isTextFileTab();
+        activeTabForPreview?.type === 'chapter' &&
+        Boolean(resolvedPreviewChapterId);
 
-    // Renders any tab's workspace content (Chapters, Characters, Locations, Items, Lore, Files)
     function renderSingleTabWorkspace(tab: FileTab) {
         const showTextFormatting = isTextFileTab();
 
@@ -3623,9 +4020,11 @@ function App() {
             const titleValue = editingTitle
                 ? chapterTitleDraft
                 : (chapter?.title ?? '');
+            const isChapterInPreview =
+                isPreviewOpen && previewTargetChapterId === chapterId;
 
             return (
-                <>
+                <div onClickCapture={handleEditorToolbarClickCapture}>
                     <div className="chapter-title-row">
                         <input
                             className="chapter-title-input"
@@ -3683,11 +4082,17 @@ function App() {
                         showBubbleMenu={showTextFormatting}
                         editable={!isReadingMode}
                         onToggleEditable={() => setIsReadingMode((v) => !v)}
-                        isPreviewOpen={isPreviewOpen}
-                        onTogglePreview={() => setIsPreviewOpen((v) => !v)}
+                        isPreviewOpen={isChapterInPreview}
+                        onTogglePreview={() => {
+                            if (isChapterInPreview) {
+                                closeChapterSplitPreview();
+                            } else {
+                                openChapterSplitPreview(chapterId);
+                            }
+                        }}
                         showPreview={true}
                     />
-                </>
+                </div>
             );
         }
 
@@ -3795,74 +4200,6 @@ function App() {
                 el
             );
 
-        const previewPosition =
-            settings?.appearance?.previewPosition ?? 'right';
-
-        const previewHandle = previewActive ? (
-            <div
-                className={`drag-handle preview-drag-handle ${isPreviewDragging ? 'active' : ''}`}
-                onMouseDown={(e) => {
-                    e.preventDefault();
-                    setIsPreviewDragging(true);
-                    previewDragStartXRef.current = e.clientX;
-                    previewDragStartWidthRef.current = previewWidthRef.current;
-                    document.body.style.userSelect = 'none';
-                    document.body.style.webkitUserSelect = 'none';
-                }}
-            />
-        ) : null;
-
-        const previewPane = previewActive ? (
-            <PreviewPane
-                chapters={chapters}
-                tabContents={tabContents}
-                activeChapterId={
-                    activeTab?.type === 'chapter' ? activeTab.id : null
-                }
-                readerMode={readerMode}
-                onReaderModeChange={handleReaderModeChange}
-                onClose={() => setIsPreviewOpen(false)}
-                width={previewWidth}
-                chapterLinks={chapterLinks}
-                onUnlink={handleUnlinkChapter}
-                onStartLinking={handleStartLinking}
-                linkingSourceId={linkingSourceId}
-                onTextChange={(id, text) => {
-                    setTabContents((prev) => ({ ...prev, [id]: text }));
-                    setOpenTabs((prev) =>
-                        prev.map((t) =>
-                            t.id === id ? { ...t, isModified: true } : t
-                        )
-                    );
-                    modifiedTabIdsRef.current.add(id);
-                    setSaveState('saving');
-                    debouncedSave(id, text);
-                }}
-            />
-        ) : null;
-
-        const editorSplit = (content: ReactNode) => {
-            if (!previewPane) {
-                return <div className="editor-split-main">{content}</div>;
-            }
-            return (
-                <>
-                    {previewPosition === 'left' ? (
-                        <>
-                            {previewPane}
-                            {previewHandle}
-                        </>
-                    ) : (
-                        <>
-                            {previewHandle}
-                            {previewPane}
-                        </>
-                    )}
-                    <div className="editor-split-main">{content}</div>
-                </>
-            );
-        };
-
         if (isScratchOpen) {
             return wrapWidth(
                 <RichTextEditor
@@ -3912,7 +4249,157 @@ function App() {
             );
         }
 
-        // Check if active tab (Chapter, Character, Location, Org, Item, Lore, or File) is linked in a Tile pair
+        if (previewActive && activeTab.type === 'chapter') {
+            const editorPaneEl = (
+                <div
+                    ref={editorSplitPaneRef}
+                    onScrollCapture={handleEditorScrollCapture}
+                    className={`${styles.splitEditorCompact} ${
+                        previewSide === 'right'
+                            ? styles.leftPane
+                            : styles.rightPane
+                    }`}
+                    style={
+                        previewSide === 'right'
+                            ? {
+                                  flex: `0 0 ${tileSplitRatio}%`,
+                                  width: `${tileSplitRatio}%`,
+                              }
+                            : undefined
+                    }
+                    onMouseDownCapture={() => {
+                        setFocusedTileSide(
+                            previewSide === 'right' ? 'left' : 'right'
+                        );
+                    }}
+                >
+                    <div
+                        className={`${styles.paneHeaderRow} ${styles.splitPaneHeaderRow}`}
+                    >
+                        <span className={styles.paneTitleBadge}>
+                            {activeTab.name}
+                        </span>
+                        {readerMode === 'chapter' && (
+                            <button
+                                type="button"
+                                className={`tb-btn ${isScrollLinked ? 'active' : ''} ${styles.paneHeaderActionBtn}`}
+                                onClick={() => setIsScrollLinked((v) => !v)}
+                                title={
+                                    isScrollLinked
+                                        ? 'Unlink Chapter & Preview Scroll'
+                                        : 'Link Chapter & Preview Scroll'
+                                }
+                            >
+                                <IconLink size={12} stroke={2.2} />
+                                <span>Link Scroll</span>
+                            </button>
+                        )}
+                    </div>
+                    {wrapWidth(renderSingleTabWorkspace(activeTab))}
+                </div>
+            );
+
+            const previewPaneEl = (
+                <div
+                    ref={previewPaneContainerRef}
+                    onScrollCapture={handlePreviewScrollCapture}
+                    className={`${
+                        isPreviewFullscreen
+                            ? `${styles.rightPane} ${styles.previewPaneFullscreen}`
+                            : previewSide === 'right'
+                              ? styles.rightPane
+                              : styles.leftPane
+                    } ${styles.previewPaneShell}`}
+                    style={
+                        !isPreviewFullscreen && previewSide === 'left'
+                            ? {
+                                  flex: `0 0 ${tileSplitRatio}%`,
+                                  width: `${tileSplitRatio}%`,
+                              }
+                            : undefined
+                    }
+                    onMouseDownCapture={() => {
+                        setFocusedTileSide(previewSide);
+                    }}
+                >
+                    <PreviewPane
+                        chapters={chapters}
+                        tabContents={tabContents}
+                        activeChapterId={resolvedPreviewChapterId}
+                        readerMode={readerMode}
+                        onReaderModeChange={handleReaderModeChange}
+                        onClose={closeChapterSplitPreview}
+                        previewPosition={previewSide}
+                        onTogglePosition={() =>
+                            setPreviewSide((prev) =>
+                                prev === 'right' ? 'left' : 'right'
+                            )
+                        }
+                        isFullscreen={isPreviewFullscreen}
+                        onToggleFullscreen={() =>
+                            setIsPreviewFullscreen((v) => !v)
+                        }
+                        bodyScrollRef={previewBodyScrollRef}
+                        width="100%"
+                        chapterLinks={chapterLinks}
+                        onUnlink={handleUnlinkChapter}
+                        onStartLinking={handleStartLinking}
+                        linkingSourceId={linkingSourceId}
+                        onTextChange={(id, text) => {
+                            setTabContents((prev) => ({
+                                ...prev,
+                                [id]: text,
+                            }));
+                            setOpenTabs((prev) =>
+                                prev.map((t) =>
+                                    t.id === id ? { ...t, isModified: true } : t
+                                )
+                            );
+                            modifiedTabIdsRef.current.add(id);
+                            setSaveState('saving');
+                            debouncedSave(id, text);
+                        }}
+                    />
+                </div>
+            );
+
+            const resizerEl = (
+                <div
+                    className={`${styles.tileResizeDivider} ${isTileResizing ? styles.tileResizeDividerActive : ''}`}
+                    onMouseDown={(e) => {
+                        e.preventDefault();
+                        setIsTileResizing(true);
+                        document.body.style.userSelect = 'none';
+                        document.body.style.webkitUserSelect = 'none';
+                        document.body.style.cursor = 'col-resize';
+                    }}
+                    title="Drag to resize panes (40% - 60%)"
+                />
+            );
+
+            return (
+                <div className={styles.tabContentContainer}>
+                    <div ref={workspaceRef} className={styles.workspace}>
+                        {isPreviewFullscreen ? (
+                            previewPaneEl
+                        ) : previewSide === 'left' ? (
+                            <>
+                                {previewPaneEl}
+                                {resizerEl}
+                                {editorPaneEl}
+                            </>
+                        ) : (
+                            <>
+                                {editorPaneEl}
+                                {resizerEl}
+                                {previewPaneEl}
+                            </>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
         const linkedPair = getLinkedPartner(activeTab.id);
 
         if (linkedPair) {
@@ -3940,7 +4427,6 @@ function App() {
                                 {focusedTileSide === 'left' && (
                                     <button
                                         className={styles.paneUnlinkSmallBtn}
-                                        style={{ display: 'none' }}
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleUnlinkChapter(
@@ -3955,7 +4441,6 @@ function App() {
                             {renderSingleTabWorkspace(linkedPair.source)}
                         </div>
 
-                        {/* Draggable Resizer Divider (Clamped strictly between 40% and 60%) */}
                         <div
                             className={`${styles.tileResizeDivider} ${isTileResizing ? styles.tileResizeDividerActive : ''}`}
                             onMouseDown={(e) => {
@@ -3972,7 +4457,6 @@ function App() {
                             {isCenterHovered && !isTileResizing && (
                                 <button
                                     className={styles.hoverUnlinkBtn}
-                                    style={{ display: 'none' }}
                                     onMouseDown={(e) => e.stopPropagation()}
                                     onClick={() =>
                                         handleUnlinkChapter(
@@ -3988,9 +4472,6 @@ function App() {
                         <div
                             ref={rightScrollRef}
                             className={styles.rightPane}
-                            style={{
-                                flex: '1 1 0%',
-                            }}
                             onMouseDownCapture={() => {
                                 setFocusedTileSide('right');
                                 if (activeTabId !== linkedPair.target.id) {
@@ -4005,7 +4486,6 @@ function App() {
                                 {focusedTileSide === 'right' && (
                                     <button
                                         className={styles.paneUnlinkSmallBtn}
-                                        style={{ display: 'none' }}
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleUnlinkChapter(
@@ -4028,16 +4508,20 @@ function App() {
             return (
                 <div className={styles.tabContentContainer}>
                     <div className={styles.standardEditorScroll}>
-                        {editorSplit(
-                            wrapWidth(renderSingleTabWorkspace(activeTab))
-                        )}
+                        <div className="editor-split-main">
+                            {wrapWidth(renderSingleTabWorkspace(activeTab))}
+                        </div>
                     </div>
                 </div>
             );
         }
 
         if (activeTab.type === 'file') {
-            return editorSplit(wrapWidth(renderSingleTabWorkspace(activeTab)));
+            return (
+                <div className="editor-split-main">
+                    {wrapWidth(renderSingleTabWorkspace(activeTab))}
+                </div>
+            );
         }
 
         return renderSingleTabWorkspace(activeTab);
@@ -4114,9 +4598,6 @@ function App() {
     useEffect(() => {
         if (!isPreviewDragging) return;
 
-        const previewPosition =
-            settings?.appearance?.previewPosition ?? 'right';
-
         const handleMouseMove = (e: MouseEvent) => {
             const delta = e.clientX - previewDragStartXRef.current;
             const start = previewDragStartWidthRef.current;
@@ -4124,7 +4605,7 @@ function App() {
                 720,
                 Math.max(
                     280,
-                    previewPosition === 'left' ? start + delta : start - delta
+                    previewSide === 'left' ? start + delta : start - delta
                 )
             );
             previewWidthRef.current = w;
@@ -4144,7 +4625,7 @@ function App() {
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [isPreviewDragging, settings, updateAppearance]);
+    }, [isPreviewDragging, previewSide, updateAppearance]);
 
     const setLeftCollapsed = useCallback(
         (next: boolean) => {
@@ -4163,7 +4644,6 @@ function App() {
         [settings, updateAppearance]
     );
 
-    // Opens the Context Menu via Three-Dots click (in top-right action bar)
     const handleOpenTileMenu = (tabId: string, e: React.MouseEvent) => {
         e.stopPropagation();
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -4178,7 +4658,6 @@ function App() {
         );
     };
 
-    // Opens the Context Menu via Right-Click on any Tab in the Top Bar
     const handleTabContextMenu = (
         tab: FileTab,
         e: React.MouseEvent<HTMLButtonElement>
@@ -4194,12 +4673,7 @@ function App() {
 
     const renderedTabIds = new Set<string>();
     const activeTabObj = getActiveTab();
-    const canTileActiveTab =
-        activeTabObj && activeTabObj.type !== 'plot-architecture'
-            ? activeTabObj
-            : null;
 
-    // Context Menu calculations for the currently right-clicked tab
     const menuTabObj = tileMenuState
         ? openTabs.find((t) => t.id === tileMenuState.chapterId)
         : null;
@@ -4211,8 +4685,12 @@ function App() {
         menuTabIndex !== -1 && menuTabIndex < openTabs.length - 1;
     const canTileMenuTab =
         menuTabObj && menuTabObj.type !== 'plot-architecture';
+    const isMenuTabChapter = menuTabObj?.type === 'chapter';
+    const isMenuTabInPreview =
+        isMenuTabChapter &&
+        isPreviewOpen &&
+        resolvedPreviewChapterId === tileMenuState?.chapterId;
 
-    // Helper to resolve display name during linking toast
     const getLinkingSourceName = (id: string) => {
         return (
             openTabs.find((t) => t.id === id)?.name ||
@@ -4228,31 +4706,6 @@ function App() {
 
     return (
         <>
-            <style>{`
-                .sidebar-item-preview-italic,
-                .sidebar-item-preview-italic * {
-                    font-style: italic !important;
-                }
-                .left-sidebar-no-scrollbar,
-                .left-sidebar-no-scrollbar * {
-                    scrollbar-width: none !important;
-                    -ms-overflow-style: none !important;
-                    user-select: none !important;
-                    -webkit-user-select: none !important;
-                }
-                .left-sidebar-no-scrollbar input,
-                .left-sidebar-no-scrollbar textarea {
-                    user-select: text !important;
-                    -webkit-user-select: text !important;
-                }
-                .left-sidebar-no-scrollbar::-webkit-scrollbar,
-                .left-sidebar-no-scrollbar *::-webkit-scrollbar {
-                    width: 0 !important;
-                    height: 0 !important;
-                    display: none !important;
-                    background: transparent !important;
-                }
-            `}</style>
             <TitleBar
                 isCollapsed={isCollapsed}
                 isChatCollapsed={isChatCollapsed}
@@ -4304,8 +4757,7 @@ function App() {
             <main className="editor-workspace flex-container">
                 <div
                     ref={leftPanelContainerRef}
-                    className="left-sidebar-no-scrollbar"
-                    style={{ display: 'contents' }}
+                    className={styles.leftSidebarNoScrollbar}
                     onDragStartCapture={handleLeftPanelDragStartCapture}
                     onDragEndCapture={handleLeftPanelDragEndCapture}
                 >
@@ -4399,7 +4851,7 @@ function App() {
                 </div>
 
                 <div className="app-editor">
-                    {/* Top Tabs Bar Matching Native App UI */}
+                    {/* Top Tabs Bar */}
                     <div
                         className={styles.topContainer}
                         onClick={() => setTileMenuState(null)}
@@ -4485,11 +4937,19 @@ function App() {
                                                     )
                                                 }
                                                 onDragEnd={handleTabDragEnd}
-                                                onDoubleClick={() =>
+                                                onDoubleClick={() => {
                                                     promoteTabToPermanent(
                                                         partner.source.id
-                                                    )
-                                                }
+                                                    );
+                                                    if (
+                                                        partner.source.type ===
+                                                        'chapter'
+                                                    ) {
+                                                        openChapterSplitPreview(
+                                                            partner.source.id
+                                                        );
+                                                    }
+                                                }}
                                                 className={`${styles.topTab} ${isSourceActive ? styles.topTabPairedActive : ''} ${
                                                     sourceDropMode === 'before'
                                                         ? styles.topTabInsertBefore
@@ -4520,12 +4980,16 @@ function App() {
                                                         setActiveTabId(
                                                             partner.source.id
                                                         );
+                                                        if (isPreviewOpen) {
+                                                            openChapterSplitPreview(
+                                                                partner.source
+                                                                    .id
+                                                            );
+                                                        }
                                                     }
                                                 }}
                                             >
-                                                {renderTabIcon(
-                                                    partner.source.type
-                                                )}
+                                                {renderTabIcon(partner.source)}
                                                 <span>
                                                     {partner.source.name}
                                                 </span>
@@ -4586,11 +5050,19 @@ function App() {
                                                     )
                                                 }
                                                 onDragEnd={handleTabDragEnd}
-                                                onDoubleClick={() =>
+                                                onDoubleClick={() => {
                                                     promoteTabToPermanent(
                                                         partner.target.id
-                                                    )
-                                                }
+                                                    );
+                                                    if (
+                                                        partner.target.type ===
+                                                        'chapter'
+                                                    ) {
+                                                        openChapterSplitPreview(
+                                                            partner.target.id
+                                                        );
+                                                    }
+                                                }}
                                                 className={`${styles.topTab} ${isTargetActive ? styles.topTabPairedActive : ''} ${
                                                     targetDropMode === 'before'
                                                         ? styles.topTabInsertBefore
@@ -4621,12 +5093,16 @@ function App() {
                                                         setActiveTabId(
                                                             partner.target.id
                                                         );
+                                                        if (isPreviewOpen) {
+                                                            openChapterSplitPreview(
+                                                                partner.target
+                                                                    .id
+                                                            );
+                                                        }
                                                     }
                                                 }}
                                             >
-                                                {renderTabIcon(
-                                                    partner.target.type
-                                                )}
+                                                {renderTabIcon(partner.target)}
                                                 <span>
                                                     {partner.target.name}
                                                 </span>
@@ -4676,9 +5152,14 @@ function App() {
                                                 handleTabDrop(tab, e)
                                             }
                                             onDragEnd={handleTabDragEnd}
-                                            onDoubleClick={() =>
-                                                promoteTabToPermanent(tab.id)
-                                            }
+                                            onDoubleClick={() => {
+                                                promoteTabToPermanent(tab.id);
+                                                if (tab.type === 'chapter') {
+                                                    openChapterSplitPreview(
+                                                        tab.id
+                                                    );
+                                                }
+                                            }}
                                             className={`${styles.topTab} ${isActive ? styles.topTabActive : ''} ${isLinkingSource ? styles.topTabLinkingSource : ''} ${isPreview ? styles.topTabPreview : ''} ${
                                                 dropMode === 'before'
                                                     ? styles.topTabInsertBefore
@@ -4699,15 +5180,25 @@ function App() {
                                                     handleCompleteLink(tab.id);
                                                 } else {
                                                     setActiveTabId(tab.id);
+                                                    if (
+                                                        isPreviewOpen &&
+                                                        tab.type === 'chapter'
+                                                    ) {
+                                                        openChapterSplitPreview(
+                                                            tab.id
+                                                        );
+                                                    }
                                                 }
                                             }}
                                             title={
-                                                isPreview
-                                                    ? 'Preview tab (Double-click to keep open)'
-                                                    : tab.name
+                                                tab.type === 'chapter'
+                                                    ? `${tab.name} (Double-click to open Preview)`
+                                                    : isPreview
+                                                      ? 'Preview tab (Double-click to keep open)'
+                                                      : tab.name
                                             }
                                         >
-                                            {renderTabIcon(tab.type)}
+                                            {renderTabIcon(tab)}
                                             <span>{tab.name}</span>
                                             <span
                                                 className={styles.tabCloseIcon}
@@ -4723,11 +5214,7 @@ function App() {
                             })}
                         </div>
 
-                        {/* Top-Right Action Buttons (Hidden via display: none, logic preserved) */}
-                        <div
-                            className={styles.rightActionsGroup}
-                            style={{ display: 'none' }}
-                        >
+                        <div className={styles.rightActionsGroup}>
                             <button
                                 className={styles.addBtn}
                                 onClick={() => {
@@ -4752,7 +5239,53 @@ function App() {
                         </div>
                     </div>
 
-                    {/* Right-Click & Three-Dots Context Menu (Add Tile + Close Options) */}
+                    {/* Three-Dots Toolbar Menu */}
+                    {toolbarSplitMenu && (
+                        <div
+                            className={styles.tileDropdownMenu}
+                            style={{
+                                top: toolbarSplitMenu.y,
+                                left: toolbarSplitMenu.x,
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button
+                                type="button"
+                                className={styles.tileDropdownItem}
+                                onClick={() => {
+                                    const nextSide =
+                                        previewSide === 'right'
+                                            ? 'left'
+                                            : 'right';
+                                    setPreviewSide(nextSide);
+                                    if (
+                                        !isPreviewOpen &&
+                                        activeTabObj?.type === 'chapter'
+                                    ) {
+                                        setPreviewTargetChapterId(
+                                            activeTabObj.id
+                                        );
+                                        setIsPreviewOpen(true);
+                                    }
+                                    setIsPreviewFullscreen(false);
+                                    setToolbarSplitMenu(null);
+                                }}
+                            >
+                                {previewSide === 'right' ? (
+                                    <IconLayoutSidebarLeftExpand size={15} />
+                                ) : (
+                                    <IconLayoutSidebarRightExpand size={15} />
+                                )}
+                                <span>
+                                    {previewSide === 'right'
+                                        ? 'Left Split'
+                                        : 'Right Split'}
+                                </span>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Right-Click Context Menu */}
                     {tileMenuState && (
                         <div
                             className={styles.tileDropdownMenu}
@@ -4762,6 +5295,29 @@ function App() {
                             }}
                             onClick={(e) => e.stopPropagation()}
                         >
+                            {isMenuTabChapter && (
+                                <button
+                                    className={styles.tileDropdownItem}
+                                    onClick={() => {
+                                        const targetId =
+                                            tileMenuState.chapterId;
+                                        setTileMenuState(null);
+                                        if (isMenuTabInPreview) {
+                                            closeChapterSplitPreview();
+                                        } else {
+                                            openChapterSplitPreview(targetId);
+                                        }
+                                    }}
+                                >
+                                    <IconEye size={15} />
+                                    <span>
+                                        {isMenuTabInPreview
+                                            ? 'Close Preview'
+                                            : 'Add Preview'}
+                                    </span>
+                                </button>
+                            )}
+
                             {canTileMenuTab && (
                                 <>
                                     <button
@@ -4860,18 +5416,10 @@ function App() {
                         onDragOver={handleEditorDragOver}
                         onDragLeave={handleEditorDragLeave}
                         onDrop={handleEditorDrop}
-                        className={`editor-container ${previewActive ? 'with-preview' : ''} ${
-                            previewActive &&
-                            (settings?.appearance?.previewPosition ??
-                                'right') === 'left'
-                                ? 'preview-left'
-                                : ''
-                        }`}
-                        style={{ position: 'relative' }}
+                        className={`editor-container ${styles.editorContainerRelative}`}
                     >
                         {renderEditor()}
 
-                        {/* Drag-to-Editor Blue Layout Drop Overlay (No Text Labels) */}
                         {activeDragId && editorDropZone && (
                             <div
                                 className={`${styles.editorDropOverlay} ${
@@ -4885,7 +5433,6 @@ function App() {
                         )}
                     </div>
 
-                    {/* Bottom Floating Notification Toast (Dismisses on any display click) */}
                     {linkingSourceId && (
                         <div
                             className={styles.bottomLinkingToast}
