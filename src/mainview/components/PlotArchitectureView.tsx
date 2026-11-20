@@ -1,21 +1,18 @@
 import React, {
-    useState,
-    useEffect,
     useCallback,
+    useEffect,
     useRef,
+    useState,
     type PointerEvent as ReactPointerEvent,
 } from 'react';
-import { useRPC } from '../contexts/RPCContext';
-import { useCollapseState } from '../hooks/useCollapseState';
 import {
-    IconPlus,
-    IconTrash,
-    IconGripVertical,
     IconChevronDown,
     IconChevronRight,
+    IconGripVertical,
+    IconPlus,
     IconRefresh,
+    IconTrash,
 } from '@tabler/icons-react';
-import SceneCardEditor from './SceneCardEditor';
 import type { StoryAct, StorySequence } from '../../shared/types';
 import type { Chapter } from '../../shared/types/project';
 import type { Character } from '../../shared/types/project/compendium';
@@ -24,6 +21,11 @@ import type {
     StoryBeat,
     StoryScene,
 } from '../../shared/types/project/manuscript';
+import { ChapterCardWrapper } from './cards/tabs/ChapterCardWrapper';
+import { SceneCardWrapper } from './cards/tabs/SceneCardWrapper';
+import { SequenceCardWrapper } from './cards/tabs/SequenceCardWrapper';
+import { useRPC } from '../contexts/RPCContext';
+import { useCollapseState } from '../hooks/useCollapseState';
 
 interface EntityItem {
     id: string;
@@ -32,12 +34,7 @@ interface EntityItem {
 }
 
 type MentionCategory =
-    | 'Chapter'
-    | 'Character'
-    | 'Location'
-    | 'Organization'
-    | 'Item'
-    | 'Lore';
+    'Chapter' | 'Character' | 'Location' | 'Organization' | 'Item' | 'Lore';
 
 interface Props {
     projectId: string;
@@ -91,7 +88,10 @@ interface BeatDescriptionMentionInputProps {
     placeholder?: string;
 }
 
-function normalizeEntities(rawList: any[], categoryLabel: string): EntityItem[] {
+function normalizeEntities(
+    rawList: any[],
+    categoryLabel: string
+): EntityItem[] {
     if (!Array.isArray(rawList)) return [];
     return rawList
         .map((item, idx) => ({
@@ -124,14 +124,21 @@ function openInLeftSidebar(
     // 2. సైడ్ బార్ క్లోజ్ (Collapse) అయి ఉందో లేదో చెక్ చేయి
     const checkIsSidebarOpen = () => {
         const els = Array.from(
-            document.querySelectorAll('button, [role="tab"], [role="button"], span, div')
+            document.querySelectorAll(
+                'button, [role="tab"], [role="button"], span, div'
+            )
         ) as HTMLElement[];
         return els.some((el) => {
             if (el.children.length > 0) return false;
             const txt = el.textContent?.trim().toLowerCase();
             if (txt !== 'manuscript' && txt !== 'compendium') return false;
             const rect = el.getBoundingClientRect();
-            return rect.width > 0 && rect.height > 0 && rect.left >= 0 && rect.left < 320;
+            return (
+                rect.width > 0 &&
+                rect.height > 0 &&
+                rect.left >= 0 &&
+                rect.left < 320
+            );
         });
     };
 
@@ -249,7 +256,9 @@ function openInLeftSidebar(
                         return (
                             rect.width > 0 &&
                             rect.left < 350 &&
-                            el.textContent?.toLowerCase().includes('new chapter')
+                            el.textContent
+                                ?.toLowerCase()
+                                .includes('new chapter')
                         );
                     });
                     if (newChapBtn) newChapBtn.click();
@@ -359,9 +368,7 @@ function openInLeftSidebar(
                             return (
                                 rect.width > 0 &&
                                 rect.left < 350 &&
-                                el.textContent
-                                    ?.toLowerCase()
-                                    .includes('+ new')
+                                el.textContent?.toLowerCase().includes('+ new')
                             );
                         });
                         if (newBtn) newBtn.click();
@@ -663,11 +670,15 @@ function BeatDescriptionMentionInput({
 
         if (lastAtPos !== -1) {
             // `@` కి ముందు స్పేస్ లేదా లైన్ స్టార్ట్ ఉంటేనే ట్రిగ్గర్ అవ్వాలి
-            const charBeforeAt = lastAtPos > 0 ? textBeforeCursor[lastAtPos - 1] : ' ';
+            const charBeforeAt =
+                lastAtPos > 0 ? textBeforeCursor[lastAtPos - 1] : ' ';
             if (/\s/.test(charBeforeAt)) {
                 const currentQuery = textBeforeCursor.slice(lastAtPos + 1);
                 // క్వెరీలో స్పేస్ లేదా న్యూలైన్ లేనంత వరకు అది యాక్టివ్ టైపింగ్ క్వెరీగా పరిగణించబడుతుంది
-                if (!currentQuery.includes('\n') && !currentQuery.includes(' ')) {
+                if (
+                    !currentQuery.includes('\n') &&
+                    !currentQuery.includes(' ')
+                ) {
                     setShowOptions(true);
                     setQuery(currentQuery);
                     setMentionIndex(lastAtPos);
@@ -1583,7 +1594,7 @@ export default function PlotArchitectureView({
                         (c) => c.name.toLowerCase() === dc.name.toLowerCase()
                     )
             )
-            .map((dc) => ({ id: dc.id, name: dc.name } as Character)),
+            .map((dc) => ({ id: dc.id, name: dc.name }) as Character),
     ];
     const effectiveLocations = [
         ...locations,
@@ -2511,247 +2522,94 @@ export default function PlotArchitectureView({
     }
 
     const renderScene = (scene: StoryScene, index: number) => (
-        <div
+        <SceneCardWrapper
             key={scene.id}
-            className={`scene-content-wrap ${cardDropClass('scene', scene.id)}`}
+            scene={scene}
+            index={index}
+            characters={effectiveCharacters}
+            chapters={chapters}
+            collapsed={isCollapsed('scenes', scene.id)}
+            onToggleCollapsed={() => toggle('scenes', scene.id)}
+            onChange={handleUpdateScene}
+            onRemove={handleDeleteScene}
+            onMoveToChapter={(chapterId) =>
+                handleMoveScene(scene.id, { chapterId })
+            }
+            className={cardDropClass('scene', scene.id)}
+            onDragStart={(e) => startDrag(e, 'scene', scene.id)}
+            onDragEnd={clearDrag}
             onDragOver={(e) => dragOverCard(e, 'scene', scene.id)}
             onDrop={(e) => dropCard(e, 'scene', scene.id)}
             onDragLeave={dragLeaveTarget}
-        >
-            <SceneCardEditor
-                scene={scene}
-                index={index}
-                characters={effectiveCharacters}
-                collapsed={isCollapsed('scenes', scene.id)}
-                onToggleCollapsed={() => toggle('scenes', scene.id)}
-                onChange={handleUpdateScene}
-                onRemove={handleDeleteScene}
-                dragHandle={
-                    <span
-                        className="drag-handle"
-                        draggable
-                        onDragStart={(e) => startDrag(e, 'scene', scene.id)}
-                        onDragEnd={clearDrag}
-                    >
-                        <IconGripVertical size={12} />
-                    </span>
-                }
-                extraActions={
-                    <select
-                        className="scene-chapter-select"
-                        value={scene.chapterId || ''}
-                        onChange={(e) =>
-                            handleMoveScene(scene.id, {
-                                chapterId: e.target.value || null,
-                            })
-                        }
-                        title="Attach scene to a chapter"
-                    >
-                        <option value="">No chapter</option>
-                        {chapters.map((c) => (
-                            <option key={c.id} value={c.id}>
-                                {c.title}
-                            </option>
-                        ))}
-                    </select>
-                }
-            />
-        </div>
+        />
     );
 
     const renderSequenceCard = (seq: StorySequence) => (
-        <div
+        <SequenceCardWrapper
             key={seq.id}
-            className={`sequence-card ${cardDropClass('sequence', seq.id)}`}
+            sequence={seq}
+            chapters={chapters}
+            collapsed={collapsed.sequences.includes(seq.id)}
+            onToggle={() => toggleSequence(seq.id)}
+            onTitleChange={(value) =>
+                handleUpdateSequence(seq.id, 'title', value)
+            }
+            onSummaryChange={(value) =>
+                handleUpdateSequence(seq.id, 'summary', value)
+            }
+            onMoveChapter={(chapterId) => handleMoveSequence(seq.id, chapterId)}
+            onDelete={() => handleDeleteSequence(seq.id)}
+            onAddScene={() => handleAddScene({ sequenceId: seq.id })}
+            className={cardDropClass('sequence', seq.id)}
+            onDragStart={(e) => startDrag(e, 'sequence', seq.id)}
+            onDragEnd={clearDrag}
             onDragOver={(e) => dragOverCard(e, 'sequence', seq.id)}
             onDrop={(e) => dropCard(e, 'sequence', seq.id)}
             onDragLeave={dragLeaveTarget}
+            onScenesDragOver={(e) =>
+                dragOverInside(e, 'sequence', seq.id, 'scenes')
+            }
+            onScenesDrop={(e) => dropInside(e, 'sequence', seq.id, 'scenes')}
         >
-            <div className="sequence-header">
-                <span
-                    className="drag-handle"
-                    draggable
-                    onDragStart={(e) => startDrag(e, 'sequence', seq.id)}
-                    onDragEnd={clearDrag}
-                >
-                    <IconGripVertical size={16} />
-                </span>
-                <button
-                    className="collapse-btn"
-                    onClick={() => toggleSequence(seq.id)}
-                    title={
-                        collapsed.sequences.includes(seq.id)
-                            ? 'Expand'
-                            : 'Collapse'
-                    }
-                >
-                    {collapsed.sequences.includes(seq.id) ? (
-                        <IconChevronRight size={16} />
-                    ) : (
-                        <IconChevronDown size={16} />
-                    )}
-                </button>
-                <input
-                    className="sequence-title-input"
-                    value={seq.title}
-                    onChange={(e) =>
-                        handleUpdateSequence(seq.id, 'title', e.target.value)
-                    }
-                />
-                <select
-                    className="seq-chapter-select"
-                    value={seq.chapterId || ''}
-                    onChange={(e) =>
-                        handleMoveSequence(seq.id, e.target.value || null)
-                    }
-                    title="Assign sequence to a chapter"
-                >
-                    <option value="">Unassigned</option>
-                    {chapters.map((c) => (
-                        <option key={c.id} value={c.id}>
-                            {c.title}
-                        </option>
-                    ))}
-                </select>
-                <span className="act-badge">{seq.status}</span>
-                <button
-                    className="icon-btn icon-btn-sm"
-                    onClick={() => handleDeleteSequence(seq.id)}
-                >
-                    <IconTrash size={12} />
-                </button>
-            </div>
-            {!collapsed.sequences.includes(seq.id) && (
-                <>
-                    <textarea
-                        className="sequence-summary-input"
-                        placeholder="Sequence summary..."
-                        value={seq.summary || ''}
-                        onChange={(e) =>
-                            handleUpdateSequence(
-                                seq.id,
-                                'summary',
-                                e.target.value
-                            )
-                        }
-                        rows={1}
-                    />
-                    <div
-                        className="sequence-scenes"
-                        onDragOver={(e) =>
-                            dragOverInside(e, 'sequence', seq.id, 'scenes')
-                        }
-                        onDrop={(e) =>
-                            dropInside(e, 'sequence', seq.id, 'scenes')
-                        }
-                    >
-                        {scenesOfSequence(seq.id).map((scene, idx) =>
-                            renderScene(scene, idx)
-                        )}
-                        <button
-                            className="add-scene-btn"
-                            onClick={() =>
-                                handleAddScene({ sequenceId: seq.id })
-                            }
-                        >
-                            <IconPlus size={12} /> Add Scene
-                        </button>
-                    </div>
-                </>
+            {scenesOfSequence(seq.id).map((scene, idx) =>
+                renderScene(scene, idx)
             )}
-        </div>
+        </SequenceCardWrapper>
     );
 
     const renderChapter = (ch: Chapter) => (
-        <div
+        <ChapterCardWrapper
             key={ch.id}
-            className={`chapter-node ${cardDropClass('chapter', ch.id)}`}
+            chapter={ch}
+            collapsed={collapsed.chapters.includes(ch.id)}
+            onToggle={() => toggleChapter(ch.id)}
+            onNavigate={() => onNavigateChapter(ch.id)}
+            onDelete={() => handleDeleteChapter(ch.id)}
+            onAddSequence={() => handleAddSequence(ch.id)}
+            onAddScene={() => handleAddScene({ chapterId: ch.id })}
+            className={cardDropClass('chapter', ch.id)}
+            onDragStart={(e) => startDrag(e, 'chapter', ch.id)}
+            onDragEnd={clearDrag}
             onDragOver={(e) => dragOverCard(e, 'chapter', ch.id)}
             onDrop={(e) => dropCard(e, 'chapter', ch.id)}
             onDragLeave={dragLeaveTarget}
-        >
-            <div className="chapter-header">
-                <span
-                    className="drag-handle"
-                    draggable
-                    onDragStart={(e) => startDrag(e, 'chapter', ch.id)}
-                    onDragEnd={clearDrag}
-                >
-                    <IconGripVertical size={16} />
-                </span>
-                <button
-                    className="collapse-btn"
-                    onClick={() => toggleChapter(ch.id)}
-                    title={
-                        collapsed.chapters.includes(ch.id)
-                            ? 'Expand'
-                            : 'Collapse'
-                    }
-                >
-                    {collapsed.chapters.includes(ch.id) ? (
-                        <IconChevronRight size={16} />
-                    ) : (
-                        <IconChevronDown size={16} />
-                    )}
-                </button>
-                <span
-                    className="chapter-title"
-                    onClick={() => onNavigateChapter(ch.id)}
-                    title="Open chapter"
-                >
-                    {ch.title}
-                </span>
-                <span className={`status-dot status-${ch.status}`} />
-                <button
-                    className="icon-btn icon-btn-sm"
-                    onClick={() => handleDeleteChapter(ch.id)}
-                >
-                    <IconTrash size={12} />
-                </button>
-            </div>
-            {!collapsed.chapters.includes(ch.id) && (
-                <div className="chapter-body">
-                    <div
-                        className="sequences-list"
-                        onDragOver={(e) =>
-                            dragOverInside(e, 'chapter', ch.id, 'sequences')
-                        }
-                        onDrop={(e) =>
-                            dropInside(e, 'chapter', ch.id, 'sequences')
-                        }
-                    >
-                        {sequencesOfChapter(ch.id).map((seq) =>
-                            renderSequenceCard(seq)
-                        )}
-                        <button
-                            className="add-sequence-btn"
-                            onClick={() => handleAddSequence(ch.id)}
-                        >
-                            <IconPlus size={14} /> Add Sequence
-                        </button>
-                    </div>
-                    <div
-                        className="chapter-scenes"
-                        onDragOver={(e) =>
-                            dragOverInside(e, 'chapter', ch.id, 'scenes')
-                        }
-                        onDrop={(e) =>
-                            dropInside(e, 'chapter', ch.id, 'scenes')
-                        }
-                    >
-                        {scenesOfChapter(ch.id).map((scene, idx) =>
-                            renderScene(scene, idx)
-                        )}
-                        <button
-                            className="add-scene-btn"
-                            onClick={() => handleAddScene({ chapterId: ch.id })}
-                        >
-                            <IconPlus size={12} /> Add Scene
-                        </button>
-                    </div>
-                </div>
+            onSequencesDragOver={(e) =>
+                dragOverInside(e, 'chapter', ch.id, 'sequences')
+            }
+            onSequencesDrop={(e) =>
+                dropInside(e, 'chapter', ch.id, 'sequences')
+            }
+            sequencesContent={sequencesOfChapter(ch.id).map((seq) =>
+                renderSequenceCard(seq)
             )}
-        </div>
+            onScenesDragOver={(e) =>
+                dragOverInside(e, 'chapter', ch.id, 'scenes')
+            }
+            onScenesDrop={(e) => dropInside(e, 'chapter', ch.id, 'scenes')}
+            scenesContent={scenesOfChapter(ch.id).map((scene, idx) =>
+                renderScene(scene, idx)
+            )}
+        />
     );
 
     return (

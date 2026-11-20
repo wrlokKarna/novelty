@@ -1,0 +1,149 @@
+.sceneCard {
+    background: #151516;
+    border: 1px solid #2a2a2e;
+    border-radius: 6px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sceneHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.sceneHeader:hover {
+    background-color: rgba(118, 118, 128, 0.1);
+}
+
+.sceneHeaderButton {
+    padding: 2px 4px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+}
+
+.sceneHeaderButton:hover {
+    opacity: 0.8;
+}
+
+.sceneTitleContainer {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sceneTitle {
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sceneSummary {
+    font-size: 11px;
+    color: #8e8e93;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sceneSetting {
+    font-size: 11px;
+    color: #aaa;
+    display: block;
+}
+
+.sceneOutline {
+    font-size: 11px;
+    color: #8e8e93;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sceneConflicts {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 10px;
+    border-radius: 10px;
+    background-color: rgba(74, 158, 255, 0.25);
+    color: #93c5fd;
+    line-height: 1;
+}
+
+.sceneMetadata {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sceneMetadataItem {
+    font-size: 11px;
+    color: #8e8e93;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sceneMetadataLabel {
+    font-weight: 600;
+    color: #93c5fd;
+}
+
+.sceneTextarea {
+    flex: 1;
+    min-height: 80px;
+    max-height: 240px;
+    padding: 8px 10px;
+    background: rgba(74, 158, 255, 0.0625);
+    border: 1px solid #2a2a2e;
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 13px;
+    resize: none;
+    outline: none;
+}
+
+.sceneTextarea:focus {
+    background: rgba(74, 158, 255, 0.125);
+}
+
+/* Icon rotation animation */
+.rotated {
+    transform: rotate(90deg);
+    transition: transform 0.2s ease;
+}
+
+.scene-card-wrapper {
+    display: flex;
+    flex-direction: column;
+}
+
+.scene-editor-content {
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+}
+
+.scene-read-only-content {
+    font-size: 0.875rem;
+    color: #6b7280;
+    padding: 0.5rem;
+}

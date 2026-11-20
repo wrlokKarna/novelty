@@ -1,0 +1,107 @@
+.chapterCard {
+    background: #1a1a1c;
+    border: 1px solid #2a2a2e;
+    border-radius: 8px;
+    padding: 0;
+    overflow: hidden;
+}
+
+.chapterHeader {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    border-radius: 8px;
+    min-height: 36px;
+    transition: background-color 0.2s ease;
+
+    /*background: #1f1f21;*/
+}
+
+.chapterHeader.collapse {
+    min-height: 36px;
+}
+
+.chapterHeader:not(.collapse) {
+    transition: all 0.2s ease;
+}
+
+.chapterHeader:hover {
+    background-color: rgba(118, 118, 128, 0.1);
+}
+
+/* Collapse button */
+.chapterCard .collapse-btn {
+    padding: 4px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+}
+
+.chapterCard .collapse-btn:hover {
+    opacity: 0.8;
+}
+
+/* SVG icons */
+.chapterHeader svg {
+    width: 16px;
+    height: 16px;
+}
+
+.chapterTitle {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.chapterOutline {
+    text-align: left;
+    font-size: 11px;
+    color: #8e8e93;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.chapterStatus {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 10px;
+    border-radius: 8px;
+    background-color: rgba(74, 158, 255, 0.25);
+    color: #93c5fd;
+}
+
+.chapterMetadata {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 11px;
+    color: #8e8e93;
+    flex-shrink: 0;
+}
+
+.dragHandle {
+    color: var(--text-secondary);
+    cursor: grab;
+    transition:
+        color 0.15s ease,
+        background-color 0.15s ease;
+}
+
+.dragHandle:hover {
+    color: var(--text-accent);
+}
+
+.dragHandle:active {
+    color: var(--text-accent);
+}

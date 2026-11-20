@@ -1,0 +1,765 @@
+/* Plot Architecture Main Container */
+.plot-architecture-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    padding: 12px;
+    color: #e0e0e0;
+}
+
+/* Header Styles */
+.plot-arch-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.plot-arch-header h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.plot-arch-tabs {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+}
+
+.plot-arch-tabs button {
+    padding: 4px 12px;
+    font-size: 12px;
+    background: transparent;
+    border: 1px solid #3a3a3c;
+    border-radius: 4px;
+    color: #8e8e93;
+    cursor: pointer;
+}
+
+.plot-arch-tabs button.active {
+    background: #3a3a3c;
+    color: #fff;
+}
+
+/* Lists */
+.acts-list,
+.threads-list,
+.beats-list {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 6px;
+    padding-right: 4px;
+    overflow-y: auto;
+}
+
+.empty-state {
+    padding: 20px;
+    text-align: center;
+    color: #595d68;
+    font-size: 13px;
+}
+
+/* Act Styles */
+.actCard {
+    background: #1a1a1c;
+    border: 1px solid #2a2a2e;
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.actHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    background: #222324;
+    min-height: 34px;
+}
+
+.actTitleInput {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 2px 4px;
+}
+
+.actTitleInput:focus {
+    outline: none;
+    background: #2a2a2e;
+    border-radius: 4px;
+}
+
+.actBadge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    background: #3a3a3c;
+    color: #8e8e93;
+    text-transform: uppercase;
+}
+
+.actChapterCount {
+    font-size: 11px;
+    color: #595d68;
+    margin-right: auto;
+}
+
+.actBody {
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+}
+
+.act-resize-handle {
+    height: 6px;
+    margin: 0 -10px -8px;
+    cursor: ns-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    user-select: none;
+    touch-action: none;
+}
+
+.act-resize-handle::before {
+    content: '';
+    width: 36px;
+    height: 3px;
+    border-radius: 2px;
+    background: #3a3a3c;
+    transition: background 0.15s ease;
+}
+
+.act-resize-handle:hover::before,
+.act-resize-handle.active::before {
+    background: #865f38;
+}
+
+.actSummaryInput {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: #8e8e93;
+    font-size: 14px;
+    resize: none;
+    padding: 4px;
+    font-family: inherit;
+}
+
+.act-summary-input:focus {
+    outline: none;
+    color: #e0e0e0;
+}
+
+/* Sequences */
+.sequences-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sequence-card {
+    background: #151516;
+    border: 1px solid #2a2a2e;
+    border-radius: 4px;
+    padding: 6px 8px;
+    position: relative;
+}
+
+.sequence-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sequenceTitleInput {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #c0c0c0;
+    font-size: 14px;
+    padding: 2px 4px;
+}
+
+.sequenceTitleInput:focus {
+    outline: none;
+    background: #2a2a2e;
+    border-radius: 4px;
+}
+
+.sequence-summary-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: #6b7280;
+    font-size: 14px;
+    resize: none;
+    padding: 2px 4px;
+    margin-top: 4px;
+    font-family: inherit;
+}
+
+.sequenceSummaryInput:focus {
+    outline: none;
+    color: #8e8e93;
+}
+
+.sequence-scenes,
+.chapterScenes {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+/* Chapter Styles */
+.chapterNode {
+    background: #18181a;
+    border: 1px solid #2a2a2e;
+    border-left: 3px solid #3a3a3c;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.chapterHeader {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    background: #1f1f21;
+}
+
+.chapter-title {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    color: #d0d0d0;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.chapter-title:hover {
+    color: #4a9eff;
+}
+
+.chapter-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 8px 8px;
+}
+
+.sequences-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Scene Styles */
+.sceneContentWrap {
+    border-radius: 6px;
+    position: relative;
+}
+
+/* Plot Thread Styles */
+.thread-card {
+    background: #1a1a1c;
+    border: 1px solid #2a2a2e;
+    border-left: 3px solid #6366f1;
+    border-radius: 6px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.thread-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.thread-name-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 2px 4px;
+}
+
+.thread-name-input:focus {
+    outline: none;
+    background: #2a2a2e;
+    border-radius: 4px;
+}
+
+.thread-type-select {
+    padding: 2px 6px;
+    background: #222324;
+    border: 1px solid #3a3a3c;
+    border-radius: 4px;
+    color: #8e8e93;
+    font-size: 11px;
+}
+
+.thread-color-picker {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    background: transparent;
+}
+
+.thread-color-picker::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.thread-color-picker::-webkit-color-swatch {
+    border: none;
+    border-radius: 50%;
+}
+
+.threadDescInput {
+    background: transparent;
+    border: none;
+    color: #8e8e93;
+    font-size: 12px;
+    padding: 2px 4px;
+    font-family: inherit;
+}
+
+.thread-desc-input:focus {
+    outline: none;
+    color: #c0c0c0;
+}
+
+.threadChapters {
+    font-size: 11px;
+    color: #595d68;
+}
+
+/* Story Beat Styles */
+.beatCard {
+    background: #1a1a1c;
+    border: 1px solid #2a2a2e;
+    border-radius: 6px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.beatHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.beatTypeSelect {
+    padding: 2px 6px;
+    background: #222324;
+    border: 1px solid #3a3a3c;
+    border-radius: 4px;
+    color: #8e8e93;
+    font-size: 11px;
+    min-width: 90px;
+}
+
+.beatTitleInput {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 2px 4px;
+}
+
+.beat-title-input:focus {
+    outline: none;
+    background: #2a2a2e;
+    border-radius: 4px;
+}
+
+.beatDescInput {
+    background: transparent;
+    border: none;
+    color: #8e8e93;
+    font-size: 12px;
+    padding: 2px 4px;
+    font-family: inherit;
+}
+
+.beat-desc-input:focus {
+    outline: none;
+    color: #c0c0c0;
+}
+
+.beatChapter {
+    font-size: 11px;
+    color: #595d68;
+}
+
+.beat-chapter .unassigned {
+    color: #ef4444;
+    opacity: 0.7;
+}
+
+/* Drag Handle */
+.plot-architecture-view .drag-handle,
+.chapter-outline-editor .drag-handle {
+    width: auto;
+    cursor: grab;
+    display: inline-flex;
+    align-items: center;
+    background: transparent;
+    position: static;
+    z-index: auto;
+    color: #595d68;
+    flex-shrink: 0;
+}
+
+.plot-architecture-view .drag-handle:hover,
+.chapter-outline-editor .drag-handle:hover {
+    color: #fff;
+}
+
+.plot-architecture-view .drag-handle:active,
+.chapter-outline-editor .drag-handle:active {
+    cursor: grabbing;
+}
+
+/* Collapse Button */
+.collapseBtn {
+    p: 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+}
+
+.collapse-btn:hover {
+    opacity: 0.8;
+}
+
+/* Add Button */
+.addSequenceBtn,
+.addSceneBtn,
+.addChapterBtn,
+.addActBtn,
+.add-thread-btn,
+.add-beat-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+    background: transparent;
+    border: 1px dashed #3a3a3c;
+    border-radius: 4px;
+    color: #595d68;
+    font-size: var(--font-size-lg);
+    cursor: pointer;
+}
+
+.add-sequence-btn:hover,
+.addActBtn:hover,
+.add-thread-btn:hover,
+.add-beat-btn:hover {
+    border-color: #4a9eff;
+    color: #4a9eff;
+    border-color: var(--accent-focus) !important;
+    color: var(--accent-focus) !important;
+    background-color: transparent;
+}
+
+.add-scene-btn:hover,
+.add-chapter-btn:hover {
+    border-color: var(--accent-focus);
+    color: var(--accent-focus);
+}
+
+.addSequenceBtn,
+.addSceneBtn,
+.add-chapter-btn {
+    justify-content: center;
+}
+
+/* Unassigned Section */
+.unassignedSection {
+    margin-top: 12px;
+    padding: 14px;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+    margin-right: 3px;
+
+    /* Configuration Variables */
+    --border-width: 1px;
+    --dash-size: 26px;
+    --border-color: #3a3a3c;
+
+    /* Creates the custom dashed border using CSS masks & variables */
+    &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        padding: var(--border-width);
+        background: repeating-conic-gradient(
+                var(--border-color) 0 25%,
+                transparent 0 50%
+            )
+            0 0 / var(--dash-size) var(--dash-size) round;
+        -webkit-mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+        mask-composite: exclude;
+        pointer-events: none;
+    }
+
+    &:hover {
+        /* Seamlessly switch to your accent variable on hover! */
+        --border-color: var(--accent-focus);
+    }
+}
+
+.unassignedHeader {
+    display: flex;
+    justify-content: space-between;
+    .headerLabel {
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+        text-transform: uppercase;
+        color: var(--accent);
+    }
+    button {
+        color: var(--text);
+        &:hover {
+            color: var(--accent);
+            background-color: transparent;
+        }
+    }
+}
+
+/* Drop Indicators */
+.dropBefore::before,
+.dropAfter::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #4a9eff;
+    border-radius: 2px;
+    z-index: 5;
+    pointer-events: none;
+}
+
+.dropBefore::before {
+    top: -2px;
+}
+
+.dropAfter::after {
+    bottom: -2px;
+}
+
+.drop-inside {
+    outline: 2px dashed #4a9eff;
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+/* Chapter Select */
+.scene-chapter-select,
+.seqChapterSelect {
+    padding: 2px 4px;
+    background: #222324;
+    border: 1px solid #3a3a3c;
+    border-radius: 4px;
+    color: #8e8e93;
+    font-size: 11px;
+    max-width: 140px;
+}
+
+/* Status Badges */
+.status-outline,
+.status-draft,
+.status-revision,
+.status-done {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.status-outline {
+    background: rgba(142, 142, 147, 0.2);
+    color: #8e8e93;
+}
+
+.status-draft {
+    background: rgba(74, 158, 255, 0.2);
+    color: #4a9eff;
+}
+
+.status-revision {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
+.status-done {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+}
+
+/* Icon Button */
+.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #8e8e93;
+}
+
+.icon-btn:hover {
+    opacity: 0.8;
+}
+
+.icon-btn-sm {
+    padding: 2px 6px;
+}
+
+/* Scene Card Details */
+.scene-card {
+    background: #151516;
+    border: 1px solid #2a2a2e;
+    border-radius: 6px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.scene-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.scene-number {
+    font-size: 14px;
+    font-weight: 600;
+    color: #8e8e93;
+    margin-right: 12px;
+}
+
+.scene-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+/* Character Tags */
+.char-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.char-tag {
+    padding: 3px 8px;
+    font-size: 12px;
+    background: transparent;
+    border: 1px solid #3a3a3c;
+    border-radius: 12px;
+    color: #8e8e93;
+    cursor: pointer;
+}
+
+.char-tag.active {
+    background: rgba(74, 158, 255, 0.15);
+    border-color: #4a9eff;
+    color: #4a9eff;
+}
+
+/* Key Event Row */
+.key-event-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.key-event-row input {
+    flex: 1;
+}
+
+/* Plot Thread Tags */
+.plot-thread-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.thread-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    font-size: 14px;
+    background: #1a1a1c;
+    border: 1px solid #3a3a3c;
+    border-left: 3px solid #6366f1;
+    border-radius: 4px;
+    color: #8e8e93;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.thread-tag.active {
+    background: rgba(99, 102, 241, 0.1);
+    border-color: #6366f1;
+    color: #fff;
+}
+
+.thread-tag:hover {
+    border-color: #6366f1;
+}
+
+/* Collapse State */
+.collapsed {
+    min-height: 34px;
+}
+
+/* Outline Section */

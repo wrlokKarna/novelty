@@ -1,0 +1,67 @@
+.sequenceCard {
+    background: #1a1a1c;
+    border: 1px solid #2a2a2e;
+    border-radius: 6px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.sequenceHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 2px 4px;
+    gap: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.sequenceHeader:hover {
+    background-color: rgba(118, 118, 128, 0.1);
+}
+
+.sequenceTitle {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #e0e0e0;
+}
+
+.sequenceSummary {
+    text-align: left;
+    font-size: 11px;
+    color: #8e8e93;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sequenceStatusBadge {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 10px;
+    border-radius: 8px;
+    background-color: rgba(74, 158, 255, 0.25);
+    color: #93c5fd;
+}
+
+.sequenceOrderBadge {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    font-size: 11px;
+    background-color: rgba(74, 158, 255, 0.1);
+    border-radius: 6px;
+    color: #8e8e93;
+}
+
+/* Icon rotation animation */
+.rotated {
+    transform: rotate(90deg);
+    transition: transform 0.2s ease;
+}
