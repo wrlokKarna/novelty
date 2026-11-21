@@ -4406,12 +4406,13 @@ textarea {
 }
 
 .tb-btn.active {
-    background: rgba(74, 158, 255, 0.15);
+    background-color: rgba(74, 158, 255, 0.15);
     border-color: #4a9eff;
     color: #4a9eff;
-    background-color: var(--accent-subtle);
-    border-color: --var(var(--accent-focus));
-    color: var(--accent);
+
+    background-color: var(--accent-subtle), rgba(74, 158, 255, 0.1);
+    border-color: var(--accent-focus, rgb(74, 158, 255));
+    color: var(--accent, rgb(74, 158, 255));
 }
 
 /* ======= Analysis Overlay ======= */

@@ -1781,7 +1781,9 @@ function App() {
                         for (const [key, value] of Object.entries(
                             parsed.chapterLinks as Record<string, string | null>
                         )) {
-                            links[remapId(key)] = value ? remapId(value) : value;
+                            links[remapId(key)] = value
+                                ? remapId(value)
+                                : value;
                         }
                         parsed.chapterLinks = links;
                     }
@@ -4822,7 +4824,9 @@ function App() {
                         <>
                             <button
                                 className={`tb-btn ${activeTabId === getPlotArchTabId('acts') ? 'active' : ''}`}
-                                onClick={() => togglePlotArchitectureTab('acts')}
+                                onClick={() =>
+                                    togglePlotArchitectureTab('acts')
+                                }
                                 title="Plot Architecture — Acts"
                             >
                                 Acts
@@ -4834,14 +4838,16 @@ function App() {
                                 }
                                 title="Plot Architecture — Plot Threads"
                             >
-                                Plot Threads
+                                Threads
                             </button>
                             <button
                                 className={`tb-btn ${activeTabId === getPlotArchTabId('beats') ? 'active' : ''}`}
-                                onClick={() => togglePlotArchitectureTab('beats')}
+                                onClick={() =>
+                                    togglePlotArchitectureTab('beats')
+                                }
                                 title="Plot Architecture — Story Beats"
                             >
-                                Story Beats
+                                Beats
                             </button>
                             <button
                                 className={`tb-btn ${showAnalysis ? 'active' : ''}`}
