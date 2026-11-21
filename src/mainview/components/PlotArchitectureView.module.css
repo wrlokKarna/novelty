@@ -12,6 +12,7 @@
 .plot-arch-header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 12px;
     margin-bottom: 12px;
 }
@@ -20,27 +21,6 @@
     margin: 0;
     font-size: 15px;
     font-weight: 600;
-}
-
-.plot-arch-tabs {
-    display: flex;
-    gap: 4px;
-    flex: 1;
-}
-
-.plot-arch-tabs button {
-    padding: 4px 12px;
-    font-size: 12px;
-    background: transparent;
-    border: 1px solid #3a3a3c;
-    border-radius: 4px;
-    color: #8e8e93;
-    cursor: pointer;
-}
-
-.plot-arch-tabs button.active {
-    background: #3a3a3c;
-    color: #fff;
 }
 
 .acts-list,
