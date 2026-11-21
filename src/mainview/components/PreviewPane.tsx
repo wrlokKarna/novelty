@@ -56,7 +56,7 @@ export function PreviewPane({
         : '';
 
     const chapterTabLabel = activeChapter?.title?.trim()
-        ? `Chapter: ${activeChapter.title.trim()}`
+        ? activeChapter.title.trim()
         : 'Chapter';
 
     const splitTooltip =
@@ -77,9 +77,19 @@ export function PreviewPane({
                 color: '#e5e5e7',
             }}
         >
-            {/* Pinned Sticky Top Bar: PREVIEW | Centered Underline Tabs (Book / Chapter: Name) | Larger Split + Fullscreen + Close Icons */}
+            {/* Pinned Sticky Top Bar: PREVIEW | Centered Underline Tabs | Larger Split + Fullscreen + Close Icons */}
             <div className={styles.unifiedSplitHeaderRow}>
-                <span className={styles.paneTitleBadge}>PREVIEW</span>
+                <span
+                    className={styles.paneTitleBadge}
+                    style={{
+                        lineHeight: 1.2,
+                        paddingBottom: '10px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                    }}
+                >
+                    PREVIEW
+                </span>
 
                 <div className={styles.previewCenterTabsGroup}>
                     <button

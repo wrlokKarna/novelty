@@ -86,33 +86,33 @@
 }
 
 .leftSidebarNoScrollbar :global(*) {
-    scrollbar-width: none !important;
-    -ms-overflow-style: none !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .leftSidebarNoScrollbar :global(input),
 .leftSidebarNoScrollbar :global(textarea) {
-    user-select: text !important;
-    -webkit-user-select: text !important;
+    user-select: text;
+    -webkit-user-select: text;
 }
 
 .leftSidebarNoScrollbar :global(*::-webkit-scrollbar) {
-    width: 0 !important;
-    height: 0 !important;
-    display: none !important;
-    background: transparent !important;
+    width: 0;
+    height: 0;
+    display: none;
+    background: transparent;
 }
 
 :global(.sidebar-item-preview-italic),
 :global(.sidebar-item-preview-italic *) {
-    font-style: italic !important;
+    font-style: italic;
 }
 
 /* Hide the three-dots button on the RichTextEditor toolbar */
 :global(.app-editor) button:has(:global(.tabler-icon-dots-vertical)) {
-    display: none !important;
+    display: none;
 }
 
 /* TAB BAR & TILE LINKING STYLES */
@@ -307,7 +307,7 @@
 }
 
 .tabCloseIcon:hover {
-    opacity: 1 !important;
+    opacity: 1;
     background-color: rgba(255, 255, 255, 0.12);
 }
 
@@ -601,7 +601,7 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    overflow: hidden !important;
+    overflow: hidden;
     background: #141416;
 }
 
@@ -626,6 +626,13 @@
     background-color: #141416;
 }
 
+.paneHeaderActions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
 .paneHeaderActionBtn {
     display: inline-flex;
     align-items: center;
@@ -646,6 +653,19 @@
     letter-spacing: 0.5px;
 }
 
+.paneTitleBadgeInput {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    border-radius: 0;
+    color: #e5e5e7;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 1px 2px;
+    outline: none;
+    box-shadow: none;
+}
+
 .paneUnlinkSmallBtn {
     display: none;
     background: #1e1e22;
@@ -662,31 +682,34 @@
     border-color: #2b7de9;
 }
 
-/* PINNED UNIFIED SPLIT EDITOR & PREVIEW HEADER BARS (STRICTLY ONE BOTTOM LINE) */
+/* PINNED UNIFIED SPLIT EDITOR & PREVIEW HEADER BARS (BORDER LINE MERGED WITH UNDERLINE) */
 .unifiedSplitHeaderRow {
     position: sticky;
     top: 0;
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
     gap: 8px;
     min-height: 36px;
-    padding: 12px 2px 8px 2px;
+    padding: 12px 2px 0 2px;
     margin-bottom: 0;
-    border-bottom: 1px solid #26262a !important;
-    background-color: #141416 !important;
+    border-bottom: 1px solid #26262a;
+    background-color: #141416;
     flex-shrink: 0;
     z-index: 25;
 }
 
 .chapterPrefixLabel {
     font-size: 12px;
+    line-height: 1.2;
     font-weight: 600;
     color: #2b7de9;
     letter-spacing: 0.3px;
     white-space: nowrap;
     flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
 }
 
 .inlineChapterTitleWrapper {
@@ -695,6 +718,7 @@
     gap: 4px;
     min-width: 0;
     flex-shrink: 0;
+    padding-bottom: 8px;
 }
 
 .inlineChapterTitleInput {
@@ -704,11 +728,14 @@
     border-radius: 0;
     color: #e5e5e7;
     font-size: 12px;
+    line-height: 1.2;
     font-weight: 600;
-    padding: 1px 2px;
+    padding: 2px 2px 1px 2px;
+    margin: 0;
+    vertical-align: middle;
     max-width: 140px;
     outline: none;
-    box-shadow: none !important;
+    box-shadow: none;
     transition:
         border-color 0.15s ease,
         color 0.15s ease;
@@ -731,12 +758,14 @@
     justify-content: center;
     flex: 1 1 auto;
     min-width: 0;
+    padding-bottom: 8px;
 }
 
 .hoistedFormatCluster {
     display: inline-flex;
     align-items: center;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 2px;
     background: transparent;
     border: none;
@@ -744,39 +773,12 @@
     margin: 0;
 }
 
-.hoistedFormatCluster :global(button) {
-    background: transparent !important;
-    border: none !important;
-    border-radius: 4px;
-    color: #8e8e93;
-    padding: 4px 6px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition:
-        color 0.14s ease,
-        background-color 0.14s ease;
-}
-
-.hoistedFormatCluster :global(button:hover) {
-    color: #ffffff;
-    background-color: rgba(255, 255, 255, 0.06) !important;
-}
-
-.hoistedFormatCluster :global(button.active),
-.hoistedFormatCluster :global(button[aria-pressed='true']),
-.hoistedFormatCluster :global(button[data-active='true']) {
-    color: #2b7de9 !important;
-}
-
 .splitRightActionCluster {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     flex-shrink: 0;
+    padding-bottom: 6px;
 }
 
 /* Icon-only active color (blue icon, NO blue box/border) */
@@ -787,10 +789,10 @@
     width: 28px;
     height: 28px;
     padding: 0;
-    border: none !important;
+    border: none;
     border-radius: 4px;
-    background: transparent !important;
-    box-shadow: none !important;
+    background: transparent;
+    box-shadow: none;
     color: #8e8e93;
     cursor: pointer;
     transition: color 0.14s ease;
@@ -798,14 +800,14 @@
 
 .headerIconToggleBtn:hover {
     color: #e5e5e7;
-    background: transparent !important;
+    background: transparent;
 }
 
 .headerIconToggleBtnActive {
-    color: #2b7de9 !important;
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
+    color: #2b7de9;
+    background: transparent;
+    border: none;
+    box-shadow: none;
 }
 
 /* Larger Preview Header Icons matching the Skeleton/Editor Icon Size */
@@ -816,10 +818,10 @@
     width: 30px;
     height: 30px;
     padding: 0;
-    border: none !important;
+    border: none;
     border-radius: 5px;
-    background: transparent !important;
-    box-shadow: none !important;
+    background: transparent;
+    box-shadow: none;
     color: #98989f;
     cursor: pointer;
     transition:
@@ -829,36 +831,43 @@
 
 .previewHeaderIconBtn:hover {
     color: #ffffff;
-    background-color: rgba(255, 255, 255, 0.06) !important;
+    background-color: rgba(255, 255, 255, 0.06);
 }
 
-/* Hide duplicated inner title row and lower toolbar Eye/Book icons inside chapter editor */
-.splitEditorCompact :global(.chapter-title-row) {
-    display: none !important;
-}
-
+/* Hide lower plate formatting toolbar in single, preview-split, AND linked-tile chapter panes */
+.splitEditorCompact :global(.plate-formatting-toolbar),
 .splitEditorCompact :global(.editor-toolbar),
 .splitEditorCompact :global(.rich-text-toolbar),
 .splitEditorCompact :global(.ProseMirror-menubar),
-.splitEditorCompact :global([role='toolbar']) {
-    display: none !important;
+.splitEditorCompact :global([role='toolbar']),
+.leftPane :global(.plate-formatting-toolbar),
+.leftPane :global(.editor-toolbar),
+.leftPane :global(.rich-text-toolbar),
+.leftPane :global(.ProseMirror-menubar),
+.leftPane :global([role='toolbar']),
+.rightPane :global(.plate-formatting-toolbar),
+.rightPane :global(.editor-toolbar),
+.rightPane :global(.rich-text-toolbar),
+.rightPane :global(.ProseMirror-menubar),
+.rightPane :global([role='toolbar']) {
+    display: none;
 }
 
-/* PREVIEW PANE SHELL & CLEAN UNDERLINE-ONLY TABS */
+/* PREVIEW PANE SHELL & UNDERLINE MERGED DIRECTLY INTO HEADER BORDER LINE */
 .previewPaneShell {
-    background-color: #141416 !important;
-    border-color: #26262a !important;
+    background-color: #141416;
+    border-color: #26262a;
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
 .previewPaneFullscreen {
-    flex: 1 1 100% !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    border-radius: 8px !important;
-    border-left: 1px solid #26262a !important;
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 8px;
+    border-left: 1px solid #26262a;
 }
 
 .previewRoot {
@@ -867,17 +876,17 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border: none !important;
-    border-left: none !important;
-    box-shadow: none !important;
-    background-color: #141416 !important;
-    color: #e5e5e7 !important;
+    border: none;
+    border-left: none;
+    box-shadow: none;
+    background-color: #141416;
+    color: #e5e5e7;
     box-sizing: border-box;
 }
 
 .previewCenterTabsGroup {
     display: inline-flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: center;
     gap: 18px;
     min-width: 0;
@@ -885,15 +894,16 @@
 }
 
 .previewUnderlineTab {
-    background: transparent !important;
-    border: none !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    outline: none !important;
-    border-bottom: 2px solid transparent !important;
-    padding: 4px 2px 6px 2px;
-    margin-bottom: -9px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    outline: none;
+    border-bottom: 2px solid transparent;
+    padding: 4px 2px 8px 2px;
+    margin-bottom: -1px;
     font-size: 12.5px;
+    line-height: 1.2;
     font-weight: 600;
     color: #8e8e93;
     cursor: pointer;
@@ -911,8 +921,8 @@
 }
 
 .previewUnderlineTabActive {
-    color: #ffffff !important;
-    border-bottom: 2px solid #2b7de9 !important;
+    color: #ffffff;
+    border-bottom: 2px solid #2b7de9;
 }
 
 .previewReadingSurface,
@@ -921,7 +931,7 @@
 .previewReadingSurface :global(.empty-editor) {
     flex: 1;
     overflow-y: auto;
-    background-color: #141416 !important;
-    color: #e5e5e7 !important;
+    background-color: #141416;
+    color: #e5e5e7;
     border-radius: 0 0 6px 6px;
 }
