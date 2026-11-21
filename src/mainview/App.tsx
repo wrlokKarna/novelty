@@ -208,6 +208,9 @@ function App() {
     const [showProjectSelection, setShowProjectSelection] = useState(false);
     const [currentProject, setCurrentProject] = useState<Project | null>(null);
     const [openTabs, setOpenTabs] = useState<FileTab[]>([]);
+    const [plotViewTab, setPlotViewTab] = useState<
+        'acts' | 'threads' | 'beats'
+    >('acts');
     const [activeTabId, setActiveTabId] = useState<string | null>(null);
     const tabActivationHistoryRef = useRef<string[]>([]);
 
@@ -1941,6 +1944,7 @@ function App() {
             setCurrentProject(project);
             setOpenTabs(restoredTabs);
             setActiveTabId(restoredActiveId);
+            setPlotViewTab('acts');
             setChapterLinks(savedState?.chapterLinks || {});
             setTileSplitRatio(savedState?.tileSplitRatio ?? 50);
             setPreviewTabId(null);
@@ -2380,7 +2384,10 @@ function App() {
         }
     }
 
-    function openPlotArchitectureTab() {
+    function openPlotArchitectureTab(
+        viewTab: 'acts' | 'threads' | 'beats' = 'acts'
+    ) {
+        setPlotViewTab(viewTab);
         const existing = openTabs.find((t) => t.type === 'plot-architecture');
         if (existing) {
             setIsScratchOpen(false);
@@ -2399,13 +2406,13 @@ function App() {
         setActiveTabId(tab.id);
     }
 
-    function togglePlotArchitectureTab() {
+    function togglePlotArchitectureTab(tab: 'acts' | 'threads' | 'beats') {
         const existing = openTabs.find((t) => t.type === 'plot-architecture');
         if (!existing) {
-            openPlotArchitectureTab();
+            openPlotArchitectureTab(tab);
             return;
         }
-        if (activeTabId === existing.id) {
+        if (activeTabId === existing.id && plotViewTab === tab) {
             const closeSet = new Set([existing.id]);
             setOpenTabs((prevTabs) => {
                 setActiveTabId((prevActiveId) =>
@@ -2418,6 +2425,7 @@ function App() {
                 return prevTabs.filter((t) => t.id !== existing.id);
             });
         } else {
+            setPlotViewTab(tab);
             setIsScratchOpen(false);
             setActiveTabId(existing.id);
         }
@@ -2682,17 +2690,24 @@ function App() {
             }
             case 'act':
             case 'sequence':
-            case 'scene':
+            case 'scene': {
+                const chapter = item.chapterId
+                    ? chapters.find((c) => c.id === item.chapterId)
+                    : undefined;
+                if (chapter) await openChapterTab(chapter);
+                else openPlotArchitectureTab('acts');
+                break;
+            }
             case 'beat': {
                 const chapter = item.chapterId
                     ? chapters.find((c) => c.id === item.chapterId)
                     : undefined;
                 if (chapter) await openChapterTab(chapter);
-                else openPlotArchitectureTab();
+                else openPlotArchitectureTab('beats');
                 break;
             }
             case 'thread': {
-                openPlotArchitectureTab();
+                openPlotArchitectureTab('threads');
                 break;
             }
             case 'tab': {
@@ -4240,6 +4255,8 @@ function App() {
                     projectId={currentProject.id}
                     chapters={chapters}
                     characters={characters}
+                    activeTab={plotViewTab}
+                    onTabChange={setPlotViewTab}
                     onDataChange={handlePlotDataChange}
                     onNavigateChapter={(chapterId) => {
                         const ch = chapters.find((c) => c.id === chapterId);
@@ -4729,11 +4746,27 @@ function App() {
                     currentProject && (
                         <>
                             <button
-                                className={`tb-btn ${openTabs.some((t) => t.type === 'plot-architecture') ? 'active' : ''}`}
-                                onClick={togglePlotArchitectureTab}
-                                title="Plot Architecture"
+                                className={`tb-btn ${openTabs.some((t) => t.type === 'plot-architecture') && plotViewTab === 'acts' ? 'active' : ''}`}
+                                onClick={() => togglePlotArchitectureTab('acts')}
+                                title="Plot Architecture — Acts"
                             >
-                                Plot
+                                Acts
+                            </button>
+                            <button
+                                className={`tb-btn ${openTabs.some((t) => t.type === 'plot-architecture') && plotViewTab === 'threads' ? 'active' : ''}`}
+                                onClick={() =>
+                                    togglePlotArchitectureTab('threads')
+                                }
+                                title="Plot Architecture — Plot Threads"
+                            >
+                                Plot Threads
+                            </button>
+                            <button
+                                className={`tb-btn ${openTabs.some((t) => t.type === 'plot-architecture') && plotViewTab === 'beats' ? 'active' : ''}`}
+                                onClick={() => togglePlotArchitectureTab('beats')}
+                                title="Plot Architecture — Story Beats"
+                            >
+                                Story Beats
                             </button>
                             <button
                                 className={`tb-btn ${skeletonMode ? 'active' : ''}`}

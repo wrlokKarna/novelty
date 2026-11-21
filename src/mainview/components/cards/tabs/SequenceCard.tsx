@@ -1,4 +1,4 @@
-import type { DragEvent, ReactNode } from 'react';
+﻿import type { DragEvent, ReactNode } from 'react';
 import {
     IconChevronDown,
     IconChevronRight,
@@ -8,6 +8,7 @@ import {
 } from '@tabler/icons-react';
 import type { StorySequence } from '../../../../shared/types';
 import type { Chapter } from '../../../../shared/types/project';
+import styles from '../../PlotArchitectureView.module.css';
 
 export interface SequenceCardProps {
     sequence: StorySequence;
@@ -56,14 +57,14 @@ export function SequenceCard({
 }: SequenceCardProps) {
     return (
         <div
-            className={`sequence-card ${className}`.trim()}
+            className={`${styles['sequence-card']} ${className}`.trim()}
             onDragOver={onDragOver}
             onDrop={onDrop}
             onDragLeave={onDragLeave}
         >
-            <div className="sequence-header">
+            <div className={styles['sequence-header']}>
                 <span
-                    className="drag-handle"
+                    className={styles['drag-handle']}
                     draggable
                     onDragStart={onDragStart}
                     onDragEnd={onDragEnd}
@@ -83,12 +84,12 @@ export function SequenceCard({
                     )}
                 </button>
                 <input
-                    className="sequence-title-input"
+                    className={styles['sequence-title-input']}
                     value={sequence.title}
                     onChange={(e) => onTitleChange(e.target.value)}
                 />
                 <select
-                    className="seq-chapter-select"
+                    className={styles['seq-chapter-select']}
                     value={sequence.chapterId || ''}
                     onChange={(e) => onMoveChapter(e.target.value || null)}
                     title="Assign sequence to a chapter"
@@ -100,9 +101,9 @@ export function SequenceCard({
                         </option>
                     ))}
                 </select>
-                <span className="act-badge">{sequence.status}</span>
+                <span className={styles['act-badge']}>{sequence.status}</span>
                 <button
-                    className="icon-btn icon-btn-sm"
+                    className={`${styles['icon-btn']} ${styles['icon-btn-sm']}`}
                     onClick={onDelete}
                     type="button"
                 >
@@ -112,21 +113,21 @@ export function SequenceCard({
             {!collapsed && (
                 <>
                     <textarea
-                        className="sequence-summary-input"
+                        className={styles['sequence-summary-input']}
                         placeholder="Sequence summary..."
                         value={sequence.summary || ''}
                         onChange={(e) => onSummaryChange(e.target.value)}
                         rows={1}
                     />
                     <div
-                        className={`sequence-scenes ${scenesContainerClassName}`.trim()}
+                        className={`${styles['sequence-scenes']} ${scenesContainerClassName}`.trim()}
                         onDragOver={onScenesDragOver}
                         onDrop={onScenesDrop}
                         onDragLeave={onScenesDragLeave}
                     >
                         {children}
                         <button
-                            className="add-scene-btn"
+                            className={styles['add-scene-btn']}
                             onClick={onAddScene}
                             type="button"
                         >
@@ -138,3 +139,4 @@ export function SequenceCard({
         </div>
     );
 }
+

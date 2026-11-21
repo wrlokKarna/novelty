@@ -1,4 +1,4 @@
-import type { DragEvent, ReactNode } from 'react';
+﻿import type { DragEvent, ReactNode } from 'react';
 import {
     IconChevronDown,
     IconChevronRight,
@@ -7,6 +7,7 @@ import {
     IconTrash,
 } from '@tabler/icons-react';
 import type { Chapter } from '../../../../shared/types/project';
+import styles from '../../PlotArchitectureView.module.css';
 
 export interface ChapterCardProps {
     chapter: Chapter;
@@ -57,14 +58,14 @@ export function ChapterCard({
 }: ChapterCardProps) {
     return (
         <div
-            className={`chapter-node ${className}`.trim()}
+            className={`${styles['chapter-node']} ${className}`.trim()}
             onDragOver={onDragOver}
             onDrop={onDrop}
             onDragLeave={onDragLeave}
         >
-            <div className="chapter-header">
+            <div className={styles['chapter-header']}>
                 <span
-                    className="drag-handle"
+                    className={styles['drag-handle']}
                     draggable
                     onDragStart={onDragStart}
                     onDragEnd={onDragEnd}
@@ -84,7 +85,7 @@ export function ChapterCard({
                     )}
                 </button>
                 <span
-                    className="chapter-title"
+                    className={styles['chapter-title']}
                     onClick={onNavigate}
                     title="Open chapter"
                 >
@@ -92,7 +93,7 @@ export function ChapterCard({
                 </span>
                 <span className={`status-dot status-${chapter.status}`} />
                 <button
-                    className="icon-btn icon-btn-sm"
+                    className={`${styles['icon-btn']} ${styles['icon-btn-sm']}`}
                     onClick={onDelete}
                     type="button"
                 >
@@ -100,15 +101,15 @@ export function ChapterCard({
                 </button>
             </div>
             {!collapsed && (
-                <div className="chapter-body">
+                <div className={styles['chapter-body']}>
                     <div
-                        className={`sequences-list ${sequencesContainerClassName}`.trim()}
+                        className={`${styles['sequences-list']} ${sequencesContainerClassName}`.trim()}
                         onDragOver={onSequencesDragOver}
                         onDrop={onSequencesDrop}
                     >
                         {sequencesContent}
                         <button
-                            className="add-sequence-btn"
+                            className={styles['add-sequence-btn']}
                             onClick={onAddSequence}
                             type="button"
                         >
@@ -116,13 +117,13 @@ export function ChapterCard({
                         </button>
                     </div>
                     <div
-                        className={`chapter-scenes ${scenesContainerClassName}`.trim()}
+                        className={`${styles['chapter-scenes']} ${scenesContainerClassName}`.trim()}
                         onDragOver={onScenesDragOver}
                         onDrop={onScenesDrop}
                     >
                         {scenesContent}
                         <button
-                            className="add-scene-btn"
+                            className={styles['add-scene-btn']}
                             onClick={onAddScene}
                             type="button"
                         >
@@ -134,3 +135,4 @@ export function ChapterCard({
         </div>
     );
 }
+

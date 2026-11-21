@@ -1,4 +1,5 @@
 ﻿@import 'highlight.js/styles/github-dark.css';
+/*@import './theme/variables.css';*/
 
 @font-face {
     font-family: 'Inter';
@@ -54,66 +55,6 @@
         format('truetype');
 }
 
-:root {
-    --text-primary: #e4e4e7;
-    --text-secondary: #9aa0a6;
-    --accent-subtle: #f0a05014;
-    --accent-focus: rgba(240, 160, 80, 0.45);
-    --bg-primary: #0f1117;
-    --bg-primary: #121212;
-    --bg-primary: #191a1b;
-    --border: #2a2f3f;
-    --radius-sm: 6px;
-    --text-primary: #e8eaed;
-    --text-secondary: #9aa0b0;
-    --text-muted: #6b7280;
-    --text-accent: #f0a050;
-    --accent: #f0a050;
-    --accent-active: rgba(240, 160, 80, 0.2);
-
-    /* Agent identity colors (assistant vs editor) */
-    --agent-assistant: #60a5fa;
-    --agent-editor: #fbbf24;
-
-    /* Minimum height of one layout band. Every band is at least this tall, so
-       single-band fields share a common baseline while taller content (a
-       portrait, a textarea, a tree) still grows instead of being clipped. */
-    --band-unit: 96px;
-
-    --font-mono: 'Geist Mono', ui-monospace, monospace;
-    --font-sans:
-        'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-        Ubuntu, Cantarell, sans-serif;
-
-    --font-editor: 'Inter', sans-serif;
-    --font-editor-body: 'Inter', sans-serif;
-
-    --mono: 'JetBrains Mono', monospace;
-    --ui: 'Inter', sans-serif;
-    --serif: 'Fraunces', serif;
-
-    /* Needs Rewrite*/
-    --background-color-box: light-dark(
-        var(--color-white),
-        var(--color-gray-80)
-    );
-    --background-color-box: light-dark(white, #181818);
-    --border-radius-large: 16px;
-    --border-width: 1px;
-    --box-shadow-level-2:
-        0 0.25px 0.75px var(--box-shadow-color-lighter-layer-1),
-        0 2px 6px var(--box-shadow-color-lighter-layer-2);
-    --card-background-color: var(--background-color-box);
-    --card-border: var(--card-border-width) solid var(--card-border-color);
-    --card-border-color: light-dark(
-        color-mix(in srgb, currentColor 10%, transparent),
-        color-mix(in srgb, currentColor 6%, transparent)
-    );
-    --card-border-radius: var(--border-radius-large);
-    --card-border-width: var(--border-width);
-    --card-box-shadow: var(--box-shadow-level-2);
-}
-
 * {
     box-sizing: border-box;
     scrollbar-width: thin;
@@ -127,6 +68,7 @@
 }
 
 :root {
+    --editor-bg: #202022;
     --editor-bg: #202022;
     --editor-text: #ffffff;
     --editor-heading: #c9a25c;
@@ -351,13 +293,13 @@ body {
             &.active {
                 background-color: var(--accent-active);
                 border-color: var(--accent-focus);
-                color: var(--accent);
+                color: var(--text-accent);
                 font-weight: 500;
             }
 
             &.is-open {
                 .item-label {
-                    color: var(--accent);
+                    color: var(--text-accent);
                 }
             }
         }
@@ -678,7 +620,7 @@ body {
 
 .compendium-sub-nav-btn.active {
     background: transparent;
-    color: var(--accent);
+    color: var(--text-accent);
     box-shadow: none;
 }
 
@@ -1062,13 +1004,14 @@ button {
     transition: all 0.1s ease-in-out;
 
     &:hover {
-        color: #222;
-        background-color: bisque;
+        color: var(--color-primary-hover, #222);
+        background-color: var(--color-primary-hover, bisque);
+        background-color: var(--color-primary-hover, rgba(74, 158, 255, 0.15));
     }
 
     &:active {
         color: bisque;
-        background-color: #222;
+        background-color: var(--color-primary-hover, bisque);
     }
 
     &.danger {
@@ -1805,7 +1748,9 @@ select {
 
 .chat-message.user {
     color: #ffffff;
+    color: var(--text-primary);
     background: var(--accent-dim, rgba(212, 168, 83, 0.15));
+    background-color: var(--accent-subtle);
     border: 1px solid var(--border-accent, rgba(212, 168, 83, 0.35));
     border-radius: var(--radius-md, 8px) var(--radius-md, 8px) 2px
         var(--radius-md, 8px);
@@ -1813,7 +1758,8 @@ select {
 
 .chat-message.assistant {
     /*background-color: #313233;*/
-    color: #ffffff;
+    /*color: #ffffff;*/
+    color: var(--text-primary);
 }
 
 .chat-message p {
@@ -3711,102 +3657,40 @@ select {
     background: rgba(74, 158, 255, 0.1);
 }
 
-/* ======= Plot Architecture View ======= */
-.plot-architecture-view {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    overflow: hidden;
-    padding: 12px;
-    color: #e0e0e0;
+/* ======= Plot Architecture (shared global hooks) ======= */
+.status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
 }
+.status-dot.status-outline { background: #8e8e93; }
+.status-dot.status-draft { background: #4a9eff; }
+.status-dot.status-revision { background: #f59e0b; }
+.status-dot.status-done { background: #10b981; }
 
-.plot-arch-header {
-    display: flex;
+.chapter-outline-editor .drag-handle,
+.chapter-outline-editor .drag-handle:hover,
+.chapter-outline-editor .drag-handle:active {
+    width: auto;
+    cursor: grab;
+    display: inline-flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-}
-
-.plot-arch-header h3 {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 600;
-}
-
-.plot-arch-tabs {
-    display: flex;
-    gap: 4px;
-    flex: 1;
-}
-
-.plot-arch-tabs button {
-    padding: 4px 12px;
-    font-size: 12px;
     background: transparent;
-    border: 1px solid #3a3a3c;
-    border-radius: 4px;
-    color: #8e8e93;
-    cursor: pointer;
-}
-
-.plot-arch-tabs button.active {
-    background: #3a3a3c;
-    color: #fff;
-}
-
-.acts-list,
-.threads-list,
-.beats-list {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    gap: 6px;
-    padding-right: 4px;
-    overflow-y: auto;
-}
-
-.empty-state {
-    padding: 20px;
-    text-align: center;
+    position: static;
+    z-index: auto;
     color: #595d68;
-    font-size: 13px;
-}
-
-.act-card {
-    background: #1a1a1c;
-    border: 1px solid #2a2a2e;
-    border-radius: 6px;
-    overflow: hidden;
     flex-shrink: 0;
 }
+.chapter-outline-editor .drag-handle:hover { color: #fff; }
+.chapter-outline-editor .drag-handle:active { cursor: grabbing; }
 
-.act-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 10px;
-    cursor: pointer;
-    background: #222324;
-    min-height: 34px;
+.scene-content-wrap {
+    position: relative;
+    border-radius: 6px;
 }
 
-.act-title-input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    color: #fff;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 2px 4px;
-}
-
-.act-title-input:focus {
-    outline: none;
-    background: #2a2a2e;
-    border-radius: 4px;
-}
-
+/* Plot Architecture classes shared with non-module components */
 .act-badge {
     font-size: 10px;
     padding: 2px 6px;
@@ -3816,80 +3700,8 @@ select {
     text-transform: uppercase;
 }
 
-.act-chapter-count {
-    font-size: 11px;
-    color: #595d68;
-    margin-right: auto;
-}
-
-.act-body {
-    padding: 8px 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    position: relative;
-
-    .chapters-list {
-        padding-right: 6px;
-        overflow: auto;
-        flex: 1;
-        min-height: 0;
-    }
-
-    .chapter-node {
-        margin-bottom: 6px;
-    }
-}
-
-.act-resize-handle {
-    height: 6px;
-    margin: 0 -10px -8px;
-    cursor: ns-resize;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    user-select: none;
-    touch-action: none;
-}
-
-.act-resize-handle::before {
-    content: '';
-    width: 36px;
-    height: 3px;
-    border-radius: 2px;
-    background: #3a3a3c;
-    transition: background 0.15s ease;
-}
-
-.act-resize-handle:hover::before,
-.act-resize-handle.active::before {
-    background: #865f38;
-}
-
-.act-summary-input {
-    width: 100%;
-    background: transparent;
-    border: none;
-    color: #8e8e93;
-    font-size: 14px;
-    resize: none;
-    padding: 4px;
-    font-family: inherit;
-}
-
-.act-summary-input:focus {
-    outline: none;
-    color: #e0e0e0;
-}
-
-.sequences-list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
 .sequence-card {
+    position: relative;
     background: #151516;
     border: 1px solid #2a2a2e;
     border-radius: 4px;
@@ -3934,55 +3746,14 @@ select {
     color: #8e8e93;
 }
 
-.sequence-chapters {
+.sequence-scenes,
+.chapter-scenes {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 4px;
-    margin-top: 6px;
+    margin-top: 4px;
 }
 
-.seq-chapter-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 8px;
-    background: #222324;
-    border: 1px solid #3a3a3c;
-    border-radius: 12px;
-    font-size: 11px;
-    color: #8e8e93;
-    cursor: pointer;
-}
-
-.seq-chapter-chip:hover {
-    border-color: #4a9eff;
-    color: #fff;
-}
-
-.status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    display: inline-block;
-}
-
-.status-dot.status-outline {
-    background: #8e8e93;
-}
-
-.status-dot.status-draft {
-    background: #4a9eff;
-}
-
-.status-dot.status-revision {
-    background: #f59e0b;
-}
-
-.status-dot.status-done {
-    background: #10b981;
-}
-
-.add-sequence-btn,
 .add-scene-btn,
 .add-chapter-btn,
 .add-act-btn,
@@ -3991,8 +3762,6 @@ select {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 10px;
-    padding: 4px 8px;
     padding: 8px;
     background: transparent;
     border: 1px dashed #3a3a3c;
@@ -4000,6 +3769,11 @@ select {
     color: #595d68;
     font-size: 14px;
     cursor: pointer;
+}
+
+.add-scene-btn,
+.add-chapter-btn {
+    justify-content: center;
 }
 
 .add-sequence-btn:hover,
@@ -4013,239 +3787,10 @@ select {
     background-color: transparent;
 }
 
-.act-unassigned {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-}
-
-/* Plot Threads */
-.thread-card {
-    background: #1a1a1c;
-    border: 1px solid #2a2a2e;
-    border-left: 3px solid #6366f1;
-    border-radius: 6px;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.thread-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.thread-name-input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    color: #fff;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 2px 4px;
-}
-
-.thread-name-input:focus {
-    outline: none;
-    background: #2a2a2e;
-    border-radius: 4px;
-}
-
-.thread-type-select {
-    padding: 2px 6px;
-    background: #222324;
-    border: 1px solid #3a3a3c;
-    border-radius: 4px;
-    color: #8e8e93;
-    font-size: 11px;
-}
-
-.thread-color-picker {
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    border: none;
-    border-radius: 50%;
-    cursor: pointer;
-    background: transparent;
-}
-
-.thread-color-picker::-webkit-color-swatch-wrapper {
-    padding: 0;
-}
-
-.thread-color-picker::-webkit-color-swatch {
-    border: none;
-    border-radius: 50%;
-}
-
-.thread-desc-input {
-    background: transparent;
-    border: none;
-    color: #8e8e93;
-    font-size: 12px;
-    padding: 2px 4px;
-    font-family: inherit;
-}
-
-.thread-desc-input:focus {
-    outline: none;
-    color: #c0c0c0;
-}
-
-.thread-chapters {
-    font-size: 11px;
-    color: #595d68;
-}
-
-/* Story Beats */
-.beat-card {
-    background: #1a1a1c;
-    border: 1px solid #2a2a2e;
-    border-radius: 6px;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.beat-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.beat-type-select {
-    padding: 2px 6px;
-    background: #222324;
-    border: 1px solid #3a3a3c;
-    border-radius: 4px;
-    color: #8e8e93;
-    font-size: 11px;
-    min-width: 90px;
-}
-
-.beat-title-input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    color: #fff;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 2px 4px;
-}
-
-.beat-title-input:focus {
-    outline: none;
-    background: #2a2a2e;
-    border-radius: 4px;
-}
-
-.beat-desc-input {
-    background: transparent;
-    border: none;
-    color: #8e8e93;
-    font-size: 12px;
-    padding: 2px 4px;
-    font-family: inherit;
-}
-
-.beat-desc-input:focus {
-    outline: none;
-    color: #c0c0c0;
-}
-
-.beat-chapter {
-    font-size: 11px;
-    color: #595d68;
-}
-
-.beat-chapter .unassigned {
-    color: #ef4444;
-    opacity: 0.7;
-}
-
-/* ======= Plot Architecture Tree ======= */
-.plot-architecture-view .drag-handle,
-.chapter-outline-editor .drag-handle {
-    width: auto;
-    cursor: grab;
-    display: inline-flex;
-    align-items: center;
-    background: transparent;
-    position: static;
-    z-index: auto;
-    color: #595d68;
-    flex-shrink: 0;
-}
-
-.plot-architecture-view .drag-handle:hover,
-.chapter-outline-editor .drag-handle:hover {
-    color: #fff;
-}
-
-.plot-architecture-view .drag-handle:active,
-.chapter-outline-editor .drag-handle:active {
-    cursor: grabbing;
-}
-
-.act-card,
-.sequence-card,
-.chapter-node,
-.scene-content-wrap {
-    position: relative;
-}
-
-.chapter-node {
-    background: #18181a;
-    border: 1px solid #2a2a2e;
-    border-left: 3px solid #3a3a3c;
-    border-radius: 6px;
-    overflow: hidden;
-}
-
-.chapter-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 8px;
-    background: #1f1f21;
-}
-
-.chapter-title {
-    flex: 1;
-    font-size: 14px;
-    font-weight: 600;
-    color: #d0d0d0;
-    cursor: pointer;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.chapter-title:hover {
-    color: #4a9eff;
-}
-
-.chapter-body {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 6px 8px 8px;
-}
-
-.sequence-scenes,
-.chapter-scenes {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-top: 4px;
-}
-
-.scene-content-wrap {
-    border-radius: 6px;
+.add-scene-btn:hover,
+.add-chapter-btn:hover {
+    border-color: #865f38;
+    color: #865f38;
 }
 
 /* Structure drop zones */
@@ -4279,73 +3824,6 @@ select {
 .structure-drop-zone.drop-target-invalid {
     background: rgba(255, 59, 48, 0.15);
     border: 2px dashed #ff3b30;
-}
-
-.unassigned-section {
-    margin-top: 12px;
-    padding: 10px;
-    border: 1px dashed #3a3a3c;
-    border-radius: 6px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.unassigned-header {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: #595d68;
-}
-
-/* Drop indicators */
-.drop-before::before,
-.drop-after::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: #4a9eff;
-    border-radius: 2px;
-    z-index: 5;
-    pointer-events: none;
-}
-
-.drop-before::before {
-    top: -2px;
-}
-
-.drop-after::after {
-    bottom: -2px;
-}
-
-.drop-inside {
-    outline: 2px dashed #4a9eff;
-    outline-offset: 2px;
-    border-radius: 6px;
-}
-
-.add-scene-btn,
-.add-chapter-btn {
-    justify-content: center;
-}
-
-.add-scene-btn:hover,
-.add-chapter-btn:hover {
-    border-color: #865f38;
-    color: #865f38;
-}
-
-.scene-chapter-select,
-.seq-chapter-select {
-    padding: 2px 4px;
-    background: #222324;
-    border: 1px solid #3a3a3c;
-    border-radius: 4px;
-    color: #8e8e93;
-    font-size: 11px;
-    max-width: 140px;
 }
 
 .empty-scenes {
@@ -4941,6 +4419,9 @@ textarea {
     background: rgba(74, 158, 255, 0.15);
     border-color: #4a9eff;
     color: #4a9eff;
+    background-color: var(--accent-subtle);
+    border-color: --var(var(--accent-focus));
+    color: var(--accent);
 }
 
 /* ======= Skeleton Mode Banner ======= */

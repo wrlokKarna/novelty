@@ -1,9 +1,10 @@
-import type { DragEvent, ReactNode } from 'react';
+﻿import type { DragEvent, ReactNode } from 'react';
 import { IconGripVertical } from '@tabler/icons-react';
 import type { Chapter } from '../../../../shared/types/project';
 import type { Character } from '../../../../shared/types/project/compendium';
 import type { StoryScene } from '../../../../shared/types/project/manuscript';
 import SceneCardEditor from '../../SceneCardEditor';
+import styles from '../../PlotArchitectureView.module.css';
 
 interface SceneCardWrapperProps {
     scene: StoryScene;
@@ -44,7 +45,7 @@ export function SceneCardWrapper({
 }: SceneCardWrapperProps) {
     return (
         <div
-            className={`scene-content-wrap ${className}`.trim()}
+            className={`${styles['scene-content-wrap']} ${className}`.trim()}
             onDragOver={onDragOver}
             onDrop={onDrop}
             onDragLeave={onDragLeave}
@@ -59,7 +60,7 @@ export function SceneCardWrapper({
                 onRemove={onRemove}
                 dragHandle={
                     <span
-                        className="drag-handle"
+                        className={styles['drag-handle']}
                         draggable
                         onDragStart={onDragStart}
                         onDragEnd={onDragEnd}
@@ -70,7 +71,7 @@ export function SceneCardWrapper({
                 extraActions={
                     extraActions ?? (
                         <select
-                            className="scene-chapter-select"
+                            className={styles['scene-chapter-select']}
                             value={scene.chapterId || ''}
                             onChange={(e) =>
                                 onMoveToChapter(e.target.value || null)
@@ -90,3 +91,4 @@ export function SceneCardWrapper({
         </div>
     );
 }
+

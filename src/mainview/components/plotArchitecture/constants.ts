@@ -1,0 +1,31 @@
+export const THREAD_COLORS = [
+    '#ef4444',
+    '#3b82f6',
+    '#10b981',
+    '#f59e0b',
+    '#8b5cf6',
+    '#ec4899',
+    '#14b8a6',
+    '#f97316',
+];
+
+export const BEAT_TYPES = [
+    'opening-image',
+    'theme-stated',
+    'setup',
+    'catalyst',
+    'debate',
+    'break-into-two',
+    'b-story',
+    'fun-and-games',
+    'midpoint',
+    'bad-guys-close-in',
+    'all-is-lost',
+    'dark-night-of-soul',
+    'break-into-three',
+    'climax',
+    'falling-action',
+    'finale',
+    'final-image',
+    'custom',
+] as const;
