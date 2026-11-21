@@ -111,12 +111,7 @@
 }
 
 /* Hide the three-dots button on the RichTextEditor toolbar */
-:global(.app-editor) button:has(:global(.tabler-icon-dots-vertical)),
-:global(.app-editor) [role='toolbar'] > button:last-child,
-:global(.app-editor) [class*='toolbar'] > button:last-child,
-:global(.app-editor)
-    [class*='toolbar']
-    > div:last-child:has(:global(.tabler-icon-dots-vertical)) {
+:global(.app-editor) button:has(:global(.tabler-icon-dots-vertical)) {
     display: none !important;
 }
 
@@ -560,7 +555,7 @@
     border-bottom-right-radius: 0px;
     border-top-left-radius: 8px;
     border-bottom-left-radius: 8px;
-    padding: 14px 18px;
+    padding: 0 18px 14px 18px;
     color: #e5e5e7;
     box-sizing: border-box;
     height: 100%;
@@ -578,11 +573,43 @@
     border-bottom-left-radius: 0px;
     border-top-right-radius: 8px;
     border-bottom-right-radius: 8px;
-    padding: 14px 18px;
+    padding: 0 18px 14px 18px;
     color: #e5e5e7;
     box-sizing: border-box;
     height: 100%;
     overflow-y: auto;
+}
+
+/* Full-width Single Chapter Pane Shell (when Preview is closed) */
+.singleChapterPaneShell {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    background: #141416;
+    border: 1px solid #26262a;
+    border-radius: 8px;
+    padding: 0 18px 14px 18px;
+    color: #e5e5e7;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Split Editor Flex Column Shell so Top Bar is Permanently Pinned */
+.splitEditorPaneShell {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden !important;
+    background: #141416;
+}
+
+.splitEditorScrollBody {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding-top: 8px;
 }
 
 .paneHeaderRow {
@@ -590,14 +617,13 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 12px;
+    padding-top: 12px;
     padding-bottom: 8px;
     border-bottom: 1px solid #26262a;
-}
-
-.splitPaneHeaderRow {
-    min-height: 28px;
-    padding: 0 0 8px 0;
-    margin-bottom: 4px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background-color: #141416;
 }
 
 .paneHeaderActionBtn {
@@ -612,21 +638,6 @@
     cursor: pointer;
 }
 
-.paneHeaderActions {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.chapterEditorHeader {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 6px 0 8px;
-    margin-bottom: 4px;
-    border-bottom: 1px solid #26262a;
-}
-
 .paneTitleBadge {
     font-size: 11.5px;
     font-weight: 600;
@@ -635,32 +646,9 @@
     letter-spacing: 0.5px;
 }
 
-.paneTitleBadgeInput {
-    min-width: 0;
-    max-width: 100%;
-    height: auto;
-    padding: 0;
-    border: none;
-    border-bottom: 1px solid transparent;
-    outline: none;
-    background: transparent;
-    color: #2b7de9;
-    font-family: inherit;
-    font-size: 11.5px;
-    font-weight: 600;
-    line-height: 1.4;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.paneTitleBadgeInput:hover,
-.paneTitleBadgeInput:focus {
-    border-bottom-color: rgba(43, 125, 233, 0.5);
-}
-
 .paneUnlinkSmallBtn {
     display: none;
-    background: #29292c;
+    background: #1e1e22;
     border: 1px solid #323238;
     color: #98989f;
     padding: 3px 8px;
@@ -674,7 +662,189 @@
     border-color: #2b7de9;
 }
 
-/* PREVIEW PANE SHELL — EXACT LEFT CHAPTER EDITOR DARK THEME (#141416) */
+/* PINNED UNIFIED SPLIT EDITOR & PREVIEW HEADER BARS (STRICTLY ONE BOTTOM LINE) */
+.unifiedSplitHeaderRow {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 36px;
+    padding: 12px 2px 8px 2px;
+    margin-bottom: 0;
+    border-bottom: 1px solid #26262a !important;
+    background-color: #141416 !important;
+    flex-shrink: 0;
+    z-index: 25;
+}
+
+.chapterPrefixLabel {
+    font-size: 12px;
+    font-weight: 600;
+    color: #2b7de9;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.inlineChapterTitleWrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    flex-shrink: 0;
+}
+
+.inlineChapterTitleInput {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    border-radius: 0;
+    color: #e5e5e7;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 1px 2px;
+    max-width: 140px;
+    outline: none;
+    box-shadow: none !important;
+    transition:
+        border-color 0.15s ease,
+        color 0.15s ease;
+}
+
+.inlineChapterTitleInput:hover {
+    border-bottom-color: #3a3a42;
+    color: #ffffff;
+}
+
+.inlineChapterTitleInput:focus {
+    border-bottom-color: #2b7de9;
+    color: #ffffff;
+}
+
+/* Centered Formatting Buttons Slot (Stays in the middle on wide panes; wraps cleanly on narrow panes) */
+.inlineToolbarSlot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.hoistedFormatCluster {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 2px;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+}
+
+.hoistedFormatCluster :global(button) {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 4px;
+    color: #8e8e93;
+    padding: 4px 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+        color 0.14s ease,
+        background-color 0.14s ease;
+}
+
+.hoistedFormatCluster :global(button:hover) {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.hoistedFormatCluster :global(button.active),
+.hoistedFormatCluster :global(button[aria-pressed='true']),
+.hoistedFormatCluster :global(button[data-active='true']) {
+    color: #2b7de9 !important;
+}
+
+.splitRightActionCluster {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+/* Icon-only active color (blue icon, NO blue box/border) */
+.headerIconToggleBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none !important;
+    border-radius: 4px;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #8e8e93;
+    cursor: pointer;
+    transition: color 0.14s ease;
+}
+
+.headerIconToggleBtn:hover {
+    color: #e5e5e7;
+    background: transparent !important;
+}
+
+.headerIconToggleBtnActive {
+    color: #2b7de9 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Larger Preview Header Icons matching the Skeleton/Editor Icon Size */
+.previewHeaderIconBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: none !important;
+    border-radius: 5px;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #98989f;
+    cursor: pointer;
+    transition:
+        color 0.14s ease,
+        background-color 0.14s ease;
+}
+
+.previewHeaderIconBtn:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Hide duplicated inner title row and lower toolbar Eye/Book icons inside chapter editor */
+.splitEditorCompact :global(.chapter-title-row) {
+    display: none !important;
+}
+
+.splitEditorCompact :global(.editor-toolbar),
+.splitEditorCompact :global(.rich-text-toolbar),
+.splitEditorCompact :global(.ProseMirror-menubar),
+.splitEditorCompact :global([role='toolbar']) {
+    display: none !important;
+}
+
+/* PREVIEW PANE SHELL & CLEAN UNDERLINE-ONLY TABS */
 .previewPaneShell {
     background-color: #141416 !important;
     border-color: #26262a !important;
@@ -705,57 +875,44 @@
     box-sizing: border-box;
 }
 
-.previewTopHeaderRow {
-    min-height: 28px;
-    padding: 0 4px 8px 4px;
-    margin-bottom: 8px;
-    border-bottom: 1px solid #26262a !important;
-    background-color: #141416 !important;
-    flex-shrink: 0;
-}
-
-.previewControlsBar {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background-color: #141416 !important;
-    border-radius: 6px 6px 0 0;
-    border-bottom: 1px solid #26262a !important;
-    flex-shrink: 0;
-}
-
-.previewControlsLeft {
-    display: flex;
-    align-items: center;
-}
-
-.previewControlsRight {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 4px;
-}
-
-.previewModeBtn {
+.previewCenterTabsGroup {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 4px 10px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
+    justify-content: center;
+    gap: 18px;
+    min-width: 0;
+    flex: 1 1 auto;
 }
 
-.previewCenterTitle {
-    text-align: center;
+.previewUnderlineTab {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+    border-bottom: 2px solid transparent !important;
+    padding: 4px 2px 6px 2px;
+    margin-bottom: -9px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #8e8e93;
+    cursor: pointer;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 240px;
-    font-weight: 600;
-    color: #e5e5e7 !important;
+    transition:
+        color 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.previewUnderlineTab:hover {
+    color: #e5e5e7;
+}
+
+.previewUnderlineTabActive {
+    color: #ffffff !important;
+    border-bottom: 2px solid #2b7de9 !important;
 }
 
 .previewReadingSurface,

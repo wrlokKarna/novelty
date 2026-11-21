@@ -147,10 +147,14 @@ function EditableChapterPaneTitle({
 
     return (
         <input
-            className={styles.paneTitleBadgeInput}
+            className={styles.inlineChapterTitleInput}
+            style={{
+                width: `${Math.min(18, Math.max(5, draft.length + 1))}ch`,
+            }}
             value={draft}
-            size={Math.max(draft.length, 8)}
+            size={Math.max(draft.length, 6)}
             aria-label="Chapter title"
+            placeholder="Title"
             onChange={(e) => setDraft(e.target.value)}
             onBlur={() => {
                 const trimmed = draft.trim();
@@ -263,6 +267,7 @@ function App() {
     } | null>(null);
 
     const editorSplitPaneRef = useRef<HTMLDivElement>(null);
+    const inlineToolbarHostRef = useRef<HTMLDivElement>(null);
     const previewPaneContainerRef = useRef<HTMLDivElement>(null);
     const previewBodyScrollRef = useRef<HTMLDivElement>(null);
     const isSyncingScrollRef = useRef<'editor' | 'preview' | null>(null);
@@ -452,14 +457,12 @@ function App() {
     );
 
     const openChapterSplitPreview = useCallback(
-        (chapterId: string, modeOverride?: 'chapter' | 'book') => {
+        (chapterId: string, modeOverride: 'chapter' | 'book' = 'chapter') => {
             promoteTabToPermanent(chapterId);
             setIsScratchOpen(false);
             setActiveTabId(chapterId);
             setPreviewTargetChapterId(chapterId);
-            if (modeOverride) {
-                setReaderMode(modeOverride);
-            }
+            setReaderMode(modeOverride);
 
             const paired = getLinkedPartner(chapterId);
             let targetPreviewSide: 'left' | 'right' = 'right';
@@ -484,6 +487,85 @@ function App() {
         setIsPreviewFullscreen(false);
         setPreviewTargetChapterId(null);
     }, []);
+
+    // Sync formatting buttons (B, I, H1, H2, H3, Lists, Quote, Code) into the pinned top bar
+    // without touching or collapsing the RichTextEditor DOM hierarchy
+    useEffect(() => {
+        const bodyEl = editorSplitPaneRef.current;
+        const hostEl = inlineToolbarHostRef.current;
+        if (!bodyEl || !hostEl) return;
+
+        const isExcludedActionButton = (btn: HTMLButtonElement) => {
+            const title = (
+                btn.getAttribute('title') ||
+                btn.getAttribute('aria-label') ||
+                ''
+            ).toLowerCase();
+            if (
+                title.includes('preview') ||
+                title.includes('read') ||
+                title.includes('edit') ||
+                title.includes('more') ||
+                title.includes('option')
+            ) {
+                return true;
+            }
+            return Boolean(
+                btn.querySelector(
+                    '.tabler-icon-eye, .tabler-icon-book, .tabler-icon-pencil, .tabler-icon-edit, .tabler-icon-dots-vertical'
+                )
+            );
+        };
+
+        const syncToolbarToHeader = () => {
+            const innerToolbar = bodyEl.querySelector<HTMLElement>(
+                '.editor-toolbar, .rich-text-toolbar, .ProseMirror-menubar, [role="toolbar"]'
+            );
+            if (!innerToolbar) {
+                hostEl.replaceChildren();
+                return;
+            }
+
+            const origBtns = Array.from(
+                innerToolbar.querySelectorAll<HTMLButtonElement>('button')
+            ).filter((b) => !isExcludedActionButton(b));
+
+            const cluster = document.createElement('div');
+            cluster.className = styles.hoistedFormatCluster;
+
+            origBtns.forEach((origBtn) => {
+                const cloneBtn = origBtn.cloneNode(true) as HTMLButtonElement;
+                cloneBtn.onmousedown = (ev) => {
+                    ev.preventDefault();
+                };
+                cloneBtn.onclick = (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    origBtn.click();
+                    requestAnimationFrame(syncToolbarToHeader);
+                };
+                cluster.appendChild(cloneBtn);
+            });
+
+            hostEl.replaceChildren(cluster);
+        };
+
+        syncToolbarToHeader();
+        const rafId = requestAnimationFrame(syncToolbarToHeader);
+        const timerId = window.setTimeout(syncToolbarToHeader, 150);
+        return () => {
+            cancelAnimationFrame(rafId);
+            window.clearTimeout(timerId);
+        };
+    }, [
+        isPreviewOpen,
+        activeTabId,
+        previewSide,
+        isPreviewFullscreen,
+        skeletonMode,
+        isReadingMode,
+        isScratchOpen,
+    ]);
 
     const handleEditorToolbarClickCapture = useCallback(
         (e: React.MouseEvent<HTMLDivElement>) => {
@@ -3623,7 +3705,7 @@ function App() {
         });
 
         setOpenTabs((prevTabs) => {
-            const updatedTabs = prevTabs.filter((t) => t.id !== id);
+            const updatedTabs = prevTabs.filter((t) => !closeSet.has(t.id));
             if (updatedTabs.length === prevTabs.length) return prevTabs;
             setActiveTabId((prevActiveId) =>
                 getNextActiveTabIdAfterClosing(prevTabs, closeSet, prevActiveId)
@@ -4246,6 +4328,103 @@ function App() {
         );
     }
 
+    // Shared Pinned Unified Top Bar for Chapter Editor (used in BOTH Split Preview & Full-Width Single Chapter modes)
+    function renderUnifiedChapterHeaderBar(
+        activeTab: FileTab,
+        showLinkScroll: boolean
+    ) {
+        const chapter = chapters.find((c) => c.id === activeTab.id);
+        const showSkeletonBtn = chapter?.status !== 'outline';
+
+        return (
+            <div className={styles.unifiedSplitHeaderRow}>
+                <div className={styles.inlineChapterTitleWrapper}>
+                    <span className={styles.chapterPrefixLabel}>Chapter :</span>
+                    <EditableChapterPaneTitle
+                        chapterId={activeTab.id}
+                        title={chapter?.title ?? activeTab.name}
+                        onCommit={renameChapter}
+                    />
+                </div>
+
+                {/* Centered Formatting Controls (B, I, H1, H2, H3, Lists, Quote, Code) */}
+                <div
+                    ref={inlineToolbarHostRef}
+                    className={styles.inlineToolbarSlot}
+                />
+
+                {/* Right Controls: [Link Icon when Preview is open] + Eye Icon + Book Icon + SKELETON */}
+                <div className={styles.splitRightActionCluster}>
+                    {showLinkScroll && readerMode === 'chapter' && (
+                        <button
+                            type="button"
+                            className={`${styles.headerIconToggleBtn} ${
+                                isScrollLinked
+                                    ? styles.headerIconToggleBtnActive
+                                    : ''
+                            }`}
+                            onClick={() => setIsScrollLinked((v) => !v)}
+                            title={
+                                isScrollLinked ? 'Unlink Scroll' : 'Link Scroll'
+                            }
+                        >
+                            <IconLink size={16} stroke={2.1} />
+                        </button>
+                    )}
+
+                    <button
+                        type="button"
+                        className={`${styles.headerIconToggleBtn} ${
+                            isPreviewOpen
+                                ? styles.headerIconToggleBtnActive
+                                : ''
+                        }`}
+                        onClick={() => {
+                            if (isPreviewOpen) {
+                                closeChapterSplitPreview();
+                            } else {
+                                openChapterSplitPreview(activeTab.id);
+                            }
+                        }}
+                        title={isPreviewOpen ? 'Close Preview' : 'Open Preview'}
+                    >
+                        <IconEye size={16} stroke={2} />
+                    </button>
+
+                    <button
+                        type="button"
+                        className={`${styles.headerIconToggleBtn} ${
+                            isReadingMode
+                                ? styles.headerIconToggleBtnActive
+                                : ''
+                        }`}
+                        onClick={() => setIsReadingMode((v) => !v)}
+                        title={
+                            isReadingMode ? 'Exit Reading Mode' : 'Reading Mode'
+                        }
+                    >
+                        <IconBook size={16} stroke={2} />
+                    </button>
+
+                    {showSkeletonBtn && (
+                        <button
+                            type="button"
+                            className={`tb-btn ${skeletonMode ? 'active' : ''} ${styles.paneHeaderActionBtn}`}
+                            onClick={() => setSkeletonMode((v) => !v)}
+                            title={
+                                skeletonMode
+                                    ? 'Disable Skeleton Mode'
+                                    : 'Enable Skeleton Mode'
+                            }
+                        >
+                            Skeleton
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     function renderEditor() {
         const activeTab = getActiveTab();
         const showTextFormatting = isTextFileTab();
@@ -4336,9 +4515,7 @@ function App() {
         if (previewActive && activeTab.type === 'chapter') {
             const editorPaneEl = (
                 <div
-                    ref={editorSplitPaneRef}
-                    onScrollCapture={handleEditorScrollCapture}
-                    className={`${styles.splitEditorCompact} ${
+                    className={`${styles.splitEditorCompact} ${styles.splitEditorPaneShell} ${
                         previewSide === 'right'
                             ? styles.leftPane
                             : styles.rightPane
@@ -4357,30 +4534,15 @@ function App() {
                         );
                     }}
                 >
+                    {renderUnifiedChapterHeaderBar(activeTab, true)}
+
                     <div
-                        className={`${styles.paneHeaderRow} ${styles.splitPaneHeaderRow}`}
+                        ref={editorSplitPaneRef}
+                        onScrollCapture={handleEditorScrollCapture}
+                        className={styles.splitEditorScrollBody}
                     >
-                        {renderPaneTitle(activeTab)}
-                        <div className={styles.paneHeaderActions}>
-                            {readerMode === 'chapter' && (
-                                <button
-                                    type="button"
-                                    className={`tb-btn ${isScrollLinked ? 'active' : ''} ${styles.paneHeaderActionBtn}`}
-                                    onClick={() => setIsScrollLinked((v) => !v)}
-                                    title={
-                                        isScrollLinked
-                                            ? 'Unlink Chapter & Preview Scroll'
-                                            : 'Link Chapter & Preview Scroll'
-                                    }
-                                >
-                                    <IconLink size={12} stroke={2.2} />
-                                    <span>Link Scroll</span>
-                                </button>
-                            )}
-                            {renderSkeletonToggle(activeTab)}
-                        </div>
+                        {wrapWidth(renderSingleTabWorkspace(activeTab))}
                     </div>
-                    {wrapWidth(renderSingleTabWorkspace(activeTab))}
                 </div>
             );
 
@@ -4598,13 +4760,18 @@ function App() {
         if (activeTab.type === 'chapter') {
             return (
                 <div className={styles.tabContentContainer}>
-                    <div className={styles.chapterEditorHeader}>
-                        {renderPaneTitle(activeTab)}
-                        {renderSkeletonToggle(activeTab)}
-                    </div>
-                    <div className={styles.standardEditorScroll}>
-                        <div className="editor-split-main">
-                            {wrapWidth(renderSingleTabWorkspace(activeTab))}
+                    <div className={styles.workspace}>
+                        <div
+                            className={`${styles.splitEditorCompact} ${styles.singleChapterPaneShell}`}
+                        >
+                            {renderUnifiedChapterHeaderBar(activeTab, false)}
+
+                            <div
+                                ref={editorSplitPaneRef}
+                                className={styles.splitEditorScrollBody}
+                            >
+                                {wrapWidth(renderSingleTabWorkspace(activeTab))}
+                            </div>
                         </div>
                     </div>
                 </div>

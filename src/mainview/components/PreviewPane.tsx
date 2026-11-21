@@ -1,7 +1,5 @@
 import type { RefObject } from 'react';
 import {
-    IconBooks,
-    IconFileText,
     IconLayoutSidebarLeftExpand,
     IconLayoutSidebarRightExpand,
     IconMaximize,
@@ -57,17 +55,14 @@ export function PreviewPane({
         ? (tabContents[activeChapter.id] ?? activeChapter.content ?? '').trim()
         : '';
 
-    const dynamicPreviewTitle = activeChapter?.title?.trim()
-        ? `${activeChapter.title.trim()} Preview`
-        : 'Chapter Preview';
+    const chapterTabLabel = activeChapter?.title?.trim()
+        ? `Chapter: ${activeChapter.title.trim()}`
+        : 'Chapter';
 
-    const isBookMode = readerMode === 'book';
-    const nextMode: ReaderMode = isBookMode ? 'chapter' : 'book';
-    const toggleLabel = isBookMode ? 'Chapter' : 'Book';
-    const ToggleIcon = isBookMode ? IconFileText : IconBooks;
-
-    const splitLabel =
-        previewPosition === 'right' ? 'Left Split' : 'Right Split';
+    const splitTooltip =
+        previewPosition === 'right'
+            ? 'Move Preview Left'
+            : 'Move Preview Right';
     const SplitIcon =
         previewPosition === 'right'
             ? IconLayoutSidebarLeftExpand
@@ -82,63 +77,53 @@ export function PreviewPane({
                 color: '#e5e5e7',
             }}
         >
-            {/* Top Header Row: "PREVIEW" + "LEFT SPLIT" / "RIGHT SPLIT" */}
-            <div
-                className={`${styles.paneHeaderRow} ${styles.previewTopHeaderRow}`}
-                style={{ backgroundColor: '#141416' }}
-            >
+            {/* Pinned Sticky Top Bar: PREVIEW | Centered Underline Tabs (Book / Chapter: Name) | Larger Split + Fullscreen + Close Icons */}
+            <div className={styles.unifiedSplitHeaderRow}>
                 <span className={styles.paneTitleBadge}>PREVIEW</span>
 
-                {onTogglePosition && !isFullscreen && (
+                <div className={styles.previewCenterTabsGroup}>
                     <button
                         type="button"
-                        className={`tb-btn ${styles.paneHeaderActionBtn}`}
-                        onClick={onTogglePosition}
-                        title={splitLabel}
+                        className={`${styles.previewUnderlineTab} ${
+                            readerMode === 'book'
+                                ? styles.previewUnderlineTabActive
+                                : ''
+                        }`}
+                        onClick={() => onReaderModeChange('book')}
+                        title="Full Book Preview"
                     >
-                        <SplitIcon size={12} stroke={2.2} />
-                        <span>{splitLabel}</span>
+                        Book
                     </button>
-                )}
-            </div>
 
-            {/* Second Row: BOOK/CHAPTER Toggle + Centered Title + Fullscreen + Close */}
-            <div
-                className={`preview-pane-header ${styles.previewControlsBar}`}
-                style={{
-                    backgroundColor: '#141416',
-                    borderBottom: '1px solid #26262a',
-                }}
-            >
-                <div className={styles.previewControlsLeft}>
                     <button
                         type="button"
-                        className={`tb-btn active ${styles.previewModeBtn}`}
-                        onClick={() => onReaderModeChange(nextMode)}
-                        title={
-                            isBookMode
-                                ? 'Switch to Current Chapter'
-                                : 'Switch to Full Book'
-                        }
+                        className={`${styles.previewUnderlineTab} ${
+                            readerMode === 'chapter'
+                                ? styles.previewUnderlineTabActive
+                                : ''
+                        }`}
+                        onClick={() => onReaderModeChange('chapter')}
+                        title={chapterTabLabel}
                     >
-                        <ToggleIcon size={14} stroke={2} />
-                        <span>{toggleLabel}</span>
+                        {chapterTabLabel}
                     </button>
                 </div>
 
-                <span
-                    className={`preview-pane-title ${styles.previewCenterTitle}`}
-                    title={dynamicPreviewTitle}
-                    style={{ color: '#e5e5e7' }}
-                >
-                    {dynamicPreviewTitle}
-                </span>
-
-                <div className={styles.previewControlsRight}>
+                <div className={styles.splitRightActionCluster}>
+                    {onTogglePosition && !isFullscreen && (
+                        <button
+                            type="button"
+                            className={styles.previewHeaderIconBtn}
+                            onClick={onTogglePosition}
+                            title={splitTooltip}
+                        >
+                            <SplitIcon size={18} stroke={2} />
+                        </button>
+                    )}
                     {onToggleFullscreen && (
                         <button
                             type="button"
-                            className={styles.iconBtn}
+                            className={styles.previewHeaderIconBtn}
                             onClick={onToggleFullscreen}
                             title={
                                 isFullscreen
@@ -147,15 +132,15 @@ export function PreviewPane({
                             }
                         >
                             {isFullscreen ? (
-                                <IconMinimize size={16} stroke={2} />
+                                <IconMinimize size={18} stroke={2} />
                             ) : (
-                                <IconMaximize size={16} stroke={2} />
+                                <IconMaximize size={18} stroke={2} />
                             )}
                         </button>
                     )}
                     <button
                         type="button"
-                        className={styles.iconBtn}
+                        className={styles.previewHeaderIconBtn}
                         onClick={onClose}
                         title="Close Preview"
                     >
@@ -164,7 +149,7 @@ export function PreviewPane({
                 </div>
             </div>
 
-            {/* Preview Reading Surface Matched to Left Chapter Pane (#141416) */}
+            {/* Preview Reading Surface (#141416) */}
             <div
                 ref={bodyScrollRef}
                 onScroll={onBodyScroll}
