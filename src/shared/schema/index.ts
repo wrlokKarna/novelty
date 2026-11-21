@@ -473,6 +473,7 @@ export const plotThreads = sqliteTable('plot_threads', {
     updatedAt: integer('updated_at', { mode: 'timestamp' })
         .notNull()
         .$defaultFn(() => new Date()),
+    linked_beats: text('linked_beats')
 });
 
 export const chapterPlotThreads = sqliteTable('chapter_plot_threads', {

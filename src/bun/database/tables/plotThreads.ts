@@ -19,6 +19,7 @@ function parseThread(row: typeof plotThreads.$inferSelect): PlotThread {
         color: row.color,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
+        linked_beats: row.linked_beats
     };
 }
 

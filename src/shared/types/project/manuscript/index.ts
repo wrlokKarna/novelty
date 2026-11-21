@@ -13,6 +13,7 @@ export type PlotThread = {
     color: string;
     createdAt: Date;
     updatedAt: Date;
+    linked_beats: string | null;
 };
 
 export type NewPlotThread = Omit<PlotThread, 'createdAt' | 'updatedAt'>;

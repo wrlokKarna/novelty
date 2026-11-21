@@ -3,28 +3,28 @@ import runComplexMigrations, { SCHEMA_MIGRATIONS } from './migrations';
 import { resolveSqliteLibraryPath } from '@/bun/database/utils';
 
 export function initializeSqliteEngine(): void {
-    if (process.platform !== 'darwin') return;
+	if (process.platform !== 'darwin') return;
 
-    try {
-        const path = resolveSqliteLibraryPath();
+	try {
+		const path = resolveSqliteLibraryPath();
 
-        if (path) {
-            Database.setCustomSQLite(path);
-        } else {
-            console.warn(
-                'Homebrew SQLite paths not found. Falling back to system SQLite.'
-            );
-        }
-    } catch (error) {
-        console.warn(
-            'Could not set custom SQLite on macOS, using system SQLite. Vector features may be unavailable.',
-            error
-        );
-    }
+		if (path) {
+			Database.setCustomSQLite(path);
+		} else {
+			console.warn(
+				'Homebrew SQLite paths not found. Falling back to system SQLite.'
+			);
+		}
+	} catch (error) {
+		console.warn(
+			'Could not set custom SQLite on macOS, using system SQLite. Vector features may be unavailable.',
+			error
+		);
+	}
 }
 
 export async function initDatabase(sqlite: Database, dbPath: string) {
-    sqlite.exec(`
+	sqlite.exec(`
 		CREATE TABLE IF NOT EXISTS projects (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
@@ -256,7 +256,7 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 	);
 `);
 
-    sqlite.exec(`
+	sqlite.exec(`
 		CREATE TABLE IF NOT EXISTS token_usage (
 			id TEXT PRIMARY KEY,
 			session_id TEXT REFERENCES chat_sessions(id) ON DELETE SET NULL,
@@ -269,7 +269,7 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 		);
 	`);
 
-    sqlite.exec(`
+	sqlite.exec(`
 		CREATE TABLE IF NOT EXISTS timeline_events (
 			id TEXT PRIMARY KEY,
 			project_id TEXT REFERENCES projects(id),
@@ -288,15 +288,15 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 		);
 	`);
 
-    try {
-        sqlite.exec(
-            `ALTER TABLE timeline_events ADD COLUMN auto_generated INTEGER NOT NULL DEFAULT 0`
-        );
-    } catch {
-        // Column already exists - ignore error
-    }
+	try {
+		sqlite.exec(
+			`ALTER TABLE timeline_events ADD COLUMN auto_generated INTEGER NOT NULL DEFAULT 0`
+		);
+	} catch {
+		// Column already exists - ignore error
+	}
 
-    sqlite.exec(`
+	sqlite.exec(`
 		CREATE TABLE IF NOT EXISTS story_acts (
 			id TEXT PRIMARY KEY,
 			project_id TEXT REFERENCES projects(id),
@@ -310,7 +310,7 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 		);
 	`);
 
-    sqlite.exec(`
+	sqlite.exec(`
 		CREATE TABLE IF NOT EXISTS story_sequences (
 			id TEXT PRIMARY KEY,
 			act_id TEXT REFERENCES story_acts(id) ON DELETE CASCADE,
@@ -324,7 +324,7 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 		);
 	`);
 
-    sqlite.exec(`
+	sqlite.exec(`
 		CREATE TABLE IF NOT EXISTS story_scenes (
 			id TEXT PRIMARY KEY,
 			project_id TEXT REFERENCES projects(id),
@@ -345,7 +345,7 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 		);
 	`);
 
-    sqlite.exec(`
+	sqlite.exec(`
 		CREATE TABLE IF NOT EXISTS plot_threads (
 			id TEXT PRIMARY KEY,
 			project_id TEXT REFERENCES projects(id),
@@ -354,11 +354,12 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 			thread_type TEXT NOT NULL DEFAULT 'subplot',
 			color TEXT NOT NULL DEFAULT '#6366f1',
 			created_at INTEGER NOT NULL,
-			updated_at INTEGER NOT NULL
+			updated_at INTEGER NOT NULL,
+			linked_beats TEXT
 		);
 	`);
 
-    sqlite.exec(`
+	sqlite.exec(`
 		CREATE TABLE IF NOT EXISTS chapter_plot_threads (
 			chapter_id TEXT NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
 			plot_thread_id TEXT NOT NULL REFERENCES plot_threads(id) ON DELETE CASCADE,
@@ -367,7 +368,7 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 		);
 	`);
 
-    sqlite.exec(`
+	sqlite.exec(`
 		CREATE TABLE IF NOT EXISTS story_beats (
 			id TEXT PRIMARY KEY,
 			project_id TEXT REFERENCES projects(id),
@@ -393,7 +394,7 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 		);
 	`);
 
-    sqlite.exec(`
+	sqlite.exec(`
 		CREATE TABLE IF NOT EXISTS embeddings (
 			id TEXT PRIMARY KEY,
 			project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -408,133 +409,133 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 		);
 	`);
 
-    sqlite.exec(
-        `CREATE INDEX IF NOT EXISTS idx_embeddings_project ON embeddings(project_id)`
-    );
-    sqlite.exec(
-        `CREATE INDEX IF NOT EXISTS idx_embeddings_entity ON embeddings(entity_type, entity_id)`
-    );
-    sqlite.exec(
-        `CREATE INDEX IF NOT EXISTS idx_embeddings_hash ON embeddings(content_hash)`
-    );
+	sqlite.exec(
+		`CREATE INDEX IF NOT EXISTS idx_embeddings_project ON embeddings(project_id)`
+	);
+	sqlite.exec(
+		`CREATE INDEX IF NOT EXISTS idx_embeddings_entity ON embeddings(entity_type, entity_id)`
+	);
+	sqlite.exec(
+		`CREATE INDEX IF NOT EXISTS idx_embeddings_hash ON embeddings(content_hash)`
+	);
 
-    for (const col of SCHEMA_MIGRATIONS) {
-        try {
-            sqlite.exec(
-                `ALTER TABLE ${col.table} ADD COLUMN ${col.name} ${col.type}`
-            );
-        } catch {
-            // Column already exists - ignore error
-        }
-    }
+	for (const col of SCHEMA_MIGRATIONS) {
+		try {
+			sqlite.exec(
+				`ALTER TABLE ${col.table} ADD COLUMN ${col.name} ${col.type}`
+			);
+		} catch {
+			// Column already exists - ignore error
+		}
+	}
 
-    await runComplexMigrations(sqlite);
+	await runComplexMigrations(sqlite);
 
-    // Enforced after the collapse above, since pre-migration databases can
-    // hold more than one row per (series_id, base_type).
-    sqlite.exec(
-        `CREATE UNIQUE INDEX IF NOT EXISTS idx_series_templates_series_base
+	// Enforced after the collapse above, since pre-migration databases can
+	// hold more than one row per (series_id, base_type).
+	sqlite.exec(
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_series_templates_series_base
          ON series_templates (series_id, base_type)`
-    );
+	);
 
-    try {
-        sqlite.exec(
-            `UPDATE scratch_notes SET id = project_id WHERE id = 'scratch'`
-        );
-    } catch {
-        // ignore if table doesn't exist yet
-    }
+	try {
+		sqlite.exec(
+			`UPDATE scratch_notes SET id = project_id WHERE id = 'scratch'`
+		);
+	} catch {
+		// ignore if table doesn't exist yet
+	}
 
-    seedGlobalData(sqlite);
+	seedGlobalData(sqlite);
 
-    console.log('Database initialized at:', dbPath);
+	console.log('Database initialized at:', dbPath);
 }
 
 function seedGlobalData(sqlite: Database) {
-    const globalGenres = [
-        'fantasy',
-        'sci-fi',
-        'romance',
-        'thriller',
-        'horror',
-        'mystery',
-        'historical',
-        'contemporary',
-        'western',
-        'literary-fiction',
-        'young-adult',
-        'dystopian',
-        'cyberpunk',
-        'steampunk',
-        'urban-fantasy',
-    ];
+	const globalGenres = [
+		'fantasy',
+		'sci-fi',
+		'romance',
+		'thriller',
+		'horror',
+		'mystery',
+		'historical',
+		'contemporary',
+		'western',
+		'literary-fiction',
+		'young-adult',
+		'dystopian',
+		'cyberpunk',
+		'steampunk',
+		'urban-fantasy',
+	];
 
-    const globalTags = [
-        'dragons',
-        'magic',
-        'space',
-        'aliens',
-        'vampires',
-        'zombies',
-        'romance',
-        'mystery',
-        'war',
-        'political',
-        'supernatural',
-        'dystopia',
-        'time-travel',
-        'post-apocalyptic',
-        'coming-of-age',
-    ];
+	const globalTags = [
+		'dragons',
+		'magic',
+		'space',
+		'aliens',
+		'vampires',
+		'zombies',
+		'romance',
+		'mystery',
+		'war',
+		'political',
+		'supernatural',
+		'dystopia',
+		'time-travel',
+		'post-apocalyptic',
+		'coming-of-age',
+	];
 
-    for (const genre of globalGenres) {
-        try {
-            const id = genre.replace(/-/g, '_');
-            sqlite.exec(
-                `INSERT OR IGNORE INTO genres (id, name, is_global, created_at) VALUES ('${id}', '${genre}', 1, ${Date.now()})`
-            );
-        } catch {
-            // Ignore duplicates
-        }
-    }
+	for (const genre of globalGenres) {
+		try {
+			const id = genre.replace(/-/g, '_');
+			sqlite.exec(
+				`INSERT OR IGNORE INTO genres (id, name, is_global, created_at) VALUES ('${id}', '${genre}', 1, ${Date.now()})`
+			);
+		} catch {
+			// Ignore duplicates
+		}
+	}
 
-    for (const tag of globalTags) {
-        try {
-            const id = tag.replace(/-/g, '_');
-            sqlite.exec(
-                `INSERT OR IGNORE INTO tags (id, name, is_global, created_at) VALUES ('${id}', '${tag}', 1, ${Date.now()})`
-            );
-        } catch {
-            // Ignore duplicates
-        }
-    }
+	for (const tag of globalTags) {
+		try {
+			const id = tag.replace(/-/g, '_');
+			sqlite.exec(
+				`INSERT OR IGNORE INTO tags (id, name, is_global, created_at) VALUES ('${id}', '${tag}', 1, ${Date.now()})`
+			);
+		} catch {
+			// Ignore duplicates
+		}
+	}
 
-    const globalThemes = [
-        'redemption',
-        'revenge',
-        'betrayal',
-        'identity',
-        'coming-of-age',
-        'good-vs-evil',
-        'love',
-        'death',
-        'power',
-        'freedom',
-        'survival',
-        'justice',
-        'sacrifice',
-        'transformation',
-        'war-and-peace',
-    ];
+	const globalThemes = [
+		'redemption',
+		'revenge',
+		'betrayal',
+		'identity',
+		'coming-of-age',
+		'good-vs-evil',
+		'love',
+		'death',
+		'power',
+		'freedom',
+		'survival',
+		'justice',
+		'sacrifice',
+		'transformation',
+		'war-and-peace',
+	];
 
-    for (const theme of globalThemes) {
-        try {
-            const id = theme.replace(/-/g, '_');
-            sqlite.exec(
-                `INSERT OR IGNORE INTO themes (id, name, is_global, created_at) VALUES ('${id}', '${theme}', 1, ${Date.now()})`
-            );
-        } catch {
-            // Ignore duplicates
-        }
-    }
+	for (const theme of globalThemes) {
+		try {
+			const id = theme.replace(/-/g, '_');
+			sqlite.exec(
+				`INSERT OR IGNORE INTO themes (id, name, is_global, created_at) VALUES ('${id}', '${theme}', 1, ${Date.now()})`
+			);
+		} catch {
+			// Ignore duplicates
+		}
+	}
 }

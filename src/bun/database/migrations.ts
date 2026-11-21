@@ -109,6 +109,7 @@ export const SCHEMA_MIGRATIONS = [
     },
     { table: 'entity_templates', name: 'layout', type: 'TEXT' },
     { table: 'series_templates', name: 'layout', type: 'TEXT' },
+    { table: 'plot_threads', name: 'linked_beats', type: 'TEXT' }
 ];
 
 async function migrateOutlineScenesToStoryScenes(sqlite: Database) {
@@ -118,12 +119,12 @@ async function migrateOutlineScenesToStoryScenes(sqlite: Database) {
                 `SELECT id, project_id, act_id, sequence_id, outline FROM chapters WHERE outline IS NOT NULL`
             )
             .all() as {
-            id: string;
-            project_id: string | null;
-            act_id: string | null;
-            sequence_id: string | null;
-            outline: string;
-        }[];
+                id: string;
+                project_id: string | null;
+                act_id: string | null;
+                sequence_id: string | null;
+                outline: string;
+            }[];
 
         for (const chapter of chapters) {
             let parsed: { scenes?: unknown[] } | null = null;
@@ -222,9 +223,8 @@ async function migrateTemplateLayouts(sqlite: Database) {
             if (!columnExists(sqlite, table, 'layout')) return;
             const hasColumns =
                 includeColumns && columnExists(sqlite, table, 'columns');
-            const cols = `id, custom_fields, layout${
-                hasColumns ? ', columns' : ''
-            }`;
+            const cols = `id, custom_fields, layout${hasColumns ? ', columns' : ''
+                }`;
             const rows = sqlite.query(`SELECT ${cols} FROM ${table}`).all() as {
                 id: string;
                 custom_fields: string | null;
@@ -337,11 +337,11 @@ async function migrateGlobalTemplatesAway(sqlite: Database) {
                             ON st.id = et.series_template_id`
                 )
                 .all() as {
-                id: string;
-                project_fields: string | null;
-                global_fields: string | null;
-                series_fields: string | null;
-            }[];
+                    id: string;
+                    project_fields: string | null;
+                    global_fields: string | null;
+                    series_fields: string | null;
+                }[];
 
             const updateStmt = sqlite.prepare(
                 `UPDATE entity_templates SET custom_fields = ?, updated_at = ? WHERE id = ?`
@@ -486,8 +486,8 @@ async function migrateSeriesTemplatesToSinglePerCategory(sqlite: Database) {
                          ORDER BY uses DESC, created_at ASC`
                     )
                     .all(group.series_id, group.base_type) as {
-                    id: string;
-                }[];
+                        id: string;
+                    }[];
 
                 const winner = candidates[0];
                 if (!winner) continue;
@@ -515,10 +515,10 @@ async function migrateSeriesTemplatesToSinglePerCategory(sqlite: Database) {
                            AND st.custom_fields IS NOT NULL`
                     )
                     .all() as {
-                    id: string;
-                    project_fields: string;
-                    series_fields: string;
-                }[];
+                        id: string;
+                        project_fields: string;
+                        series_fields: string;
+                    }[];
 
                 const updateFields = sqlite.prepare(
                     `UPDATE entity_templates
@@ -562,9 +562,9 @@ async function migrateSeriesTemplatesToSinglePerCategory(sqlite: Database) {
             sqlite.exec('COMMIT');
             console.log(
                 `Collapsed series templates to one per category: ` +
-                    `${collapsed} duplicate(s) removed, ` +
-                    `${staleLinks} stale link(s) cleared, ` +
-                    `${pruned} shadow field(s) pruned`
+                `${collapsed} duplicate(s) removed, ` +
+                `${staleLinks} stale link(s) cleared, ` +
+                `${pruned} shadow field(s) pruned`
             );
         } catch (err) {
             sqlite.exec('ROLLBACK');
