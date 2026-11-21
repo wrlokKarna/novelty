@@ -53,6 +53,7 @@ import type {
     EntityTemplate,
     FieldDefinition,
     FileTab,
+    PlotArchitectureViewTab,
     TemplateLayout,
 } from '../shared/types/project/templates';
 import styles from './App.module.css';
@@ -94,6 +95,84 @@ import {
 import { TitleBar } from './ui/window/TitleBar';
 import LeftPanel from './ui/workspaces/editor/LeftPanel';
 import RightPanel from './ui/workspaces/editor/RightPanel';
+
+const PLOT_ARCH_TAB_IDS: Record<PlotArchitectureViewTab, string> = {
+    acts: 'plot-architecture-acts',
+    threads: 'plot-architecture-threads',
+    beats: 'plot-architecture-beats',
+};
+
+const PLOT_ARCH_TAB_NAMES: Record<PlotArchitectureViewTab, string> = {
+    acts: 'Acts',
+    threads: 'Plot Threads',
+    beats: 'Story Beats',
+};
+
+function getPlotArchTabId(view: PlotArchitectureViewTab): string {
+    return PLOT_ARCH_TAB_IDS[view];
+}
+
+function getPlotArchView(tab: FileTab): PlotArchitectureViewTab {
+    if (tab.plotView) return tab.plotView;
+    if (tab.id === PLOT_ARCH_TAB_IDS.threads) return 'threads';
+    if (tab.id === PLOT_ARCH_TAB_IDS.beats) return 'beats';
+    return 'acts';
+}
+
+function normalizePlotArchTab(tab: FileTab): FileTab {
+    if (tab.type !== 'plot-architecture') return tab;
+    const view = getPlotArchView(tab);
+    return {
+        ...tab,
+        id: getPlotArchTabId(view),
+        name: PLOT_ARCH_TAB_NAMES[view],
+        plotView: view,
+    };
+}
+
+function EditableChapterPaneTitle({
+    chapterId,
+    title,
+    onCommit,
+}: {
+    chapterId: string;
+    title: string;
+    onCommit: (id: string, title: string) => void;
+}) {
+    const [draft, setDraft] = useState(title);
+
+    useEffect(() => {
+        setDraft(title);
+    }, [title]);
+
+    return (
+        <input
+            className={styles.paneTitleBadgeInput}
+            value={draft}
+            size={Math.max(draft.length, 8)}
+            aria-label="Chapter title"
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => {
+                const trimmed = draft.trim();
+                if (!trimmed || trimmed === title) {
+                    setDraft(title);
+                    return;
+                }
+                onCommit(chapterId, trimmed);
+            }}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    (e.target as HTMLInputElement).blur();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setDraft(title);
+                    (e.target as HTMLInputElement).blur();
+                }
+            }}
+        />
+    );
+}
 
 interface SidebarDragPayload {
     id: string;
@@ -177,10 +256,6 @@ function App() {
         settings?.appearance?.previewWidth ?? 420
     );
     const previewWidthRef = useRef(previewWidth);
-    const [chapterTitleEditId, setChapterTitleEditId] = useState<string | null>(
-        null
-    );
-    const [chapterTitleDraft, setChapterTitleDraft] = useState('');
 
     const [toolbarSplitMenu, setToolbarSplitMenu] = useState<{
         x: number;
@@ -208,9 +283,6 @@ function App() {
     const [showProjectSelection, setShowProjectSelection] = useState(false);
     const [currentProject, setCurrentProject] = useState<Project | null>(null);
     const [openTabs, setOpenTabs] = useState<FileTab[]>([]);
-    const [plotViewTab, setPlotViewTab] = useState<
-        'acts' | 'threads' | 'beats'
-    >('acts');
     const [activeTabId, setActiveTabId] = useState<string | null>(null);
     const tabActivationHistoryRef = useRef<string[]>([]);
 
@@ -992,14 +1064,7 @@ function App() {
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         const relX = (e.clientX - rect.left) / rect.width;
 
-        const draggedTab = draggedTabId
-            ? openTabs.find((t) => t.id === draggedTabId)
-            : null;
-        const canMerge =
-            (draggedTab
-                ? draggedTab.type !== 'plot-architecture'
-                : Boolean(draggedSidebarItem)) &&
-            targetTab.type !== 'plot-architecture';
+        const canMerge = Boolean(activeDragId);
 
         let mode: 'before' | 'after' | 'merge';
         if (relX < 0.28) {
@@ -1270,9 +1335,7 @@ function App() {
         promoteTabToPermanent(sourceId);
 
         if (isCurrentSingleTab && zone === 'center') {
-            if (currentTab.type !== 'plot-architecture') {
-                handleStartLinking(sourceId);
-            }
+            handleStartLinking(sourceId);
             return;
         }
 
@@ -1333,9 +1396,7 @@ function App() {
         const currentAnchorId =
             activeTabId && activeTabId !== sourceId
                 ? activeTabId
-                : openTabs.find(
-                      (t) => t.id !== sourceId && t.type !== 'plot-architecture'
-                  )?.id;
+                : openTabs.find((t) => t.id !== sourceId)?.id;
 
         if (!currentAnchorId) {
             setIsScratchOpen(false);
@@ -1701,7 +1762,31 @@ function App() {
         try {
             const stored = localStorage.getItem(getTabsStorageKey(projectId));
             if (stored) {
-                return JSON.parse(stored);
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed?.tabs)) {
+                    const idRemap = new Map<string, string>();
+                    parsed.tabs = parsed.tabs.map((tab: FileTab) => {
+                        const normalized = normalizePlotArchTab(tab);
+                        if (normalized.id !== tab.id) {
+                            idRemap.set(tab.id, normalized.id);
+                        }
+                        return normalized;
+                    });
+                    const remapId = (id: string) => idRemap.get(id) ?? id;
+                    if (parsed.activeTabId) {
+                        parsed.activeTabId = remapId(parsed.activeTabId);
+                    }
+                    if (parsed.chapterLinks) {
+                        const links: Record<string, string | null> = {};
+                        for (const [key, value] of Object.entries(
+                            parsed.chapterLinks as Record<string, string | null>
+                        )) {
+                            links[remapId(key)] = value ? remapId(value) : value;
+                        }
+                        parsed.chapterLinks = links;
+                    }
+                }
+                return parsed;
             }
         } catch (e) {
             console.error('Failed to load project tabs:', e);
@@ -1944,7 +2029,6 @@ function App() {
             setCurrentProject(project);
             setOpenTabs(restoredTabs);
             setActiveTabId(restoredActiveId);
-            setPlotViewTab('acts');
             setChapterLinks(savedState?.chapterLinks || {});
             setTileSplitRatio(savedState?.tileSplitRatio ?? 50);
             setPreviewTabId(null);
@@ -2263,8 +2347,6 @@ function App() {
         setOpenTabs((prev) =>
             prev.map((t) => (t.id === id ? { ...t, name: trimmed } : t))
         );
-        setChapterTitleEditId((prev) => (prev === id ? null : prev));
-        setChapterTitleDraft('');
     }
 
     async function renameExplorerEntry(
@@ -2277,22 +2359,6 @@ function App() {
             return;
         }
         await handleUpdateCompendiumEntry(id, category, 'name', title);
-    }
-
-    async function handleChapterTitleDraftCommit() {
-        const id = chapterTitleEditId;
-        if (!id) {
-            setChapterTitleDraft('');
-            return;
-        }
-        const chapter = chapters.find((c) => c.id === id);
-        const trimmed = chapterTitleDraft.trim();
-        if (!trimmed || (chapter && trimmed === chapter.title)) {
-            setChapterTitleEditId(null);
-            setChapterTitleDraft('');
-            return;
-        }
-        await renameChapter(id, chapterTitleDraft);
     }
 
     async function openChapterTab(chapter: Chapter) {
@@ -2384,51 +2450,40 @@ function App() {
         }
     }
 
-    function openPlotArchitectureTab(
-        viewTab: 'acts' | 'threads' | 'beats' = 'acts'
-    ) {
-        setPlotViewTab(viewTab);
-        const existing = openTabs.find((t) => t.type === 'plot-architecture');
+    function openPlotArchitectureTab(view: PlotArchitectureViewTab = 'acts') {
+        const id = getPlotArchTabId(view);
+        const existing = openTabs.find((t) => t.id === id);
         if (existing) {
             setIsScratchOpen(false);
             setActiveTabId(existing.id);
             return;
         }
         const tab: FileTab = {
-            id: 'plot-architecture',
-            name: 'Plot Architecture',
+            id,
+            name: PLOT_ARCH_TAB_NAMES[view],
             type: 'plot-architecture',
             filePath: '',
             isModified: false,
+            plotView: view,
         };
         setOpenTabs((prev) => [...prev, tab]);
         setIsScratchOpen(false);
         setActiveTabId(tab.id);
     }
 
-    function togglePlotArchitectureTab(tab: 'acts' | 'threads' | 'beats') {
-        const existing = openTabs.find((t) => t.type === 'plot-architecture');
+    function togglePlotArchitectureTab(view: PlotArchitectureViewTab) {
+        const id = getPlotArchTabId(view);
+        const existing = openTabs.find((t) => t.id === id);
         if (!existing) {
-            openPlotArchitectureTab(tab);
+            openPlotArchitectureTab(view);
             return;
         }
-        if (activeTabId === existing.id && plotViewTab === tab) {
-            const closeSet = new Set([existing.id]);
-            setOpenTabs((prevTabs) => {
-                setActiveTabId((prevActiveId) =>
-                    getNextActiveTabIdAfterClosing(
-                        prevTabs,
-                        closeSet,
-                        prevActiveId
-                    )
-                );
-                return prevTabs.filter((t) => t.id !== existing.id);
-            });
-        } else {
-            setPlotViewTab(tab);
-            setIsScratchOpen(false);
-            setActiveTabId(existing.id);
+        if (activeTabId === id) {
+            handleCloseTab(id);
+            return;
         }
+        setIsScratchOpen(false);
+        setActiveTabId(id);
     }
 
     useEffect(() => {
@@ -3699,6 +3754,30 @@ function App() {
     function renderSingleTabWorkspace(tab: FileTab) {
         const showTextFormatting = isTextFileTab();
 
+        if (tab.type === 'plot-architecture') {
+            if (!currentProject) {
+                return (
+                    <div className="empty-editor">
+                        <IconFiles size={48} stroke={1.5} />
+                        <p>Loading project...</p>
+                    </div>
+                );
+            }
+            return (
+                <PlotArchitectureView
+                    view={getPlotArchView(tab)}
+                    projectId={currentProject.id}
+                    chapters={chapters}
+                    characters={characters}
+                    onDataChange={handlePlotDataChange}
+                    onNavigateChapter={(chapterId) => {
+                        const ch = chapters.find((c) => c.id === chapterId);
+                        if (ch) openChapterTab(ch);
+                    }}
+                />
+            );
+        }
+
         if (tab.type === 'chapter') {
             const chapterId = tab.id;
             const chapter = chapters.find((c) => c.id === chapterId);
@@ -4031,42 +4110,11 @@ function App() {
                 );
             }
 
-            const editingTitle = chapterTitleEditId === chapterId;
-            const titleValue = editingTitle
-                ? chapterTitleDraft
-                : (chapter?.title ?? '');
             const isChapterInPreview =
                 isPreviewOpen && previewTargetChapterId === chapterId;
 
             return (
                 <div onClickCapture={handleEditorToolbarClickCapture}>
-                    <div className="chapter-title-row">
-                        <input
-                            className="chapter-title-input"
-                            value={titleValue}
-                            placeholder="Chapter title"
-                            onChange={(e) => {
-                                setChapterTitleEditId(chapterId);
-                                setChapterTitleDraft(e.target.value);
-                            }}
-                            onFocus={() => {
-                                if (!editingTitle) {
-                                    setChapterTitleEditId(chapterId);
-                                    setChapterTitleDraft(chapter?.title ?? '');
-                                }
-                            }}
-                            onBlur={() => handleChapterTitleDraftCommit()}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    (e.target as HTMLInputElement).blur();
-                                } else if (e.key === 'Escape') {
-                                    setChapterTitleEditId(null);
-                                    setChapterTitleDraft('');
-                                }
-                            }}
-                        />
-                    </div>
                     <RichTextEditor
                         ref={editorRef}
                         tabId={chapterId}
@@ -4215,6 +4263,40 @@ function App() {
                 el
             );
 
+        const renderSkeletonToggle = (tab: FileTab) => {
+            if (tab.type !== 'chapter') return null;
+            const chapter = chapters.find((c) => c.id === tab.id);
+            if (chapter?.status === 'outline') return null;
+            return (
+                <button
+                    type="button"
+                    className={`tb-btn ${skeletonMode ? 'active' : ''} ${styles.paneHeaderActionBtn}`}
+                    onClick={() => setSkeletonMode((v) => !v)}
+                    title={
+                        skeletonMode
+                            ? 'Disable Skeleton Mode'
+                            : 'Enable Skeleton Mode'
+                    }
+                >
+                    Skeleton
+                </button>
+            );
+        };
+
+        const renderPaneTitle = (tab: FileTab) => {
+            if (tab.type === 'chapter') {
+                const chapter = chapters.find((c) => c.id === tab.id);
+                return (
+                    <EditableChapterPaneTitle
+                        chapterId={tab.id}
+                        title={chapter?.title ?? tab.name}
+                        onCommit={renameChapter}
+                    />
+                );
+            }
+            return <span className={styles.paneTitleBadge}>{tab.name}</span>;
+        };
+
         if (isScratchOpen) {
             return wrapWidth(
                 <RichTextEditor
@@ -4249,23 +4331,6 @@ function App() {
             );
         }
 
-        if (activeTab.type === 'plot-architecture' && currentProject) {
-            return (
-                <PlotArchitectureView
-                    projectId={currentProject.id}
-                    chapters={chapters}
-                    characters={characters}
-                    activeTab={plotViewTab}
-                    onTabChange={setPlotViewTab}
-                    onDataChange={handlePlotDataChange}
-                    onNavigateChapter={(chapterId) => {
-                        const ch = chapters.find((c) => c.id === chapterId);
-                        if (ch) openChapterTab(ch);
-                    }}
-                />
-            );
-        }
-
         if (previewActive && activeTab.type === 'chapter') {
             const editorPaneEl = (
                 <div
@@ -4293,24 +4358,25 @@ function App() {
                     <div
                         className={`${styles.paneHeaderRow} ${styles.splitPaneHeaderRow}`}
                     >
-                        <span className={styles.paneTitleBadge}>
-                            {activeTab.name}
-                        </span>
-                        {readerMode === 'chapter' && (
-                            <button
-                                type="button"
-                                className={`tb-btn ${isScrollLinked ? 'active' : ''} ${styles.paneHeaderActionBtn}`}
-                                onClick={() => setIsScrollLinked((v) => !v)}
-                                title={
-                                    isScrollLinked
-                                        ? 'Unlink Chapter & Preview Scroll'
-                                        : 'Link Chapter & Preview Scroll'
-                                }
-                            >
-                                <IconLink size={12} stroke={2.2} />
-                                <span>Link Scroll</span>
-                            </button>
-                        )}
+                        {renderPaneTitle(activeTab)}
+                        <div className={styles.paneHeaderActions}>
+                            {readerMode === 'chapter' && (
+                                <button
+                                    type="button"
+                                    className={`tb-btn ${isScrollLinked ? 'active' : ''} ${styles.paneHeaderActionBtn}`}
+                                    onClick={() => setIsScrollLinked((v) => !v)}
+                                    title={
+                                        isScrollLinked
+                                            ? 'Unlink Chapter & Preview Scroll'
+                                            : 'Link Chapter & Preview Scroll'
+                                    }
+                                >
+                                    <IconLink size={12} stroke={2.2} />
+                                    <span>Link Scroll</span>
+                                </button>
+                            )}
+                            {renderSkeletonToggle(activeTab)}
+                        </div>
                     </div>
                     {wrapWidth(renderSingleTabWorkspace(activeTab))}
                 </div>
@@ -4438,22 +4504,25 @@ function App() {
                             }}
                         >
                             <div className={styles.paneHeaderRow}>
-                                <span className={styles.paneTitleBadge}>
-                                    {linkedPair.source.name}
-                                </span>
-                                {focusedTileSide === 'left' && (
-                                    <button
-                                        className={styles.paneUnlinkSmallBtn}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleUnlinkChapter(
-                                                linkedPair.source.id
-                                            );
-                                        }}
-                                    >
-                                        Unlink Tile
-                                    </button>
-                                )}
+                                {renderPaneTitle(linkedPair.source)}
+                                <div className={styles.paneHeaderActions}>
+                                    {renderSkeletonToggle(linkedPair.source)}
+                                    {focusedTileSide === 'left' && (
+                                        <button
+                                            className={
+                                                styles.paneUnlinkSmallBtn
+                                            }
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleUnlinkChapter(
+                                                    linkedPair.source.id
+                                                );
+                                            }}
+                                        >
+                                            Unlink Tile
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                             {renderSingleTabWorkspace(linkedPair.source)}
                         </div>
@@ -4497,22 +4566,25 @@ function App() {
                             }}
                         >
                             <div className={styles.paneHeaderRow}>
-                                <span className={styles.paneTitleBadge}>
-                                    {linkedPair.target.name}
-                                </span>
-                                {focusedTileSide === 'right' && (
-                                    <button
-                                        className={styles.paneUnlinkSmallBtn}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleUnlinkChapter(
-                                                linkedPair.target.id
-                                            );
-                                        }}
-                                    >
-                                        Unlink Tile
-                                    </button>
-                                )}
+                                {renderPaneTitle(linkedPair.target)}
+                                <div className={styles.paneHeaderActions}>
+                                    {renderSkeletonToggle(linkedPair.target)}
+                                    {focusedTileSide === 'right' && (
+                                        <button
+                                            className={
+                                                styles.paneUnlinkSmallBtn
+                                            }
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleUnlinkChapter(
+                                                    linkedPair.target.id
+                                                );
+                                            }}
+                                        >
+                                            Unlink Tile
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                             {renderSingleTabWorkspace(linkedPair.target)}
                         </div>
@@ -4524,6 +4596,10 @@ function App() {
         if (activeTab.type === 'chapter') {
             return (
                 <div className={styles.tabContentContainer}>
+                    <div className={styles.chapterEditorHeader}>
+                        {renderPaneTitle(activeTab)}
+                        {renderSkeletonToggle(activeTab)}
+                    </div>
                     <div className={styles.standardEditorScroll}>
                         <div className="editor-split-main">
                             {wrapWidth(renderSingleTabWorkspace(activeTab))}
@@ -4700,8 +4776,7 @@ function App() {
     const hasLeftTabs = menuTabIndex > 0;
     const hasRightTabs =
         menuTabIndex !== -1 && menuTabIndex < openTabs.length - 1;
-    const canTileMenuTab =
-        menuTabObj && menuTabObj.type !== 'plot-architecture';
+    const canTileMenuTab = Boolean(menuTabObj);
     const isMenuTabChapter = menuTabObj?.type === 'chapter';
     const isMenuTabInPreview =
         isMenuTabChapter &&
@@ -4746,14 +4821,14 @@ function App() {
                     currentProject && (
                         <>
                             <button
-                                className={`tb-btn ${openTabs.some((t) => t.type === 'plot-architecture') && plotViewTab === 'acts' ? 'active' : ''}`}
+                                className={`tb-btn ${activeTabId === getPlotArchTabId('acts') ? 'active' : ''}`}
                                 onClick={() => togglePlotArchitectureTab('acts')}
                                 title="Plot Architecture — Acts"
                             >
                                 Acts
                             </button>
                             <button
-                                className={`tb-btn ${openTabs.some((t) => t.type === 'plot-architecture') && plotViewTab === 'threads' ? 'active' : ''}`}
+                                className={`tb-btn ${activeTabId === getPlotArchTabId('threads') ? 'active' : ''}`}
                                 onClick={() =>
                                     togglePlotArchitectureTab('threads')
                                 }
@@ -4762,18 +4837,11 @@ function App() {
                                 Plot Threads
                             </button>
                             <button
-                                className={`tb-btn ${openTabs.some((t) => t.type === 'plot-architecture') && plotViewTab === 'beats' ? 'active' : ''}`}
+                                className={`tb-btn ${activeTabId === getPlotArchTabId('beats') ? 'active' : ''}`}
                                 onClick={() => togglePlotArchitectureTab('beats')}
                                 title="Plot Architecture — Story Beats"
                             >
                                 Story Beats
-                            </button>
-                            <button
-                                className={`tb-btn ${skeletonMode ? 'active' : ''}`}
-                                onClick={() => setSkeletonMode(!skeletonMode)}
-                                title="Skeleton Mode"
-                            >
-                                Skeleton
                             </button>
                             <button
                                 className={`tb-btn ${showAnalysis ? 'active' : ''}`}
@@ -4913,10 +4981,7 @@ function App() {
                             {openTabs.map((tab) => {
                                 if (renderedTabIds.has(tab.id)) return null;
 
-                                const partner =
-                                    tab.type !== 'plot-architecture'
-                                        ? getLinkedPartner(tab.id)
-                                        : null;
+                                const partner = getLinkedPartner(tab.id);
 
                                 if (partner) {
                                     renderedTabIds.add(partner.source.id);
@@ -5432,18 +5497,6 @@ function App() {
                         </div>
                     )}
 
-                    {skeletonMode && (
-                        <div className="skeleton-banner">
-                            <span>Skeleton Mode</span>
-                            <button
-                                className="skeleton-banner-close"
-                                onClick={() => setSkeletonMode(false)}
-                                title="Disable Skeleton Mode"
-                            >
-                                &times;
-                            </button>
-                        </div>
-                    )}
                     <div
                         ref={editorAreaRef}
                         onDragOver={handleEditorDragOver}

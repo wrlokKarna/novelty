@@ -1,5 +1,6 @@
 import type { Chapter } from '../../../shared/types/project';
 import type { Character } from '../../../shared/types/project/compendium';
+import type { PlotArchitectureViewTab } from '../../../shared/types/project/templates';
 
 export interface EntityItem {
     id: string;
@@ -10,7 +11,7 @@ export interface EntityItem {
 export type MentionCategory =
     'Chapter' | 'Character' | 'Location' | 'Organization' | 'Item' | 'Lore';
 
-export type PlotTab = 'acts' | 'threads' | 'beats';
+export type PlotTab = PlotArchitectureViewTab;
 
 export interface MentionOption {
     id: string;
@@ -79,6 +80,5 @@ export interface PlotArchitectureDataProps {
 }
 
 export interface Props extends PlotArchitectureDataProps {
-    activeTab?: PlotTab;
-    onTabChange?: (tab: PlotTab) => void;
+    view: PlotTab;
 }

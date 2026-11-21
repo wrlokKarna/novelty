@@ -117,6 +117,8 @@ export type EntityTemplate = {
     updatedAt: Date;
 };
 
+export type PlotArchitectureViewTab = 'acts' | 'threads' | 'beats';
+
 export type FileTab = {
     id: string;
     name: string;
@@ -129,4 +131,5 @@ export type FileTab = {
     filePath: string;
     isModified: boolean;
     category?: CompendiumCategory;
+    plotView?: PlotArchitectureViewTab;
 };

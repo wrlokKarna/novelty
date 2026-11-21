@@ -1,5 +1,5 @@
 ﻿@import 'highlight.js/styles/github-dark.css';
-/*@import './theme/variables.css';*/
+@import './theme/variables.css';
 
 @font-face {
     font-family: 'Inter';
@@ -1326,28 +1326,6 @@ select {
 .editor-container.with-preview .editor-split-main {
     overflow: auto;
     padding: 0 16px 16px 16px;
-}
-
-.chapter-title-row {
-    padding: 16px 0 0 0;
-}
-
-.chapter-title-input {
-    width: 100%;
-    border: none;
-    outline: none;
-    background: transparent;
-    color: var(--editor-text, #e8e6e3);
-    font-size: 28px;
-    font-weight: 700;
-    line-height: 1.3;
-    padding: 8px 0;
-    font-family: inherit;
-}
-
-.chapter-title-input::placeholder {
-    color: var(--editor-placeholder, #6b7280);
-    opacity: 1;
 }
 
 .preview-drag-handle {
@@ -3664,10 +3642,18 @@ select {
     border-radius: 50%;
     display: inline-block;
 }
-.status-dot.status-outline { background: #8e8e93; }
-.status-dot.status-draft { background: #4a9eff; }
-.status-dot.status-revision { background: #f59e0b; }
-.status-dot.status-done { background: #10b981; }
+.status-dot.status-outline {
+    background: #8e8e93;
+}
+.status-dot.status-draft {
+    background: #4a9eff;
+}
+.status-dot.status-revision {
+    background: #f59e0b;
+}
+.status-dot.status-done {
+    background: #10b981;
+}
 
 .chapter-outline-editor .drag-handle,
 .chapter-outline-editor .drag-handle:hover,
@@ -3682,8 +3668,12 @@ select {
     color: #595d68;
     flex-shrink: 0;
 }
-.chapter-outline-editor .drag-handle:hover { color: #fff; }
-.chapter-outline-editor .drag-handle:active { cursor: grabbing; }
+.chapter-outline-editor .drag-handle:hover {
+    color: #fff;
+}
+.chapter-outline-editor .drag-handle:active {
+    cursor: grabbing;
+}
 
 .scene-content-wrap {
     position: relative;
@@ -4422,39 +4412,6 @@ textarea {
     background-color: var(--accent-subtle);
     border-color: --var(var(--accent-focus));
     color: var(--accent);
-}
-
-/* ======= Skeleton Mode Banner ======= */
-.skeleton-banner {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 12px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #4a9eff;
-    background: rgba(74, 158, 255, 0.08);
-    border-bottom: 1px solid rgba(74, 158, 255, 0.2);
-    user-select: none;
-}
-
-.skeleton-banner-close {
-    margin-left: auto;
-    background: none;
-    border: none;
-    color: #4a9eff;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    padding: 0 4px;
-    line-height: 1;
-    opacity: 0.6;
-}
-
-.skeleton-banner-close:hover {
-    opacity: 1;
 }
 
 /* ======= Analysis Overlay ======= */
