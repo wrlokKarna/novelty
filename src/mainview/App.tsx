@@ -267,7 +267,8 @@ function App() {
     } | null>(null);
 
     const editorSplitPaneRef = useRef<HTMLDivElement>(null);
-    const inlineToolbarHostRef = useRef<HTMLDivElement>(null);
+    const [inlineToolbarTarget, setInlineToolbarTarget] =
+        useState<HTMLDivElement | null>(null);
     const previewPaneContainerRef = useRef<HTMLDivElement>(null);
     const previewBodyScrollRef = useRef<HTMLDivElement>(null);
     const isSyncingScrollRef = useRef<'editor' | 'preview' | null>(null);
@@ -488,85 +489,6 @@ function App() {
         setPreviewTargetChapterId(null);
     }, []);
 
-    // Sync formatting buttons (B, I, H1, H2, H3, Lists, Quote, Code) into the pinned top bar
-    // without touching or collapsing the RichTextEditor DOM hierarchy
-    useEffect(() => {
-        const bodyEl = editorSplitPaneRef.current;
-        const hostEl = inlineToolbarHostRef.current;
-        if (!bodyEl || !hostEl) return;
-
-        const isExcludedActionButton = (btn: HTMLButtonElement) => {
-            const title = (
-                btn.getAttribute('title') ||
-                btn.getAttribute('aria-label') ||
-                ''
-            ).toLowerCase();
-            if (
-                title.includes('preview') ||
-                title.includes('read') ||
-                title.includes('edit') ||
-                title.includes('more') ||
-                title.includes('option')
-            ) {
-                return true;
-            }
-            return Boolean(
-                btn.querySelector(
-                    '.tabler-icon-eye, .tabler-icon-book, .tabler-icon-pencil, .tabler-icon-edit, .tabler-icon-dots-vertical'
-                )
-            );
-        };
-
-        const syncToolbarToHeader = () => {
-            const innerToolbar = bodyEl.querySelector<HTMLElement>(
-                '.editor-toolbar, .rich-text-toolbar, .ProseMirror-menubar, [role="toolbar"]'
-            );
-            if (!innerToolbar) {
-                hostEl.replaceChildren();
-                return;
-            }
-
-            const origBtns = Array.from(
-                innerToolbar.querySelectorAll<HTMLButtonElement>('button')
-            ).filter((b) => !isExcludedActionButton(b));
-
-            const cluster = document.createElement('div');
-            cluster.className = styles.hoistedFormatCluster;
-
-            origBtns.forEach((origBtn) => {
-                const cloneBtn = origBtn.cloneNode(true) as HTMLButtonElement;
-                cloneBtn.onmousedown = (ev) => {
-                    ev.preventDefault();
-                };
-                cloneBtn.onclick = (ev) => {
-                    ev.preventDefault();
-                    ev.stopPropagation();
-                    origBtn.click();
-                    requestAnimationFrame(syncToolbarToHeader);
-                };
-                cluster.appendChild(cloneBtn);
-            });
-
-            hostEl.replaceChildren(cluster);
-        };
-
-        syncToolbarToHeader();
-        const rafId = requestAnimationFrame(syncToolbarToHeader);
-        const timerId = window.setTimeout(syncToolbarToHeader, 150);
-        return () => {
-            cancelAnimationFrame(rafId);
-            window.clearTimeout(timerId);
-        };
-    }, [
-        isPreviewOpen,
-        activeTabId,
-        previewSide,
-        isPreviewFullscreen,
-        skeletonMode,
-        isReadingMode,
-        isScratchOpen,
-    ]);
-
     const handleEditorToolbarClickCapture = useCallback(
         (e: React.MouseEvent<HTMLDivElement>) => {
             const target = e.target as HTMLElement | null;
@@ -576,24 +498,9 @@ function App() {
 
             const hasDotsIcon =
                 btn.querySelector('.tabler-icon-dots-vertical') ||
-                btn.querySelector('svg.lucide-more-vertical') ||
-                btn
-                    .getAttribute('aria-label')
-                    ?.toLowerCase()
-                    .includes('more') ||
-                btn.title?.toLowerCase().includes('more') ||
-                btn.title?.toLowerCase().includes('options');
+                btn.querySelector('svg.lucide-more-vertical');
 
-            const toolbar = btn.closest(
-                '[class*="toolbar"], [role="toolbar"], .ProseMirror-menubar'
-            );
-            const isLastToolbarBtn =
-                toolbar &&
-                toolbar.lastElementChild &&
-                (toolbar.lastElementChild === btn ||
-                    toolbar.lastElementChild.contains(btn));
-
-            if (hasDotsIcon || isLastToolbarBtn) {
+            if (hasDotsIcon) {
                 e.preventDefault();
                 e.stopPropagation();
                 const rect = btn.getBoundingClientRect();
@@ -4238,6 +4145,11 @@ function App() {
                             }
                         }}
                         showPreview={true}
+                        toolbarPortalTarget={
+                            activeTabId === chapterId
+                                ? inlineToolbarTarget
+                                : null
+                        }
                     />
                 </div>
             );
@@ -4347,9 +4259,9 @@ function App() {
                     />
                 </div>
 
-                {/* Centered Formatting Controls (B, I, H1, H2, H3, Lists, Quote, Code) */}
+                {/* Centered Formatting Controls Portaled Directly from FormattingToolbar */}
                 <div
-                    ref={inlineToolbarHostRef}
+                    ref={setInlineToolbarTarget}
                     className={styles.inlineToolbarSlot}
                 />
 

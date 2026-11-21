@@ -13,7 +13,6 @@ import {
     usePlateEditor,
     type PlateEditor,
 } from 'platejs/react';
-
 import { FormattingToolbar } from '../ui/FormattingToolbar';
 import { BubbleToolbar } from './editor/BubbleToolbar';
 import { slateToHtml, toEditorValue } from './editor/htmlSerializer';
@@ -31,6 +30,7 @@ interface RichTextEditorProps {
     isPreviewOpen?: boolean;
     onTogglePreview?: () => void;
     showPreview?: boolean;
+    toolbarPortalTarget?: HTMLElement | null;
 }
 
 export interface RichTextEditorHandle {
@@ -49,7 +49,6 @@ function reportCursorPosition(
     const start = editor.api.start([]);
     if (!start) return;
 
-    // Everything before the caret, so line/col can be counted from it.
     const text = editor.api.string({
         anchor: start,
         focus: selection.anchor,
@@ -81,6 +80,7 @@ function EditorBody({
     isPreviewOpen,
     onTogglePreview,
     showPreview,
+    toolbarPortalTarget,
     forwardedRef,
 }: EditorBodyProps) {
     const value = toEditorValue(initialContent);
@@ -90,15 +90,12 @@ function EditorBody({
         value,
     });
 
-    // Keep the latest callbacks without re-creating the editor bindings.
     const onChangeRef = useRef(onChange);
     onChangeRef.current = onChange;
 
     const onCursorPositionRef = useRef(onCursorPosition);
     onCursorPositionRef.current = onCursorPosition;
 
-    // HTML last handed to (or received from) the parent. Used to distinguish
-    // external content updates from our own onChange echo.
     const lastSynced = useRef(value);
 
     useEffect(() => {
@@ -149,9 +146,6 @@ function EditorBody({
                 if (expanded) {
                     editor.tf.delete();
 
-                    // Deleting the whole block leaves an empty paragraph
-                    // behind; reuse its path so the replacement takes its
-                    // place instead of adding a blank line above it.
                     const block = editor.api.block();
                     if (block && editor.api.isEmpty(block[0])) {
                         editor.tf.removeNodes({ at: block[1] });
@@ -192,6 +186,7 @@ function EditorBody({
                     isPreviewOpen={isPreviewOpen}
                     onTogglePreview={onTogglePreview}
                     showPreview={showPreview}
+                    portalTarget={toolbarPortalTarget}
                 />
             ) : null}
 
@@ -209,8 +204,6 @@ export const RichTextEditor = forwardRef<
     RichTextEditorHandle,
     RichTextEditorProps
 >(function RichTextEditor(props, forwardedRef) {
-    // Remounting per tab gives `usePlateEditor` a fresh initial value when the
-    // active chapter/file changes.
     return (
         <EditorBody key={props.tabId} {...props} forwardedRef={forwardedRef} />
     );

@@ -1,13 +1,14 @@
+import { createPortal } from 'react-dom';
 import {
+    IconBlockquote,
     IconBold,
-    IconItalic,
+    IconCode,
     IconH1,
     IconH2,
     IconH3,
+    IconItalic,
     IconList,
     IconListNumbers,
-    IconBlockquote,
-    IconCode,
 } from '@tabler/icons-react';
 import { KEYS, type SlateEditor } from 'platejs';
 import {
@@ -16,7 +17,6 @@ import {
     useSelectionVersion,
 } from 'platejs/react';
 import styles from '../App.module.css';
-import { EditorToolbarRight } from './EditorToolbarRight';
 import {
     isBlockActive,
     toggleBlockquote,
@@ -24,6 +24,7 @@ import {
     toggleCodeBlock,
     toggleNumberedList,
 } from '../components/editor/transforms';
+import { EditorToolbarRight } from './EditorToolbarRight';
 
 type ToolbarButton = {
     icon: typeof IconBold;
@@ -38,12 +39,14 @@ export function FormattingToolbar({
     isPreviewOpen,
     onTogglePreview,
     showPreview,
+    portalTarget,
 }: {
     editable?: boolean;
     onToggleEditable?: () => void;
     isPreviewOpen?: boolean;
     onTogglePreview?: () => void;
     showPreview?: boolean;
+    portalTarget?: HTMLElement | null;
 }) {
     const editor = useEditorRef();
     const readOnly = useEditorReadOnly();
@@ -119,6 +122,68 @@ export function FormattingToolbar({
         ],
     ];
 
+    const buttonGroupsContent = groups.map((group, gi) => (
+        <div
+            key={gi}
+            style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '2px',
+            }}
+        >
+            {gi > 0 && (
+                <div
+                    style={{
+                        width: '1px',
+                        height: '16px',
+                        backgroundColor: 'var(--editor-toolbar-border)',
+                        margin: '0 4px',
+                    }}
+                />
+            )}
+            {group.map((btn) => {
+                const Icon = btn.icon;
+                const active = !disabled && btn.isActive(editor);
+                return (
+                    <button
+                        key={btn.title}
+                        className={styles.iconBtn}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={
+                            disabled
+                                ? undefined
+                                : () => {
+                                      btn.action(editor);
+                                      editor.tf.focus();
+                                  }
+                        }
+                        title={btn.title}
+                        disabled={disabled}
+                        style={{
+                            color: active ? '#fff' : undefined,
+                            opacity: disabled ? 0.3 : active ? 1 : 0.6,
+                            cursor: disabled ? 'default' : 'pointer',
+                            pointerEvents: disabled ? 'none' : undefined,
+                        }}
+                    >
+                        <Icon size={17} stroke={2} />
+                    </button>
+                );
+            })}
+        </div>
+    ));
+
+    // When portalTarget is provided (chapter editor), render ONLY the formatting buttons directly inside the pinned top bar
+    if (portalTarget) {
+        return createPortal(
+            <div className={styles.hoistedFormatCluster}>
+                {buttonGroupsContent}
+            </div>,
+            portalTarget
+        );
+    }
+
+    // Fallback for standalone editors (e.g. Scratchpad / plain files)
     return (
         <div
             style={{
@@ -134,58 +199,7 @@ export function FormattingToolbar({
                 backgroundColor: 'var(--editor-toolbar-bg)',
             }}
         >
-            {groups.map((group, gi) => (
-                <div
-                    key={gi}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '2px',
-                    }}
-                >
-                    {gi > 0 && (
-                        <div
-                            style={{
-                                width: '1px',
-                                height: '20px',
-                                backgroundColor: 'var(--editor-toolbar-border)',
-                                margin: '0 4px',
-                            }}
-                        />
-                    )}
-                    {group.map((btn) => {
-                        const Icon = btn.icon;
-                        const active = !disabled && btn.isActive(editor);
-                        return (
-                            <button
-                                key={btn.title}
-                                className={styles.iconBtn}
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={
-                                    disabled
-                                        ? undefined
-                                        : () => {
-                                              btn.action(editor);
-                                              editor.tf.focus();
-                                          }
-                                }
-                                title={btn.title}
-                                disabled={disabled}
-                                style={{
-                                    color: active ? '#fff' : undefined,
-                                    opacity: disabled ? 0.3 : active ? 1 : 0.6,
-                                    cursor: disabled ? 'default' : 'pointer',
-                                    pointerEvents: disabled
-                                        ? 'none'
-                                        : undefined,
-                                }}
-                            >
-                                <Icon size={18} stroke={2} />
-                            </button>
-                        );
-                    })}
-                </div>
-            ))}
+            {buttonGroupsContent}
             <EditorToolbarRight
                 isReadingMode={isReadingMode}
                 onToggleMode={() => onToggleEditable?.()}
