@@ -95,7 +95,7 @@ export function usePlotArchitecture({
                         `novelty:pending-mentions:${projectId}`,
                         JSON.stringify(next)
                     );
-                } catch {}
+                } catch { }
                 return next;
             });
         },
@@ -111,7 +111,7 @@ export function usePlotArchitecture({
                         `novelty:known-mention-categories:${projectId}`,
                         JSON.stringify(next)
                     );
-                } catch {}
+                } catch { }
                 return next;
             });
         },
@@ -144,7 +144,7 @@ export function usePlotArchitecture({
                     try {
                         const res = await req[key](projectId);
                         if (Array.isArray(res) && res.length > 0) return res;
-                    } catch {}
+                    } catch { }
                 }
             }
             return [];
@@ -215,15 +215,15 @@ export function usePlotArchitecture({
         const filterUnified = (types: string[]) =>
             Array.isArray(allCompendium)
                 ? allCompendium.filter((entry: any) =>
-                      types.includes(
-                          String(
-                              entry?.type ||
-                                  entry?.category ||
-                                  entry?.entryType ||
-                                  ''
-                          ).toLowerCase()
-                      )
-                  )
+                    types.includes(
+                        String(
+                            entry?.type ||
+                            entry?.category ||
+                            entry?.entryType ||
+                            ''
+                        ).toLowerCase()
+                    )
+                )
                 : [];
 
         setDbCharacters(
@@ -247,11 +247,11 @@ export function usePlotArchitecture({
                 fetchedOrgs.length
                     ? fetchedOrgs
                     : filterUnified([
-                          'organization',
-                          'organizations',
-                          'faction',
-                          'group',
-                      ]),
+                        'organization',
+                        'organizations',
+                        'faction',
+                        'group',
+                    ]),
                 'ORGANIZATION'
             )
         );
@@ -268,12 +268,12 @@ export function usePlotArchitecture({
                 fetchedLore.length
                     ? fetchedLore
                     : filterUnified([
-                          'lore',
-                          'lores',
-                          'myth',
-                          'history',
-                          'world',
-                      ]),
+                        'lore',
+                        'lores',
+                        'myth',
+                        'history',
+                        'world',
+                    ]),
                 'LORE'
             )
         );
@@ -348,7 +348,7 @@ export function usePlotArchitecture({
                             try {
                                 await req[key](payload);
                                 return true;
-                            } catch {}
+                            } catch { }
                         }
                     }
                 }
@@ -491,7 +491,7 @@ export function usePlotArchitecture({
                         `novelty:pending-mentions:${projectId}`,
                         JSON.stringify(next)
                     );
-                } catch {}
+                } catch { }
                 return next;
             });
 
@@ -618,8 +618,8 @@ export function usePlotArchitecture({
         const list = container.sequenceId
             ? scenesOfSequence(container.sequenceId)
             : container.chapterId
-              ? scenesOfChapter(container.chapterId)
-              : [];
+                ? scenesOfChapter(container.chapterId)
+                : [];
         const chapterSeqs = container.chapterId
             ? sequencesOfChapter(container.chapterId)
             : [];
@@ -657,6 +657,7 @@ export function usePlotArchitecture({
             description: null,
             threadType: 'subplot',
             color: THREAD_COLORS[plotThreads.length % THREAD_COLORS.length],
+            linked_beats: '[]'
         });
         await loadData();
     }
@@ -1051,8 +1052,8 @@ export function usePlotArchitecture({
                     targetList = targetScene.chapterId
                         ? scenesOfChapter(targetScene.chapterId)
                         : sortedScenes.filter(
-                              (s) => !s.sequenceId && !s.chapterId
-                          );
+                            (s) => !s.sequenceId && !s.chapterId
+                        );
                 }
             } else if (ttype === 'unassigned-scene') {
                 seqId = null;
@@ -1073,15 +1074,15 @@ export function usePlotArchitecture({
             const newContainerKey = seqId
                 ? `seq:${seqId}`
                 : chId
-                  ? `ch:${chId}`
-                  : 'unassigned';
+                    ? `ch:${chId}`
+                    : 'unassigned';
             if (sceneContainerKey(item) !== newContainerKey) {
                 await persistSceneOrder(
                     sortedScenes
                         .filter(
                             (s) =>
                                 sceneContainerKey(s) ===
-                                    sceneContainerKey(item) && s.id !== item.id
+                                sceneContainerKey(item) && s.id !== item.id
                         )
                         .map((s) => s.id)
                 );
@@ -1111,8 +1112,8 @@ export function usePlotArchitecture({
             return dropTarget.pos === 'before'
                 ? styles['drop-before']
                 : dropTarget.pos === 'after'
-                  ? styles['drop-after']
-                  : '';
+                    ? styles['drop-after']
+                    : '';
         }
         return '';
     }

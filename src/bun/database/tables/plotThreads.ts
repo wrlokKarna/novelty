@@ -70,6 +70,7 @@ export async function updateThread(
     if (data.threadType !== undefined) updateData.threadType = data.threadType;
     if (data.color !== undefined) updateData.color = data.color;
     if (data.projectId !== undefined) updateData.projectId = data.projectId;
+    if (data.linked_beats !== undefined) updateData.linked_beats = data.linked_beats;
     await db.update(plotThreads).set(updateData).where(eq(plotThreads.id, id));
     return getThreadById(db, id);
 }

@@ -7,6 +7,7 @@ import { usePlotArchitectureContext } from './usePlotArchitecture';
 export function StoryBeatsTab() {
     const {
         storyBeats,
+        plotThreads,
         chapters,
         effectiveCharacters,
         effectiveLocations,
@@ -20,6 +21,7 @@ export function StoryBeatsTab() {
         handleRemovePending,
         handleCreateAndOpenEntity,
         handleUpdateBeat,
+        handleUpdateThread,
         handleDeleteBeat,
         handleAddStoryBeat,
         onNavigateChapter,
@@ -28,7 +30,20 @@ export function StoryBeatsTab() {
         onSelectCategory,
         onSelectSidebarChapter,
         onSelectSidebarEntity,
+        loadData,
     } = usePlotArchitectureContext();
+
+    function addStoryBeat(value: string, beatId: string) {
+        plotThreads.map((pt) => {
+            if (value === pt.name) {
+                handleUpdateThread(
+                    pt.id,
+                    'linked_beats',
+                    JSON.stringify(Array.from(new Set([beatId])))
+                );
+            }
+        });
+    }
 
     return (
         <div className={styles['beats-list']}>
@@ -73,6 +88,17 @@ export function StoryBeatsTab() {
                                 )
                             }
                         />
+
+                        <select
+                            onChange={(e) =>
+                                addStoryBeat(e.target.value, beat.id)
+                            }
+                        >
+                            {plotThreads.map((pt) => (
+                                <option>{pt.name.replace(/-/g, ' ')}</option>
+                            ))}
+                        </select>
+
                         <button
                             className={`${styles['icon-btn']} ${styles['icon-btn-sm']}`}
                             onClick={() => handleDeleteBeat(beat.id)}
@@ -106,7 +132,48 @@ export function StoryBeatsTab() {
                         onSelectSidebarEntity={onSelectSidebarEntity}
                         placeholder="Description... (Type @ to mention)"
                     />
-
+                    {/* 
+                        handleUpdateThread(
+                                        pt.id,
+                                        'linked_beats',
+                                        JSON.stringify([
+                                            ...JSON.parse(
+                                                pt.linked_beats ?? ''
+                                            ),
+                                            beat.id,
+                                        ])
+                                    )
+                    */}
+                    <div className="">
+                        {plotThreads.map((pt) => (
+                            <button
+                                className={`${JSON.parse(pt.linked_beats ?? '[]').includes(beat.id) ? styles.linked : ''}`}
+                                onClick={() => {
+                                    console.log(
+                                        'ptId',
+                                        pt.id,
+                                        'pt.linkedbeats',
+                                        pt.linked_beats
+                                    );
+                                    const prevBeats = JSON.parse(
+                                        pt.linked_beats ?? '[]'
+                                    ) as string[];
+                                    handleUpdateThread(
+                                        pt.id,
+                                        'linked_beats',
+                                        JSON.stringify(
+                                            Array.from(
+                                                new Set([...prevBeats, beat.id])
+                                            )
+                                        )
+                                    );
+                                    loadData();
+                                }}
+                            >
+                                {pt.name}
+                            </button>
+                        ))}
+                    </div>
                     <div className={styles['beat-chapter']}>
                         {beat.chapterId ? (
                             <span>

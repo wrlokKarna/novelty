@@ -6,6 +6,7 @@ export function PlotThreadsTab() {
     const {
         plotThreads,
         chapters,
+        storyBeats,
         handleUpdateThread,
         handleDeleteThread,
         handleAddPlotThread,
@@ -93,6 +94,12 @@ export function PlotThreadsTab() {
                                 c.content?.includes(thread.name)
                             ).length
                         }
+                    </div>
+
+                    <div className="">
+                        {storyBeats.map((bt) =>
+                            thread.linked_beats?.includes(bt.id) ? bt.title : ''
+                        )}
                     </div>
                 </div>
             ))}
