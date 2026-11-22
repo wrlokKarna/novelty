@@ -247,7 +247,6 @@ function App() {
     const [mode, setMode] = useState<'manuscript' | 'compendium'>('manuscript');
     const [isReadingMode, setIsReadingMode] = useState(false);
     const [readerMode, setReaderMode] = useState<'chapter' | 'book'>('chapter');
-    const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
     const [isScrollLinked, setIsScrollLinked] = useState(false);
 
     // Per-chapter preview open state (only chapters turned ON here show Preview)
@@ -256,6 +255,12 @@ function App() {
     >({});
     const chapterPreviewOpenMapRef = useRef<Record<string, boolean>>({});
     chapterPreviewOpenMapRef.current = chapterPreviewOpenMap;
+
+    // Per-chapter preview fullscreen state (independent per chapter and persisted across reload)
+    const [chapterPreviewFullscreenMap, setChapterPreviewFullscreenMap] =
+        useState<Record<string, boolean>>({});
+    const chapterPreviewFullscreenMapRef = useRef<Record<string, boolean>>({});
+    chapterPreviewFullscreenMapRef.current = chapterPreviewFullscreenMap;
 
     // Per-chapter preview side map so each chapter remembers its own left/right split independently
     const [chapterPreviewSides, setChapterPreviewSides] = useState<
@@ -512,7 +517,6 @@ function App() {
             });
 
             setPreviewSide(targetPreviewSide);
-            setIsPreviewFullscreen(false);
             setTileSplitRatio(50);
             setFocusedTileSide(
                 targetPreviewSide === 'right' ? 'left' : 'right'
@@ -523,11 +527,15 @@ function App() {
 
     // Close preview ONLY for the specific `chapterId`
     const closeChapterSplitPreview = useCallback((chapterId?: string) => {
-        setIsPreviewFullscreen(false);
         if (!chapterId) return;
         setChapterPreviewOpenMap((prev) => {
             const next = { ...prev, [chapterId]: false };
             chapterPreviewOpenMapRef.current = next;
+            return next;
+        });
+        setChapterPreviewFullscreenMap((prev) => {
+            const next = { ...prev, [chapterId]: false };
+            chapterPreviewFullscreenMapRef.current = next;
             return next;
         });
     }, []);
@@ -1719,6 +1727,14 @@ function App() {
             return next;
         });
 
+        setChapterPreviewFullscreenMap((prev) => {
+            const next = { ...prev };
+            idsToClose.forEach((id) => {
+                delete next[id];
+            });
+            return next;
+        });
+
         setChapterLinks((prev) => {
             const next: Record<string, string | null> = {};
             for (const [k, v] of Object.entries(prev)) {
@@ -1876,6 +1892,18 @@ function App() {
                         }
                         parsed.chapterPreviewOpenMap = openMap;
                     }
+                    if (parsed.chapterPreviewFullscreenMap) {
+                        const fsMap: Record<string, boolean> = {};
+                        for (const [key, value] of Object.entries(
+                            parsed.chapterPreviewFullscreenMap as Record<
+                                string,
+                                boolean
+                            >
+                        )) {
+                            fsMap[remapId(key)] = Boolean(value);
+                        }
+                        parsed.chapterPreviewFullscreenMap = fsMap;
+                    }
                 }
                 return parsed;
             }
@@ -1893,11 +1921,13 @@ function App() {
         splitRatio: number = 50,
         previewState: {
             chapterPreviewOpenMap: Record<string, boolean>;
+            chapterPreviewFullscreenMap: Record<string, boolean>;
             readerMode: 'chapter' | 'book';
             chapterPreviewSides: Record<string, 'left' | 'right'>;
             isScrollLinked: boolean;
         } = {
             chapterPreviewOpenMap: {},
+            chapterPreviewFullscreenMap: {},
             readerMode: 'chapter',
             chapterPreviewSides: {},
             isScrollLinked: false,
@@ -2018,6 +2048,7 @@ function App() {
                 tileSplitRatio,
                 {
                     chapterPreviewOpenMap,
+                    chapterPreviewFullscreenMap,
                     readerMode,
                     chapterPreviewSides,
                     isScrollLinked,
@@ -2031,6 +2062,7 @@ function App() {
         chapterLinks,
         tileSplitRatio,
         chapterPreviewOpenMap,
+        chapterPreviewFullscreenMap,
         readerMode,
         chapterPreviewSides,
         isScrollLinked,
@@ -2064,6 +2096,8 @@ function App() {
                         savedState.chapterPreviewSides || {};
                     const restoredOpenMap: Record<string, boolean> =
                         savedState.chapterPreviewOpenMap || {};
+                    const restoredFsMap: Record<string, boolean> =
+                        savedState.chapterPreviewFullscreenMap || {};
 
                     setOpenTabs(restoredTabs);
                     setActiveTabId(restoredActiveId);
@@ -2072,6 +2106,8 @@ function App() {
                     chapterPreviewSidesRef.current = restoredSides;
                     setChapterPreviewOpenMap(restoredOpenMap);
                     chapterPreviewOpenMapRef.current = restoredOpenMap;
+                    setChapterPreviewFullscreenMap(restoredFsMap);
+                    chapterPreviewFullscreenMapRef.current = restoredFsMap;
                     setTileSplitRatio(savedState.tileSplitRatio ?? 50);
                     setReaderMode(
                         savedState.readerMode === 'book' ? 'book' : 'chapter'
@@ -2103,6 +2139,8 @@ function App() {
                 savedState?.chapterPreviewSides || {};
             const restoredOpenMap: Record<string, boolean> =
                 savedState?.chapterPreviewOpenMap || {};
+            const restoredFsMap: Record<string, boolean> =
+                savedState?.chapterPreviewFullscreenMap || {};
 
             tabActivationHistoryRef.current = [];
             setCurrentProject(project);
@@ -2113,6 +2151,8 @@ function App() {
             chapterPreviewSidesRef.current = restoredSides;
             setChapterPreviewOpenMap(restoredOpenMap);
             chapterPreviewOpenMapRef.current = restoredOpenMap;
+            setChapterPreviewFullscreenMap(restoredFsMap);
+            chapterPreviewFullscreenMapRef.current = restoredFsMap;
             setTileSplitRatio(savedState?.tileSplitRatio ?? 50);
             setPreviewTabId(null);
             setTabContents({});
@@ -2120,7 +2160,6 @@ function App() {
             setIsScratchOpen(false);
             setScratchContent('');
             setIsReadingMode(false);
-            setIsPreviewFullscreen(false);
             setShowProjectSelection(false);
             setReaderMode(
                 savedState?.readerMode === 'book' ? 'book' : 'chapter'
@@ -4541,6 +4580,9 @@ function App() {
 
         if (previewChapterTab) {
             const targetId = previewChapterTab.id;
+            const isTargetFullscreen = Boolean(
+                chapterPreviewFullscreenMap[targetId]
+            );
             // When tiled: left tile opens with Preview on right; right tile opens with Preview on left
             const currentChapterSide: 'left' | 'right' = linkedPair
                 ? (chapterPreviewSides[targetId] ??
@@ -4587,14 +4629,14 @@ function App() {
                     ref={previewPaneContainerRef}
                     onScrollCapture={handlePreviewScrollCapture}
                     className={`${
-                        isPreviewFullscreen
+                        isTargetFullscreen
                             ? `${styles.rightPane} ${styles.previewPaneFullscreen}`
                             : currentChapterSide === 'right'
                               ? styles.rightPane
                               : styles.leftPane
                     } ${styles.previewPaneShell}`}
                     style={
-                        !isPreviewFullscreen && currentChapterSide === 'left'
+                        !isTargetFullscreen && currentChapterSide === 'left'
                             ? {
                                   flex: `0 0 ${tileSplitRatio}%`,
                                   width: `${tileSplitRatio}%`,
@@ -4620,10 +4662,17 @@ function App() {
                                     : 'right';
                             setSideForChapter(targetId, nextSide);
                         }}
-                        isFullscreen={isPreviewFullscreen}
-                        onToggleFullscreen={() =>
-                            setIsPreviewFullscreen((v) => !v)
-                        }
+                        isFullscreen={isTargetFullscreen}
+                        onToggleFullscreen={() => {
+                            setChapterPreviewFullscreenMap((prev) => {
+                                const next = {
+                                    ...prev,
+                                    [targetId]: !prev[targetId],
+                                };
+                                chapterPreviewFullscreenMapRef.current = next;
+                                return next;
+                            });
+                        }}
                         bodyScrollRef={previewBodyScrollRef}
                         width="100%"
                         chapterLinks={chapterLinks}
@@ -4665,7 +4714,7 @@ function App() {
             return (
                 <div className={styles.tabContentContainer}>
                     <div ref={workspaceRef} className={styles.workspace}>
-                        {isPreviewFullscreen ? (
+                        {isTargetFullscreen ? (
                             previewPaneEl
                         ) : currentChapterSide === 'left' ? (
                             <>
@@ -5609,7 +5658,6 @@ function App() {
                                             [targetId]: true,
                                         }));
                                     }
-                                    setIsPreviewFullscreen(false);
                                     setToolbarSplitMenu(null);
                                 }}
                             >
