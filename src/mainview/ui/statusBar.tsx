@@ -1,4 +1,5 @@
 import { IconCheck, IconCircleDot, IconRefresh } from '@tabler/icons-react';
+import type { Series } from '@/shared/types/series';
 
 export type SaveState =
     'saving' | 'just-saved' | 'idle-modified' | 'idle-unmodified';
@@ -15,6 +16,7 @@ interface StatusBarProps {
     contentRating: string | null;
     primaryGenre: string | null;
     primaryTheme: string | null;
+    projectSeries: Series | null;
 }
 
 const divider = (
@@ -39,6 +41,7 @@ export function StatusBar({
     contentRating,
     primaryGenre,
     primaryTheme,
+    projectSeries,
 }: StatusBarProps) {
     const renderSaveIcon = () => {
         if (saveState === 'saving') {
@@ -104,7 +107,12 @@ export function StatusBar({
         const rating = contentRating ? ` (${contentRating})` : '';
         const genre = primaryGenre || '';
         const theme = primaryTheme ? ` & ${primaryTheme}` : '';
-        projectLabel = `${formattedType}${rating}${genre || theme ? ` · ${genre}${theme}` : ''}`;
+        const seriesName = projectSeries?.name
+            ? `·  ${projectSeries?.name.charAt(0).toUpperCase()}${projectSeries?.name.slice(1)}`
+            : '';
+        projectLabel = `${formattedType}${rating}${
+            genre || theme ? ` · ${genre}${theme}` : ''
+        }${seriesName ? ` ${seriesName}` : ''}`;
     }
 
     const showLeftSide = showMetrics || fileType === 'Compendium Entry';

@@ -1,13 +1,12 @@
-import { eq, asc } from 'drizzle-orm';
-
-import { series, projects } from '../../../shared/schema';
+import { asc, eq } from 'drizzle-orm';
+import type { Project } from '@/shared/types';
+import type { SQLiteDB } from '@/shared/types/db';
 import type {
     NewSeries,
     Series,
     SeriesArchitecture,
 } from '@/shared/types/series';
-import type { SQLiteDB } from '@/shared/types/db';
-import type { Project } from '@/shared/types';
+import { projects, series } from '../../../shared/schema';
 
 function parseSeries(row: typeof series.$inferSelect): Series {
     return {
@@ -40,14 +39,18 @@ export async function getSeriesById(
     db: SQLiteDB,
     id: string
 ): Promise<Series | undefined> {
+    console.log('[bun]: ', id);
     const result = await db.select().from(series).where(eq(series.id, id));
     if (!result[0]) return undefined;
+    console.log('[bun]: ', result, result[0]);
     const s = parseSeries(result[0]);
-    const countResult = await db
-        .select({ count: projects.id })
-        .from(projects)
-        .where(eq(projects.seriesId, id));
-    s.projectCount = countResult.length;
+    /*
+        const countResult = await db
+          .select({ count: projects.id })
+          .from(projects)
+          .where(eq(projects.seriesId, id));
+        s.projectCount = countResult.length;
+    */
     return s;
 }
 

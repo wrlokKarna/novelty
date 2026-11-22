@@ -29,6 +29,7 @@ import {
     IconUser,
     IconX,
 } from '@tabler/icons-react';
+import type { Series } from '@/shared/types/series';
 import type {
     Item,
     Location,
@@ -306,6 +307,35 @@ function App() {
     const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
     const [showProjectSelection, setShowProjectSelection] = useState(false);
     const [currentProject, setCurrentProject] = useState<Project | null>(null);
+    const [currentProjectSeries, setCurrentProjectSeries] =
+        useState<Series | null>(null);
+
+    useEffect(() => {
+        const seriesId = currentProject?.seriesId;
+
+        if (!seriesId) {
+            setCurrentProjectSeries(null);
+            return;
+        }
+
+        let cancelled = false;
+
+        rpc.request['db:get-series'](seriesId)
+            .then((series) => {
+                if (!cancelled) {
+                    setCurrentProjectSeries(series ?? null);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setCurrentProjectSeries(null);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [currentProject?.seriesId]);
     const [openTabs, setOpenTabs] = useState<FileTab[]>([]);
     const [activeTabId, setActiveTabId] = useState<string | null>(null);
     const tabActivationHistoryRef = useRef<string[]>([]);
@@ -341,6 +371,7 @@ function App() {
     const [storyActs, setStoryActs] = useState<StoryAct[]>([]);
     const [storySequences, setStorySequences] = useState<StorySequence[]>([]);
     const [storyScenes, setStoryScenes] = useState<StorySequence[] & any>([]);
+
     const [chapterPlotThreads, setChapterPlotThreads] = useState<
         ChapterPlotThread[]
     >([]);
@@ -6268,6 +6299,7 @@ function App() {
                     </aside>
                 </RightPanel>
             </main>
+
             <StatusBar
                 saveState={saveState}
                 lastSavedTime={lastSavedTime}
@@ -6280,6 +6312,7 @@ function App() {
                 contentRating={currentProject?.contentRating ?? null}
                 primaryGenre={currentProject?.primaryGenre ?? null}
                 primaryTheme={currentProject?.primaryTheme ?? null}
+                projectSeries={currentProjectSeries}
             />
 
             {showProjectSelection && (
