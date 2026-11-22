@@ -1,26 +1,46 @@
-import {
-    BrowserWindow,
-    Updater,
-    defineElectrobunRPC,
-    Utils,
-} from 'electrobun/main';
-
-import { readFileSync, existsSync } from 'fs';
-
-import {
-    indexProject,
-    getIndexStatus,
-    rebuildProjectEmbeddings,
-} from './services/embeddings/pipeline';
-import { buildContext } from './services/contextEngine';
-import * as settingsDB from './services/settings/settings';
-
-import type { ProcessAiPromptParams } from './temp/mainMCP.js';
-
+import { existsSync, readFileSync } from 'fs';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
-import { mcpClient } from './services/mcp/client.js';
-import { mcpServer } from './services/mcp/server.js';
+import {
+    BrowserWindow,
+    defineElectrobunRPC,
+    Updater,
+    Utils,
+} from 'electrobun/main';
+import {
+    actsDB,
+    agentsDB,
+    assetsDB,
+    chaptersDB,
+    charactersDB,
+    chatDB,
+    genresDB,
+    inspirationsDB,
+    itemsDB,
+    locationsDB,
+    loreDB,
+    organizationsDB,
+    plotThreadsDB,
+    projectsDB,
+    scenesDB,
+    scratchDB,
+    seriesDB,
+    seriesTemplatesDB,
+    storyBeatsDB,
+    tagsDB,
+    templatesDB,
+    themesDB,
+    timelineDB,
+    usageDB,
+} from '@/bun/database';
+import { initDatabase } from '@/bun/database/init.js';
+import { db, dbPath, rawSqlite, sqliteVecAvailable } from '@/bun/electrobun/db';
+import type {
+    NewAgent,
+    NewAgentRun,
+    NewChatMessage,
+    NewChatSession,
+} from '../shared/types/ai/index.js';
 //import registerAllTools from './services/mcp/tools.js';
 import type {
     NewAsset,
@@ -30,26 +50,6 @@ import type {
     NewStoryAct,
     NewStorySequence,
 } from '../shared/types/index.js';
-import type {
-    NewAgent,
-    NewAgentRun,
-    NewChatMessage,
-    NewChatSession,
-} from '../shared/types/ai/index.js';
-import type {
-    NewPlotThread,
-    NewStoryBeat,
-    NewStoryScene,
-} from '../shared/types/project/manuscript/index.js';
-import type {
-    NewChapter,
-    NewInspiration,
-} from '../shared/types/project/index.js';
-import type {
-    NewSeries,
-    SeriesTemplateInput,
-} from '../shared/types/series/index.js';
-import type { NewTimelineEvent } from '../shared/types/project/timeline/index.js';
 import type { SelectorSchema } from '../shared/types/mainRPC.js';
 import type {
     CompendiumCategory,
@@ -58,42 +58,39 @@ import type {
     NewOrganization,
 } from '../shared/types/project/compendium/index.js';
 import type {
+    NewChapter,
+    NewInspiration,
+} from '../shared/types/project/index.js';
+import type {
+    NewPlotThread,
+    NewStoryBeat,
+    NewStoryScene,
+} from '../shared/types/project/manuscript/index.js';
+import type {
     FieldDefinition,
     TemplateLayout,
 } from '../shared/types/project/templates/index.js';
-import { initDatabase } from '@/bun/database/init.js';
+import type { NewTimelineEvent } from '../shared/types/project/timeline/index.js';
+import type {
+    NewSeries,
+    SeriesTemplateInput,
+} from '../shared/types/series/index.js';
+import { buildContext } from './services/contextEngine';
 import {
-    projectsDB,
-    assetsDB,
-    chaptersDB,
-    scratchDB,
-    chatDB,
-    agentsDB,
-    charactersDB,
-    locationsDB,
-    organizationsDB,
-    itemsDB,
-    loreDB,
-    genresDB,
-    tagsDB,
-    themesDB,
-    seriesDB,
-    seriesTemplatesDB,
-    templatesDB,
-    timelineDB,
-    actsDB,
-    scenesDB,
-    plotThreadsDB,
-    storyBeatsDB,
-    usageDB,
-    inspirationsDB,
-} from '@/bun/database';
-import { db, sqliteVecAvailable, rawSqlite, dbPath } from '@/bun/electrobun/db';
+    getIndexStatus,
+    indexProject,
+    rebuildProjectEmbeddings,
+} from './services/embeddings/pipeline';
+import { mcpClient } from './services/mcp/client.js';
+import { mcpServer } from './services/mcp/server.js';
+import * as settingsDB from './services/settings/settings';
+import type { ProcessAiPromptParams } from './temp/mainMCP.js';
 import './services/mcp/tools/compendium_tools.js';
 import './services/mcp/tools/manuscript_tools.js';
 import './services/mcp/tools/plotThread_tools.js';
 import './services/mcp/tools/storyBeat_tools.js';
 import './services/mcp/tools/projectTemplate_tools';
+
 //registerAllTools();
 try {
     const [clientTransport, serverTransport] =
@@ -149,7 +146,12 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                 return await projectsDB.getProjectById(db, id);
             },
             'db:create-project': async (project: NewProject) => {
-                return await projectsDB.createProject(db, project);
+                return await projectsDB.createProject(
+                    db,
+                    settingsDB.getAllSettings(),
+                    settingsDB.setSetting,
+                    project
+                );
             },
             'db:update-project': async ({
                 id,
@@ -651,11 +653,11 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                     db,
                     projectId,
                     baseType as
-                    | 'character'
-                    | 'location'
-                    | 'organization'
-                    | 'item'
-                    | 'lore'
+                        | 'character'
+                        | 'location'
+                        | 'organization'
+                        | 'item'
+                        | 'lore'
                 );
                 return result;
             },
@@ -670,11 +672,11 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                     db,
                     projectId,
                     baseType as
-                    | 'character'
-                    | 'location'
-                    | 'organization'
-                    | 'item'
-                    | 'lore'
+                        | 'character'
+                        | 'location'
+                        | 'organization'
+                        | 'item'
+                        | 'lore'
                 );
                 return result;
             },
@@ -693,11 +695,11 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                     db,
                     projectId,
                     baseType as
-                    | 'character'
-                    | 'location'
-                    | 'organization'
-                    | 'item'
-                    | 'lore',
+                        | 'character'
+                        | 'location'
+                        | 'organization'
+                        | 'item'
+                        | 'lore',
                     customFields,
                     layout
                 );
