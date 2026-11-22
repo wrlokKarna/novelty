@@ -1,22 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
-    IconFiles,
     IconBook,
-    IconUsers,
-    IconMapPin2,
     IconBuildings,
-    IconSwords,
-    IconPlus,
-    IconTrash,
-    IconPencil,
-    IconChevronRight,
     IconChevronLeft,
+    IconChevronRight,
+    IconFiles,
+    IconMapPin2,
+    IconPencil,
+    IconPencilMinus,
     IconPin,
     IconPinFilled,
-    IconPencilMinus,
+    IconPlus,
+    IconSwords,
+    IconTrash,
+    IconUsers,
 } from '@tabler/icons-react';
-
+import { AnimatePresence, motion } from 'framer-motion';
+import { useTabScroll } from '@/mainview/components/UseTabScroll';
+import type { Item, Location } from '../../../../shared/types';
 import type { Chapter } from '../../../../shared/types/project';
 import type {
     Character,
@@ -24,8 +25,6 @@ import type {
     LoreEntry,
     Organization,
 } from '../../../../shared/types/project/compendium';
-import type { Item, Location } from '../../../../shared/types';
-import { useTabScroll } from '@/mainview/components/UseTabScroll';
 import styles from './LeftPanel.module.css';
 import './LeftPanel.legacy-blue.css';
 
@@ -105,7 +104,7 @@ type Props = {
     legacyBluePanel: boolean;
 };
 
-const COLLAPSED_RAIL_WIDTH = 24;
+const COLLAPSED_RAIL_WIDTH = 16;
 
 export default function LeftPanel({
     isCollapsed,
