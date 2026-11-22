@@ -3,24 +3,40 @@
 .plot-architecture-view {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: calc(100% - 20px);
+    margin: 10px 14px;
     overflow: hidden;
-    padding: 12px;
+    background: #141416;
+    border: 1px solid #26262a;
+    border-radius: 8px;
+    padding: 0 18px 14px 18px;
+    box-sizing: border-box;
     color: #e0e0e0;
 }
 
 .plot-arch-header {
+    position: sticky;
+    top: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    min-height: 36px;
+    padding: 12px 2px 8px 2px;
     margin-bottom: 12px;
+    border-bottom: 1px solid #26262a;
+    background-color: #141416;
+    flex-shrink: 0;
+    z-index: 20;
 }
 
 .plot-arch-header h3 {
     margin: 0;
-    font-size: 15px;
+    font-size: 12px;
+    line-height: 1.2;
     font-weight: 600;
+    color: #2b7de9;
+    letter-spacing: 0.3px;
 }
 
 .acts-list,
@@ -652,5 +668,5 @@
 
 .linked {
     background-color: var(--accent-dim);
-    color: var(--accent)
+    color: var(--accent);
 }

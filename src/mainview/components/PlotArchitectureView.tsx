@@ -10,9 +10,9 @@ import {
 import styles from './PlotArchitectureView.module.css';
 
 const VIEW_TITLES: Record<PlotTab, string> = {
-    acts: 'Plot Architecture — Acts',
-    threads: 'Plot Architecture — Plot Threads',
-    beats: 'Plot Architecture — Story Beats',
+    acts: 'Acts',
+    threads: 'Threads',
+    beats: 'Beats',
 };
 
 export default function PlotArchitectureView({ view, ...dataProps }: Props) {

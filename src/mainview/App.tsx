@@ -29,7 +29,6 @@ import {
     IconUser,
     IconX,
 } from '@tabler/icons-react';
-import type { Series } from '@/shared/types/series';
 import type {
     Item,
     Location,
@@ -250,6 +249,13 @@ function App() {
     const [readerMode, setReaderMode] = useState<'chapter' | 'book'>('chapter');
     const [isScrollLinked, setIsScrollLinked] = useState(false);
 
+    // Scratchpad preview & fullscreen state
+    const [isScratchPreviewOpen, setIsScratchPreviewOpen] = useState(false);
+    const [isScratchFullscreen, setIsScratchFullscreen] = useState(false);
+    const [scratchPreviewSide, setScratchPreviewSide] = useState<
+        'left' | 'right'
+    >('right');
+
     // Per-chapter preview open state (only chapters turned ON here show Preview)
     const [chapterPreviewOpenMap, setChapterPreviewOpenMap] = useState<
         Record<string, boolean>
@@ -284,6 +290,8 @@ function App() {
     const editorSplitPaneRef = useRef<HTMLDivElement>(null);
     const [inlineToolbarTarget, setInlineToolbarTarget] =
         useState<HTMLDivElement | null>(null);
+    const [scratchToolbarTarget, setScratchToolbarTarget] =
+        useState<HTMLDivElement | null>(null);
     const [leftTileToolbarTarget, setLeftTileToolbarTarget] =
         useState<HTMLDivElement | null>(null);
     const [rightTileToolbarTarget, setRightTileToolbarTarget] =
@@ -307,35 +315,6 @@ function App() {
     const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
     const [showProjectSelection, setShowProjectSelection] = useState(false);
     const [currentProject, setCurrentProject] = useState<Project | null>(null);
-    const [currentProjectSeries, setCurrentProjectSeries] =
-        useState<Series | null>(null);
-
-    useEffect(() => {
-        const seriesId = currentProject?.seriesId;
-
-        if (!seriesId) {
-            setCurrentProjectSeries(null);
-            return;
-        }
-
-        let cancelled = false;
-
-        rpc.request['db:get-series'](seriesId)
-            .then((series) => {
-                if (!cancelled) {
-                    setCurrentProjectSeries(series ?? null);
-                }
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    setCurrentProjectSeries(null);
-                }
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [currentProject?.seriesId]);
     const [openTabs, setOpenTabs] = useState<FileTab[]>([]);
     const [activeTabId, setActiveTabId] = useState<string | null>(null);
     const tabActivationHistoryRef = useRef<string[]>([]);
@@ -371,7 +350,6 @@ function App() {
     const [storyActs, setStoryActs] = useState<StoryAct[]>([]);
     const [storySequences, setStorySequences] = useState<StorySequence[]>([]);
     const [storyScenes, setStoryScenes] = useState<StorySequence[] & any>([]);
-
     const [chapterPlotThreads, setChapterPlotThreads] = useState<
         ChapterPlotThread[]
     >([]);
@@ -642,11 +620,11 @@ function App() {
         activeTabForPreview?.type === 'chapter'
             ? chapters.find((c) => c.id === activeTabForPreview.id)
             : undefined;
-    const isActiveChapterPreviewOpen =
-        !isScratchOpen &&
-        activeTabForPreview?.type === 'chapter' &&
-        activeChapterObjForPreview?.status !== 'outline' &&
-        Boolean(chapterPreviewOpenMap[activeTabForPreview.id]);
+    const isActiveChapterPreviewOpen = isScratchOpen
+        ? isScratchPreviewOpen
+        : activeTabForPreview?.type === 'chapter' &&
+          activeChapterObjForPreview?.status !== 'outline' &&
+          Boolean(chapterPreviewOpenMap[activeTabForPreview.id]);
 
     // Synchronized scrolling (only active when isScrollLinked is true AND readerMode === 'chapter')
     const handleEditorScrollCapture = useCallback(
@@ -2212,6 +2190,8 @@ function App() {
             setIsScratchOpen(false);
             setScratchContent('');
             setIsReadingMode(false);
+            setIsScratchPreviewOpen(false);
+            setIsScratchFullscreen(false);
             setShowProjectSelection(false);
             setReaderMode(
                 savedState?.readerMode === 'book' ? 'book' : 'chapter'
@@ -4569,7 +4549,86 @@ function App() {
         };
 
         if (isScratchOpen) {
-            return wrapWidth(
+            const scratchHeaderBar = (
+                <div className={styles.unifiedSplitHeaderRow}>
+                    <div className={styles.inlineChapterTitleWrapper}>
+                        <span className={styles.chapterPrefixLabel}>
+                            Scratchpad
+                        </span>
+                    </div>
+
+                    <div
+                        ref={setScratchToolbarTarget}
+                        className={styles.inlineToolbarSlot}
+                    />
+
+                    <div className={styles.splitRightActionCluster}>
+                        {isScratchPreviewOpen && readerMode === 'chapter' && (
+                            <button
+                                type="button"
+                                className={`${styles.headerIconToggleBtn} ${
+                                    isScrollLinked
+                                        ? styles.headerIconToggleBtnActive
+                                        : ''
+                                }`}
+                                onClick={() => setIsScrollLinked((v) => !v)}
+                                title={
+                                    isScrollLinked
+                                        ? 'Unlink Scroll'
+                                        : 'Link Scroll'
+                                }
+                            >
+                                <IconLink size={16} stroke={2.1} />
+                            </button>
+                        )}
+
+                        <button
+                            type="button"
+                            className={`${styles.headerIconToggleBtn} ${
+                                isScratchPreviewOpen
+                                    ? styles.headerIconToggleBtnActive
+                                    : ''
+                            }`}
+                            onClick={() => {
+                                setIsScratchPreviewOpen((prev) => {
+                                    const next = !prev;
+                                    if (!next) {
+                                        setIsScratchFullscreen(false);
+                                        setScratchPreviewSide('right');
+                                    }
+                                    return next;
+                                });
+                            }}
+                            title={
+                                isScratchPreviewOpen
+                                    ? 'Close Preview'
+                                    : 'Open Preview (Scratchpad)'
+                            }
+                        >
+                            <IconEye size={16} stroke={2} />
+                        </button>
+
+                        <button
+                            type="button"
+                            className={`${styles.headerIconToggleBtn} ${
+                                isReadingMode
+                                    ? styles.headerIconToggleBtnActive
+                                    : ''
+                            }`}
+                            onClick={() => setIsReadingMode((v) => !v)}
+                            title={
+                                isReadingMode
+                                    ? 'Exit Reading Mode'
+                                    : 'Reading Mode'
+                            }
+                        >
+                            <IconBook size={16} stroke={2} />
+                        </button>
+                    </div>
+                </div>
+            );
+
+            const scratchEditorInstance = (
                 <RichTextEditor
                     ref={editorRef}
                     tabId="scratch"
@@ -4589,7 +4648,141 @@ function App() {
                     editable={!isReadingMode}
                     onToggleEditable={() => setIsReadingMode((v) => !v)}
                     showPreview={false}
+                    toolbarPortalTarget={scratchToolbarTarget}
                 />
+            );
+
+            if (isScratchPreviewOpen) {
+                const scratchEditorPaneEl = (
+                    <div
+                        className={`${styles.splitEditorCompact} ${styles.splitEditorPaneShell} ${
+                            scratchPreviewSide === 'right'
+                                ? styles.leftPane
+                                : styles.rightPane
+                        }`}
+                        style={
+                            scratchPreviewSide === 'right'
+                                ? {
+                                      flex: `0 0 ${tileSplitRatio}%`,
+                                      width: `${tileSplitRatio}%`,
+                                  }
+                                : undefined
+                        }
+                    >
+                        {scratchHeaderBar}
+                        <div
+                            ref={editorSplitPaneRef}
+                            onScrollCapture={handleEditorScrollCapture}
+                            className={styles.splitEditorScrollBody}
+                        >
+                            {wrapWidth(scratchEditorInstance)}
+                        </div>
+                    </div>
+                );
+
+                const scratchPreviewPaneEl = (
+                    <div
+                        ref={previewPaneContainerRef}
+                        onScrollCapture={handlePreviewScrollCapture}
+                        className={`${
+                            isScratchFullscreen
+                                ? `${styles.rightPane} ${styles.previewPaneFullscreen}`
+                                : scratchPreviewSide === 'right'
+                                  ? styles.rightPane
+                                  : styles.leftPane
+                        } ${styles.previewPaneShell}`}
+                        style={
+                            !isScratchFullscreen &&
+                            scratchPreviewSide === 'left'
+                                ? {
+                                      flex: `0 0 ${tileSplitRatio}%`,
+                                      width: `${tileSplitRatio}%`,
+                                  }
+                                : undefined
+                        }
+                    >
+                        <PreviewPane
+                            chapters={chapters}
+                            tabContents={tabContents}
+                            activeChapterId={null}
+                            customTitle="Scratchpad"
+                            customContent={scratchContent}
+                            readerMode={readerMode}
+                            onReaderModeChange={handleReaderModeChange}
+                            onClose={() => {
+                                setIsScratchPreviewOpen(false);
+                                setIsScratchFullscreen(false);
+                                setScratchPreviewSide('right');
+                            }}
+                            previewPosition={scratchPreviewSide}
+                            onTogglePosition={() =>
+                                setScratchPreviewSide((prev) =>
+                                    prev === 'right' ? 'left' : 'right'
+                                )
+                            }
+                            isFullscreen={isScratchFullscreen}
+                            onToggleFullscreen={() =>
+                                setIsScratchFullscreen((v) => !v)
+                            }
+                            bodyScrollRef={previewBodyScrollRef}
+                            width="100%"
+                        />
+                    </div>
+                );
+
+                const scratchResizerEl = (
+                    <div
+                        className={`${styles.tileResizeDivider} ${isTileResizing ? styles.tileResizeDividerActive : ''}`}
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            setIsTileResizing(true);
+                            document.body.style.userSelect = 'none';
+                            document.body.style.webkitUserSelect = 'none';
+                            document.body.style.cursor = 'col-resize';
+                        }}
+                        title="Drag to resize panes (40% - 60%)"
+                    />
+                );
+
+                return (
+                    <div className={styles.tabContentContainer}>
+                        <div ref={workspaceRef} className={styles.workspace}>
+                            {isScratchFullscreen ? (
+                                scratchPreviewPaneEl
+                            ) : scratchPreviewSide === 'left' ? (
+                                <>
+                                    {scratchPreviewPaneEl}
+                                    {scratchResizerEl}
+                                    {scratchEditorPaneEl}
+                                </>
+                            ) : (
+                                <>
+                                    {scratchEditorPaneEl}
+                                    {scratchResizerEl}
+                                    {scratchPreviewPaneEl}
+                                </>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className={styles.tabContentContainer}>
+                    <div className={styles.workspace}>
+                        <div
+                            className={`${styles.splitEditorCompact} ${styles.singleChapterPaneShell}`}
+                        >
+                            {scratchHeaderBar}
+                            <div
+                                ref={editorSplitPaneRef}
+                                className={styles.splitEditorScrollBody}
+                            >
+                                {wrapWidth(scratchEditorInstance)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             );
         }
 
@@ -6299,7 +6492,6 @@ function App() {
                     </aside>
                 </RightPanel>
             </main>
-
             <StatusBar
                 saveState={saveState}
                 lastSavedTime={lastSavedTime}
@@ -6312,7 +6504,6 @@ function App() {
                 contentRating={currentProject?.contentRating ?? null}
                 primaryGenre={currentProject?.primaryGenre ?? null}
                 primaryTheme={currentProject?.primaryTheme ?? null}
-                projectSeries={currentProjectSeries}
             />
 
             {showProjectSelection && (
