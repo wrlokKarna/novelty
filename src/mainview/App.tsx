@@ -247,12 +247,15 @@ function App() {
     const [mode, setMode] = useState<'manuscript' | 'compendium'>('manuscript');
     const [isReadingMode, setIsReadingMode] = useState(false);
     const [readerMode, setReaderMode] = useState<'chapter' | 'book'>('chapter');
-    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
     const [isScrollLinked, setIsScrollLinked] = useState(false);
-    const [previewTargetChapterId, setPreviewTargetChapterId] = useState<
-        string | null
-    >(null);
+
+    // Per-chapter preview open state (only chapters turned ON here show Preview)
+    const [chapterPreviewOpenMap, setChapterPreviewOpenMap] = useState<
+        Record<string, boolean>
+    >({});
+    const chapterPreviewOpenMapRef = useRef<Record<string, boolean>>({});
+    chapterPreviewOpenMapRef.current = chapterPreviewOpenMap;
 
     // Per-chapter preview side map so each chapter remembers its own left/right split independently
     const [chapterPreviewSides, setChapterPreviewSides] = useState<
@@ -479,32 +482,54 @@ function App() {
         []
     );
 
-    // Use the specific chapter's saved preview side (defaulting to 'right' if never set)
+    // Open preview ONLY for `chapterId`; if tiled, left tile puts Preview on right and right tile puts Preview on left
     const openChapterSplitPreview = useCallback(
         (chapterId: string, modeOverride: 'chapter' | 'book' = 'chapter') => {
             promoteTabToPermanent(chapterId);
             setIsScratchOpen(false);
             setActiveTabId(chapterId);
-            setPreviewTargetChapterId(chapterId);
             setReaderMode(modeOverride);
 
-            const targetPreviewSide =
+            const paired = getLinkedPartner(chapterId);
+            let targetPreviewSide: 'left' | 'right' =
                 chapterPreviewSidesRef.current[chapterId] ?? 'right';
+
+            if (paired) {
+                targetPreviewSide =
+                    paired.target.id === chapterId ? 'left' : 'right';
+            }
+
+            setChapterPreviewSides((prev) => {
+                const next = { ...prev, [chapterId]: targetPreviewSide };
+                chapterPreviewSidesRef.current = next;
+                return next;
+            });
+
+            setChapterPreviewOpenMap((prev) => {
+                const next = { ...prev, [chapterId]: true };
+                chapterPreviewOpenMapRef.current = next;
+                return next;
+            });
+
             setPreviewSide(targetPreviewSide);
-            setIsPreviewOpen(true);
             setIsPreviewFullscreen(false);
             setTileSplitRatio(50);
             setFocusedTileSide(
                 targetPreviewSide === 'right' ? 'left' : 'right'
             );
         },
-        [promoteTabToPermanent]
+        [promoteTabToPermanent, getLinkedPartner]
     );
 
-    const closeChapterSplitPreview = useCallback(() => {
-        setIsPreviewOpen(false);
+    // Close preview ONLY for the specific `chapterId`
+    const closeChapterSplitPreview = useCallback((chapterId?: string) => {
         setIsPreviewFullscreen(false);
-        setPreviewTargetChapterId(null);
+        if (!chapterId) return;
+        setChapterPreviewOpenMap((prev) => {
+            const next = { ...prev, [chapterId]: false };
+            chapterPreviewOpenMapRef.current = next;
+            return next;
+        });
     }, []);
 
     const handleEditorToolbarClickCapture = useCallback(
@@ -561,10 +586,25 @@ function App() {
         return () => window.removeEventListener('pointerdown', closeMenu, true);
     }, [toolbarSplitMenu]);
 
+    const activeTabForPreview = openTabs.find((t) => t.id === activeTabId);
+    const activeChapterObjForPreview =
+        activeTabForPreview?.type === 'chapter'
+            ? chapters.find((c) => c.id === activeTabForPreview.id)
+            : undefined;
+    const isActiveChapterPreviewOpen =
+        !isScratchOpen &&
+        activeTabForPreview?.type === 'chapter' &&
+        activeChapterObjForPreview?.status !== 'outline' &&
+        Boolean(chapterPreviewOpenMap[activeTabForPreview.id]);
+
     // Synchronized scrolling (only active when isScrollLinked is true AND readerMode === 'chapter')
     const handleEditorScrollCapture = useCallback(
         (e: React.UIEvent<HTMLDivElement>) => {
-            if (!isScrollLinked || !isPreviewOpen || readerMode !== 'chapter') {
+            if (
+                !isScrollLinked ||
+                !isActiveChapterPreviewOpen ||
+                readerMode !== 'chapter'
+            ) {
                 return;
             }
             if (isSyncingScrollRef.current === 'preview') return;
@@ -602,12 +642,16 @@ function App() {
                 isSyncingScrollRef.current = null;
             }, 40);
         },
-        [isScrollLinked, isPreviewOpen, readerMode]
+        [isScrollLinked, isActiveChapterPreviewOpen, readerMode]
     );
 
     const handlePreviewScrollCapture = useCallback(
         (e: React.UIEvent<HTMLDivElement>) => {
-            if (!isScrollLinked || !isPreviewOpen || readerMode !== 'chapter') {
+            if (
+                !isScrollLinked ||
+                !isActiveChapterPreviewOpen ||
+                readerMode !== 'chapter'
+            ) {
                 return;
             }
             if (isSyncingScrollRef.current === 'editor') return;
@@ -648,7 +692,7 @@ function App() {
                 isSyncingScrollRef.current = null;
             }, 40);
         },
-        [isScrollLinked, isPreviewOpen, readerMode]
+        [isScrollLinked, isActiveChapterPreviewOpen, readerMode]
     );
 
     // =========================================================================
@@ -1142,8 +1186,6 @@ function App() {
         promoteTabToPermanent(targetTab.id);
 
         if (currentMode === 'merge') {
-            closeChapterSplitPreview();
-
             const sourceIdx = openTabs.findIndex((t) => t.id === sourceId);
             const targetIdx = openTabs.findIndex((t) => t.id === targetTab.id);
             const isSourceRightOfTarget =
@@ -1366,7 +1408,6 @@ function App() {
             : null;
 
         if (existingPair && (zone === 'left' || zone === 'right')) {
-            closeChapterSplitPreview();
             const keptId =
                 zone === 'left'
                     ? existingPair.target.id
@@ -1377,6 +1418,9 @@ function App() {
                 setActiveTabId(sourceId);
                 return;
             }
+
+            const leftId = zone === 'left' ? sourceId : keptId;
+            const rightId = zone === 'left' ? keptId : sourceId;
 
             setChapterLinks((prev) => {
                 const cleaned: Record<string, string | null> = {};
@@ -1394,11 +1438,7 @@ function App() {
                         cleaned[k] = v;
                     }
                 }
-                if (zone === 'left') {
-                    cleaned[sourceId] = keptId;
-                } else {
-                    cleaned[keptId] = sourceId;
-                }
+                cleaned[leftId] = rightId;
                 return cleaned;
             });
 
@@ -1426,7 +1466,6 @@ function App() {
             return;
         }
 
-        closeChapterSplitPreview();
         const leftId = zone === 'left' ? sourceId : currentAnchorId;
         const rightId = zone === 'left' ? currentAnchorId : sourceId;
 
@@ -1470,10 +1509,9 @@ function App() {
 
     const renderTabIcon = (tab: FileTab) => {
         const isTabInPreview =
-            isPreviewOpen &&
             !isScratchOpen &&
             tab.type === 'chapter' &&
-            previewTargetChapterId === tab.id;
+            Boolean(chapterPreviewOpenMap[tab.id]);
 
         if (isTabInPreview) {
             return <IconEye size={14} className={styles.tabIcon} />;
@@ -1575,7 +1613,6 @@ function App() {
             return;
         }
         const sourceId = linkingSourceId;
-        closeChapterSplitPreview();
 
         setChapterLinks((prev) => {
             const cleaned: Record<string, string | null> = {};
@@ -1674,9 +1711,13 @@ function App() {
         }
         const closeSet = new Set(idsToClose);
 
-        if (previewTargetChapterId && closeSet.has(previewTargetChapterId)) {
-            closeChapterSplitPreview();
-        }
+        setChapterPreviewOpenMap((prev) => {
+            const next = { ...prev };
+            idsToClose.forEach((id) => {
+                delete next[id];
+            });
+            return next;
+        });
 
         setChapterLinks((prev) => {
             const next: Record<string, string | null> = {};
@@ -1823,6 +1864,18 @@ function App() {
                         }
                         parsed.chapterPreviewSides = sides;
                     }
+                    if (parsed.chapterPreviewOpenMap) {
+                        const openMap: Record<string, boolean> = {};
+                        for (const [key, value] of Object.entries(
+                            parsed.chapterPreviewOpenMap as Record<
+                                string,
+                                boolean
+                            >
+                        )) {
+                            openMap[remapId(key)] = Boolean(value);
+                        }
+                        parsed.chapterPreviewOpenMap = openMap;
+                    }
                 }
                 return parsed;
             }
@@ -1839,14 +1892,12 @@ function App() {
         links: Record<string, string | null> = {},
         splitRatio: number = 50,
         previewState: {
-            isPreviewOpen: boolean;
-            previewTargetChapterId: string | null;
+            chapterPreviewOpenMap: Record<string, boolean>;
             readerMode: 'chapter' | 'book';
             chapterPreviewSides: Record<string, 'left' | 'right'>;
             isScrollLinked: boolean;
         } = {
-            isPreviewOpen: false,
-            previewTargetChapterId: null,
+            chapterPreviewOpenMap: {},
             readerMode: 'chapter',
             chapterPreviewSides: {},
             isScrollLinked: false,
@@ -1966,8 +2017,7 @@ function App() {
                 chapterLinks,
                 tileSplitRatio,
                 {
-                    isPreviewOpen,
-                    previewTargetChapterId,
+                    chapterPreviewOpenMap,
                     readerMode,
                     chapterPreviewSides,
                     isScrollLinked,
@@ -1980,8 +2030,7 @@ function App() {
         activeTabId,
         chapterLinks,
         tileSplitRatio,
-        isPreviewOpen,
-        previewTargetChapterId,
+        chapterPreviewOpenMap,
         readerMode,
         chapterPreviewSides,
         isScrollLinked,
@@ -2013,37 +2062,24 @@ function App() {
                         savedState.activeTabId || null;
                     const restoredSides: Record<string, 'left' | 'right'> =
                         savedState.chapterPreviewSides || {};
+                    const restoredOpenMap: Record<string, boolean> =
+                        savedState.chapterPreviewOpenMap || {};
+
                     setOpenTabs(restoredTabs);
                     setActiveTabId(restoredActiveId);
                     setChapterLinks(savedState.chapterLinks || {});
                     setChapterPreviewSides(restoredSides);
                     chapterPreviewSidesRef.current = restoredSides;
+                    setChapterPreviewOpenMap(restoredOpenMap);
+                    chapterPreviewOpenMapRef.current = restoredOpenMap;
                     setTileSplitRatio(savedState.tileSplitRatio ?? 50);
-
-                    if (savedState.isPreviewOpen) {
-                        const targetPreviewId =
-                            savedState.previewTargetChapterId ||
-                            restoredActiveId;
-                        const hasValidChapter = restoredTabs.some(
-                            (t) =>
-                                t.id === targetPreviewId && t.type === 'chapter'
-                        );
-                        if (hasValidChapter && targetPreviewId) {
-                            setPreviewTargetChapterId(targetPreviewId);
-                            setIsPreviewOpen(true);
-                            setReaderMode(
-                                savedState.readerMode === 'book'
-                                    ? 'book'
-                                    : 'chapter'
-                            );
-                            setPreviewSide(
-                                restoredSides[targetPreviewId] ?? 'right'
-                            );
-                            setIsScrollLinked(
-                                Boolean(savedState.isScrollLinked)
-                            );
-                        }
+                    setReaderMode(
+                        savedState.readerMode === 'book' ? 'book' : 'chapter'
+                    );
+                    if (restoredActiveId && restoredSides[restoredActiveId]) {
+                        setPreviewSide(restoredSides[restoredActiveId]);
                     }
+                    setIsScrollLinked(Boolean(savedState.isScrollLinked));
 
                     await restoreTabContents(restoredTabs);
                 }
@@ -2065,6 +2101,8 @@ function App() {
                 savedState?.activeTabId || null;
             const restoredSides: Record<string, 'left' | 'right'> =
                 savedState?.chapterPreviewSides || {};
+            const restoredOpenMap: Record<string, boolean> =
+                savedState?.chapterPreviewOpenMap || {};
 
             tabActivationHistoryRef.current = [];
             setCurrentProject(project);
@@ -2073,6 +2111,8 @@ function App() {
             setChapterLinks(savedState?.chapterLinks || {});
             setChapterPreviewSides(restoredSides);
             chapterPreviewSidesRef.current = restoredSides;
+            setChapterPreviewOpenMap(restoredOpenMap);
+            chapterPreviewOpenMapRef.current = restoredOpenMap;
             setTileSplitRatio(savedState?.tileSplitRatio ?? 50);
             setPreviewTabId(null);
             setTabContents({});
@@ -2082,30 +2122,13 @@ function App() {
             setIsReadingMode(false);
             setIsPreviewFullscreen(false);
             setShowProjectSelection(false);
-
-            const targetPreviewId =
-                savedState?.previewTargetChapterId || restoredActiveId;
-            const hasValidChapter =
-                Boolean(savedState?.isPreviewOpen) &&
-                restoredTabs.some(
-                    (t) => t.id === targetPreviewId && t.type === 'chapter'
-                );
-
-            if (hasValidChapter && targetPreviewId) {
-                setPreviewTargetChapterId(targetPreviewId);
-                setIsPreviewOpen(true);
-                setReaderMode(
-                    savedState?.readerMode === 'book' ? 'book' : 'chapter'
-                );
-                setPreviewSide(restoredSides[targetPreviewId] ?? 'right');
-                setIsScrollLinked(Boolean(savedState?.isScrollLinked));
-            } else {
-                setReaderMode('chapter');
-                setIsPreviewOpen(false);
-                setPreviewTargetChapterId(null);
-                setPreviewSide('right');
-                setIsScrollLinked(false);
-            }
+            setReaderMode(
+                savedState?.readerMode === 'book' ? 'book' : 'chapter'
+            );
+            setPreviewSide(
+                (restoredActiveId && restoredSides[restoredActiveId]) || 'right'
+            );
+            setIsScrollLinked(Boolean(savedState?.isScrollLinked));
 
             loadChapters(project.id);
             loadCompendium(project.id);
@@ -2485,9 +2508,7 @@ function App() {
         setIsScratchOpen(false);
         setActiveTabId(chapter.id);
 
-        if (isPreviewOpen) {
-            openChapterSplitPreview(chapter.id);
-        } else if (isRapidDoubleClick) {
+        if (isRapidDoubleClick) {
             openChapterSplitPreview(chapter.id, 'chapter');
         }
     }
@@ -3648,9 +3669,7 @@ function App() {
         setTileMenuState(null);
         setPreviewTabId((prev) => (prev === id ? null : prev));
         setLinkingSourceId((prev) => (prev === id ? null : prev));
-        if (previewTargetChapterId === id) {
-            closeChapterSplitPreview();
-        }
+        closeChapterSplitPreview(id);
         handleUnlinkChapter(id);
         delete tabRefs.current[id];
 
@@ -3663,7 +3682,7 @@ function App() {
         });
 
         setOpenTabs((prevTabs) => {
-            const updatedTabs = prevTabs.filter((t) => t.id !== id);
+            const updatedTabs = prevTabs.filter((t) => !closeSet.has(t.id));
             if (updatedTabs.length === prevTabs.length) return prevTabs;
             setActiveTabId((prevActiveId) =>
                 getNextActiveTabIdAfterClosing(prevTabs, closeSet, prevActiveId)
@@ -3779,16 +3798,6 @@ function App() {
         }
         return 'Compendium Entry';
     }
-
-    const activeTabForPreview = getActiveTab();
-    const resolvedPreviewChapterId =
-        previewTargetChapterId ||
-        (activeTabForPreview?.type === 'chapter'
-            ? activeTabForPreview.id
-            : null);
-
-    const previewActive =
-        isPreviewOpen && !isScratchOpen && Boolean(resolvedPreviewChapterId);
 
     function renderSingleTabWorkspace(
         tab: FileTab,
@@ -4152,8 +4161,9 @@ function App() {
                 );
             }
 
-            const isChapterInPreview =
-                isPreviewOpen && previewTargetChapterId === chapterId;
+            const isChapterInPreview = Boolean(
+                chapterPreviewOpenMap[chapterId]
+            );
             const resolvedPortalTarget =
                 toolbarPortalTarget !== undefined
                     ? toolbarPortalTarget
@@ -4196,7 +4206,7 @@ function App() {
                         isPreviewOpen={isChapterInPreview}
                         onTogglePreview={() => {
                             if (isChapterInPreview) {
-                                closeChapterSplitPreview();
+                                closeChapterSplitPreview(chapterId);
                             } else {
                                 openChapterSplitPreview(chapterId);
                             }
@@ -4238,8 +4248,8 @@ function App() {
                     showBubbleMenu={showTextFormatting}
                     editable={!isReadingMode}
                     onToggleEditable={() => setIsReadingMode((v) => !v)}
-                    isPreviewOpen={isPreviewOpen}
-                    onTogglePreview={() => setIsPreviewOpen((v) => !v)}
+                    isPreviewOpen={false}
+                    onTogglePreview={() => {}}
                     showPreview={false}
                 />
             );
@@ -4293,7 +4303,7 @@ function App() {
         );
     }
 
-    // Shared Pinned Unified Top Bar for Chapter Editor — always targets the exact `currentTab.id` that owns this bar
+    // Shared Pinned Unified Top Bar for Chapter Editor — hides Preview (Eye) and Book icons when status === 'outline'
     function renderUnifiedChapterHeaderBar(
         currentTab: FileTab,
         options: {
@@ -4303,10 +4313,12 @@ function App() {
     ) {
         const currentChapterId = currentTab.id;
         const chapter = chapters.find((c) => c.id === currentChapterId);
-        const showSkeletonBtn = chapter?.status !== 'outline';
+        const isOutlineStatus = chapter?.status === 'outline';
+        const showSkeletonBtn = !isOutlineStatus;
         const setPortalSlot = options.portalSetter ?? setInlineToolbarTarget;
-        const isThisChapterInPreview =
-            isPreviewOpen && previewTargetChapterId === currentChapterId;
+        const isThisChapterInPreview = Boolean(
+            chapterPreviewOpenMap[currentChapterId]
+        );
 
         return (
             <div className={styles.unifiedSplitHeaderRow}>
@@ -4322,62 +4334,76 @@ function App() {
                 {/* Centered Formatting Controls Portaled Directly from FormattingToolbar */}
                 <div ref={setPortalSlot} className={styles.inlineToolbarSlot} />
 
-                {/* Right Controls: [Link Icon when Preview is open] + Eye Icon + Book Icon + SKELETON */}
+                {/* Right Controls: Hide Preview (Eye) and Book icons when status is Outline */}
                 <div className={styles.splitRightActionCluster}>
-                    {options.showLinkScroll && readerMode === 'chapter' && (
-                        <button
-                            type="button"
-                            className={`${styles.headerIconToggleBtn} ${
-                                isScrollLinked
-                                    ? styles.headerIconToggleBtnActive
-                                    : ''
-                            }`}
-                            onClick={() => setIsScrollLinked((v) => !v)}
-                            title={
-                                isScrollLinked ? 'Unlink Scroll' : 'Link Scroll'
-                            }
-                        >
-                            <IconLink size={16} stroke={2.1} />
-                        </button>
+                    {!isOutlineStatus &&
+                        options.showLinkScroll &&
+                        readerMode === 'chapter' && (
+                            <button
+                                type="button"
+                                className={`${styles.headerIconToggleBtn} ${
+                                    isScrollLinked
+                                        ? styles.headerIconToggleBtnActive
+                                        : ''
+                                }`}
+                                onClick={() => setIsScrollLinked((v) => !v)}
+                                title={
+                                    isScrollLinked
+                                        ? 'Unlink Scroll'
+                                        : 'Link Scroll'
+                                }
+                            >
+                                <IconLink size={16} stroke={2.1} />
+                            </button>
+                        )}
+
+                    {!isOutlineStatus && (
+                        <>
+                            <button
+                                type="button"
+                                className={`${styles.headerIconToggleBtn} ${
+                                    isThisChapterInPreview
+                                        ? styles.headerIconToggleBtnActive
+                                        : ''
+                                }`}
+                                onClick={() => {
+                                    if (isThisChapterInPreview) {
+                                        closeChapterSplitPreview(
+                                            currentChapterId
+                                        );
+                                    } else {
+                                        openChapterSplitPreview(
+                                            currentChapterId
+                                        );
+                                    }
+                                }}
+                                title={
+                                    isThisChapterInPreview
+                                        ? 'Close Preview'
+                                        : `Open Preview (${chapter?.title ?? currentTab.name})`
+                                }
+                            >
+                                <IconEye size={16} stroke={2} />
+                            </button>
+
+                            <button
+                                type="button"
+                                className={`${styles.headerIconToggleBtn} ${
+                                    isReadingMode
+                                        ? styles.headerIconToggleBtnActive
+                                        : ''
+                                }`}
+                                onClick={() => setIsReadingMode((v) => !v)}
+                                title={
+                                    isReadingMode
+                                        ? 'Exit Reading Mode'
+                                        : 'Reading Mode'
+                                }
+                            >
+                                <IconBook size={16} stroke={2} />
+                            </button>
+                        </>
                     )}
-
-                    <button
-                        type="button"
-                        className={`${styles.headerIconToggleBtn} ${
-                            isThisChapterInPreview
-                                ? styles.headerIconToggleBtnActive
-                                : ''
-                        }`}
-                        onClick={() => {
-                            if (isThisChapterInPreview) {
-                                closeChapterSplitPreview();
-                            } else {
-                                openChapterSplitPreview(currentChapterId);
-                            }
-                        }}
-                        title={
-                            isThisChapterInPreview
-                                ? 'Close Preview'
-                                : `Open Preview (${chapter?.title ?? currentTab.name})`
-                        }
-                    >
-                        <IconEye size={16} stroke={2} />
-                    </button>
-
-                    <button
-                        type="button"
-                        className={`${styles.headerIconToggleBtn} ${
-                            isReadingMode
-                                ? styles.headerIconToggleBtnActive
-                                : ''
-                        }`}
-                        onClick={() => setIsReadingMode((v) => !v)}
-                        title={
-                            isReadingMode ? 'Exit Reading Mode' : 'Reading Mode'
-                        }
-                    >
-                        <IconBook size={16} stroke={2} />
-                    </button>
 
                     {showSkeletonBtn && (
                         <button
@@ -4485,23 +4511,41 @@ function App() {
             );
         }
 
-        if (previewActive) {
-            const targetId = resolvedPreviewChapterId!;
-            const currentChapterSide: 'left' | 'right' =
-                chapterPreviewSides[targetId] ?? 'right';
+        const linkedPair = getLinkedPartner(activeTab.id);
 
-            const previewChapterTab: FileTab =
-                activeTab.type === 'chapter' && activeTab.id === targetId
-                    ? activeTab
-                    : {
-                          id: targetId,
-                          name:
-                              chapters.find((c) => c.id === targetId)?.title ??
-                              'Chapter',
-                          type: 'chapter',
-                          filePath: '',
-                          isModified: false,
-                      };
+        // Full-width split Preview mode:
+        // Active either for a standalone chapter OR for whichever chapter in a linked tile pair has Preview turned ON
+        const activeChapterRecord =
+            activeTab.type === 'chapter'
+                ? chapters.find((c) => c.id === activeTab.id)
+                : undefined;
+
+        const tiledChapterWithPreviewOn =
+            linkedPair &&
+            activeTab.type === 'chapter' &&
+            activeChapterRecord?.status !== 'outline' &&
+            Boolean(chapterPreviewOpenMap[activeTab.id])
+                ? activeTab
+                : null;
+
+        const standaloneChapterWithPreviewOn =
+            !linkedPair &&
+            activeTab.type === 'chapter' &&
+            activeChapterRecord?.status !== 'outline' &&
+            Boolean(chapterPreviewOpenMap[activeTab.id])
+                ? activeTab
+                : null;
+
+        const previewChapterTab =
+            tiledChapterWithPreviewOn || standaloneChapterWithPreviewOn;
+
+        if (previewChapterTab) {
+            const targetId = previewChapterTab.id;
+            // When tiled: left tile opens with Preview on right; right tile opens with Preview on left
+            const currentChapterSide: 'left' | 'right' = linkedPair
+                ? (chapterPreviewSides[targetId] ??
+                  (linkedPair.target.id === targetId ? 'left' : 'right'))
+                : (chapterPreviewSides[targetId] ?? 'right');
 
             const editorPaneEl = (
                 <div
@@ -4567,7 +4611,7 @@ function App() {
                         activeChapterId={targetId}
                         readerMode={readerMode}
                         onReaderModeChange={handleReaderModeChange}
-                        onClose={closeChapterSplitPreview}
+                        onClose={() => closeChapterSplitPreview(targetId)}
                         previewPosition={currentChapterSide}
                         onTogglePosition={() => {
                             const nextSide =
@@ -4641,18 +4685,17 @@ function App() {
             );
         }
 
-        const linkedPair = getLinkedPartner(activeTab.id);
-
         if (linkedPair) {
+            const leftIsChapter = linkedPair.source.type === 'chapter';
+            const rightIsChapter = linkedPair.target.type === 'chapter';
+
             return (
                 <div className={styles.tabContentContainer}>
                     <div ref={workspaceRef} className={styles.workspace}>
                         <div
                             ref={leftScrollRef}
                             className={`${styles.leftPane} ${
-                                linkedPair.source.type === 'chapter'
-                                    ? styles.splitEditorPaneShell
-                                    : ''
+                                leftIsChapter ? styles.splitEditorPaneShell : ''
                             }`}
                             style={{
                                 flex: `0 0 ${tileSplitRatio}%`,
@@ -4665,7 +4708,7 @@ function App() {
                                 }
                             }}
                         >
-                            {linkedPair.source.type === 'chapter' ? (
+                            {leftIsChapter ? (
                                 renderUnifiedChapterHeaderBar(
                                     linkedPair.source,
                                     {
@@ -4698,12 +4741,11 @@ function App() {
                                     </div>
                                 </div>
                             )}
+
                             <div className={styles.splitEditorScrollBody}>
                                 {renderSingleTabWorkspace(
                                     linkedPair.source,
-                                    linkedPair.source.type === 'chapter'
-                                        ? leftTileToolbarTarget
-                                        : null
+                                    leftIsChapter ? leftTileToolbarTarget : null
                                 )}
                             </div>
                         </div>
@@ -4739,7 +4781,7 @@ function App() {
                         <div
                             ref={rightScrollRef}
                             className={`${styles.rightPane} ${
-                                linkedPair.target.type === 'chapter'
+                                rightIsChapter
                                     ? styles.splitEditorPaneShell
                                     : ''
                             }`}
@@ -4750,7 +4792,7 @@ function App() {
                                 }
                             }}
                         >
-                            {linkedPair.target.type === 'chapter' ? (
+                            {rightIsChapter ? (
                                 renderUnifiedChapterHeaderBar(
                                     linkedPair.target,
                                     {
@@ -4783,10 +4825,11 @@ function App() {
                                     </div>
                                 </div>
                             )}
+
                             <div className={styles.splitEditorScrollBody}>
                                 {renderSingleTabWorkspace(
                                     linkedPair.target,
-                                    linkedPair.target.type === 'chapter'
+                                    rightIsChapter
                                         ? rightTileToolbarTarget
                                         : null
                                 )}
@@ -4991,8 +5034,9 @@ function App() {
     const isMenuTabChapter = menuTabObj?.type === 'chapter';
     const isMenuTabInPreview =
         isMenuTabChapter &&
-        isPreviewOpen &&
-        resolvedPreviewChapterId === tileMenuState?.chapterId;
+        Boolean(
+            tileMenuState && chapterPreviewOpenMap[tileMenuState.chapterId]
+        );
 
     const getLinkingSourceName = (id: string) => {
         return (
@@ -5293,12 +5337,6 @@ function App() {
                                                         setActiveTabId(
                                                             partner.source.id
                                                         );
-                                                        if (isPreviewOpen) {
-                                                            openChapterSplitPreview(
-                                                                partner.source
-                                                                    .id
-                                                            );
-                                                        }
                                                     }
                                                 }}
                                             >
@@ -5406,12 +5444,6 @@ function App() {
                                                         setActiveTabId(
                                                             partner.target.id
                                                         );
-                                                        if (isPreviewOpen) {
-                                                            openChapterSplitPreview(
-                                                                partner.target
-                                                                    .id
-                                                            );
-                                                        }
                                                     }
                                                 }}
                                             >
@@ -5493,14 +5525,6 @@ function App() {
                                                     handleCompleteLink(tab.id);
                                                 } else {
                                                     setActiveTabId(tab.id);
-                                                    if (
-                                                        isPreviewOpen &&
-                                                        tab.type === 'chapter'
-                                                    ) {
-                                                        openChapterSplitPreview(
-                                                            tab.id
-                                                        );
-                                                    }
                                                 }
                                             }}
                                             title={
@@ -5569,24 +5593,21 @@ function App() {
                                     const targetId =
                                         activeTabObj?.type === 'chapter'
                                             ? activeTabObj.id
-                                            : resolvedPreviewChapterId;
-                                    const currentSide = targetId
-                                        ? (chapterPreviewSidesRef.current[
-                                              targetId
-                                          ] ?? previewSide)
-                                        : previewSide;
-                                    const nextSide =
-                                        currentSide === 'right'
-                                            ? 'left'
-                                            : 'right';
+                                            : null;
                                     if (targetId) {
+                                        const currentSide =
+                                            chapterPreviewSidesRef.current[
+                                                targetId
+                                            ] ?? previewSide;
+                                        const nextSide =
+                                            currentSide === 'right'
+                                                ? 'left'
+                                                : 'right';
                                         setSideForChapter(targetId, nextSide);
-                                        if (!isPreviewOpen) {
-                                            setPreviewTargetChapterId(targetId);
-                                            setIsPreviewOpen(true);
-                                        }
-                                    } else {
-                                        setPreviewSide(nextSide);
+                                        setChapterPreviewOpenMap((prev) => ({
+                                            ...prev,
+                                            [targetId]: true,
+                                        }));
                                     }
                                     setIsPreviewFullscreen(false);
                                     setToolbarSplitMenu(null);
@@ -5624,7 +5645,7 @@ function App() {
                                             tileMenuState.chapterId;
                                         setTileMenuState(null);
                                         if (isMenuTabInPreview) {
-                                            closeChapterSplitPreview();
+                                            closeChapterSplitPreview(targetId);
                                         } else {
                                             openChapterSplitPreview(targetId);
                                         }
