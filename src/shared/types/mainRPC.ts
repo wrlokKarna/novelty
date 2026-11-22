@@ -1,19 +1,18 @@
-import type { ProcessAiPromptParams } from '../../bun/temp/mainMCP';
-
 import type {
-    Project,
-    NewProject,
-    StoryAct,
-    NewStoryAct,
-    StorySequence,
-    NewStorySequence,
     Asset,
-    NewAsset,
     Item,
-    NewItem,
     Location,
+    NewAsset,
+    NewItem,
     NewLocation,
+    NewProject,
+    NewStoryAct,
+    NewStorySequence,
+    Project,
+    StoryAct,
+    StorySequence,
 } from '.';
+import type { ProcessAiPromptParams } from '../../bun/temp/mainMCP';
 import type {
     Agent,
     AgentRun,
@@ -44,13 +43,13 @@ import type {
     Organization,
 } from './project/compendium';
 import type {
-    PlotThread,
-    NewPlotThread,
     ChapterPlotThread,
-    NewStoryScene,
-    StoryScene,
+    NewPlotThread,
     NewStoryBeat,
+    NewStoryScene,
+    PlotThread,
     StoryBeat,
+    StoryScene,
 } from './project/manuscript';
 import type { ContextSource, Settings } from './project/settings';
 import type {
@@ -61,8 +60,8 @@ import type {
 } from './project/templates';
 import type { NewTimelineEvent, TimelineEvent } from './project/timeline';
 import type {
-    Series,
     NewSeries,
+    Series,
     SeriesTemplate,
     SeriesTemplateInput,
 } from './series';
@@ -76,6 +75,17 @@ export type SelectorSchema = {
             'window-state-changed': boolean;
         };
         requests: {
+            'get-os': {
+                params: void;
+                response:
+                    | 'aix'
+                    | 'darwin'
+                    | 'freebsd'
+                    | 'linux'
+                    | 'openbsd'
+                    | 'sunos'
+                    | 'win32';
+            };
             'window:is-maximized': { params: void; response: boolean };
             'select-project': { params: string; response: void };
             'open-projects': { params: void; response: void };

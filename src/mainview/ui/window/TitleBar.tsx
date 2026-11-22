@@ -1,10 +1,4 @@
-import styles from './TitleBar.module.css';
-import appStyles from '../../App.module.css';
-import { useState, useEffect, useRef } from 'react';
-import { useRPC } from '../../contexts/RPCContext';
-import AppIcon from '../../components/AppIcon';
-import { QuickAccess } from './QuickAccess';
-import type { QuickAccessItem } from './quickAccessIndex';
+import { useEffect, useRef, useState } from 'react';
 import {
     IconChevronDown,
     IconFolder,
@@ -20,6 +14,12 @@ import {
     IconTimelineEventText,
     IconX,
 } from '@tabler/icons-react';
+import appStyles from '../../App.module.css';
+import AppIcon from '../../components/AppIcon';
+import { useRPC } from '../../contexts/RPCContext';
+import { QuickAccess } from './QuickAccess';
+import type { QuickAccessItem } from './quickAccessIndex';
+import styles from './TitleBar.module.css';
 
 type MenuItem = { label: string; shortcut?: string } | 'sep';
 
@@ -83,13 +83,32 @@ export function TitleBar({
     extras?: React.ReactNode;
 }) {
     const rpc = useRPC();
-
+    const [os, setOs] = useState<
+        | 'aix'
+        | 'darwin'
+        | 'freebsd'
+        | 'linux'
+        | 'openbsd'
+        | 'sunos'
+        | 'win32'
+        | null
+    >(null);
     const [isMaximized, setIsMaximized] = useState(false);
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const menuBarRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        rpc.request['get-os']()
+            .then((platform) => {
+                setOs(platform);
+            })
+            .catch((err: unknown) => {
+                console.error(
+                    err instanceof Error ? err.message : 'Failed to detect OS'
+                );
+            });
+
         rpc.addMessageListener('window-state-changed', (payload) => {
             const isMax = payload.valueOf();
             setIsMaximized(isMax);
@@ -315,36 +334,40 @@ export function TitleBar({
                             <IconSettings stroke={2} />
                         </button>
                     </div>
-                    <div className={styles.windowControls}>
-                        <button
-                            className={styles.windowBtn}
-                            onClick={() => rpc.send['minimize-window']()}
-                            title="Minimize"
-                            aria-label="Minimize"
-                        >
-                            <IconMinus stroke={2} />
-                        </button>
-                        <button
-                            className={styles.windowBtn}
-                            onClick={() => rpc.send['maximize-window']()}
-                            title={isMaximized ? 'Restore' : 'Maximize'}
-                            aria-label={isMaximized ? 'Restore' : 'Maximize'}
-                        >
-                            {isMaximized ? (
-                                <IconSquares stroke={2} />
-                            ) : (
-                                <IconSquare stroke={2} />
-                            )}
-                        </button>
-                        <button
-                            className={`${styles.windowBtn} ${styles.windowClose}`}
-                            onClick={() => rpc.send['close-window']()}
-                            title="Close"
-                            aria-label="Close"
-                        >
-                            <IconX stroke={2} />
-                        </button>
-                    </div>
+                    {os !== 'darwin' && (
+                        <div className={styles.windowControls}>
+                            <button
+                                className={styles.windowBtn}
+                                onClick={() => rpc.send['minimize-window']()}
+                                title="Minimize"
+                                aria-label="Minimize"
+                            >
+                                <IconMinus stroke={2} />
+                            </button>
+                            <button
+                                className={styles.windowBtn}
+                                onClick={() => rpc.send['maximize-window']()}
+                                title={isMaximized ? 'Restore' : 'Maximize'}
+                                aria-label={
+                                    isMaximized ? 'Restore' : 'Maximize'
+                                }
+                            >
+                                {isMaximized ? (
+                                    <IconSquares stroke={2} />
+                                ) : (
+                                    <IconSquare stroke={2} />
+                                )}
+                            </button>
+                            <button
+                                className={`${styles.windowBtn} ${styles.windowClose}`}
+                                onClick={() => rpc.send['close-window']()}
+                                title="Close"
+                                aria-label="Close"
+                            >
+                                <IconX stroke={2} />
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </>

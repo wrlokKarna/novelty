@@ -138,6 +138,17 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
             },
         },
         requests: {
+            'get-os': () => {
+                const platform = process.platform;
+                if (
+                    platform === 'darwin' ||
+                    platform === 'linux' ||
+                    platform === 'win32'
+                ) {
+                    return platform;
+                }
+                throw new Error(`Unsupported platform: ${platform}`);
+            },
             'window:is-maximized': () => win?.isMaximized() ?? false,
             'db:get-projects': async () => {
                 return await projectsDB.getAllProjects(db);
