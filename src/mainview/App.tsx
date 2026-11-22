@@ -525,20 +525,32 @@ function App() {
         [promoteTabToPermanent, getLinkedPartner]
     );
 
-    // Close preview ONLY for the specific `chapterId`
-    const closeChapterSplitPreview = useCallback((chapterId?: string) => {
-        if (!chapterId) return;
-        setChapterPreviewOpenMap((prev) => {
-            const next = { ...prev, [chapterId]: false };
-            chapterPreviewOpenMapRef.current = next;
-            return next;
-        });
-        setChapterPreviewFullscreenMap((prev) => {
-            const next = { ...prev, [chapterId]: false };
-            chapterPreviewFullscreenMapRef.current = next;
-            return next;
-        });
-    }, []);
+    // Close preview ONLY for the specific `chapterId`, and reset side to default ('right') when untiled
+    const closeChapterSplitPreview = useCallback(
+        (chapterId?: string) => {
+            if (!chapterId) return;
+            setChapterPreviewOpenMap((prev) => {
+                const next = { ...prev, [chapterId]: false };
+                chapterPreviewOpenMapRef.current = next;
+                return next;
+            });
+            setChapterPreviewFullscreenMap((prev) => {
+                const next = { ...prev, [chapterId]: false };
+                chapterPreviewFullscreenMapRef.current = next;
+                return next;
+            });
+            if (!getLinkedPartner(chapterId)) {
+                setChapterPreviewSides((prev) => {
+                    const next = { ...prev };
+                    delete next[chapterId];
+                    chapterPreviewSidesRef.current = next;
+                    return next;
+                });
+                setPreviewSide('right');
+            }
+        },
+        [getLinkedPartner]
+    );
 
     const handleEditorToolbarClickCapture = useCallback(
         (e: React.MouseEvent<HTMLDivElement>) => {
@@ -1658,6 +1670,7 @@ function App() {
         setLinkingSourceId(null);
     };
 
+    // Unlink tile while keeping the current preview position intact until Preview is closed & reopened
     const handleUnlinkChapter = (itemId: string) => {
         setChapterLinks((prev) => {
             const next = { ...prev };
@@ -1728,6 +1741,14 @@ function App() {
         });
 
         setChapterPreviewFullscreenMap((prev) => {
+            const next = { ...prev };
+            idsToClose.forEach((id) => {
+                delete next[id];
+            });
+            return next;
+        });
+
+        setChapterPreviewSides((prev) => {
             const next = { ...prev };
             idsToClose.forEach((id) => {
                 delete next[id];

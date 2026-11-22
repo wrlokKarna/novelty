@@ -65,8 +65,8 @@ export function PreviewPane({
             : 'Move Preview Right';
     const SplitIcon =
         previewPosition === 'right'
-            ? IconLayoutSidebarLeftExpand
-            : IconLayoutSidebarRightExpand;
+            ? IconLayoutSidebarRightExpand
+            : IconLayoutSidebarLeftExpand;
 
     return (
         <div
@@ -77,19 +77,9 @@ export function PreviewPane({
                 color: '#e5e5e7',
             }}
         >
-            {/* Pinned Sticky Top Bar: PREVIEW | Centered Underline Tabs | Larger Split + Fullscreen + Close Icons */}
+            {/* Pinned Sticky Top Bar: Corner PREVIEW | Centered Book & Chapter Name | Right Action Icons */}
             <div className={styles.unifiedSplitHeaderRow}>
-                <span
-                    className={styles.paneTitleBadge}
-                    style={{
-                        lineHeight: 1.2,
-                        paddingBottom: '10px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                    }}
-                >
-                    PREVIEW
-                </span>
+                <span className={styles.paneTitleBadge}>PREVIEW</span>
 
                 <div className={styles.previewCenterTabsGroup}>
                     <button
