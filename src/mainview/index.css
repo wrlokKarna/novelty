@@ -313,6 +313,7 @@ body {
 
         &.collapsed .sidebar-collapsed.right {
             width: 24px;
+            width: 16px;
             height: 100%;
             display: flex;
             align-items: center;
