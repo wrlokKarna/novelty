@@ -1,36 +1,38 @@
-import { toggleCodeBlock } from '@platejs/code-block';
-import { toggleBulletedList, toggleNumberedList } from '@platejs/list-classic';
 import { KEYS, type SlateEditor } from 'platejs';
 
-export { toggleBulletedList, toggleCodeBlock, toggleNumberedList };
+export const isBlockActive = (editor: SlateEditor, type: string): boolean => {
+    if (!editor.selection) return false;
+    const entry = editor.api.block({ at: editor.selection, highest: true });
+    return entry ? entry[0].type === type : false;
+};
 
-/**
- * Apply the block type chosen from the `/` menu to the current block. The
- * slash input has already been removed by the combobox, so the selection sits
- * in the block that should be converted.
- *
- * Standalone transforms are used instead of `editor.tf.<pluginKey>` so the
- * shared editor kit does not need to be typed as a tuple.
- */
-export function applyBlockCommand(editor: SlateEditor, type: string) {
-    switch (type) {
-        case KEYS.ulClassic:
-            return toggleBulletedList(editor);
-        case KEYS.olClassic:
-            return toggleNumberedList(editor);
-        case KEYS.blockquote:
-            return toggleBlockquote(editor);
-        case KEYS.codeBlock:
-            return toggleCodeBlock(editor);
-        default:
-            return editor.tf.toggleBlock(type);
-    }
-}
+export const setHeadingBlock = (editor: SlateEditor, type: string): void => {
+    if (!editor.selection) return;
 
-export function isBlockActive(editor: SlateEditor, type: string): boolean {
-    return editor.api.some({ match: { type } });
-}
+    const entry = editor.api.block({ at: editor.selection, highest: true });
+    if (!entry) return;
 
-export function toggleBlockquote(editor: SlateEditor) {
-    return editor.tf.toggleBlock(KEYS.blockquote, { wrap: true });
-}
+    const [, path] = entry;
+    const currentType = entry[0].type;
+
+    // Toggle back to normal paragraph if clicking the already-active heading
+    const nextType = type !== KEYS.p && currentType === type ? KEYS.p : type;
+
+    editor.tf.setNodes({ type: nextType }, { at: path });
+};
+
+export const toggleBlockquote = (editor: SlateEditor): void => {
+    editor.tf.toggleBlock(KEYS.blockquote);
+};
+
+export const toggleCodeBlock = (editor: SlateEditor): void => {
+    editor.tf.toggleBlock(KEYS.codeBlock);
+};
+
+export const toggleBulletedList = (editor: SlateEditor): void => {
+    editor.tf.toggleBlock(KEYS.ulClassic);
+};
+
+export const toggleNumberedList = (editor: SlateEditor): void => {
+    editor.tf.toggleBlock(KEYS.olClassic);
+};
