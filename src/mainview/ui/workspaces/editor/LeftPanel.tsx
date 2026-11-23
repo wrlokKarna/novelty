@@ -80,6 +80,7 @@ type Props = {
     chaptersLoading?: boolean;
     activeTabId: string | null;
     openTabIds: ReadonlySet<string>;
+    previewTabIds?: ReadonlySet<string>;
     onModeChange: (mode: EditorPanelTabs) => void;
     onSubTabChange: (tab: ExplorerCategory) => void;
     onCollapseToggle: () => void;
@@ -87,8 +88,12 @@ type Props = {
     handleNewChapter: () => void;
     handleNewCompendiumEntry: (cat: CompendiumCategory) => void;
     handleEditTemplate: () => void;
-    openChapter: (c: Chapter) => void;
-    openCompendiumEntry: (id: string, cat: CompendiumCategory) => void;
+    openChapter: (c: Chapter, options?: { permanent?: boolean }) => void;
+    openCompendiumEntry: (
+        id: string,
+        cat: CompendiumCategory,
+        options?: { permanent?: boolean }
+    ) => void;
     deleteChapter: (c: Chapter) => void;
     renameEntry: (
         id: string,
@@ -113,6 +118,7 @@ export default function LeftPanel({
     mode,
     activeTabId,
     openTabIds,
+    previewTabIds,
     explorerTab,
     chapters,
     characters,
@@ -235,13 +241,26 @@ export default function LeftPanel({
     };
 
     const handleOpenEntry = (entry: ExplorerEntry) => {
-        if (explorerTab === 'chapters') openChapter(entry as Chapter);
-        else openCompendiumEntry(entry.id, explorerTab);
+        if (explorerTab === 'chapters') {
+            openChapter(entry as Chapter, { permanent: false });
+        } else {
+            openCompendiumEntry(entry.id, explorerTab, { permanent: false });
+        }
+    };
+
+    const handlePinEntry = (
+        e: React.MouseEvent<HTMLDivElement>,
+        entry: ExplorerEntry
+    ) => {
+        e.stopPropagation();
+        if (explorerTab === 'chapters') {
+            openChapter(entry as Chapter, { permanent: true });
+        } else {
+            openCompendiumEntry(entry.id, explorerTab, { permanent: true });
+        }
     };
 
     const handleDeleteEntry = (entry: ExplorerEntry) => {
-        const label = getEntryLabel(entry);
-        /*if (!confirm(`Delete "${label}"?`)) return;*/
         if (explorerTab === 'chapters') deleteChapter(entry as Chapter);
         else deleteCompendiumEntry(entry.id, explorerTab);
     };
@@ -266,17 +285,15 @@ export default function LeftPanel({
                     }
                 >
                     {!isExpanded ? (
-                        <>
-                            <button
-                                type="button"
-                                className="sidebar-collapsed left"
-                                onClick={onCollapseToggle}
-                                title="Open sidebar"
-                                aria-label="Open sidebar"
-                            >
-                                <IconChevronRight size={20} />
-                            </button>
-                        </>
+                        <button
+                            type="button"
+                            className="sidebar-collapsed left"
+                            onClick={onCollapseToggle}
+                            title="Open sidebar"
+                            aria-label="Open sidebar"
+                        >
+                            <IconChevronRight size={20} />
+                        </button>
                     ) : (
                         <>
                             {/* HEADER: title, template edit, pin, collapse */}
@@ -417,10 +434,19 @@ export default function LeftPanel({
                                                                 openTabIds.has(
                                                                     entry.id
                                                                 );
+                                                            const isPreview =
+                                                                Boolean(
+                                                                    previewTabIds?.has(
+                                                                        entry.id
+                                                                    )
+                                                                );
 
                                                             return (
                                                                 <div
                                                                     key={
+                                                                        entry.id
+                                                                    }
+                                                                    data-item-id={
                                                                         entry.id
                                                                     }
                                                                     ref={(
@@ -436,8 +462,24 @@ export default function LeftPanel({
                                                                             entry
                                                                         )
                                                                     }
+                                                                    onDoubleClick={(
+                                                                        e
+                                                                    ) =>
+                                                                        handlePinEntry(
+                                                                            e,
+                                                                            entry
+                                                                        )
+                                                                    }
                                                                 >
-                                                                    <div className="left-side">
+                                                                    <div
+                                                                        className="left-side"
+                                                                        style={{
+                                                                            fontStyle:
+                                                                                isPreview
+                                                                                    ? 'italic'
+                                                                                    : 'normal',
+                                                                        }}
+                                                                    >
                                                                         {isManuscript && (
                                                                             <span className="item-index">
                                                                                 {index +
@@ -491,9 +533,22 @@ export default function LeftPanel({
                                                                                 ) =>
                                                                                     e.stopPropagation()
                                                                                 }
+                                                                                onDoubleClick={(
+                                                                                    e
+                                                                                ) =>
+                                                                                    e.stopPropagation()
+                                                                                }
                                                                             />
                                                                         ) : (
-                                                                            <span className="item-label">
+                                                                            <span
+                                                                                className="item-label"
+                                                                                style={{
+                                                                                    fontStyle:
+                                                                                        isPreview
+                                                                                            ? 'italic'
+                                                                                            : 'normal',
+                                                                                }}
+                                                                            >
                                                                                 {
                                                                                     label
                                                                                 }
@@ -517,6 +572,11 @@ export default function LeftPanel({
                                                                                         label
                                                                                     );
                                                                                 }}
+                                                                                onDoubleClick={(
+                                                                                    e
+                                                                                ) =>
+                                                                                    e.stopPropagation()
+                                                                                }
                                                                             >
                                                                                 <IconPencil
                                                                                     size={
@@ -537,6 +597,11 @@ export default function LeftPanel({
                                                                                         entry
                                                                                     );
                                                                                 }}
+                                                                                onDoubleClick={(
+                                                                                    e
+                                                                                ) =>
+                                                                                    e.stopPropagation()
+                                                                                }
                                                                             >
                                                                                 <IconTrash
                                                                                     size={

@@ -424,16 +424,42 @@ function App() {
     const editorRef = useRef<RichTextEditorHandle>(null);
 
     // =========================================================================
-    // TEMPORARY PREVIEW TAB (ITALIC SINGLE-CLICK VS PERMANENT DOUBLE-CLICK)
+    // TEMPORARY PREVIEW TAB (GLOBAL SINGLE ITALIC TAB ACROSS ALL CATEGORIES)
     // =========================================================================
     const [previewTabId, setPreviewTabId] = useState<string | null>(null);
+    const previewTabIdRef = useRef<string | null>(null);
+    const lastOpenedTimeRef = useRef<Record<string, number>>({});
     const lastSidebarClickRef = useRef<{ id: string; time: number }>({
         id: '',
         time: 0,
     });
 
+    const previewTabIdSet = useMemo(() => {
+        const s = new Set<string>();
+        if (previewTabId) s.add(previewTabId);
+        return s;
+    }, [previewTabId]);
+
+    const setGlobalPreviewTabId = useCallback((tabId: string | null) => {
+        previewTabIdRef.current = tabId;
+        setPreviewTabId(tabId);
+    }, []);
+
+    const clearAllPreviewTabIds = useCallback(() => {
+        previewTabIdRef.current = null;
+        setPreviewTabId(null);
+    }, []);
+
+    const isTabPreview = useCallback(
+        (tabId: string) => previewTabId === tabId,
+        [previewTabId]
+    );
+
     const promoteTabToPermanent = useCallback((tabId: string) => {
-        setPreviewTabId((prev) => (prev === tabId ? null : prev));
+        if (previewTabIdRef.current === tabId) {
+            previewTabIdRef.current = null;
+            setPreviewTabId(null);
+        }
     }, []);
 
     // =========================================================================
@@ -788,13 +814,6 @@ function App() {
                           name: (e.name || '').trim(),
                       }));
 
-            container
-                .querySelectorAll<HTMLElement>('.sidebar-item-preview-italic')
-                .forEach((el) => {
-                    el.classList.remove('sidebar-item-preview-italic');
-                    el.style.fontStyle = '';
-                });
-
             if (entries.length === 0) return;
 
             const queuesByName = new Map<
@@ -843,12 +862,6 @@ function App() {
                 }
                 rowEl.dataset.sidebarBoundId = matched.id;
                 rowEl.dataset.sidebarBoundName = matched.name;
-
-                if (previewTabId === matched.id) {
-                    rowEl.classList.add('sidebar-item-preview-italic');
-                    rowEl.style.fontStyle = 'italic';
-                    textParent.style.fontStyle = 'italic';
-                }
             }
         };
 
@@ -868,13 +881,12 @@ function App() {
         items,
         loreEntries,
         explorerTab,
-        previewTabId,
         isCollapsed,
         isLeftHovered,
     ]);
 
     useEffect(() => {
-        const targetId = previewTabId || activeTabId;
+        const targetId = activeTabId;
         if (!targetId) return;
         const container = leftPanelContainerRef.current;
         if (!container) return;
@@ -898,7 +910,6 @@ function App() {
         organizations.length,
         items.length,
         loreEntries.length,
-        previewTabId,
         activeTabId,
     ]);
 
@@ -1696,43 +1707,52 @@ function App() {
     // =========================================================================
     // CLOSE TAB, CLOSE RIGHT TABS, CLOSE LEFT TABS, CLOSE ALL TABS HANDLERS
     // =========================================================================
-    const getNextActiveTabIdAfterClosing = (
-        currentTabs: FileTab[],
-        closeSet: Set<string>,
-        currentActiveId: string | null
-    ): string | null => {
-        tabActivationHistoryRef.current =
-            tabActivationHistoryRef.current.filter((id) => !closeSet.has(id));
+    const getNextActiveTabIdAfterClosing = useCallback(
+        (
+            currentTabs: FileTab[],
+            closeSet: Set<string>,
+            currentActiveId: string | null
+        ): string | null => {
+            tabActivationHistoryRef.current =
+                tabActivationHistoryRef.current.filter(
+                    (id) => !closeSet.has(id)
+                );
 
-        if (!currentActiveId || !closeSet.has(currentActiveId)) {
-            return currentActiveId;
-        }
-
-        const remainingIds = new Set(
-            currentTabs.filter((t) => !closeSet.has(t.id)).map((t) => t.id)
-        );
-
-        for (let i = tabActivationHistoryRef.current.length - 1; i >= 0; i--) {
-            const candidateId = tabActivationHistoryRef.current[i];
-            if (remainingIds.has(candidateId)) {
-                return candidateId;
+            if (!currentActiveId || !closeSet.has(currentActiveId)) {
+                return currentActiveId;
             }
-        }
 
-        const closedIdx = currentTabs.findIndex(
-            (t) => t.id === currentActiveId
-        );
-        if (closedIdx > 0) {
-            for (let i = closedIdx - 1; i >= 0; i--) {
-                if (!closeSet.has(currentTabs[i].id)) {
-                    return currentTabs[i].id;
+            const remainingIds = new Set(
+                currentTabs.filter((t) => !closeSet.has(t.id)).map((t) => t.id)
+            );
+
+            for (
+                let i = tabActivationHistoryRef.current.length - 1;
+                i >= 0;
+                i--
+            ) {
+                const candidateId = tabActivationHistoryRef.current[i];
+                if (remainingIds.has(candidateId)) {
+                    return candidateId;
                 }
             }
-        }
 
-        const remaining = currentTabs.filter((t) => !closeSet.has(t.id));
-        return remaining.length > 0 ? remaining[0].id : null;
-    };
+            const closedIdx = currentTabs.findIndex(
+                (t) => t.id === currentActiveId
+            );
+            if (closedIdx > 0) {
+                for (let i = closedIdx - 1; i >= 0; i--) {
+                    if (!closeSet.has(currentTabs[i].id)) {
+                        return currentTabs[i].id;
+                    }
+                }
+            }
+
+            const remaining = currentTabs.filter((t) => !closeSet.has(t.id));
+            return remaining.length > 0 ? remaining[0].id : null;
+        },
+        []
+    );
 
     const closeMultipleTabs = (idsToClose: string[]) => {
         if (idsToClose.length === 0) {
@@ -1775,7 +1795,10 @@ function App() {
             return next;
         });
 
-        setPreviewTabId((prev) => (prev && closeSet.has(prev) ? null : prev));
+        if (previewTabIdRef.current && closeSet.has(previewTabIdRef.current)) {
+            previewTabIdRef.current = null;
+            setPreviewTabId(null);
+        }
 
         idsToClose.forEach((id) => {
             delete tabRefs.current[id];
@@ -2184,7 +2207,7 @@ function App() {
             setChapterPreviewFullscreenMap(restoredFsMap);
             chapterPreviewFullscreenMapRef.current = restoredFsMap;
             setTileSplitRatio(savedState?.tileSplitRatio ?? 50);
-            setPreviewTabId(null);
+            clearAllPreviewTabIds();
             setTabContents({});
             setCompendiumEntries({});
             setIsScratchOpen(false);
@@ -2409,6 +2432,7 @@ function App() {
         setCharCount(text.length);
     }
 
+    // Newly created chapters open permanently (non-italic); once closed and reopened, single-click opens in italics
     async function handleNewChapter() {
         if (!currentProject) return;
         const chapterList = await rpc.request['db:get-chapters'](
@@ -2472,6 +2496,7 @@ function App() {
     async function renameChapter(id: string, title: string) {
         const trimmed = title.trim();
         if (!trimmed) return;
+        promoteTabToPermanent(id);
         await rpc.request['db:update-chapter']({
             id,
             data: { title: trimmed },
@@ -2494,15 +2519,20 @@ function App() {
             await renameChapter(id, title);
             return;
         }
-        await handleUpdateCompendiumEntry(id, category, 'name', title);
+        await handleUpdateCompendiumEntry(id, category, 'name', title, true);
     }
 
-    async function openChapterTab(chapter: Chapter) {
+    async function openChapterTab(
+        chapter: Chapter,
+        options?: { permanent?: boolean }
+    ) {
         const now = Date.now();
         const isRapidDoubleClick =
-            lastSidebarClickRef.current.id === chapter.id &&
-            now - lastSidebarClickRef.current.time < 420;
+            options?.permanent === true ||
+            (lastSidebarClickRef.current.id === chapter.id &&
+                now - lastSidebarClickRef.current.time < 420);
         lastSidebarClickRef.current = { id: chapter.id, time: now };
+        lastOpenedTimeRef.current[chapter.id] = now;
 
         const c = await rpc.request['db:get-chapter'](chapter.id);
         if (c?.content) {
@@ -2545,9 +2575,11 @@ function App() {
 
             if (isRapidDoubleClick || linkingSourceId) {
                 setOpenTabs((prev) => [...prev, newTab]);
-                setPreviewTabId(null);
+                if (previewTabIdRef.current === chapter.id) {
+                    setGlobalPreviewTabId(null);
+                }
             } else {
-                const replacedPreviewId = previewTabId;
+                const replacedPreviewId = previewTabIdRef.current;
                 setOpenTabs((prev) => {
                     if (replacedPreviewId) {
                         const previewIdx = prev.findIndex(
@@ -2567,7 +2599,7 @@ function App() {
                             (id) => id !== replacedPreviewId
                         );
                 }
-                setPreviewTabId(chapter.id);
+                setGlobalPreviewTabId(chapter.id);
             }
         }
 
@@ -2578,10 +2610,6 @@ function App() {
 
         setIsScratchOpen(false);
         setActiveTabId(chapter.id);
-
-        if (isRapidDoubleClick) {
-            openChapterSplitPreview(chapter.id, 'chapter');
-        }
     }
 
     function openPlotArchitectureTab(view: PlotArchitectureViewTab = 'acts') {
@@ -2640,6 +2668,7 @@ function App() {
         }
     }, [activeTabId, currentProject?.id, openTabs.length]);
 
+    // Newly created compendium entries open permanently (non-italic); once closed and reopened, single-click opens in italics
     async function handleNewCompendiumEntry(category: CompendiumCategory) {
         if (!currentProject) return;
 
@@ -2698,6 +2727,7 @@ function App() {
         }
 
         if (newEntry && (newEntry as { id: string }).id) {
+            lastOpenedTimeRef.current[id] = Date.now();
             setCompendiumEntries((prev) => ({ ...prev, [id]: newEntry }));
 
             switch (category) {
@@ -2737,12 +2767,14 @@ function App() {
 
     async function handleOpenCompendiumEntry(
         entryId: string,
-        category: CompendiumCategory
+        category: CompendiumCategory,
+        options?: { permanent?: boolean }
     ) {
         const now = Date.now();
         const isRapidDoubleClick =
-            lastSidebarClickRef.current.id === entryId &&
-            now - lastSidebarClickRef.current.time < 420;
+            options?.permanent === true ||
+            (lastSidebarClickRef.current.id === entryId &&
+                now - lastSidebarClickRef.current.time < 420);
         lastSidebarClickRef.current = { id: entryId, time: now };
 
         try {
@@ -2766,6 +2798,7 @@ function App() {
             }
 
             if (entry && (entry as { id: string }).id) {
+                lastOpenedTimeRef.current[entryId] = Date.now();
                 setCompendiumEntries((prev) => ({ ...prev, [entryId]: entry }));
                 const existingTab = openTabs.find((t) => t.id === entryId);
                 if (existingTab) {
@@ -2787,9 +2820,11 @@ function App() {
 
                     if (isRapidDoubleClick || linkingSourceId) {
                         setOpenTabs((prev) => [...prev, newTab]);
-                        setPreviewTabId(null);
+                        if (previewTabIdRef.current === entryId) {
+                            setGlobalPreviewTabId(null);
+                        }
                     } else {
-                        const replacedPreviewId = previewTabId;
+                        const replacedPreviewId = previewTabIdRef.current;
                         setOpenTabs((prev) => {
                             if (replacedPreviewId) {
                                 const previewIdx = prev.findIndex(
@@ -2809,7 +2844,7 @@ function App() {
                                     (id) => id !== replacedPreviewId
                                 );
                         }
-                        setPreviewTabId(entryId);
+                        setGlobalPreviewTabId(entryId);
                     }
                 }
 
@@ -2915,9 +2950,22 @@ function App() {
         entryId: string,
         category: CompendiumCategory,
         field: string,
-        value: unknown
+        value: unknown,
+        forcePin = false
     ) {
-        promoteTabToPermanent(entryId);
+        const openedAt = lastOpenedTimeRef.current[entryId] ?? 0;
+        const currentEntry = compendiumEntries[entryId] as
+            Record<string, unknown> | undefined;
+        const prevSerialized = JSON.stringify(currentEntry?.[field] ?? null);
+        const nextSerialized = JSON.stringify(value ?? null);
+
+        // Only promote to permanent when the user genuinely edits data (ignore initial mount syncs within 500ms)
+        if (
+            forcePin ||
+            (Date.now() - openedAt > 500 && prevSerialized !== nextSerialized)
+        ) {
+            promoteTabToPermanent(entryId);
+        }
         try {
             let updated: unknown;
             switch (category) {
@@ -3738,7 +3786,7 @@ function App() {
     const handleCloseTab = (id: string, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
         setTileMenuState(null);
-        setPreviewTabId((prev) => (prev === id ? null : prev));
+        promoteTabToPermanent(id);
         setLinkingSourceId((prev) => (prev === id ? null : prev));
         closeChapterSplitPreview(id);
         handleUnlinkChapter(id);
@@ -3931,6 +3979,14 @@ function App() {
                             (s) => s.chapterId === chapter.id
                         )}
                         onUpdate={async (field, value) => {
+                            if (
+                                Date.now() -
+                                    (lastOpenedTimeRef.current[chapter.id] ??
+                                        0) >
+                                500
+                            ) {
+                                promoteTabToPermanent(chapter.id);
+                            }
                             if (field === 'plotThreads') {
                                 const threads = value as {
                                     chapterId: string;
@@ -3980,6 +4036,7 @@ function App() {
                             }
                         }}
                         onMoveToDraft={async () => {
+                            promoteTabToPermanent(chapter.id);
                             await rpc.request['db:update-chapter']({
                                 id: chapter.id,
                                 data: { status: 'draft' } as any,
@@ -4003,6 +4060,7 @@ function App() {
                             }
                         }}
                         onSceneCreate={async (sequenceId) => {
+                            promoteTabToPermanent(chapter.id);
                             const seq = sequenceId
                                 ? storySequences.find(
                                       (s) => s.id === sequenceId
@@ -4048,6 +4106,7 @@ function App() {
                             );
                         }}
                         onSceneUpdate={async (id, field, value) => {
+                            promoteTabToPermanent(chapter.id);
                             await rpc.request['db:update-story-scene']({
                                 id,
                                 data: { [field]: value } as any,
@@ -4108,6 +4167,7 @@ function App() {
                             );
                         }}
                         onSequenceCreate={async () => {
+                            promoteTabToPermanent(chapter.id);
                             const chapterSeqs = storySequences.filter(
                                 (s) => s.chapterId === chapter.id
                             );
@@ -4148,6 +4208,7 @@ function App() {
                             );
                         }}
                         onSequenceUpdate={async (id, field, value) => {
+                            promoteTabToPermanent(chapter.id);
                             await rpc.request['db:update-story-sequence']({
                                 id,
                                 data: { [field]: value } as any,
@@ -4249,7 +4310,14 @@ function App() {
                         tabId={chapterId}
                         initialContent={tabContents[chapterId] || ''}
                         onChange={(content) => {
-                            promoteTabToPermanent(chapterId);
+                            if (
+                                Date.now() -
+                                    (lastOpenedTimeRef.current[chapterId] ??
+                                        0) >
+                                500
+                            ) {
+                                promoteTabToPermanent(chapterId);
+                            }
                             setTabContents((prev) => ({
                                 ...prev,
                                 [chapterId]: content,
@@ -5418,7 +5486,7 @@ function App() {
                     <LeftPanel
                         width={leftSidebarWidth}
                         openTabIds={openTabIds}
-                        previewTabId={previewTabId}
+                        previewTabIds={previewTabIdSet}
                         legacyBluePanel={
                             settings?.appearance?.legacyBluePanel ?? false
                         }
@@ -5448,7 +5516,9 @@ function App() {
                                 setExplorerTab('chapters');
                             else setExplorerTab('character');
                         }}
-                        onSubTabChange={(tab) => setExplorerTab(tab)}
+                        onSubTabChange={(tab) => {
+                            setExplorerTab(tab);
+                        }}
                         chapters={chapters}
                         characters={characters}
                         locations={locations}
@@ -5459,9 +5529,9 @@ function App() {
                         handleNewChapter={handleNewChapter}
                         handleNewCompendiumEntry={handleNewCompendiumEntry}
                         handleEditTemplate={() => handleEditTemplate()}
-                        openChapter={(c) => openChapterTab(c)}
-                        openCompendiumEntry={(id, cat) =>
-                            handleOpenCompendiumEntry(id, cat)
+                        openChapter={(c, opts) => openChapterTab(c, opts)}
+                        openCompendiumEntry={(id, cat, opts) =>
+                            handleOpenCompendiumEntry(id, cat, opts)
                         }
                         deleteChapter={(c) => {
                             rpc.request['db:delete-chapter'](c.id).then(() => {
@@ -5768,7 +5838,7 @@ function App() {
                                         activeTabId === tab.id;
                                     const isLinkingSource =
                                         linkingSourceId === tab.id;
-                                    const isPreview = previewTabId === tab.id;
+                                    const isPreview = isTabPreview(tab.id);
                                     const dropMode =
                                         tabDropTarget?.tabId === tab.id
                                             ? tabDropTarget.mode
@@ -5830,7 +5900,15 @@ function App() {
                                             }
                                         >
                                             {renderTabIcon(tab)}
-                                            <span>{tab.name}</span>
+                                            <span
+                                                style={{
+                                                    fontStyle: isPreview
+                                                        ? 'italic'
+                                                        : 'normal',
+                                                }}
+                                            >
+                                                {tab.name}
+                                            </span>
                                             <span
                                                 className={styles.tabCloseIcon}
                                                 onClick={(e) =>
