@@ -1,6 +1,8 @@
-import { KEYS, type SlateEditor } from 'platejs';
+import { toggleList } from '@platejs/list-classic';
+import { KEYS } from 'platejs';
+import { type PlateEditor } from 'platejs/react';
 
-export function applyBlockCommand(editor: SlateEditor, type: string) {
+export function applyBlockCommand(editor: PlateEditor, type: string) {
     switch (type) {
         case KEYS.ulClassic:
             return toggleBulletedList(editor);
@@ -15,13 +17,13 @@ export function applyBlockCommand(editor: SlateEditor, type: string) {
     }
 }
 
-export const isBlockActive = (editor: SlateEditor, type: string): boolean => {
+export const isBlockActive = (editor: PlateEditor, type: string): boolean => {
     if (!editor.selection) return false;
     const entry = editor.api.block({ at: editor.selection, highest: true });
     return entry ? entry[0].type === type : false;
 };
 
-export const setHeadingBlock = (editor: SlateEditor, type: string): void => {
+export const setHeadingType = (editor: PlateEditor, type: string): void => {
     if (!editor.selection) return;
 
     const entry = editor.api.block({ at: editor.selection, highest: true });
@@ -36,18 +38,52 @@ export const setHeadingBlock = (editor: SlateEditor, type: string): void => {
     editor.tf.setNodes({ type: nextType }, { at: path });
 };
 
-export const toggleBlockquote = (editor: SlateEditor): void => {
+export const toggleBlockquote = (editor: PlateEditor): void => {
     editor.tf.toggleBlock(KEYS.blockquote);
 };
 
-export const toggleCodeBlock = (editor: SlateEditor): void => {
+export const toggleCodeBlock = (editor: PlateEditor): void => {
     editor.tf.toggleBlock(KEYS.codeBlock);
 };
+export const isListActive = (
+    editor: PlateEditor,
+    listType: string
+): boolean => {
+    const selection = editor.selection;
+    if (!selection) return false;
 
-export const toggleBulletedList = (editor: SlateEditor): void => {
-    editor.tf.toggleBlock(KEYS.ulClassic);
+    try {
+        return editor.api.some({
+            at: selection,
+            match: { type: listType },
+        });
+    } catch {
+        return false;
+    }
 };
 
-export const toggleNumberedList = (editor: SlateEditor): void => {
-    editor.tf.toggleBlock(KEYS.olClassic);
+const toggleListOnCurrentBlock = (
+    editor: PlateEditor,
+    listType: typeof KEYS.ulClassic | typeof KEYS.olClassic
+): void => {
+    const blockEntry = editor.api.block({
+        at: editor.selection ?? undefined,
+    });
+
+    if (!blockEntry) return;
+
+    const [, blockPath] = blockEntry;
+
+    editor.tf.withoutNormalizing(() => {
+        editor.tf.select(blockPath);
+        toggleList(editor, { type: listType });
+    });
+};
+
+export const toggleBulletedList = (editor: PlateEditor): void => {
+    toggleListOnCurrentBlock(editor, KEYS.ulClassic);
+};
+
+export const toggleNumberedList = (editor: PlateEditor): void => {
+    toggleListOnCurrentBlock(editor, KEYS.olClassic);
 };

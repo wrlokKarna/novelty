@@ -26,6 +26,8 @@ import type { PlateEditor } from 'platejs/react';
 import styles from '../App.module.css';
 import {
     isBlockActive,
+    isListActive,
+    setHeadingType,
     toggleBlockquote,
     toggleBulletedList,
     toggleCodeBlock,
@@ -62,7 +64,7 @@ export interface ToolbarDropdownConfig {
 
 export type ToolbarConfigItem = ToolbarButtonConfig | ToolbarDropdownConfig;
 
-function HeadingDropdown({
+function ToolbarDropdown({
     item,
     editor,
     disabled,
@@ -74,10 +76,18 @@ function HeadingDropdown({
     const [open, setOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    const activeOption =
-        (!disabled
-            ? item.items.find((opt) => opt.isActive(editor))
-            : undefined) ?? item.items[0];
+    const matchedOption = !disabled
+        ? item.items.find((opt) => {
+              try {
+                  return opt.isActive(editor);
+              } catch {
+                  return false;
+              }
+          })
+        : undefined;
+
+    const activeOption = matchedOption ?? item.items[0];
+    const hasActiveOption = Boolean(matchedOption);
 
     useEffect(() => {
         if (disabled) setOpen(false);
@@ -115,13 +125,13 @@ function HeadingDropdown({
                     gap: '4px',
                     width: 'auto',
                     fontSize: '12px',
-                    opacity: disabled ? 0.3 : 0.85,
+                    color: hasActiveOption ? '#fff' : undefined,
+                    opacity: disabled ? 0.3 : hasActiveOption ? 1 : 0.85,
                     cursor: disabled ? 'default' : 'pointer',
                     pointerEvents: disabled ? 'none' : undefined,
                 }}
             >
                 <ActiveIcon size={16} stroke={2} />
-                {/*<span>{activeOption.title}</span>*/}
                 <IconChevronDown size={13} stroke={2} />
             </button>
 
@@ -153,8 +163,8 @@ function HeadingDropdown({
                                 role="menuitem"
                                 onMouseDown={(e) => e.preventDefault()}
                                 onClick={() => {
-                                    opt.action(editor);
                                     editor.tf.focus();
+                                    opt.action(editor);
                                     setOpen(false);
                                 }}
                                 style={{
@@ -184,20 +194,6 @@ function HeadingDropdown({
         </div>
     );
 }
-
-export const setHeadingType = (editor: PlateEditor, type: string): void => {
-    if (!editor.selection) return;
-
-    const entry = editor.api.block({ at: editor.selection, highest: true });
-    if (!entry) return;
-
-    const [, path] = entry;
-    const currentType = entry[0].type;
-
-    const nextType = type !== KEYS.p && currentType === type ? KEYS.p : type;
-
-    editor.tf.setNodes({ type: nextType }, { at: path });
-};
 
 export function FormattingToolbar({
     editable,
@@ -295,17 +291,17 @@ export function FormattingToolbar({
             items: [
                 {
                     id: KEYS.ulClassic,
+                    title: 'Bullet List',
                     icon: IconList,
                     action: (ed) => toggleBulletedList(ed),
-                    isActive: (ed) => isBlockActive(ed, KEYS.ulClassic),
-                    title: 'Bullet List',
+                    isActive: (ed) => isListActive(ed, KEYS.ulClassic),
                 },
                 {
                     id: KEYS.olClassic,
+                    title: 'Ordered List',
                     icon: IconListNumbers,
                     action: (ed) => toggleNumberedList(ed),
-                    isActive: (ed) => isBlockActive(ed, KEYS.olClassic),
-                    title: 'Ordered List',
+                    isActive: (ed) => isListActive(ed, KEYS.olClassic),
                 },
             ],
         },
@@ -338,7 +334,7 @@ export function FormattingToolbar({
             {toolbarConfig.map((item, idx) => {
                 if (item.kind === 'dropdown') {
                     return (
-                        <HeadingDropdown
+                        <ToolbarDropdown
                             key={item.id}
                             item={item}
                             editor={editor}
