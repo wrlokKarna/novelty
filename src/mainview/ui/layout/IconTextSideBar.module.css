@@ -47,21 +47,28 @@
         gap: 6px;
         overflow: hidden;
         white-space: nowrap;
+        background-color: var(--bg-elevated);
+        background-color: var(--bg-primary);
 
         &:hover {
             border-color: #4a9eff;
             color: #fff;
             border: 1px solid var(--accent);
             color: var(--accent);
+            border: 1px solid var(--text-accent);
+            color: var(--text-accent);
         }
 
         &.active {
             background: var(--accent-subtle, rgba(240, 160, 80, 0.08));
             border: 1px solid var(--accent);
+            border: 1px solid var(--text-accent);
             color: var(--accent);
+            color: var(--text-accent);
 
             svg {
                 color: var(--accent);
+                color: var(--text-accent);
             }
         }
 

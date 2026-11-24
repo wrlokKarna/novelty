@@ -644,6 +644,7 @@ body {
     height: calc(100% - 8px);
     background: var(--accent-subtle);
     border: 1px solid var(--accent-focus);
+    border-color: var(--border-accent, rgba(212, 168, 83, 0.35));
     border-radius: 6px;
     z-index: 0;
 }
@@ -670,6 +671,7 @@ body {
 
 .bottom-nav-btn.active {
     color: var(--text-accent);
+    border-color: var(--border-accent, rgba(212, 168, 83, 0.35));
     font-weight: 600;
 }
 
@@ -992,8 +994,13 @@ button {
 
     &:hover {
         color: var(--color-primary-hover, #222);
+        color: var(--text-secondary);
+        color: var(--text-accent);
         background-color: var(--color-primary-hover, bisque);
         background-color: var(--color-primary-hover, rgba(74, 158, 255, 0.15));
+        background: var(--accent-subtle);
+        border-color: var(--border-accent, rgba(212, 168, 83, 0.35));
+        background: var(--accent-subtle, rgba(240, 160, 80, 0.08));
     }
 
     &:active {
@@ -1763,6 +1770,7 @@ select {
     padding: 10px 40px 10px 16px;
     background: var(--accent-subtle);
     border: 1px solid var(--accent-focus);
+    border-color: var(--border-accent, rgba(212, 168, 83, 0.35));
     border-radius: 16px;
     color: var(--text-primary);
     font-family: var(--font-sans);
