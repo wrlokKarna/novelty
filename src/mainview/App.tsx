@@ -87,8 +87,8 @@ import type { ParsedEntry } from './services/entryParser';
 import type { ExtractionSource } from './services/textExtractor';
 import { treeEdgeKey, type TreeEdge } from './templates/tree';
 import { DEFAULT_TEMPLATE_COLUMNS } from './types/index';
-import { StatusBar } from './ui/statusBar';
-import type { SaveState } from './ui/statusBar';
+import { StatusBar } from './ui/StatusBar';
+import type { SaveState } from './ui/StatusBar';
 import {
     buildQuickAccessIndex,
     type QuickAccessItem,
