@@ -27,6 +27,7 @@
         "@dnd-kit/utilities": "^3.2.2",
         "@modelcontextprotocol/sdk": "^1.32.2",
         "@platejs/basic-nodes": "^53.0.0",
+        "@platejs/basic-styles": "^53.0.0",
         "@platejs/code-block": "^53.0.0",
         "@platejs/combobox": "^53.0.0",
         "@platejs/floating": "^53.0.0",

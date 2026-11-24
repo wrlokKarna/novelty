@@ -862,11 +862,6 @@ footer {
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
-p {
-    color: #666;
-    line-height: 1.6;
-}
-
 .button-group {
     display: flex;
     gap: 12px;
@@ -1287,6 +1282,22 @@ select {
 
 .plate-combobox-item.is-static:hover {
     background-color: transparent;
+}
+
+.editor-container [data-text-align='left'] {
+    text-align: left;
+}
+
+.editor-container [data-text-align='center'] {
+    text-align: center;
+}
+
+.editor-container [data-text-align='right'] {
+    text-align: right;
+}
+
+.editor-container [data-text-align='justify'] {
+    text-align: justify;
 }
 
 .plate-combobox-item-icon {

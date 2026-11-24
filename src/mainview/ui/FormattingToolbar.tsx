@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { IconProps } from '@tabler/icons-react';
 import {
+    IconAlignCenter,
+    IconAlignJustified,
+    IconAlignLeft,
+    IconAlignRight,
     IconBlockquote,
     IconBold,
     IconChevronDown,
@@ -38,6 +42,53 @@ import { EditorToolbarRight } from './EditorToolbarRight';
 export type IconComponent = React.ForwardRefExoticComponent<
     IconProps & React.RefAttributes<SVGSVGElement>
 >;
+
+export type AlignmentType = 'left' | 'center' | 'justify' | 'right';
+
+function getCurrentAlignment(editor: PlateEditor): AlignmentType {
+    if (!editor.selection) return 'left';
+
+    const entry = editor.api.block({ at: editor.selection }) as
+        [{ textAlign?: AlignmentType }, unknown] | undefined;
+
+    return entry?.[0]?.textAlign ?? 'left';
+}
+
+function isAlignmentActive(editor: PlateEditor, align: AlignmentType): boolean {
+    return getCurrentAlignment(editor) === align;
+}
+
+function applyAlignmentDomFallback(align: AlignmentType): void {
+    const anchor = window.getSelection()?.anchorNode;
+    const elementEl =
+        anchor instanceof HTMLElement
+            ? anchor.closest<HTMLElement>('[data-slate-node="element"]')
+            : anchor?.parentElement?.closest<HTMLElement>(
+                  '[data-slate-node="element"]'
+              );
+
+    if (elementEl) {
+        elementEl.setAttribute('data-text-align', align);
+        elementEl.style.textAlign = align;
+    }
+}
+
+function setAlignment(editor: PlateEditor, align: AlignmentType): void {
+    if (!editor.selection) return;
+
+    editor.tf.setNodes(
+        {
+            textAlign: align,
+            'data-text-align': align,
+        },
+        {
+            at: editor.selection,
+            block: true,
+        }
+    );
+
+    applyAlignmentDomFallback(align);
+}
 
 export interface ToolbarButtonConfig {
     id: string;
@@ -284,6 +335,40 @@ export function FormattingToolbar({
             action: (ed) => ed.tf.toggleMark(KEYS.strikethrough),
             isActive: (ed) => !!ed.api.mark(KEYS.strikethrough),
             title: 'Strikethrough',
+        },
+        {
+            id: 'alignment',
+            kind: 'dropdown',
+            items: [
+                {
+                    id: 'align-left',
+                    title: 'Align Left',
+                    icon: IconAlignLeft,
+                    action: (ed) => setAlignment(ed, 'left'),
+                    isActive: (ed) => isAlignmentActive(ed, 'left'),
+                },
+                {
+                    id: 'align-center',
+                    title: 'Align Center',
+                    icon: IconAlignCenter,
+                    action: (ed) => setAlignment(ed, 'center'),
+                    isActive: (ed) => isAlignmentActive(ed, 'center'),
+                },
+                {
+                    id: 'align-right',
+                    title: 'Align Right',
+                    icon: IconAlignRight,
+                    action: (ed) => setAlignment(ed, 'right'),
+                    isActive: (ed) => isAlignmentActive(ed, 'right'),
+                },
+                {
+                    id: 'align-justify',
+                    title: 'Justify',
+                    icon: IconAlignJustified,
+                    action: (ed) => setAlignment(ed, 'justify'),
+                    isActive: (ed) => isAlignmentActive(ed, 'justify'),
+                },
+            ],
         },
         {
             id: 'lists',

@@ -72,10 +72,8 @@ const toggleListOnCurrentBlock = (
 
     if (!blockEntry) return;
 
-    const [, blockPath] = blockEntry;
 
     editor.tf.withoutNormalizing(() => {
-        editor.tf.select(blockPath);
         toggleList(editor, { type: listType });
     });
 };

@@ -7,7 +7,7 @@ import { ListPlugin } from '@platejs/list-classic/react';
 import { SlashInputPlugin, SlashPlugin } from '@platejs/slash-command/react';
 import { KEYS, type SlateEditor } from 'platejs';
 import { ParagraphPlugin } from 'platejs/react';
-
+import { TextAlignPlugin } from '@platejs/basic-styles/react';
 import { SlashInputElement } from './SlashNode';
 
 /**
@@ -22,6 +22,7 @@ export const editorPlugins = [
     BasicMarksPlugin,
     ListPlugin,
     CodeBlockPlugin,
+    TextAlignPlugin,
     SlashPlugin.configure({
         options: {
             triggerQuery: (editor: SlateEditor) =>
