@@ -173,7 +173,14 @@ export function StatusBar({
                         {divider}
                     </>
                 )}
-                <span style={{ textTransform: 'uppercase' }}>novelty</span>
+                <span
+                    style={{
+                        textTransform: 'uppercase',
+                        color: 'var(--text-accent)',
+                    }}
+                >
+                    novelty
+                </span>
             </span>
         </footer>
     );
