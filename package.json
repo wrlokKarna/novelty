@@ -15,7 +15,8 @@
         "build:canary": "vite build && hutch electrobun build --env=canary",
         "build:canary:edge": "vite build && bunx hutch-canary electrobun build --env=canary",
         "type-check": "tsc --noEmit",
-        "lint": "bunx eslint .",
+        "lint": "bunx eslint ./src",
+        "lint:sandbox": "bunx eslint ./.sandbox",
         "format": "prettier --write .",
         "format:check": "prettier --check ."
     },
