@@ -5406,3 +5406,13 @@ textarea {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+.editor-container {
+    .editor-width-cap {
+        .slate-editor {
+            ul {
+                list-style: initial;
+            }
+        }
+    }
+}

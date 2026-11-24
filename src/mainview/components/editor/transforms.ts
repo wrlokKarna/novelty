@@ -1,5 +1,20 @@
 import { KEYS, type SlateEditor } from 'platejs';
 
+export function applyBlockCommand(editor: SlateEditor, type: string) {
+    switch (type) {
+        case KEYS.ulClassic:
+            return toggleBulletedList(editor);
+        case KEYS.olClassic:
+            return toggleNumberedList(editor);
+        case KEYS.blockquote:
+            return toggleBlockquote(editor);
+        case KEYS.codeBlock:
+            return toggleCodeBlock(editor);
+        default:
+            return editor.tf.toggleBlock(type);
+    }
+}
+
 export const isBlockActive = (editor: SlateEditor, type: string): boolean => {
     if (!editor.selection) return false;
     const entry = editor.api.block({ at: editor.selection, highest: true });

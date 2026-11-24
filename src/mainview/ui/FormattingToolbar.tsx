@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import type { IconProps } from '@tabler/icons-react';
 import {
     IconBlockquote,
     IconBold,
@@ -9,9 +10,9 @@ import {
     IconH2,
     IconH3,
     IconItalic,
+    IconLetterP,
     IconList,
     IconListNumbers,
-    IconPilcrow,
     IconStrikethrough,
     IconUnderline,
 } from '@tabler/icons-react';
@@ -32,9 +33,9 @@ import {
 } from '../components/editor/transforms';
 import { EditorToolbarRight } from './EditorToolbarRight';
 
-export type IconComponent = React.ComponentType<{
-    className?: string;
-}>;
+export type IconComponent = React.ForwardRefExoticComponent<
+    IconProps & React.RefAttributes<SVGSVGElement>
+>;
 
 export interface ToolbarButtonConfig {
     id: string;
@@ -121,7 +122,7 @@ function HeadingDropdown({
                 }}
             >
                 <ActiveIcon size={16} stroke={2} />
-                <span>{activeOption.title}</span>
+                {/*<span>{activeOption.title}</span>*/}
                 <IconChevronDown size={13} stroke={2} />
             </button>
 
@@ -230,7 +231,7 @@ export function FormattingToolbar({
                 {
                     id: KEYS.p,
                     title: 'Normal text',
-                    icon: IconPilcrow,
+                    icon: IconLetterP,
                     action: (ed) => setHeadingType(ed, KEYS.p),
                     isActive: (ed) => isBlockActive(ed, KEYS.p),
                 },
