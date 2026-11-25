@@ -1,0 +1,111 @@
+@import './../../../dialogs/variants/SettingsDialog.module.css';
+
+.themeHeader {
+    display: flex;
+    align-items: center;
+}
+
+/* ---------------- Theme list ---------------- */
+
+.themeGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 0 0;
+}
+
+.themeGroupHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.themeGroupTitleWrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.themeGroupTitle {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary, #f3f4f6);
+}
+
+.themeGroupHint {
+    font-size: 11px;
+    color: var(--text-secondary, #8c909c);
+}
+
+.themeGroupActions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.themeGroupActions button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.themeGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 12px;
+    width: 100%;
+    grid-auto-flow: dense;
+}
+
+.emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 28px 16px;
+    border: 1px dashed var(--border-subtle, rgba(255, 255, 255, 0.12));
+    border-radius: var(--radius-lg, 10px);
+    color: var(--text-secondary, #8c909c);
+    text-align: center;
+}
+
+.emptyStateIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    margin-bottom: 4px;
+    border-radius: 50%;
+    background: color-mix(
+        in srgb,
+        var(--accent-primary, #e5a93c) 12%,
+        transparent
+    );
+    color: var(--accent-primary, #e5a93c);
+}
+
+.emptyStateTitle {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary, #d1d5db);
+}
+
+.emptyStateText {
+    max-width: 340px;
+    font-size: 11.5px;
+    line-height: 1.5;
+}
+
+.emptyState button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+}
