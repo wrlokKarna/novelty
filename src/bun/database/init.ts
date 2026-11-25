@@ -269,32 +269,7 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 		);
 	`);
 
-	sqlite.exec(`
-		CREATE TABLE IF NOT EXISTS timeline_events (
-			id TEXT PRIMARY KEY,
-			project_id TEXT REFERENCES projects(id),
-			title TEXT NOT NULL,
-			description TEXT,
-			in_story_date TEXT,
-			date_order INTEGER NOT NULL DEFAULT 0,
-			entity_type TEXT,
-			entity_id TEXT,
-			event_type TEXT NOT NULL DEFAULT 'milestone',
-			chapter_id TEXT REFERENCES chapters(id),
-			metadata TEXT,
-			auto_generated INTEGER NOT NULL DEFAULT 0,
-			created_at INTEGER NOT NULL,
-			updated_at INTEGER NOT NULL
-		);
-	`);
-
-	try {
-		sqlite.exec(
-			`ALTER TABLE timeline_events ADD COLUMN auto_generated INTEGER NOT NULL DEFAULT 0`
-		);
-	} catch {
-		// Column already exists - ignore error
-	}
+	// timeline_events is merged into story_beats; migration handles backfill.
 
 	sqlite.exec(`
 		CREATE TABLE IF NOT EXISTS story_acts (
@@ -373,10 +348,19 @@ CREATE TABLE IF NOT EXISTS scratch_notes (
 			id TEXT PRIMARY KEY,
 			project_id TEXT REFERENCES projects(id),
 			chapter_id TEXT REFERENCES chapters(id),
-			beat_type TEXT NOT NULL,
+			beat_type TEXT NOT NULL DEFAULT 'custom',
 			title TEXT NOT NULL,
 			description TEXT,
 			order_index INTEGER NOT NULL DEFAULT 0,
+			in_story_date TEXT,
+			date_order INTEGER NOT NULL DEFAULT 0,
+			end_in_story_date TEXT,
+			end_date_order INTEGER,
+			entity_type TEXT,
+			entity_id TEXT,
+			event_type TEXT NOT NULL DEFAULT 'story_beat',
+			metadata TEXT,
+			auto_generated INTEGER NOT NULL DEFAULT 0,
 			created_at INTEGER NOT NULL,
 			updated_at INTEGER NOT NULL
 		);

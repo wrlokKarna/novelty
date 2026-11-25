@@ -210,7 +210,12 @@ export function usePlotArchitecture({
         setSequences(s || []);
         setScenes(sc || []);
         setPlotThreads(t || []);
-        setStoryBeats(b || []);
+        setStoryBeats(
+            (b || []).filter(
+                (beat: StoryBeat) =>
+                    beat.eventType === 'story_beat' || !!beat.beatType
+            )
+        );
 
         const filterUnified = (types: string[]) =>
             Array.isArray(allCompendium)
@@ -671,6 +676,14 @@ export function usePlotArchitecture({
             title: 'New Beat',
             description: null,
             orderIndex: storyBeats.length,
+            inStoryDate: null,
+            dateOrder: storyBeats.length,
+            endInStoryDate: null,
+            endDateOrder: null,
+            entityType: null,
+            entityId: null,
+            eventType: 'story_beat',
+            metadata: null,
         });
         await loadData();
     }
@@ -790,7 +803,11 @@ export function usePlotArchitecture({
         await loadData();
     }
 
-    async function handleUpdateBeat(id: string, field: string, value: string) {
+    async function handleUpdateBeat(
+        id: string,
+        field: string,
+        value: string | number | null
+    ) {
         setStoryBeats((prev) =>
             prev.map((b) =>
                 b.id === id ? ({ ...b, [field]: value } as StoryBeat) : b

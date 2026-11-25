@@ -16,7 +16,7 @@ export * as themesDB from './tables/themes';
 export * as templatesDB from './tables/templates.js';
 export * as seriesDB from './tables/series';
 export * as seriesTemplatesDB from './tables/seriesTemplates';
-export * as timelineDB from './tables/timeline.js';
+// timelineDB merged into storyBeatsDB
 export * as usageDB from './tables/usage.js';
 export * as actsDB from './tables/acts.js';
 export * as plotThreadsDB from './tables/plotThreads.js';

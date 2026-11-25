@@ -1,28 +1,28 @@
 import { useEffect, useState } from 'react';
 import type { CompendiumCategory } from '../../shared/types/project/compendium';
-import type { TimelineEvent } from '../../shared/types/project/timeline';
+import type { StoryBeat } from '../../shared/types/project/manuscript';
 import SubDialog from '../dialogs/SubDialog';
-import TimelineEventFormFields, {
-    EMPTY_EVENT_FORM,
-    formValuesFromEvent,
+import TimelineItemFormFields, {
+    EMPTY_ITEM_FORM,
+    formValuesFromItem,
     formValuesFromPartial,
     formValuesToPartial,
-    type EventFormValues,
-} from './TimelineEventForm';
+    type ItemFormValues,
+} from './TimelineItemForm';
 
 // note! marked for delete
 
-interface TimelineEventEditorProps {
+interface TimelineItemEditorProps {
     open: boolean;
     onClose: () => void;
-    onSave: (event: Partial<TimelineEvent>) => void;
-    event?: TimelineEvent | null;
-    draft?: Partial<TimelineEvent> | null;
+    onSave: (event: Partial<StoryBeat>) => void;
+    event?: StoryBeat | null;
+    draft?: Partial<StoryBeat> | null;
     entityOptions: { id: string; name: string; type: CompendiumCategory }[];
     chapterOptions: { id: string; title: string }[];
 }
 
-export default function TimelineEventEditor({
+export default function TimelineItemEditor({
     open,
     onClose,
     onSave,
@@ -30,16 +30,16 @@ export default function TimelineEventEditor({
     draft,
     entityOptions,
     chapterOptions,
-}: TimelineEventEditorProps) {
-    const [values, setValues] = useState<EventFormValues>(EMPTY_EVENT_FORM);
+}: TimelineItemEditorProps) {
+    const [values, setValues] = useState<ItemFormValues>(EMPTY_ITEM_FORM);
 
     useEffect(() => {
         if (event) {
-            setValues(formValuesFromEvent(event));
+            setValues(formValuesFromItem(event));
         } else if (draft) {
             setValues(formValuesFromPartial(draft));
         } else {
-            setValues(EMPTY_EVENT_FORM);
+            setValues(EMPTY_ITEM_FORM);
         }
     }, [event, draft, open]);
 
@@ -52,7 +52,7 @@ export default function TimelineEventEditor({
         <SubDialog
             open={open}
             onClose={onClose}
-            title={event ? 'Edit Event' : 'New Event'}
+            title={event ? 'Edit Item' : 'New Item'}
         >
             <div
                 style={{
@@ -62,7 +62,7 @@ export default function TimelineEventEditor({
                     minWidth: '400px',
                 }}
             >
-                <TimelineEventFormFields
+                <TimelineItemFormFields
                     values={values}
                     onChange={(patch) =>
                         setValues((prev) => ({ ...prev, ...patch }))
@@ -97,3 +97,4 @@ export default function TimelineEventEditor({
         </SubDialog>
     );
 }
+

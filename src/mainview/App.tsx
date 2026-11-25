@@ -6743,14 +6743,16 @@ function App() {
                         <PlotHolePanel
                             context={{
                                 chapters,
-                                timelineEvents: [],
+                                timelineItems: storyBeats,
                                 characters,
                                 locations,
                                 loreEntries,
                                 acts: storyActs,
                                 sequences: storySequences,
                                 plotThreads,
-                                storyBeats,
+                                storyBeats: storyBeats.filter(
+                                    (b) => b.eventType === 'story_beat' || !!b.beatType
+                                ),
                             }}
                             onNavigateChapter={(chapterId) => {
                                 const ch = chapters.find(

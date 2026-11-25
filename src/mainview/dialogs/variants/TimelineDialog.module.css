@@ -423,20 +423,19 @@
     height: 3px;
 }
 
-/* Event Node Cards */
-.eventCard {
+/* Item Node Cards */
+.itemCard {
     background: #17181d;
     border: 1px solid #282a32;
     border-radius: 8px;
-    margin: 10px;
-    padding: 12px 14px;
+    margin: 6px;
+    padding: 6px 10px;
     color: #e2e8f0;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     cursor: pointer;
     user-select: none;
     transition:
@@ -445,29 +444,21 @@
         box-shadow 0.15s ease,
         opacity 0.15s ease,
         filter 0.15s ease;
+    width: calc(100% - 12px);
+    box-sizing: border-box;
 }
 
-.eventCard:hover {
-    transform: translateY(-2px);
+.itemCard:hover {
     border-color: #3f4454;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.eventCardFilteredOut {
+.itemCardFilteredOut {
     opacity: 0.28;
     filter: grayscale(0.5);
 }
 
-.eventCardMini {
-    display: flex;
-    align-items: center;
-    margin: 6px;
-    padding: 6px 10px;
-    font-size: 12px;
-    text-align: left;
-}
-
-.eventCardMini span {
+.itemCardMini span {
     display: block;
     flex: 1;
     min-width: 0;
@@ -476,24 +467,25 @@
     text-overflow: ellipsis;
 }
 
-.eventCardMini:hover {
-    transform: none;
-    background: #1d1f27;
-    border-color: #3f4454;
-    box-shadow: 0 0 0 1px #3f4454;
-
-    background: var(--ctl-hover-bg);
-    border-color: var(--ctl-hover-border);
-    border-color: var(--accent);
-    color: #ffffff;
-    color: var(--accent);
+.itemCardFocused {
+    animation: itemCardPulse 1.6s ease-out;
 }
 
-.eventCardFocused {
-    animation: eventCardPulse 1.6s ease-out;
+.itemCardRange {
+    border-radius: 6px;
 }
 
-@keyframes eventCardPulse {
+.itemCardDragging {
+    opacity: 0.45;
+}
+
+.cellDropTarget {
+    background: rgba(59, 130, 246, 0.12) !important;
+    outline: 1px dashed rgba(96, 165, 250, 0.55);
+    outline-offset: -1px;
+}
+
+@keyframes itemCardPulse {
     0% {
         box-shadow: 0 0 0 2px #f59e0b;
         background: rgba(245, 158, 11, 0.22);
@@ -612,3 +604,13 @@
     position: relative;
     touch-action: pan-x pan-y;
 }
+
+.timelineCell {
+    border-right: 1px solid #23242b;
+    border-bottom: 1px solid #23242b;
+    background: transparent;
+    transition: background 0.15s ease;
+    overflow: visible;
+    position: relative;
+}
+

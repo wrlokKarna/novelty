@@ -1,35 +1,35 @@
 import { EVENT_LABELS } from '@/shared/constants/template';
-import type { TimelineEvent } from '@/shared/types/project/timeline';
+import type { StoryBeat } from '@/shared/types/project/manuscript';
 import styles from './../../dialogs/variants/TimelineDialog.module.css';
 
 interface OldTimeLineProps {
     loading: boolean;
-    events: TimelineEvent[];
-    handleAddEvent: () => void;
-    handleEditEvent: (ev: TimelineEvent) => void;
-    handleDeleteEvent: () => void;
+    items: StoryBeat[];
+    handleAddItem: () => void;
+    handleEditItem: (ev: StoryBeat) => void;
+    handleDeleteItem: () => void;
     handleAutoGenerate: () => void;
-    selectedEvent: TimelineEvent | null;
+    selectedItem: StoryBeat | null;
     overhaulToggle: boolean;
     SetOverhaulToggle: React.Dispatch<React.SetStateAction<boolean>>;
     containerRef: React.RefObject<HTMLDivElement>;
     handleOpenEntity: () => void;
-    eventTypeColor: (type: string) => string;
+    itemTypeColor: (type: string) => string;
 }
 
 export default function OldTimeLine({
     loading,
-    events,
-    handleAddEvent,
-    handleEditEvent,
-    handleDeleteEvent,
+    items,
+    handleAddItem,
+    handleEditItem,
+    handleDeleteItem,
     handleAutoGenerate,
-    selectedEvent,
+    selectedItem,
     overhaulToggle,
     SetOverhaulToggle,
     containerRef,
     handleOpenEntity,
-    eventTypeColor,
+    itemTypeColor,
 }: OldTimeLineProps) {
     return (
         <div
@@ -40,19 +40,19 @@ export default function OldTimeLine({
             }}
         >
             <div className={styles.timelineToolbar}>
-                <h3>{loading ? 'Loading...' : `${events.length} events`}</h3>
-                <button className={styles.primaryBtn} onClick={handleAddEvent}>
-                    + Add Event
+                <h3>{loading ? 'Loading...' : `${items.length} events`}</h3>
+                <button className={styles.primaryBtn} onClick={handleAddItem}>
+                    + Add Item
                 </button>
                 <button onClick={handleAutoGenerate}>Auto-Detect</button>
-                {selectedEvent && (
+                {selectedItem && (
                     <>
-                        <button onClick={() => handleEditEvent(selectedEvent)}>
+                        <button onClick={() => handleEditItem(selectedItem)}>
                             Edit
                         </button>
                         <button
                             className={styles.dangerBtn}
-                            onClick={handleDeleteEvent}
+                            onClick={handleDeleteItem}
                         >
                             Delete
                         </button>
@@ -68,9 +68,9 @@ export default function OldTimeLine({
             </div>
             <div ref={containerRef} className={styles.timelineContainer} />
 
-            {selectedEvent && (
+            {selectedItem && (
                 <div className={styles.eventDetail}>
-                    <h3>{selectedEvent.title}</h3>
+                    <h3>{selectedItem.title}</h3>
                     <div
                         style={{
                             display: 'flex',
@@ -81,25 +81,25 @@ export default function OldTimeLine({
                         <div>
                             <span className={styles.label}>Type</span>
                             <p>
-                                {EVENT_LABELS[selectedEvent.eventType] ||
-                                    selectedEvent.eventType}
+                                {EVENT_LABELS[selectedItem.eventType] ||
+                                    selectedItem.eventType}
                             </p>
                         </div>
-                        {selectedEvent.inStoryDate && (
+                        {selectedItem.inStoryDate && (
                             <div>
                                 <span className={styles.label}>Date</span>
-                                <p>{selectedEvent.inStoryDate}</p>
+                                <p>{selectedItem.inStoryDate}</p>
                             </div>
                         )}
-                        {selectedEvent.description && (
+                        {selectedItem.description && (
                             <div>
                                 <span className={styles.label}>
                                     Description
                                 </span>
-                                <p>{selectedEvent.description}</p>
+                                <p>{selectedItem.description}</p>
                             </div>
                         )}
-                        {selectedEvent.entityId && (
+                        {selectedItem.entityId && (
                             <div>
                                 <span className={styles.label}>Entity</span>
                                 <p>
@@ -119,7 +119,7 @@ export default function OldTimeLine({
                                 </p>
                             </div>
                         )}
-                        {selectedEvent.autoGenerated && (
+                        {selectedItem.autoGenerated && (
                             <div className={styles.autoGenNotice}>
                                 Auto-generated
                             </div>
@@ -134,7 +134,7 @@ export default function OldTimeLine({
                         <span
                             className={styles.legendDot}
                             style={{
-                                background: eventTypeColor(type),
+                                background: itemTypeColor(type),
                             }}
                         />
                         <span>{label}</span>
@@ -144,3 +144,4 @@ export default function OldTimeLine({
         </div>
     );
 }
+

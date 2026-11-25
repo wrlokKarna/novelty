@@ -38,12 +38,12 @@ type Props = {
     >;
     tabs: FileTab[];
     categoryData: Record<string, TimelineDataItem[]>;
-    onAddEvent: () => void;
+    onAddItem: () => void;
     onAutoDetect?: () => Promise<number | null> | number | null;
-    unassignedEvents?: TimelineTrayItem[];
-    selectedEvent?: string;
-    onSelectEvent?: (id: string) => void;
-    onDiscardEvent?: (id: string) => void;
+    unassignedItems?: TimelineTrayItem[];
+    selectedDraftId?: string;
+    onSelectDraft?: (id: string) => void;
+    onDiscardDraft?: (id: string) => void;
     previewLimit?: number;
     selectedItems: Set<string>;
     onToggleItem: (key: string) => void;
@@ -262,12 +262,12 @@ function TimelineBottomDock({
     setTimelineFilters,
     tabs,
     categoryData,
-    onAddEvent,
+    onAddItem,
     onAutoDetect,
-    unassignedEvents = [],
-    selectedEvent = '',
-    onSelectEvent,
-    onDiscardEvent,
+    unassignedItems = [],
+    selectedDraftId = '',
+    onSelectDraft,
+    onDiscardDraft,
     previewLimit = DEFAULT_PREVIEW_LIMIT,
     selectedItems,
     onToggleItem,
@@ -431,7 +431,7 @@ function TimelineBottomDock({
             const result = await onAutoDetect?.();
             created = typeof result === 'number' ? result : 0;
         } catch (error) {
-            console.error('Failed to detect timeline events:', error);
+            console.error('Failed to detect timeline items:', error);
         }
 
         setDetectedCount(created);
@@ -453,11 +453,11 @@ function TimelineBottomDock({
     }, []);
 
     useEffect(() => {
-        if (unassignedEvents.length === 0) setTrayExpanded(false);
-    }, [unassignedEvents.length]);
+        if (unassignedItems.length === 0) setTrayExpanded(false);
+    }, [unassignedItems.length]);
 
     // Keep the tray scrolled to a newly added draft.
-    const traySignature = unassignedEvents.map((item) => item.id).join('|');
+    const traySignature = unassignedItems.map((item) => item.id).join('|');
 
     useEffect(() => {
         const ids = traySignature ? traySignature.split('|') : [];
@@ -499,7 +499,7 @@ function TimelineBottomDock({
 
         el.addEventListener('wheel', handleWheel, { passive: false });
         return () => el.removeEventListener('wheel', handleWheel);
-    }, [unassignedEvents.length]);
+    }, [unassignedItems.length]);
 
     const handleScrollBy = (offset: number) => {
         if (scrollContainerRef.current) {
@@ -571,7 +571,7 @@ function TimelineBottomDock({
                 : (categoryData[key] ?? EMPTY_ITEMS),
     }));
 
-    const showDataRow = sections.length > 0 || unassignedEvents.length > 0;
+    const showDataRow = sections.length > 0 || unassignedItems.length > 0;
 
     const detectState =
         detectPhase === 'done' && detectedCount === null
@@ -579,16 +579,16 @@ function TimelineBottomDock({
             : detectPhase;
     const detectLabel =
         detectPhase === 'scanning'
-            ? 'Detecting events…'
+            ? 'Detecting items…'
             : detectPhase === 'done'
               ? detectedCount === null
                   ? 'Detection failed'
                   : detectedCount === 0
-                    ? 'No new events'
-                    : `${detectedCount} new event${
+                    ? 'No new items'
+                    : `${detectedCount} new item${
                           detectedCount === 1 ? '' : 's'
                       }`
-              : 'Detect events';
+              : 'Detect items';
 
     const registerSectionRef = useCallback(
         (key: string, el: HTMLDivElement | null) => {
@@ -687,7 +687,7 @@ function TimelineBottomDock({
         <div className={styles.timelineDock}>
             {showDataRow && (
                 <div className={styles.categoryDataRow}>
-                    {unassignedEvents.length > 0 && (
+                    {unassignedItems.length > 0 && (
                         <div
                             className={`${styles.unassignedTrayWrap} ${
                                 trayExpanded
@@ -699,9 +699,9 @@ function TimelineBottomDock({
                                 className={styles.unassignedTray}
                                 ref={trayRef}
                             >
-                                {unassignedEvents.map((item) => {
+                                {unassignedItems.map((item) => {
                                     const value = item.id;
-                                    const isActive = selectedEvent === value;
+                                    const isActive = selectedDraftId === value;
 
                                     return (
                                         <div
@@ -732,12 +732,12 @@ function TimelineBottomDock({
                                                 title={item.label}
                                                 aria-pressed={isActive}
                                                 onClick={() =>
-                                                    onSelectEvent?.(value)
+                                                    onSelectDraft?.(value)
                                                 }
                                             >
                                                 {item.label}
                                             </button>
-                                            {onDiscardEvent && (
+                                            {onDiscardDraft && (
                                                 <button
                                                     type="button"
                                                     className={
@@ -747,7 +747,7 @@ function TimelineBottomDock({
                                                     title="Discard draft"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        onDiscardEvent(value);
+                                                        onDiscardDraft(value);
                                                     }}
                                                 >
                                                     <IconX size={11} />
@@ -818,7 +818,7 @@ function TimelineBottomDock({
                             <button
                                 type="button"
                                 className={styles.comboMainBtn}
-                                onClick={onAddEvent}
+                                onClick={onAddItem}
                             >
                                 <IconPlus size={14} />
                                 <span>Add Event</span>

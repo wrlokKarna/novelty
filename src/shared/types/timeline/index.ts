@@ -35,17 +35,23 @@ export type TimelineLane = {
 
 // An event the user added but has not placed on the grid yet. Kept in
 // localStorage per project so the unassigned tray survives closing the dialog.
-export type TimelineEventDraft = {
+export type TimelineItemDraft = {
     id: string;
     title: string;
     description: string | null;
     inStoryDate: string | null;
     dateOrder: number;
+    endInStoryDate: string | null;
+    endDateOrder: number | null;
     eventType: string;
     entityType: string | null;
     entityId: string | null;
     chapterId: string | null;
+    beatType: string;
 };
+
+// Compatibility alias during cleanup.
+export type TimelineEventDraft = TimelineItemDraft;
 
 // Item shown in the dock's unassigned tray.
 export type TimelineTrayItem = {

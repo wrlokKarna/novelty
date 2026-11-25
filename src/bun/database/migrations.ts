@@ -4,6 +4,27 @@ import type { TemplateFieldRecord } from '../../shared/types';
 import { columnExists, parseFieldList } from './utils';
 
 export const SCHEMA_MIGRATIONS = [
+    { table: 'story_beats', name: 'in_story_date', type: 'TEXT' },
+    {
+        table: 'story_beats',
+        name: 'date_order',
+        type: 'INTEGER NOT NULL DEFAULT 0',
+    },
+    { table: 'story_beats', name: 'end_in_story_date', type: 'TEXT' },
+    { table: 'story_beats', name: 'end_date_order', type: 'INTEGER' },
+    { table: 'story_beats', name: 'entity_type', type: 'TEXT' },
+    { table: 'story_beats', name: 'entity_id', type: 'TEXT' },
+    {
+        table: 'story_beats',
+        name: 'event_type',
+        type: "TEXT NOT NULL DEFAULT 'story_beat'",
+    },
+    { table: 'story_beats', name: 'metadata', type: 'TEXT' },
+    {
+        table: 'story_beats',
+        name: 'auto_generated',
+        type: 'INTEGER NOT NULL DEFAULT 0',
+    },
     {
         table: 'chapters',
         name: 'status',
@@ -575,9 +596,86 @@ async function migrateSeriesTemplatesToSinglePerCategory(sqlite: Database) {
     }
 }
 
+async function migrateTimelineEventsIntoStoryBeats(sqlite: Database) {
+    try {
+        if (!columnExists(sqlite, 'story_beats', 'event_type')) return;
+
+        // Normalize existing beats to unified defaults.
+        sqlite.exec(`
+            UPDATE story_beats
+            SET event_type = COALESCE(NULLIF(event_type, ''), 'story_beat'),
+                beat_type = COALESCE(NULLIF(beat_type, ''), 'custom'),
+                date_order = COALESCE(date_order, order_index, 0),
+                auto_generated = COALESCE(auto_generated, 0)
+        `);
+
+        const hasTimeline = sqlite
+            .query(
+                `SELECT name FROM sqlite_master WHERE type='table' AND name='timeline_events'`
+            )
+            .get();
+        if (!hasTimeline) return;
+
+        const rows = sqlite.query(`SELECT * FROM timeline_events`).all() as Record<
+            string,
+            unknown
+        >[];
+        const insert = sqlite.prepare(`
+            INSERT INTO story_beats (
+                id, project_id, chapter_id, beat_type, title, description, order_index,
+                in_story_date, date_order, end_in_story_date, end_date_order,
+                entity_type, entity_id, event_type, metadata, auto_generated,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                project_id=excluded.project_id,
+                chapter_id=excluded.chapter_id,
+                beat_type=CASE WHEN story_beats.beat_type IS NULL OR story_beats.beat_type = '' THEN excluded.beat_type ELSE story_beats.beat_type END,
+                title=excluded.title,
+                description=excluded.description,
+                in_story_date=excluded.in_story_date,
+                date_order=excluded.date_order,
+                entity_type=excluded.entity_type,
+                entity_id=excluded.entity_id,
+                event_type=excluded.event_type,
+                metadata=excluded.metadata,
+                auto_generated=excluded.auto_generated,
+                updated_at=excluded.updated_at
+        `);
+
+        for (const row of rows) {
+            const dateOrder =
+                typeof row.date_order === 'number' ? row.date_order : 0;
+            insert.run(
+                String(row.id),
+                (row.project_id as string | null) ?? null,
+                (row.chapter_id as string | null) ?? null,
+                'custom',
+                String(row.title ?? 'Untitled'),
+                (row.description as string | null) ?? null,
+                dateOrder,
+                (row.in_story_date as string | null) ?? null,
+                dateOrder,
+                (row.entity_type as string | null) ?? null,
+                (row.entity_id as string | null) ?? null,
+                String(row.event_type ?? 'milestone'),
+                (row.metadata as string | null) ?? null,
+                row.auto_generated ? 1 : 0,
+                typeof row.created_at === 'number' ? row.created_at : Date.now(),
+                typeof row.updated_at === 'number' ? row.updated_at : Date.now()
+            );
+        }
+
+        sqlite.exec(`DROP TABLE timeline_events`);
+    } catch (err) {
+        console.warn('Failed to migrate timeline_events into story_beats:', err);
+    }
+}
+
 export default async function runComplexMigrations(sqlite: Database) {
     await migrateTemplateLayouts(sqlite);
     await migrateOutlineScenesToStoryScenes(sqlite);
     await migrateGlobalTemplatesAway(sqlite);
     await migrateSeriesTemplatesToSinglePerCategory(sqlite);
+    await migrateTimelineEventsIntoStoryBeats(sqlite);
 }

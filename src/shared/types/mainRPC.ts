@@ -58,7 +58,7 @@ import type {
     ResolvedTemplateInfo,
     TemplateLayout,
 } from './project/templates';
-import type { NewTimelineEvent, TimelineEvent } from './project/timeline';
+import type {} from './project/timeline';
 import type {
     NewSeries,
     Series,
@@ -365,24 +365,7 @@ export type SelectorSchema = {
                 params: { projectId: string; baseType: CompendiumCategory };
                 response: ResolvedTemplateInfo;
             };
-            'db:get-timeline-events': {
-                params: string;
-                response: TimelineEvent[];
-            };
-            'db:get-timeline-event': {
-                params: string;
-                response: TimelineEvent | undefined;
-            };
-            'db:create-timeline-event': {
-                params: NewTimelineEvent;
-                response: TimelineEvent;
-            };
-            'db:update-timeline-event': {
-                params: { id: string; data: Partial<NewTimelineEvent> };
-                response: TimelineEvent | undefined;
-            };
-            'db:delete-timeline-event': { params: string; response: void };
-            'db:auto-generate-timeline-events': {
+            'db:auto-generate-story-beats': {
                 params: string;
                 response: number;
             };

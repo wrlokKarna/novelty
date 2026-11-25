@@ -28,7 +28,7 @@ import type { ManuscriptDataType } from '@/shared/types/project/manuscript';
 import type { FileTab } from '@/shared/types/project/templates';
 import type {
     TimelineDataItem,
-    TimelineEventDraft,
+    TimelineItemDraft,
     timelineFilterBtn,
     TimelineLane,
 } from '@/shared/types/timeline';
@@ -36,17 +36,22 @@ import type {
     CompendiumCategory,
     CompendiumDataType,
 } from '../../../shared/types/project/compendium';
-import type { TimelineEvent } from '../../../shared/types/project/timeline';
-import TimelineEventEditor from '../../components/TimelineEventEditor';
-import TimelineEventPanel from '../../components/TimelineEventPanel';
+import type { StoryBeat } from '../../../shared/types/project/manuscript';
+import TimelineItemEditor from '../../components/TimelineItemEditor';
+import TimelineItemPanel from '../../components/TimelineItemPanel';
 import { useRPC } from '../../contexts/RPCContext';
 import Dialog from '../Dialog';
 import styles from './TimelineDialog.module.css';
 
 function dateFromOrder(order: number): Date {
     const base = new Date('2000-01-01T00:00:00Z');
-    base.setDate(base.getDate() + order);
+    base.setUTCDate(base.getUTCDate() + order);
     return base;
+}
+
+function periodLabelForOrder(order: number): string {
+    const d = dateFromOrder(order);
+    return d.toISOString().slice(0, 10);
 }
 
 interface TimelineDialogProps {
@@ -77,14 +82,10 @@ export default function TimelineDialog({
     const itemsRef = useRef<DataSet<any> | null>(null);
     const groupsRef = useRef<DataSet<any> | null>(null);
 
-    const [events, setEvents] = useState<TimelineEvent[]>([]);
-    const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(
-        null
-    );
-    const [showEditor, setShowEditor] = useState(false);
-    const [editingEvent, setEditingEvent] = useState<TimelineEvent | null>(
-        null
-    );
+    const [items, setItems] = useState<StoryBeat[]>([]);
+    const [selectedItem, setSelectedItem] = useState<StoryBeat | null>(null);
+    const [showItemEditor, setShowItemEditor] = useState(false);
+    const [editingItem, setEditingItem] = useState<StoryBeat | null>(null);
     const [loading, setLoading] = useState(false);
     const initializedRef = useRef(false);
 
@@ -142,7 +143,7 @@ export default function TimelineDialog({
             });
         }
 
-        const itemsData: any[] = events.map((ev) => {
+        const itemsData: any[] = items.map((ev) => {
             const color = EVENT_COLORS[ev.eventType] || EVENT_COLORS.milestone;
             let groupId: string;
             if (ev.eventType === 'chapter') {
@@ -155,21 +156,23 @@ export default function TimelineDialog({
                 groupId = 'milestones';
             }
 
+            const isRange = ev.endDateOrder !== null && ev.endDateOrder !== undefined;
             return {
                 id: ev.id,
                 content: ev.title,
                 start: dateFromOrder(ev.dateOrder),
+                end: isRange ? dateFromOrder(ev.endDateOrder as number) : undefined,
                 group: groupId,
-                type: 'box' as const,
+                type: isRange ? ('range' as const) : ('box' as const),
                 className: `event-${ev.eventType}`,
                 style: `background: ${color}; border-color: ${color}; color: #fff;`,
-                title: `${ev.title}${ev.inStoryDate ? ` (${ev.inStoryDate})` : ''}`,
+                title: `${ev.title}${ev.inStoryDate ? ` (${ev.inStoryDate})` : ''}${ev.endInStoryDate ? ` - ${ev.endInStoryDate}` : ''}`,
             };
         });
 
-        const items = new DataSet(itemsData);
+        const visItems = new DataSet(itemsData);
         const groups = new DataSet(groupsData);
-        itemsRef.current = items;
+        itemsRef.current = visItems;
         groupsRef.current = groups;
 
         function formatLabel(d: any): string {
@@ -204,7 +207,7 @@ export default function TimelineDialog({
 
         const timeline = new Timeline(
             containerRef.current,
-            items,
+            visItems,
             groups,
             options as any
         );
@@ -212,32 +215,32 @@ export default function TimelineDialog({
 
         timeline.on('select', (props: any) => {
             if (props.items && props.items.length > 0) {
-                const ev = events.find((e) => e.id === props.items[0]);
-                setSelectedEvent(ev || null);
+                const ev = items.find((e) => e.id === props.items[0]);
+                setSelectedItem(ev || null);
             } else {
-                setSelectedEvent(null);
+                setSelectedItem(null);
             }
         });
 
         timeline.on('doubleClick', (props: any) => {
             if (props.item) {
-                const ev = events.find((e) => e.id === props.item);
+                const ev = items.find((e) => e.id === props.item);
                 if (ev) {
-                    setEditingEvent(ev);
-                    setShowEditor(true);
+                    setEditingItem(ev);
+                    setShowItemEditor(true);
                 }
             }
         });
     }
 
-    const loadEvents = useCallback(async () => {
+    const loadItems = useCallback(async () => {
         if (!projectId) return;
         setLoading(true);
         try {
-            const data = await rpc.request['db:get-timeline-events'](projectId);
-            setEvents(data || []);
+            const data = await rpc.request['db:get-story-beats'](projectId);
+            setItems(data || []);
         } catch (e) {
-            console.error('Failed to load timeline events:', e);
+            console.error('Failed to load timeline items:', e);
         } finally {
             setLoading(false);
         }
@@ -246,9 +249,9 @@ export default function TimelineDialog({
     useEffect(() => {
         if (open) {
             initializedRef.current = false;
-            loadEvents();
+            loadItems();
         }
-    }, [open, loadEvents]);
+    }, [open, loadItems]);
 
     useEffect(() => {
         if (!open || !containerRef.current) return;
@@ -259,97 +262,101 @@ export default function TimelineDialog({
                 timelineRef.current = null;
             }
         };
-    }, [open, events, compendiumData.characters, compendiumData.organizations]);
+    }, [open, items, compendiumData.characters, compendiumData.organizations]);
 
     async function handleAutoGenerate(): Promise<number | null> {
         if (!projectId) return null;
         try {
             const created =
-                await rpc.request['db:auto-generate-timeline-events'](
+                await rpc.request['db:auto-generate-story-beats'](
                     projectId
                 );
-            await loadEvents();
+            await loadItems();
             return created;
         } catch (e) {
-            console.error('Failed to auto-generate events:', e);
+            console.error('Failed to auto-generate items:', e);
             return null;
         }
     }
 
-    function handleAddEvent() {
-        setEditingEvent(null);
-        setShowEditor(true);
+    function handleAddItem() {
+        setEditingItem(null);
+        setShowItemEditor(true);
     }
 
-    function handleEditEvent(ev: TimelineEvent) {
-        setEditingEvent(ev);
-        setShowEditor(true);
+    function handleEditItem(ev: StoryBeat) {
+        setEditingItem(ev);
+        setShowItemEditor(true);
     }
 
-    const persistTimelineEvent = useCallback(
+    const persistStoryBeat = useCallback(
         async (
-            data: Partial<TimelineEvent>,
+            data: Partial<StoryBeat>,
             id?: string
-        ): Promise<TimelineEvent | undefined> => {
+        ): Promise<StoryBeat | undefined> => {
             try {
                 const saved = id
-                    ? await rpc.request['db:update-timeline-event']({
+                    ? await rpc.request['db:update-story-beat']({
                           id,
                           data: data as any,
                       })
-                    : await rpc.request['db:create-timeline-event']({
+                    : await rpc.request['db:create-story-beat']({
                           id: crypto.randomUUID(),
                           projectId,
                           title: data.title || 'Untitled Event',
                           description: data.description || null,
                           inStoryDate: data.inStoryDate || null,
                           dateOrder: data.dateOrder ?? 0,
+                          endInStoryDate: data.endInStoryDate || null,
+                          endDateOrder: data.endDateOrder ?? null,
                           entityType: data.entityType || null,
                           entityId: data.entityId || null,
                           eventType: data.eventType || 'milestone',
                           chapterId: data.chapterId || null,
+                          beatType: (data.beatType as any) || 'custom',
+                          orderIndex: (data.orderIndex as any) ?? 0,
                           metadata: null,
                       });
-                await loadEvents();
+                await loadItems();
                 return saved;
             } catch (e) {
                 console.error('Failed to save event:', e);
                 return undefined;
             }
         },
-        [rpc, projectId, loadEvents]
+        [rpc, projectId, loadItems]
     );
 
-    async function handleSaveEvent(data: Partial<TimelineEvent>) {
-        await persistTimelineEvent(data, editingEvent?.id);
+    async function handleSaveItem(data: Partial<StoryBeat>) {
+        await persistStoryBeat(data, editingItem?.id);
     }
 
-    const deleteTimelineEvent = useCallback(
+    const deleteStoryBeat = useCallback(
         async (id: string) => {
             try {
-                await rpc.request['db:delete-timeline-event'](id);
-                await loadEvents();
+                await rpc.request['db:delete-story-beat'](id);
+                await loadItems();
             } catch (e) {
                 console.error('Failed to delete event:', e);
             }
         },
-        [rpc, loadEvents]
+        [rpc, loadItems]
     );
 
-    async function handleDeleteEvent() {
-        if (!selectedEvent) return;
-        await deleteTimelineEvent(selectedEvent.id);
-        setSelectedEvent(null);
+    async function handleDeleteItem() {
+        if (!selectedItem) return;
+        await deleteStoryBeat(selectedItem.id);
+        setSelectedItem(null);
     }
 
-    function openEntityForEvent(ev: TimelineEvent) {
+    function openEntityForItem(ev: StoryBeat) {
         if (ev.entityType && ev.entityId) {
             onOpenEntity(ev.entityId, ev.entityType as CompendiumCategory);
             onClose();
         }
     }
 
-    function openChapterForEvent(ev: TimelineEvent) {
+    function openChapterForItem(ev: StoryBeat) {
         if (ev.chapterId) {
             onOpenChapter(ev.chapterId);
             onClose();
@@ -357,11 +364,10 @@ export default function TimelineDialog({
     }
 
     function handleOpenEntity() {
-        if (selectedEvent) openEntityForEvent(selectedEvent);
+        if (selectedItem) openEntityForItem(selectedItem);
     }
 
-    const eventTypeColor = (type: string) =>
-        EVENT_COLORS[type] || EVENT_COLORS.milestone;
+    const itemTypeColor = (type: string) => EVENT_COLORS[type] || EVENT_COLORS.milestone;
 
     const [overhaulToggle, SetOverhaulToggle] = useState(true);
 
@@ -379,10 +385,12 @@ export default function TimelineDialog({
                 id: p.id,
                 label: p.name,
             })),
-            'story beats': manuscriptData.storyBeats.map((b) => ({
-                id: b.id,
-                label: b.title,
-            })),
+            'story beats': manuscriptData.storyBeats
+                .filter((b) => b.eventType === 'story_beat' || !!b.beatType)
+                .map((b) => ({
+                    id: b.id,
+                    label: b.title,
+                })),
             character: compendiumData.characters.map((c) => ({
                 id: c.id,
                 label: c.name,
@@ -414,17 +422,17 @@ export default function TimelineDialog({
                     {!overhaulToggle && (
                         <OldTimeLine
                             loading={loading}
-                            events={events}
-                            handleAddEvent={handleAddEvent}
-                            handleEditEvent={handleEditEvent}
-                            handleDeleteEvent={handleDeleteEvent}
+                            items={items}
+                            handleAddItem={handleAddItem}
+                            handleEditItem={handleEditItem}
+                            handleDeleteItem={handleDeleteItem}
                             handleAutoGenerate={handleAutoGenerate}
                             overhaulToggle={overhaulToggle}
                             SetOverhaulToggle={SetOverhaulToggle}
                             containerRef={containerRef}
                             handleOpenEntity={handleOpenEntity}
-                            selectedEvent={selectedEvent}
-                            eventTypeColor={eventTypeColor}
+                            selectedItem={selectedItem}
+                            itemTypeColor={itemTypeColor}
                         />
                     )}
                     {overhaulToggle && (
@@ -432,30 +440,30 @@ export default function TimelineDialog({
                             projectId={projectId}
                             tabs={tabs}
                             categoryData={categoryData}
-                            events={events}
+                            items={items}
                             entityOptions={entityOptions}
                             chapterOptions={chapterOptions}
                             onSwitchLayout={() =>
                                 SetOverhaulToggle(!overhaulToggle)
                             }
                             onAutoDetect={handleAutoGenerate}
-                            onSaveEvent={persistTimelineEvent}
-                            onDeleteEvent={deleteTimelineEvent}
-                            onOpenEntityForEvent={openEntityForEvent}
-                            onOpenChapterForEvent={openChapterForEvent}
+                            onSaveItem={persistStoryBeat}
+                            onDeleteItem={deleteStoryBeat}
+                            onOpenEntityForItem={openEntityForItem}
+                            onOpenChapterForItem={openChapterForItem}
                         />
                     )}
                 </>
             </Dialog>
 
-            <TimelineEventEditor
-                open={showEditor}
+            <TimelineItemEditor
+                open={showItemEditor}
                 onClose={() => {
-                    setShowEditor(false);
-                    setEditingEvent(null);
+                    setShowItemEditor(false);
+                    setEditingItem(null);
                 }}
-                onSave={handleSaveEvent}
-                event={editingEvent}
+                onSave={handleSaveItem}
+                event={editingItem}
                 entityOptions={entityOptions}
                 chapterOptions={chapterOptions}
             />
@@ -694,9 +702,9 @@ function mergeStoredFilters(stored: unknown): timelineFilterBtn[] {
     });
 }
 
-function isEventDraft(value: unknown): value is TimelineEventDraft {
+function isEventDraft(value: unknown): value is TimelineItemDraft {
     if (!value || typeof value !== 'object') return false;
-    const draft = value as Partial<TimelineEventDraft>;
+    const draft = value as Partial<TimelineItemDraft>;
     return typeof draft.id === 'string' && typeof draft.title === 'string';
 }
 
@@ -704,7 +712,7 @@ type TimelinePrefs = {
     openTabsChecked: boolean;
     timelineFilters: timelineFilterBtn[];
     selectedItems: string[];
-    drafts: TimelineEventDraft[];
+    drafts: TimelineItemDraft[];
 };
 
 function loadTimelinePrefs(projectId: string): TimelinePrefs {
@@ -736,37 +744,43 @@ function loadTimelinePrefs(projectId: string): TimelinePrefs {
     }
 }
 
-function createEventDraft(): TimelineEventDraft {
+function createEventDraft(): TimelineItemDraft {
     return {
         id: crypto.randomUUID(),
         title: 'Untitled Event',
         description: null,
         inStoryDate: null,
         dateOrder: 0,
+        endInStoryDate: null,
+        endDateOrder: null,
         eventType: 'milestone',
         entityType: null,
         entityId: null,
         chapterId: null,
+        beatType: 'custom',
     };
 }
 
-function draftToPartial(draft: TimelineEventDraft): Partial<TimelineEvent> {
+function draftToPartial(draft: TimelineItemDraft): Partial<StoryBeat> {
     return {
         title: draft.title,
         description: draft.description,
         inStoryDate: draft.inStoryDate,
         dateOrder: draft.dateOrder,
+        endInStoryDate: (draft as any).endInStoryDate ?? null,
+        endDateOrder: (draft as any).endDateOrder ?? null,
         eventType: draft.eventType,
         entityType: draft.entityType,
         entityId: draft.entityId,
         chapterId: draft.chapterId,
+        beatType: ((draft as any).beatType as any) ?? 'custom',
     };
 }
 
-type EventPanelTarget =
-    | { kind: 'event'; eventId: string; startEditing: boolean }
+type ItemPanelTarget =
+    | { kind: 'item'; itemId: string; startEditing: boolean }
     | { kind: 'draft'; draftId: string }
-    | { kind: 'create'; values: Partial<TimelineEvent> };
+    | { kind: 'create'; values: Partial<StoryBeat> };
 
 // ----------------- COMPONENT -----------------
 
@@ -774,31 +788,31 @@ export function NewTimeline({
     projectId,
     tabs,
     categoryData,
-    events,
+    items,
     entityOptions,
     chapterOptions,
     onSwitchLayout,
     onAutoDetect,
-    onSaveEvent,
-    onDeleteEvent,
-    onOpenEntityForEvent,
-    onOpenChapterForEvent,
+    onSaveItem,
+    onDeleteItem,
+    onOpenEntityForItem,
+    onOpenChapterForItem,
 }: {
     projectId: string;
     tabs: FileTab[];
     categoryData: Record<string, TimelineDataItem[]>;
-    events: TimelineEvent[];
+    items: StoryBeat[];
     entityOptions: { id: string; name: string; type: CompendiumCategory }[];
     chapterOptions: { id: string; title: string }[];
     onSwitchLayout: () => void;
     onAutoDetect?: () => Promise<number | null>;
-    onSaveEvent: (
-        data: Partial<TimelineEvent>,
+    onSaveItem: (
+        data: Partial<StoryBeat>,
         id?: string
-    ) => Promise<TimelineEvent | undefined>;
-    onDeleteEvent: (id: string) => Promise<void>;
-    onOpenEntityForEvent: (ev: TimelineEvent) => void;
-    onOpenChapterForEvent: (ev: TimelineEvent) => void;
+    ) => Promise<StoryBeat | undefined>;
+    onDeleteItem: (id: string) => Promise<void>;
+    onOpenEntityForItem: (ev: StoryBeat) => void;
+    onOpenChapterForItem: (ev: StoryBeat) => void;
 }) {
     const [openTabsChecked, setOpenTabsChecked] = useState<boolean>(
         () => loadTimelinePrefs(projectId).openTabsChecked
@@ -810,18 +824,20 @@ export function NewTimeline({
         () => new Set(loadTimelinePrefs(projectId).selectedItems)
     );
 
-    // Unassigned tray events (persisted per project)
-    const [drafts, setDrafts] = useState<TimelineEventDraft[]>(
+    // Unassigned tray items (persisted per project)
+    const [drafts, setDrafts] = useState<TimelineItemDraft[]>(
         () => loadTimelinePrefs(projectId).drafts
     );
     const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
 
-    // Floating event panel
-    const [panelTarget, setPanelTarget] = useState<EventPanelTarget | null>(
+    // Floating item panel
+    const [panelTarget, setPanelTarget] = useState<ItemPanelTarget | null>(
         null
     );
     const [panelKey, setPanelKey] = useState(0);
-    const [focusedEventId, setFocusedEventId] = useState<string | null>(null);
+    const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
+    const [dragItemId, setDragItemId] = useState<string | null>(null);
+    const [dropTarget, setDropTarget] = useState<{ colIndex: number; rowKey: string } | null>(null);
 
     // Timeline granularity & anchor date states
     const [granularity, setGranularity] = useState<TimeGranularity>('year');
@@ -841,8 +857,8 @@ export function NewTimeline({
     } | null>(null);
     const [focusedRowKey, setFocusedRowKey] = useState<string | null>(null);
 
-    const [pendingEventJump, setPendingEventJump] = useState<{
-        eventId: string;
+    const [pendingItemJump, setPendingItemJump] = useState<{
+        itemId: string;
         dateOrder: number;
     } | null>(null);
 
@@ -855,7 +871,7 @@ export function NewTimeline({
     const rowLabelRefs = useRef<Map<string, HTMLDivElement>>(new Map());
     const isPrependingRef = useRef(false);
 
-    // Anchor the timeline on the earliest real event the first time events load,
+    // Anchor the timeline on the earliest real event the first time items load,
     // so the grid opens showing content instead of an arbitrary "today".
     const autoAnchoredRef = useRef(false);
 
@@ -952,11 +968,11 @@ export function NewTimeline({
 
     // Anchor on the first real event once it arrives (per mount)
     useEffect(() => {
-        if (events.length === 0 || autoAnchoredRef.current) return;
+        if (items.length === 0 || autoAnchoredRef.current) return;
         autoAnchoredRef.current = true;
-        const minOrder = Math.min(...events.map((e) => e.dateOrder));
+        const minOrder = Math.min(...items.map((e) => e.dateOrder));
         setAnchorDate(dateFromOrder(minOrder));
-    }, [events]);
+    }, [items]);
 
     // Invert scrolling: standard wheel = horizontal, Shift + wheel = vertical
     useEffect(() => {
@@ -1241,28 +1257,28 @@ export function NewTimeline({
         return rows;
     }, [selectedItems, categoryData, tabs]);
 
-    // Raw ids referenced by events, used to evaluate whether a lane has events.
+    // Raw ids referenced by items, used to evaluate whether a lane has items.
     const eventReferencedIds = useMemo(() => {
         const ids = new Set<string>();
-        for (const ev of events) {
+        for (const ev of items) {
             if (ev.chapterId) ids.add(ev.chapterId);
             if (ev.entityId) ids.add(ev.entityId);
         }
         return ids;
-    }, [events]);
+    }, [items]);
 
     const lanesWithEvents = useMemo(() => {
         const keys = new Set<string>();
-        for (const ev of events) {
+        for (const ev of items) {
             if (ev.chapterId) keys.add(`chapters::${ev.chapterId}`);
             if (ev.entityType && ev.entityId) {
                 keys.add(`${ev.entityType}::${ev.entityId}`);
             }
         }
         return keys;
-    }, [events]);
+    }, [items]);
 
-    // "Hide empty lanes" removes lanes that have no events at all.
+    // "Hide empty lanes" removes lanes that have no items at all.
     const displayRows = useMemo<TimelineLane[]>(() => {
         if (!hideEmptyLanes) return visibleRows;
         return visibleRows.filter(
@@ -1279,7 +1295,7 @@ export function NewTimeline({
         const scope = compactScopeRange(granularity, anchorDate);
         const byKey = new Map<string, ColumnPeriod>();
 
-        for (const ev of events) {
+        for (const ev of items) {
             const date = dateFromOrder(ev.dateOrder);
             if (scope && (date < scope.start || date >= scope.end)) continue;
             const period = createPeriod(date, granularity);
@@ -1289,51 +1305,65 @@ export function NewTimeline({
         return [...byKey.values()].sort(
             (a, b) => a.startDate.getTime() - b.startDate.getTime()
         );
-    }, [hideEmptyColumns, events, granularity, anchorDate]);
+    }, [hideEmptyColumns, items, granularity, anchorDate]);
 
     // The periods actually drawn in the grid.
     const gridPeriods = hideEmptyColumns ? compactPeriods : periods;
 
     // Each column maps to a [startOrder, endOrder) range of dateOrder values so
-    // events can be resolved to a column by their real date.
+    // items can be resolved to a column by their real date.
     const gridPeriodOrders = useMemo(
         () => gridPeriods.map((period) => periodOrderRange(period)),
         [gridPeriods]
     );
 
-    // Group visible events into cells keyed `${colIndex}|${laneKey}`.
+    // Group visible items into cells keyed `${colIndex}|${laneKey}`.
     // An event renders in the lane of its entity and/or its chapter.
-    const eventsByCell = useMemo(() => {
-        const map = new Map<string, TimelineEvent[]>();
+    const itemsByCell = useMemo(() => {
+        const map = new Map<string, StoryBeat[]>();
         const rowIndexByKey = new Map(
             displayRows.map((row, index) => [row.key, index])
         );
 
-        for (const ev of events) {
-            const colIndex = gridPeriodOrders.findIndex(
+        for (const ev of items) {
+            const startCol = gridPeriodOrders.findIndex(
                 (range) =>
                     ev.dateOrder >= range.startOrder &&
                     ev.dateOrder < range.endOrder
             );
-            if (colIndex === -1) continue;
+            const evEnd = ev.endDateOrder ?? ev.dateOrder;
+            const endCol = gridPeriodOrders.findIndex(
+                (range) =>
+                    evEnd >= range.startOrder && evEnd < range.endOrder
+            );
+            if (startCol === -1 && endCol === -1) continue;
+            const from = startCol === -1 ? 0 : startCol;
+            const to = endCol === -1 ? gridPeriodOrders.length - 1 : endCol;
 
             const addTo = (laneKey: string) => {
-                const cellKey = `${colIndex}|${laneKey}`;
-                const list = map.get(cellKey);
-                if (list) list.push(ev);
-                else map.set(cellKey, [ev]);
+                for (let colIndex = from; colIndex <= to; colIndex++) {
+                    const cellKey = `${colIndex}|${laneKey}`;
+                    const list = map.get(cellKey);
+                    if (list) {
+                        if (!list.some((x) => x.id === ev.id)) list.push(ev);
+                    } else map.set(cellKey, [ev]);
+                }
             };
 
-            if (rowIndexByKey.has(`chapters::${ev.chapterId}`)) {
+            if (ev.chapterId && rowIndexByKey.has(`chapters::${ev.chapterId}`)) {
                 addTo(`chapters::${ev.chapterId}`);
             }
             if (ev.entityType && ev.entityId) {
                 const laneKey = `${ev.entityType}::${ev.entityId}`;
                 if (rowIndexByKey.has(laneKey)) addTo(laneKey);
             }
+            if (ev.eventType === 'story_beat') {
+                const laneKey = `story beats::${ev.id}`;
+                if (rowIndexByKey.has(laneKey)) addTo(laneKey);
+            }
         }
         return map;
-    }, [events, displayRows, gridPeriodOrders]);
+    }, [items, displayRows, gridPeriodOrders]);
 
     // Which grid columns survive the "hide empty columns" filter.
     const displayColIndexes = useMemo(() => {
@@ -1342,10 +1372,10 @@ export function NewTimeline({
         return all.filter((index) =>
             displayRows.some(
                 (row) =>
-                    (eventsByCell.get(`${index}|${row.key}`)?.length ?? 0) > 0
+                    (itemsByCell.get(`${index}|${row.key}`)?.length ?? 0) > 0
             )
         );
-    }, [gridPeriods, hideEmptyColumns, displayRows, eventsByCell]);
+    }, [gridPeriods, hideEmptyColumns, displayRows, itemsByCell]);
 
     const hasGridRows = displayRows.length > 0;
 
@@ -1373,12 +1403,12 @@ export function NewTimeline({
 
     const hasEntityFilter = selectedItems.size > 0;
 
-    // Distinct real events that belong to at least one selected lane. The old
+    // Distinct real items that belong to at least one selected lane. The old
     // status bar counted dummy PlacedEvent.entityKeys; this mirrors the intent.
     const entityMatchCount = useMemo(() => {
         if (!hasEntityFilter) return 0;
         const matches = new Set<string>();
-        for (const ev of events) {
+        for (const ev of items) {
             if (
                 ev.chapterId &&
                 selectedItems.has(`chapters::${ev.chapterId}`)
@@ -1392,9 +1422,15 @@ export function NewTimeline({
             ) {
                 matches.add(ev.id);
             }
+            if (
+                ev.eventType === 'story_beat' &&
+                selectedItems.has(`story beats::${ev.id}`)
+            ) {
+                matches.add(ev.id);
+            }
         }
         return matches.size;
-    }, [events, selectedItems, hasEntityFilter]);
+    }, [items, selectedItems, hasEntityFilter]);
 
     // ---- UNASSIGNED DRAFTS, FLOATING PANEL & LANE NAVIGATION ----
 
@@ -1414,7 +1450,7 @@ export function NewTimeline({
         }
     }, [activeDraftId, drafts]);
 
-    function openPanel(target: EventPanelTarget) {
+    function openPanel(target: ItemPanelTarget) {
         setPanelTarget(target);
         // Remount the panel so its form state resets for the new target.
         setPanelKey((key) => key + 1);
@@ -1442,7 +1478,7 @@ export function NewTimeline({
         openPanel({ kind: 'draft', draftId: id });
     }
 
-    function updateDraft(id: string, patch: Partial<TimelineEvent>) {
+    function updateDraft(id: string, patch: Partial<StoryBeat>) {
         setDrafts((prev) =>
             prev.map((draft) => {
                 if (draft.id !== id) return draft;
@@ -1458,6 +1494,14 @@ export function NewTimeline({
                             ? patch.inStoryDate
                             : draft.inStoryDate,
                     dateOrder: patch.dateOrder ?? draft.dateOrder,
+                    endInStoryDate:
+                        (patch as any).endInStoryDate !== undefined
+                            ? (patch as any).endInStoryDate
+                            : (draft as any).endInStoryDate,
+                    endDateOrder:
+                        (patch as any).endDateOrder !== undefined
+                            ? (patch as any).endDateOrder
+                            : (draft as any).endDateOrder,
                     eventType: patch.eventType ?? draft.eventType,
                     entityType:
                         patch.entityType !== undefined
@@ -1471,7 +1515,8 @@ export function NewTimeline({
                         patch.chapterId !== undefined
                             ? patch.chapterId
                             : draft.chapterId,
-                };
+                    beatType: ((patch as any).beatType as any) ?? (draft as any).beatType,
+                } as TimelineItemDraft;
             })
         );
     }
@@ -1487,11 +1532,11 @@ export function NewTimeline({
     // Place an armed draft into a cell: the cell's lane wins for chapter/entity,
     // the cell's column start wins for the date.
     async function placeDraft(
-        draft: TimelineEventDraft,
+        draft: TimelineItemDraft,
         row: TimelineLane,
         colIndex: number
     ) {
-        const values: Partial<TimelineEvent> = {
+        const values: Partial<StoryBeat> = {
             ...draftToPartial(draft),
             title: draft.title.trim() || 'Untitled Event',
             dateOrder: gridPeriodOrders[colIndex].startOrder,
@@ -1503,14 +1548,14 @@ export function NewTimeline({
             values.entityId = row.id;
         }
 
-        const saved = await onSaveEvent(values);
+        const saved = await onSaveItem(values);
         setDrafts((prev) => prev.filter((d) => d.id !== draft.id));
         setActiveDraftId(null);
 
         if (saved) {
             openPanel({
-                kind: 'event',
-                eventId: saved.id,
+                kind: 'item',
+                itemId: saved.id,
                 startEditing: false,
             });
         } else {
@@ -1526,17 +1571,17 @@ export function NewTimeline({
             return;
         }
 
-        const cellEvents = eventsByCell.get(`${colIndex}|${row.key}`);
-        if (cellEvents && cellEvents.length > 0) {
+        const cellItems = itemsByCell.get(`${colIndex}|${row.key}`);
+        if (cellItems && cellItems.length > 0) {
             openPanel({
-                kind: 'event',
-                eventId: cellEvents[0].id,
+                kind: 'item',
+                itemId: cellItems[0].id,
                 startEditing: false,
             });
             return;
         }
 
-        const values: Partial<TimelineEvent> = {
+        const values: Partial<StoryBeat> = {
             title: '',
             dateOrder: gridPeriodOrders[colIndex].startOrder,
             eventType: 'milestone',
@@ -1550,57 +1595,60 @@ export function NewTimeline({
         openPanel({ kind: 'create', values });
     }
 
-    const firstEventByLane = useMemo(() => {
-        const map = new Map<string, TimelineEvent>();
+    const firstItemByLane = useMemo(() => {
+        const map = new Map<string, StoryBeat>();
         const laneKeys = new Set(displayRows.map((row) => row.key));
 
-        const consider = (laneKey: string, ev: TimelineEvent) => {
+        const consider = (laneKey: string, item: StoryBeat) => {
             if (!laneKeys.has(laneKey)) return;
             const current = map.get(laneKey);
-            if (!current || ev.dateOrder < current.dateOrder) {
-                map.set(laneKey, ev);
+            if (!current || item.dateOrder < current.dateOrder) {
+                map.set(laneKey, item);
             }
         };
 
-        for (const ev of events) {
-            if (ev.chapterId) {
-                consider(`chapters::${ev.chapterId}`, ev);
+        for (const item of items) {
+            if (item.chapterId) {
+                consider(`chapters::${item.chapterId}`, item);
             }
-            if (ev.entityType && ev.entityId) {
-                consider(`${ev.entityType}::${ev.entityId}`, ev);
+            if (item.entityType && item.entityId) {
+                consider(`${item.entityType}::${item.entityId}`, item);
+            }
+            if (item.eventType === 'story_beat') {
+                consider(`story beats::${item.id}`, item);
             }
         }
 
         return map;
-    }, [events, displayRows]);
+    }, [items, displayRows]);
 
-    const flashEvent = useCallback((eventId: string) => {
-        setFocusedEventId(eventId);
+    const flashItem = useCallback((itemId: string) => {
+        setFocusedItemId(itemId);
         if (focusTimerRef.current !== null) {
             window.clearTimeout(focusTimerRef.current);
         }
         focusTimerRef.current = window.setTimeout(() => {
-            setFocusedEventId(null);
+            setFocusedItemId(null);
             focusTimerRef.current = null;
         }, 1600);
     }, []);
 
     function handleRowLabelClick(row: TimelineLane) {
-        const firstEvent = firstEventByLane.get(row.key);
-        if (!firstEvent) return;
+        const firstItem = firstItemByLane.get(row.key);
+        if (!firstItem) return;
 
         const colIndex = gridPeriodOrders.findIndex(
             (range) =>
-                firstEvent.dateOrder >= range.startOrder &&
-                firstEvent.dateOrder < range.endOrder
+                firstItem.dateOrder >= range.startOrder &&
+                firstItem.dateOrder < range.endOrder
         );
 
         if (colIndex === -1) {
-            setPendingEventJump({
-                eventId: firstEvent.id,
-                dateOrder: firstEvent.dateOrder,
+            setPendingItemJump({
+                itemId: firstItem.id,
+                dateOrder: firstItem.dateOrder,
             });
-            setAnchorDate(dateFromOrder(firstEvent.dateOrder));
+            setAnchorDate(dateFromOrder(firstItem.dateOrder));
             return;
         }
 
@@ -1617,7 +1665,7 @@ export function NewTimeline({
             });
         }
 
-        flashEvent(firstEvent.id);
+        flashItem(firstItem.id);
     }
 
     // Reveal a lane's row label after its dock chip was clicked.
@@ -1662,19 +1710,19 @@ export function NewTimeline({
     }, [pendingRowFocus, displayRows, syncLabelPanes]);
 
     useLayoutEffect(() => {
-        if (!pendingEventJump) return;
+        if (!pendingItemJump) return;
 
         const colIndex = gridPeriodOrders.findIndex(
             (range) =>
-                pendingEventJump.dateOrder >= range.startOrder &&
-                pendingEventJump.dateOrder < range.endOrder
+                pendingItemJump.dateOrder >= range.startOrder &&
+                pendingItemJump.dateOrder < range.endOrder
         );
         if (colIndex === -1) return;
 
         const renderCol = displayColIndexes.indexOf(colIndex);
         if (renderCol === -1) return;
 
-        const { eventId } = pendingEventJump;
+        const { itemId } = pendingItemJump;
 
         const frame = requestAnimationFrame(() => {
             const container = scrollContainerRef.current;
@@ -1689,16 +1737,16 @@ export function NewTimeline({
                 });
                 syncLabelPanes();
             }
-            flashEvent(eventId);
-            setPendingEventJump(null);
+            flashItem(itemId);
+            setPendingItemJump(null);
         });
 
         return () => cancelAnimationFrame(frame);
     }, [
-        pendingEventJump,
+        pendingItemJump,
         gridPeriodOrders,
         displayColIndexes,
-        flashEvent,
+        flashItem,
         syncLabelPanes,
     ]);
 
@@ -1739,9 +1787,9 @@ export function NewTimeline({
 
     // Resolve the current panel target to real data. Falls back to null when
     // the referenced event/draft has vanished.
-    const panelEvent =
-        panelTarget?.kind === 'event'
-            ? (events.find((ev) => ev.id === panelTarget.eventId) ?? null)
+    const panelItem =
+        panelTarget?.kind === 'item'
+            ? (items.find((item) => item.id === panelTarget.itemId) ?? null)
             : null;
     const panelDraft =
         panelTarget?.kind === 'draft'
@@ -1750,17 +1798,17 @@ export function NewTimeline({
     const panelCreate =
         panelTarget?.kind === 'create' ? panelTarget.values : null;
     const panelOpen =
-        !!panelTarget && !!(panelEvent || panelDraft || panelCreate);
+        !!panelTarget && !!(panelItem || panelDraft || panelCreate);
 
-    async function handlePanelSave(values: Partial<TimelineEvent>) {
+    async function handlePanelSave(values: Partial<StoryBeat>) {
         if (!panelTarget || panelTarget.kind === 'draft') return;
         const id =
-            panelTarget.kind === 'event' ? panelTarget.eventId : undefined;
-        const saved = await onSaveEvent(values, id);
+            panelTarget.kind === 'item' ? panelTarget.itemId : undefined;
+        const saved = await onSaveItem(values, id);
         if (saved) {
             openPanel({
-                kind: 'event',
-                eventId: saved.id,
+                kind: 'item',
+                itemId: saved.id,
                 startEditing: false,
             });
         } else {
@@ -1769,17 +1817,64 @@ export function NewTimeline({
     }
 
     async function handlePanelDelete() {
-        if (panelTarget?.kind !== 'event') return;
-        await onDeleteEvent(panelTarget.eventId);
+        if (panelTarget?.kind !== 'item') return;
+        await onDeleteItem(panelTarget.itemId);
         setPanelTarget(null);
     }
 
     function handlePanelOpenEntity() {
-        if (panelEvent) onOpenEntityForEvent(panelEvent);
+        if (panelItem) onOpenEntityForItem(panelItem);
     }
 
     function handlePanelOpenChapter() {
-        if (panelEvent) onOpenChapterForEvent(panelEvent);
+        if (panelItem) onOpenChapterForItem(panelItem);
+    }
+
+    function handleDragStartItem(e: React.DragEvent, itemId: string) {
+        e.dataTransfer.setData('text/plain', itemId);
+        e.dataTransfer.effectAllowed = 'move';
+        setDragItemId(itemId);
+    }
+
+    function handleDragEndItem() {
+        setDragItemId(null);
+        setDropTarget(null);
+    }
+
+    function handleDragOverCell(e: React.DragEvent, colIndex: number, rowKey: string) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        setDropTarget({ colIndex, rowKey });
+    }
+
+    async function handleDropOnCell(e: React.DragEvent, colIndex: number, row: TimelineLane) {
+        e.preventDefault();
+        const itemId = e.dataTransfer.getData('text/plain') || dragItemId;
+        setDragItemId(null);
+        setDropTarget(null);
+        if (!itemId) return;
+        const item = items.find((i) => i.id === itemId);
+        if (!item) return;
+
+        const dateOrder = gridPeriodOrders[colIndex]?.startOrder ?? item.dateOrder;
+        const duration = (item.endDateOrder ?? item.dateOrder) - item.dateOrder;
+        const patch: Partial<StoryBeat> = {
+            dateOrder,
+            endDateOrder: item.endDateOrder == null ? null : dateOrder + Math.max(0, duration),
+            inStoryDate: periodLabelForOrder(dateOrder),
+        };
+        if (patch.endDateOrder != null) patch.endInStoryDate = periodLabelForOrder(patch.endDateOrder);
+
+        if (row.section === 'chapters') {
+            patch.chapterId = row.id;
+        } else if (ENTITY_SECTIONS.includes(row.section)) {
+            patch.entityType = row.section;
+            patch.entityId = row.id;
+        } else if (row.section === 'story beats') {
+            // keep beat identity; moving beat lane is mostly date move
+        }
+
+        await onSaveItem(patch, item.id);
     }
 
     return (
@@ -1872,7 +1967,7 @@ export function NewTimeline({
                             hideEmptyColumns ? styles.gridToggleActive : ''
                         }`}
                         aria-pressed={hideEmptyColumns}
-                        title="Only show date columns that contain events"
+                        title="Only show date columns that contain items"
                         onClick={() => setHideEmptyColumns((value) => !value)}
                     >
                         Hide empty columns
@@ -1883,7 +1978,7 @@ export function NewTimeline({
                             hideEmptyLanes ? styles.gridToggleActive : ''
                         }`}
                         aria-pressed={hideEmptyLanes}
-                        title="Only show lanes that contain events"
+                        title="Only show lanes that contain items"
                         onClick={() => setHideEmptyLanes((value) => !value)}
                     >
                         Hide empty lanes
@@ -1973,7 +2068,7 @@ export function NewTimeline({
                         >
                             <div className={styles.rowLabelsInner}>
                                 {displayRows.map((row) => {
-                                    const firstEvent = firstEventByLane.get(
+                                    const firstItem = firstItemByLane.get(
                                         row.key
                                     );
                                     return (
@@ -2001,9 +2096,9 @@ export function NewTimeline({
                                                 handleRowLabelClick(row)
                                             }
                                             title={
-                                                firstEvent
-                                                    ? `Jump to first event: ${firstEvent.title}`
-                                                    : `${row.label} — no events yet`
+                                                firstItem
+                                                    ? `Jump to first item: ${firstItem.title}`
+                                                    : `${row.label} — no items yet`
                                             }
                                         >
                                             <span title={row.label}>
@@ -2044,10 +2139,10 @@ export function NewTimeline({
                                     {displayColIndexes.map(
                                         (colIndex, renderCol) => {
                                             const cellKey = `${colIndex}|${row.key}`;
-                                            const cellEvents =
-                                                eventsByCell.get(cellKey) ?? [];
+                                            const cellItems =
+                                                itemsByCell.get(cellKey) ?? [];
                                             const isEmptyCell =
-                                                cellEvents.length === 0;
+                                                cellItems.length === 0;
 
                                             if (skipEmptyCells && isEmptyCell) {
                                                 return null;
@@ -2066,7 +2161,15 @@ export function NewTimeline({
                                                             row
                                                         )
                                                     }
-                                                    title="Click to add event here"
+                                                    onDragOver={(e) => handleDragOverCell(e, colIndex, row.key)}
+                                                    onDragLeave={() => setDropTarget((curr) => curr?.colIndex === colIndex && curr?.rowKey === row.key ? null : curr)}
+                                                    onDrop={(e) => void handleDropOnCell(e, colIndex, row)}
+                                                    title="Click to add item here"
+                                                    className={
+                                                        dropTarget?.colIndex === colIndex && dropTarget?.rowKey === row.key
+                                                            ? styles.cellDropTarget
+                                                            : undefined
+                                                    }
                                                     style={{
                                                         gridColumn:
                                                             renderCol + 1,
@@ -2084,23 +2187,43 @@ export function NewTimeline({
                                                                 : '1px solid rgba(255, 255, 255, 0.05)',
                                                         cursor: 'pointer',
                                                         boxSizing: 'border-box',
-                                                        overflow: 'hidden',
+                                                        overflow: 'visible',
                                                     }}
                                                 >
-                                                    {cellEvents.map((ev) => {
+                                                    {cellItems.map((ev) => {
                                                         const color =
                                                             EVENT_COLORS[
                                                                 ev.eventType
                                                             ] ||
                                                             EVENT_COLORS.milestone;
+                                                        const isStart =
+                                                            ev.dateOrder >=
+                                                                gridPeriodOrders[colIndex].startOrder &&
+                                                            ev.dateOrder <
+                                                                gridPeriodOrders[colIndex].endOrder;
+                                                        const endOrder = ev.endDateOrder ?? ev.dateOrder;
+                                                        const endColIndex = gridPeriodOrders.findIndex(
+                                                            (range) =>
+                                                                endOrder >= range.startOrder &&
+                                                                endOrder < range.endOrder
+                                                        );
+                                                        const isRange =
+                                                            ev.endDateOrder !== null &&
+                                                            ev.endDateOrder !== undefined &&
+                                                            ev.endDateOrder !== ev.dateOrder;
+                                                        if (isRange && !isStart) return null;
+                                                        const endRenderCol = endColIndex === -1 ? renderCol : displayColIndexes.indexOf(endColIndex);
+                                                        const spanCols = isRange && endRenderCol >= renderCol ? endRenderCol - renderCol + 1 : 1;
                                                         return (
                                                             <button
                                                                 key={ev.id}
-                                                                className={`${styles.eventCard} ${styles.eventCardMini} ${
-                                                                    focusedEventId ===
-                                                                    ev.id
-                                                                        ? styles.eventCardFocused
-                                                                        : ''
+                                                                draggable
+                                                                onDragStart={(e) => handleDragStartItem(e, ev.id)}
+                                                                onDragEnd={handleDragEndItem}
+                                                                className={`${styles.itemCard} ${styles.itemCardMini} ${
+                                                                    focusedItemId === ev.id ? styles.itemCardFocused : ''
+                                                                } ${isRange ? styles.itemCardRange : ''} ${
+                                                                    dragItemId === ev.id ? styles.itemCardDragging : ''
                                                                 }`}
                                                                 title={`${
                                                                     ev.title
@@ -2108,37 +2231,30 @@ export function NewTimeline({
                                                                     ev.inStoryDate
                                                                         ? ` (${ev.inStoryDate})`
                                                                         : ''
+                                                                }${
+                                                                    ev.endInStoryDate
+                                                                        ? ` - ${ev.endInStoryDate}`
+                                                                        : ''
                                                                 } — ${
-                                                                    EVENT_LABELS[
-                                                                        ev
-                                                                            .eventType
-                                                                    ] ||
-                                                                    ev.eventType
+                                                                    EVENT_LABELS[ev.eventType] || ev.eventType
                                                                 }`}
-                                                                onClick={(
-                                                                    e
-                                                                ) => {
+                                                                onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    openPanel({
-                                                                        kind: 'event',
-                                                                        eventId:
-                                                                            ev.id,
-                                                                        startEditing: false,
-                                                                    });
+                                                                    openPanel({ kind: 'item', itemId: ev.id, startEditing: false });
                                                                 }}
-                                                                onDoubleClick={(
-                                                                    e
-                                                                ) => {
+                                                                onDoubleClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    openPanel({
-                                                                        kind: 'event',
-                                                                        eventId:
-                                                                            ev.id,
-                                                                        startEditing: true,
-                                                                    });
+                                                                    openPanel({ kind: 'item', itemId: ev.id, startEditing: true });
                                                                 }}
                                                                 style={{
                                                                     borderLeft: `3px solid ${color}`,
+                                                                    width: isRange
+                                                                        ? `${Math.max(1, spanCols) * COLUMN_WIDTH - 8}px`
+                                                                        : undefined,
+                                                                    position: isRange ? 'absolute' : undefined,
+                                                                    zIndex: isRange ? 3 : 1,
+                                                                    top: isRange ? '6px' : undefined,
+                                                                    left: isRange ? '4px' : undefined,
                                                                 }}
                                                             >
                                                                 <span>
@@ -2167,9 +2283,9 @@ export function NewTimeline({
                         </div>
                     ) : displayRows.length === 0 ? (
                         <div className={styles.gridEmptyState}>
-                            <p>No lanes with events</p>
+                            <p>No lanes with items</p>
                             <span>
-                                Turn off “Hide empty lanes” or add events to the
+                                Turn off “Hide empty lanes” or add items to the
                                 selected data.
                             </span>
                         </div>
@@ -2184,17 +2300,17 @@ export function NewTimeline({
                     ) : null}
                 </div>
 
-                {/* FLOATING EVENT PANEL — view/edit a card, edit a tray draft,
-                    or create a new event at a clicked cell */}
+                {/* FLOATING ITEM PANEL — view/edit a card, edit a tray draft,
+                    or create a new item at a clicked cell */}
                 {panelOpen && (
                     <div ref={panelRef} style={{ display: 'contents' }}>
-                        <TimelineEventPanel
+                        <TimelineItemPanel
                             key={panelKey}
-                            event={panelEvent}
+                            item={panelItem}
                             draft={panelDraft}
                             createValues={panelCreate}
                             startEditing={
-                                panelTarget?.kind === 'event'
+                                panelTarget?.kind === 'item'
                                     ? panelTarget.startEditing
                                     : false
                             }
@@ -2233,15 +2349,15 @@ export function NewTimeline({
                 setTimelineFilters={setTimelineFilters}
                 tabs={tabs}
                 categoryData={categoryData}
-                onAddEvent={handleAddDraft}
+                onAddItem={handleAddDraft}
                 onAutoDetect={onAutoDetect}
-                unassignedEvents={drafts.map((draft) => ({
+                unassignedItems={drafts.map((draft) => ({
                     id: draft.id,
-                    label: draft.title.trim() || 'Untitled Event',
+                    label: draft.title.trim() || 'Untitled Item',
                 }))}
-                selectedEvent={activeDraftId ?? ''}
-                onSelectEvent={handleSelectDraft}
-                onDiscardEvent={discardDraft}
+                selectedDraftId={activeDraftId ?? ''}
+                onSelectDraft={handleSelectDraft}
+                onDiscardDraft={discardDraft}
                 selectedItems={selectedItems}
                 onToggleItem={handleToggleItem}
                 onToggleSectionItems={handleToggleSectionItems}
@@ -2249,3 +2365,8 @@ export function NewTimeline({
         </div>
     );
 }
+
+
+
+
+

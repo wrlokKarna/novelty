@@ -156,7 +156,7 @@ export default function registerAllTools() {
                 // A flexible record where the LLM can populate whatever custom fields
                 // are defined in your entity_templates table for this baseType
                 attributes: z
-                    .record(z.any())
+                    .record(z.string(), z.any())
                     .describe(
                         'Key-value pairs matching the template fields (e.g. { age: 25, role: "Hero" })'
                     ),
@@ -351,7 +351,7 @@ export default function registerAllTools() {
                 ),
                 projectId: z.string().describe('The ID of the project'),
                 attributes: z
-                    .record(z.any())
+                    .record(z.string(), z.any())
                     .optional()
                     .describe(
                         'Updated or partial custom field key-value pairs'
@@ -477,11 +477,19 @@ export default function registerAllTools() {
             const newStoryBeat = {
                 id: crypto.randomUUID(),
                 projectId: projectId,
-                chapterId: 'null',
+                chapterId: null,
                 orderIndex: 1,
                 title: title,
                 beatType: (beatType ?? 'custom') as StoryBeatType,
                 description: description ?? null,
+                inStoryDate: null,
+                dateOrder: 1,
+                endInStoryDate: null,
+                endDateOrder: null,
+                entityType: null,
+                entityId: null,
+                eventType: 'story_beat',
+                metadata: null,
             };
 
             const result = await storybeatDB.createBeat(db, newStoryBeat);
@@ -605,13 +613,20 @@ export default function registerAllTools() {
 
         async ({ id, projectId, description, name, beatType }) => {
             const newStoryBeat = {
-                id: crypto.randomUUID(),
                 projectId: projectId,
-                chapterId: 'null',
+                chapterId: null,
                 orderIndex: 1,
-                title: name,
+                title: name || 'Untitled Beat',
                 beatType: (beatType ?? 'custom') as StoryBeatType,
-                description: description,
+                description: description ?? null,
+                inStoryDate: null,
+                dateOrder: 1,
+                endInStoryDate: null,
+                endDateOrder: null,
+                entityType: null,
+                entityId: null,
+                eventType: 'story_beat',
+                metadata: null,
             };
             console.log(`[story beat update with] ${id} and ${name}`);
             const UpdateBeat = await storybeatDB.updateBeat(
@@ -1422,3 +1437,4 @@ async function deleteCompendium(id: string, baseType?: CompendiumCategory) {
             return null;
     }
 }
+

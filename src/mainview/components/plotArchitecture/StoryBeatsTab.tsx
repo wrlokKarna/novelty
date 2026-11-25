@@ -4,6 +4,17 @@ import BeatDescriptionMentionInput from './BeatDescriptionMentionInput';
 import { BEAT_TYPES } from './constants';
 import { usePlotArchitectureContext } from './usePlotArchitecture';
 
+const EVENT_TYPES = [
+    'story_beat',
+    'milestone',
+    'chapter',
+    'character',
+    'location',
+    'organization',
+    'item',
+    'lore',
+];
+
 export function StoryBeatsTab() {
     const {
         storyBeats,
@@ -95,7 +106,7 @@ export function StoryBeatsTab() {
                             }
                         >
                             {plotThreads.map((pt) => (
-                                <option>{pt.name.replace(/-/g, ' ')}</option>
+                                <option key={pt.id}>{pt.name.replace(/-/g, ' ')}</option>
                             ))}
                         </select>
 
@@ -105,6 +116,43 @@ export function StoryBeatsTab() {
                         >
                             <IconTrash size={14} />
                         </button>
+                    </div>
+                    <div className={styles['beat-header']} style={{ gap: 8, flexWrap: 'wrap' }}>
+                        <input
+                            type="date"
+                            value={beat.inStoryDate || ''}
+                            onChange={(e) => handleUpdateBeat(beat.id, 'inStoryDate', e.target.value || null)}
+                            title="Start date"
+                        />
+                        <input
+                            type="number"
+                            value={beat.dateOrder ?? 0}
+                            onChange={(e) => handleUpdateBeat(beat.id, 'dateOrder', Number(e.target.value) || 0)}
+                            title="Start order"
+                            style={{ width: 88 }}
+                        />
+                        <input
+                            type="date"
+                            value={beat.endInStoryDate || ''}
+                            onChange={(e) => handleUpdateBeat(beat.id, 'endInStoryDate', e.target.value || null)}
+                            title="End date"
+                        />
+                        <input
+                            type="number"
+                            value={beat.endDateOrder ?? ''}
+                            onChange={(e) => handleUpdateBeat(beat.id, 'endDateOrder', e.target.value === '' ? null : Number(e.target.value) || 0)}
+                            title="End order"
+                            style={{ width: 88 }}
+                        />
+                        <select
+                            value={beat.eventType || 'story_beat'}
+                            onChange={(e) => handleUpdateBeat(beat.id, 'eventType', e.target.value)}
+                            title="Event type"
+                        >
+                            {EVENT_TYPES.map((t) => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </select>
                     </div>
 
                     <BeatDescriptionMentionInput

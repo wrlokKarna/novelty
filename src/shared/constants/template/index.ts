@@ -9,6 +9,7 @@ export const EVENT_COLORS: Record<string, string> = {
     relationship: '#4ae0e0',
     travel: '#a0a0a0',
     milestone: '#e0e04a',
+    story_beat: '#f59e0b',
     custom: '#888888',
 };
 
@@ -23,6 +24,7 @@ export const EVENT_LABELS: Record<string, string> = {
     relationship: 'Relationship',
     travel: 'Travel',
     milestone: 'Milestone',
+    story_beat: 'Story Beat',
     custom: 'Custom',
 };
 

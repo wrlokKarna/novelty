@@ -7,18 +7,18 @@ import {
     IconX,
 } from '@tabler/icons-react';
 import type { CompendiumCategory } from '../../shared/types/project/compendium';
-import type { TimelineEvent } from '../../shared/types/project/timeline';
-import type { TimelineEventDraft } from '../../shared/types/timeline';
-import TimelineEventFormFields, {
-    EMPTY_EVENT_FORM,
-    formValuesFromEvent,
+import type { StoryBeat } from '../../shared/types/project/manuscript';
+import type { TimelineItemDraft } from '../../shared/types/timeline';
+import TimelineItemFormFields, {
+    EMPTY_ITEM_FORM,
+    formValuesFromItem,
     formValuesFromPartial,
     formValuesToPartial,
-    type EventFormValues,
-} from './TimelineEventForm';
-import styles from './TimelineEventPanel.module.css';
+    type ItemFormValues,
+} from './TimelineItemForm';
+import styles from './TimelineItemPanel.module.css';
 
-const EVENT_LABELS: Record<string, string> = {
+const ITEM_LABELS: Record<string, string> = {
     chapter: 'Chapter',
     character_introduction: 'Character Introduction',
     character_death: 'Character Death',
@@ -29,10 +29,11 @@ const EVENT_LABELS: Record<string, string> = {
     relationship: 'Relationship Change',
     travel: 'Travel / Move',
     milestone: 'Milestone',
+    story_beat: 'Story Beat',
     custom: 'Custom',
 };
 
-const EVENT_COLORS: Record<string, string> = {
+const ITEM_COLORS: Record<string, string> = {
     chapter: '#4a9eff',
     character_introduction: '#4ae04a',
     character_death: '#e04a4a',
@@ -43,31 +44,32 @@ const EVENT_COLORS: Record<string, string> = {
     relationship: '#4ae0e0',
     travel: '#a0a0a0',
     milestone: '#e0e04a',
+    story_beat: '#f59e0b',
     custom: '#888888',
 };
 
-export interface TimelineEventPanelProps {
-    event: TimelineEvent | null;
-    draft: TimelineEventDraft | null;
-    createValues: Partial<TimelineEvent> | null;
+export interface TimelineItemPanelProps {
+    item: StoryBeat | null;
+    draft: TimelineItemDraft | null;
+    createValues: Partial<StoryBeat> | null;
     startEditing: boolean;
     /** Title of the tray draft that is armed for placement, if any. */
     placementHint: string | null;
     entityOptions: { id: string; name: string; type: CompendiumCategory }[];
     chapterOptions: { id: string; title: string }[];
     onClose: () => void;
-    /** Persist an existing event edit or a create-at-cell. */
-    onSave: (values: Partial<TimelineEvent>) => void;
+    /** Persist an existing item edit or a create-at-cell. */
+    onSave: (values: Partial<StoryBeat>) => void;
     /** Live-update the tray draft as the user types. */
-    onDraftChange: (patch: Partial<TimelineEvent>) => void;
+    onDraftChange: (patch: Partial<StoryBeat>) => void;
     onDiscardDraft: () => void;
     onDelete: () => void;
     onOpenEntity: () => void;
     onOpenChapter: () => void;
 }
 
-export default function TimelineEventPanel({
-    event,
+export default function TimelineItemPanel({
+    item,
     draft,
     createValues,
     startEditing,
@@ -81,35 +83,38 @@ export default function TimelineEventPanel({
     onDelete,
     onOpenEntity,
     onOpenChapter,
-}: TimelineEventPanelProps) {
+}: TimelineItemPanelProps) {
     const isDraft = !!draft;
-    const isCreate = !event && !draft && !!createValues;
+    const isCreate = !item && !draft && !!createValues;
 
     const [editing, setEditing] = useState(
-        !event || startEditing || isDraft || isCreate
+        !item || startEditing || isDraft || isCreate
     );
-    const [values, setValues] = useState<EventFormValues>(() => {
-        if (event) return formValuesFromEvent(event);
+    const [values, setValues] = useState<ItemFormValues>(() => {
+        if (item) return formValuesFromItem(item);
         if (draft) {
             return {
                 title: draft.title,
                 description: draft.description || '',
                 inStoryDate: draft.inStoryDate || '',
                 dateOrder: draft.dateOrder,
+                endInStoryDate: (draft as any).endInStoryDate || '',
+                endDateOrder: (draft as any).endDateOrder ?? '',
                 eventType: draft.eventType,
+                beatType: (draft as any).beatType || 'custom',
                 entityId: draft.entityId || '',
                 chapterId: draft.chapterId || '',
             };
         }
         if (createValues) return formValuesFromPartial(createValues);
-        return EMPTY_EVENT_FORM;
+        return EMPTY_ITEM_FORM;
     });
 
-    const accent = event
-        ? EVENT_COLORS[event.eventType] || EVENT_COLORS.milestone
-        : EVENT_COLORS.milestone;
+    const accent = item
+        ? ITEM_COLORS[item.eventType] || ITEM_COLORS.milestone
+        : ITEM_COLORS.milestone;
 
-    function handleCreateChange(patch: Partial<EventFormValues>) {
+    function handleCreateChange(patch: Partial<ItemFormValues>) {
         setValues((prev) => ({ ...prev, ...patch }));
         if (isDraft && draft) {
             onDraftChange({
@@ -123,7 +128,16 @@ export default function TimelineEventPanel({
                         ? patch.inStoryDate || null
                         : values.inStoryDate || null,
                 dateOrder: patch.dateOrder ?? values.dateOrder,
+                endInStoryDate:
+                    patch.endInStoryDate !== undefined
+                        ? patch.endInStoryDate || null
+                        : (values.endInStoryDate || null),
+                endDateOrder:
+                    patch.endDateOrder !== undefined
+                        ? (patch.endDateOrder === '' ? null : Number(patch.endDateOrder))
+                        : (values.endDateOrder === '' ? null : Number(values.endDateOrder)),
                 eventType: patch.eventType ?? values.eventType,
+                beatType: (patch.beatType as any) ?? (values.beatType as any),
                 entityId:
                     patch.entityId !== undefined
                         ? patch.entityId || null
@@ -137,7 +151,7 @@ export default function TimelineEventPanel({
                     patch.chapterId !== undefined
                         ? patch.chapterId || null
                         : values.chapterId || null,
-            });
+            } as any);
         }
     }
 
@@ -152,16 +166,16 @@ export default function TimelineEventPanel({
                 <strong>
                     {editing
                         ? isDraft
-                            ? 'Event Details'
+                            ? 'item Details'
                             : isCreate
-                              ? 'New Event'
-                              : 'Edit Event'
-                        : event?.title || 'Event Details'}
+                              ? 'New item'
+                              : 'Edit item'
+                        : item?.title || 'item Details'}
                 </strong>
                 <button
                     type="button"
                     className={styles.iconBtn}
-                    aria-label="Close event panel"
+                    aria-label="Close item panel"
                     onClick={onClose}
                 >
                     <IconX size={14} />
@@ -176,7 +190,7 @@ export default function TimelineEventPanel({
 
             {editing ? (
                 <>
-                    <TimelineEventFormFields
+                    <TimelineItemFormFields
                         values={values}
                         onChange={handleCreateChange}
                         entityOptions={entityOptions}
@@ -205,12 +219,12 @@ export default function TimelineEventPanel({
                             </button>
                         )}
                         <span className={styles.spacer} />
-                        {event && (
+                        {item && (
                             <button
                                 type="button"
                                 className={styles.btn}
                                 onClick={() => {
-                                    setValues(formValuesFromEvent(event));
+                                    setValues(formValuesFromItem(item));
                                     setEditing(false);
                                 }}
                             >
@@ -231,53 +245,61 @@ export default function TimelineEventPanel({
                     </div>
                 </>
             ) : (
-                event && (
+                item && (
                     <>
                         <div className={styles.detail}>
                             <div>
                                 <span className={styles.label}>Type</span>
                                 <p>
-                                    {EVENT_LABELS[event.eventType] ||
-                                        event.eventType}
+                                    {ITEM_LABELS[item.eventType] ||
+                                        item.eventType}
+                                    {item.beatType && item.beatType !== 'custom'
+                                        ? ` (${item.beatType})`
+                                        : ''}
                                 </p>
                             </div>
-                            {event.inStoryDate && (
+                            {(item.inStoryDate || item.endInStoryDate || item.endDateOrder !== null) && (
                                 <div>
                                     <span className={styles.label}>Date</span>
-                                    <p>{event.inStoryDate}</p>
+                                    <p>
+                                        {item.inStoryDate || `Order ${item.dateOrder}`}
+                                        {item.endDateOrder !== null && item.endDateOrder !== item.dateOrder
+                                            ? ` — ${item.endInStoryDate || `Order ${item.endDateOrder}`}`
+                                            : ''}
+                                    </p>
                                 </div>
                             )}
-                            {event.description && (
+                            {item.description && (
                                 <div className={styles.wide}>
                                     <span className={styles.label}>
                                         Description
                                     </span>
-                                    <p>{event.description}</p>
+                                    <p>{item.description}</p>
                                 </div>
                             )}
-                            {event.chapterId && (
+                            {item.chapterId && (
                                 <div>
                                     <span className={styles.label}>
                                         Chapter
                                     </span>
                                     <p>
                                         {chapterOptions.find(
-                                            (c) => c.id === event.chapterId
+                                            (c) => c.id === item.chapterId
                                         )?.title || 'Unknown chapter'}
                                     </p>
                                 </div>
                             )}
-                            {event.entityId && (
+                            {item.entityId && (
                                 <div>
                                     <span className={styles.label}>Entity</span>
                                     <p>
                                         {entityOptions.find(
-                                            (o) => o.id === event.entityId
+                                            (o) => o.id === item.entityId
                                         )?.name || 'Unknown entity'}
                                     </p>
                                 </div>
                             )}
-                            {event.autoGenerated && (
+                            {item.autoGenerated && (
                                 <div className={styles.wide}>
                                     <span className={styles.note}>
                                         Auto-generated
@@ -294,7 +316,7 @@ export default function TimelineEventPanel({
                                 <IconTrash size={13} />
                                 Delete
                             </button>
-                            {event.chapterId && (
+                            {item.chapterId && (
                                 <button
                                     type="button"
                                     className={styles.btn}
@@ -306,7 +328,7 @@ export default function TimelineEventPanel({
                                     Open chapter
                                 </button>
                             )}
-                            {event.entityId && event.entityType && (
+                            {item.entityId && item.entityType && (
                                 <button
                                     type="button"
                                     className={styles.btn}
@@ -341,3 +363,4 @@ export default function TimelineEventPanel({
         </div>
     );
 }
+

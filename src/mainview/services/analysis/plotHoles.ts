@@ -5,7 +5,6 @@ import type {
     PlotThread,
     StoryBeat,
 } from '../../../shared/types/project/manuscript';
-import type { TimelineEvent } from '../../../shared/types/project/timeline';
 
 export type AnalysisIssueSeverity = 'error' | 'warning' | 'info';
 
@@ -33,7 +32,7 @@ export type AnalysisResult = {
 
 export interface AnalysisContext {
     chapters: Chapter[];
-    timelineEvents: TimelineEvent[];
+    timelineItems: StoryBeat[];
     characters: Character[];
     locations: Location[];
     loreEntries: LoreEntry[];
@@ -58,10 +57,10 @@ export function analyzePlotHoles(ctx: AnalysisContext): AnalysisIssue[] {
         );
         for (const thread of ctx.plotThreads) {
             const hasChapterInFinalAct = lastActChapters.some((ch) =>
-                ctx.timelineEvents.some(
+                ctx.timelineItems.some(
                     (ev) =>
                         ev.chapterId === ch.id &&
-                        ev.metadata?.plotThreadId === thread.id
+                        (ev.metadata as any)?.plotThreadId === thread.id
                 )
             );
             if (!hasChapterInFinalAct && thread.threadType !== 'thematic') {
@@ -79,12 +78,12 @@ export function analyzePlotHoles(ctx: AnalysisContext): AnalysisIssue[] {
     }
 
     // 2. Check for timeline order conflicts
-    const datedEvents = ctx.timelineEvents
+    const datedItems = ctx.timelineItems
         .filter((e) => e.inStoryDate)
         .sort((a, b) => a.dateOrder - b.dateOrder);
-    for (let i = 1; i < datedEvents.length; i++) {
-        const prev = datedEvents[i - 1];
-        const curr = datedEvents[i];
+    for (let i = 1; i < datedItems.length; i++) {
+        const prev = datedItems[i - 1];
+        const curr = datedItems[i];
         if (
             prev.inStoryDate &&
             curr.inStoryDate &&
@@ -95,7 +94,7 @@ export function analyzePlotHoles(ctx: AnalysisContext): AnalysisIssue[] {
                 severity: 'error',
                 category: 'timeline',
                 title: 'Timeline order conflict',
-                description: `Event "${curr.title}" (${curr.inStoryDate}) occurs before "${prev.title}" (${prev.inStoryDate}) in chronological order but is placed after it in the story.`,
+                description: `Item "${curr.title}" (${curr.inStoryDate}) occurs before "${prev.title}" (${prev.inStoryDate}) in chronological order but is placed after it in the story.`,
                 locations: [
                     {
                         chapterId: curr.chapterId ?? undefined,
@@ -109,21 +108,21 @@ export function analyzePlotHoles(ctx: AnalysisContext): AnalysisIssue[] {
         }
     }
 
-    // 3. Check for chapters with no timeline events
+    // 3. Check for chapters with no timeline items
     for (const ch of ctx.chapters) {
-        const hasEvents = ctx.timelineEvents.some(
+        const hasItems = ctx.timelineItems.some(
             (ev) => ev.chapterId === ch.id
         );
-        if (!hasEvents && ch.status !== 'outline') {
+        if (!hasItems && ch.status !== 'outline') {
             issues.push({
                 id: generateId(),
                 severity: 'info',
                 category: 'plot-hole',
-                title: `Chapter "${ch.title}" has no timeline events`,
-                description: `This chapter exists but has no events linked to it on the timeline. It may be a placeholder or miss critical story events.`,
+                title: `Chapter "${ch.title}" has no timeline items`,
+                description: `This chapter exists but has no items linked to it on the timeline. It may be a placeholder or miss critical story events.`,
                 locations: [{ chapterId: ch.id }],
                 suggestion:
-                    'Add timeline events for this chapter or connect it to existing ones.',
+                    'Add timeline items for this chapter or connect them to existing ones.',
             });
         }
     }

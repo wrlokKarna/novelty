@@ -30,7 +30,6 @@ import {
     tagsDB,
     templatesDB,
     themesDB,
-    timelineDB,
     usageDB,
 } from '@/bun/database';
 import { initDatabase } from '@/bun/database/init.js';
@@ -70,7 +69,6 @@ import type {
     FieldDefinition,
     TemplateLayout,
 } from '../shared/types/project/templates/index.js';
-import type { NewTimelineEvent } from '../shared/types/project/timeline/index.js';
 import type {
     NewSeries,
     SeriesTemplateInput,
@@ -715,29 +713,8 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                     layout
                 );
             },
-            'db:get-timeline-events': async (projectId: string) => {
-                return await timelineDB.getEventsByProject(db, projectId);
-            },
-            'db:get-timeline-event': async (id: string) => {
-                return await timelineDB.getEventById(db, id);
-            },
-            'db:create-timeline-event': async (event: NewTimelineEvent) => {
-                return await timelineDB.createEvent(db, event);
-            },
-            'db:update-timeline-event': async ({
-                id,
-                data,
-            }: {
-                id: string;
-                data: Partial<NewTimelineEvent>;
-            }) => {
-                return await timelineDB.updateEvent(db, id, data);
-            },
-            'db:delete-timeline-event': async (id: string) => {
-                return await timelineDB.deleteEvent(db, id);
-            },
-            'db:auto-generate-timeline-events': async (projectId: string) => {
-                return await timelineDB.autoGenerateEvents(db, projectId);
+            'db:auto-generate-story-beats': async (projectId: string) => {
+                return await storyBeatsDB.autoGenerateEvents(db, projectId);
             },
             'db:get-story-acts': async (projectId: string) => {
                 return await actsDB.getActsByProject(db, projectId);

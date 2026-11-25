@@ -1,8 +1,9 @@
-import type { TimelineEvent } from '../../shared/types/project/timeline';
 import type { CompendiumCategory } from '../../shared/types/project/compendium';
+import type { StoryBeat } from '../../shared/types/project/manuscript';
 
-export const EVENT_TYPES = [
+export const ITEM_TYPES = [
     { value: 'milestone', label: 'Milestone' },
+    { value: 'story_beat', label: 'Story Beat' },
     { value: 'chapter', label: 'Chapter' },
     { value: 'character_introduction', label: 'Character Introduction' },
     { value: 'character_death', label: 'Character Death' },
@@ -15,62 +16,77 @@ export const EVENT_TYPES = [
     { value: 'custom', label: 'Custom' },
 ];
 
-export type EventFormValues = {
+export type ItemFormValues = {
     title: string;
     description: string;
     inStoryDate: string;
     dateOrder: number;
+    endInStoryDate: string;
+    endDateOrder: number | '';
     eventType: string;
+    beatType: string;
     entityId: string;
     chapterId: string;
 };
 
-export const EMPTY_EVENT_FORM: EventFormValues = {
+export const EMPTY_ITEM_FORM: ItemFormValues = {
     title: '',
     description: '',
     inStoryDate: '',
     dateOrder: 0,
+    endInStoryDate: '',
+    endDateOrder: '',
     eventType: 'milestone',
+    beatType: 'custom',
     entityId: '',
     chapterId: '',
 };
 
-export function formValuesFromEvent(ev: TimelineEvent): EventFormValues {
+export function formValuesFromItem(ev: StoryBeat): ItemFormValues {
     return {
         title: ev.title,
         description: ev.description || '',
         inStoryDate: ev.inStoryDate || '',
         dateOrder: ev.dateOrder,
+        endInStoryDate: ev.endInStoryDate || '',
+        endDateOrder: ev.endDateOrder ?? '',
         eventType: ev.eventType,
+        beatType: ev.beatType || 'custom',
         entityId: ev.entityId || '',
         chapterId: ev.chapterId || '',
     };
 }
 
 export function formValuesFromPartial(
-    draft: Partial<TimelineEvent>
-): EventFormValues {
+    draft: Partial<StoryBeat>
+): ItemFormValues {
     return {
         title: draft.title ?? '',
         description: draft.description ?? '',
         inStoryDate: draft.inStoryDate ?? '',
         dateOrder: draft.dateOrder ?? 0,
+        endInStoryDate: draft.endInStoryDate ?? '',
+        endDateOrder: draft.endDateOrder ?? '',
         eventType: draft.eventType ?? 'milestone',
+        beatType: draft.beatType ?? 'custom',
         entityId: draft.entityId ?? '',
         chapterId: draft.chapterId ?? '',
     };
 }
 
 export function formValuesToPartial(
-    values: EventFormValues,
+    values: ItemFormValues,
     entityOptions: { id: string; name: string; type: CompendiumCategory }[]
-): Partial<TimelineEvent> {
+): Partial<StoryBeat> {
     return {
         title: values.title,
         description: values.description || null,
         inStoryDate: values.inStoryDate || null,
         dateOrder: values.dateOrder,
+        endInStoryDate: values.endInStoryDate || null,
+        endDateOrder: values.endDateOrder === '' ? null : Number(values.endDateOrder),
         eventType: values.eventType,
+        beatType: (values.beatType as any) || 'custom',
         entityId: values.entityId || null,
         entityType: values.entityId
             ? (entityOptions.find((o) => o.id === values.entityId)?.type ??
@@ -97,21 +113,21 @@ const inputStyle: React.CSSProperties = {
     boxSizing: 'border-box',
 };
 
-interface TimelineEventFormFieldsProps {
-    values: EventFormValues;
-    onChange: (patch: Partial<EventFormValues>) => void;
+interface TimelineItemFormFieldsProps {
+    values: ItemFormValues;
+    onChange: (patch: Partial<ItemFormValues>) => void;
     entityOptions: { id: string; name: string; type: CompendiumCategory }[];
     chapterOptions: { id: string; title: string }[];
     compact?: boolean;
 }
 
-export default function TimelineEventFormFields({
+export default function TimelineItemFormFields({
     values,
     onChange,
     entityOptions,
     chapterOptions,
     compact = false,
-}: TimelineEventFormFieldsProps) {
+}: TimelineItemFormFieldsProps) {
     const descriptionRows = compact ? 2 : 3;
 
     return (
@@ -150,7 +166,7 @@ export default function TimelineEventFormFields({
                 }}
             >
                 <div>
-                    <label style={labelStyle}>In-Story Date</label>
+                    <label style={labelStyle}>Start In-Story Date</label>
                     <input
                         type="text"
                         value={values.inStoryDate}
@@ -162,13 +178,42 @@ export default function TimelineEventFormFields({
                     />
                 </div>
                 <div>
-                    <label style={labelStyle}>Sort Order</label>
+                    <label style={labelStyle}>Start Order</label>
                     <input
                         type="number"
                         value={values.dateOrder}
                         onChange={(e) =>
                             onChange({ dateOrder: Number(e.target.value) })
                         }
+                        style={inputStyle}
+                    />
+                </div>
+                <div>
+                    <label style={labelStyle}>End In-Story Date</label>
+                    <input
+                        type="text"
+                        value={values.endInStoryDate}
+                        onChange={(e) =>
+                            onChange({ endInStoryDate: e.target.value })
+                        }
+                        placeholder="Optional range end"
+                        style={inputStyle}
+                    />
+                </div>
+                <div>
+                    <label style={labelStyle}>End Order</label>
+                    <input
+                        type="number"
+                        value={values.endDateOrder}
+                        onChange={(e) =>
+                            onChange({
+                                endDateOrder:
+                                    e.target.value === ''
+                                        ? ''
+                                        : Number(e.target.value),
+                            })
+                        }
+                        placeholder="Optional"
                         style={inputStyle}
                     />
                 </div>
@@ -180,13 +225,25 @@ export default function TimelineEventFormFields({
                     onChange={(e) => onChange({ eventType: e.target.value })}
                     style={inputStyle}
                 >
-                    {EVENT_TYPES.map((t) => (
+                    {ITEM_TYPES.map((t) => (
                         <option key={t.value} value={t.value}>
                             {t.label}
                         </option>
                     ))}
                 </select>
             </div>
+            {values.eventType === 'story_beat' && (
+                <div>
+                    <label style={labelStyle}>Beat Type</label>
+                    <input
+                        type="text"
+                        value={values.beatType}
+                        onChange={(e) => onChange({ beatType: e.target.value })}
+                        placeholder="e.g. midpoint, custom"
+                        style={inputStyle}
+                    />
+                </div>
+            )}
             <div>
                 <label style={labelStyle}>Linked Entity (optional)</label>
                 <select
@@ -220,3 +277,4 @@ export default function TimelineEventFormFields({
         </div>
     );
 }
+
