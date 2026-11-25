@@ -532,15 +532,5 @@ export const Mcpscenes = sqliteTable('scenes', {
 export type Scene = InferSelectModel<typeof Mcpscenes>;
 export type NewScene = InferInsertModel<typeof Mcpscenes>;
 
-export const McptimelineEvents = sqliteTable('timeline_events', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
-    title: text('title').notNull(),
-    description: text('description'),
-    startDate: text('start_date').notNull(), // ISO Date string
-    characterId: integer('character_id').references(() => characters.id, {
-        onDelete: 'set null',
-    }),
-});
-
 // Legacy export: timeline_events were merged into story_beats.
 export const timelineEvents = storyBeats;

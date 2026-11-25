@@ -173,10 +173,10 @@ export async function autoGenerateEvents(
     };
 
     for (const chapter of chapterRows) {
-        const eventId = `auto-chapter-${chapter.id}`;
-        if (!existingAutoIds.delete(eventId)) {
+        const itemId = `auto-chapter-${chapter.id}`;
+        if (!existingAutoIds.delete(itemId)) {
             await upsert({
-                id: eventId,
+                id: itemId,
                 projectId,
                 title: chapter.title,
                 description: null,
@@ -199,10 +199,10 @@ export async function autoGenerateEvents(
     }
 
     for (const ch of charRows) {
-        const eventId = `auto-char-${ch.id}`;
-        if (!existingAutoIds.delete(eventId)) {
+        const itemId = `auto-char-${ch.id}`;
+        if (!existingAutoIds.delete(itemId)) {
             await upsert({
-                id: eventId,
+                id: itemId,
                 projectId,
                 title: `Character introduced: ${ch.name}`,
                 description: null,
@@ -225,10 +225,10 @@ export async function autoGenerateEvents(
     }
 
     for (const org of orgRows) {
-        const eventId = `auto-org-${org.id}`;
-        if (!existingAutoIds.delete(eventId)) {
+        const itemId = `auto-org-${org.id}`;
+        if (!existingAutoIds.delete(itemId)) {
             await upsert({
-                id: eventId,
+                id: itemId,
                 projectId,
                 title: `Organization founded: ${org.name}`,
                 description: null,

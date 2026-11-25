@@ -737,7 +737,7 @@ function TimelineBottomDock({
                                             >
                                                 {item.label}
                                             </button>
-                                            {onDiscardDraft && (
+                                            {onDiscardDraft && !item.id.startsWith('db:') && (
                                                 <button
                                                     type="button"
                                                     className={
@@ -821,7 +821,7 @@ function TimelineBottomDock({
                                 onClick={onAddItem}
                             >
                                 <IconPlus size={14} />
-                                <span>Add Event</span>
+                                <span>Add Beat</span>
                             </button>
                         )}
                         <button

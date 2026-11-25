@@ -38,6 +38,18 @@ export function PlotThreadsTab() {
                                 )
                             }
                         />
+                        {thread.threadType === 'character-arc' && (
+                            <select
+                                value={thread.linkedCharacterId || ''}
+                                onChange={(e) =>
+                                    handleUpdateThread(
+                                        thread.id,
+                                        'linkedCharacterId',
+                                        e.target.value
+                                    )
+                                }
+                            ></select>
+                        )}
                         <select
                             value={thread.threadType}
                             onChange={(e) =>

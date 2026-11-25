@@ -15,6 +15,14 @@ const EVENT_TYPES = [
     'lore',
 ];
 
+function dateOrderFromInput(date: string): number | null {
+    if (!date) return null;
+    const d = new Date(`${date}T00:00:00Z`);
+    if (Number.isNaN(d.getTime())) return null;
+    const base = new Date('2000-01-01T00:00:00Z');
+    return Math.floor((d.getTime() - base.getTime()) / 86400000);
+}
+
 export function StoryBeatsTab() {
     const {
         storyBeats,
@@ -32,6 +40,7 @@ export function StoryBeatsTab() {
         handleRemovePending,
         handleCreateAndOpenEntity,
         handleUpdateBeat,
+        handlePatchBeat,
         handleUpdateThread,
         handleDeleteBeat,
         handleAddStoryBeat,
@@ -121,7 +130,17 @@ export function StoryBeatsTab() {
                         <input
                             type="date"
                             value={beat.inStoryDate || ''}
-                            onChange={(e) => handleUpdateBeat(beat.id, 'inStoryDate', e.target.value || null)}
+                            onChange={(e) => {
+                                const inStoryDate = e.target.value || null;
+                                const dateOrder = dateOrderFromInput(e.target.value);
+                                const patch: any = { inStoryDate };
+                                if (dateOrder !== null) patch.dateOrder = dateOrder;
+                                if (beat.endDateOrder != null && dateOrder !== null && beat.endDateOrder < dateOrder) {
+                                    patch.endDateOrder = dateOrder;
+                                    patch.endInStoryDate = inStoryDate;
+                                }
+                                handlePatchBeat(beat.id, patch);
+                            }}
                             title="Start date"
                         />
                         <input
@@ -134,7 +153,16 @@ export function StoryBeatsTab() {
                         <input
                             type="date"
                             value={beat.endInStoryDate || ''}
-                            onChange={(e) => handleUpdateBeat(beat.id, 'endInStoryDate', e.target.value || null)}
+                            onChange={(e) => {
+                                const endInStoryDate = e.target.value || null;
+                                const endDateOrder = dateOrderFromInput(e.target.value);
+                                const patch: any = { endInStoryDate, endDateOrder };
+                                if (endDateOrder != null && endDateOrder < (beat.dateOrder ?? 0)) {
+                                    patch.dateOrder = endDateOrder;
+                                    patch.inStoryDate = endInStoryDate;
+                                }
+                                handlePatchBeat(beat.id, patch);
+                            }}
                             title="End date"
                         />
                         <input

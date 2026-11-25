@@ -11,7 +11,7 @@ import {
     IconSettings,
     IconSquare,
     IconSquares,
-    IconTimelineEventText,
+    IconTimelineEvent,
     IconX,
 } from '@tabler/icons-react';
 import appStyles from '../../App.module.css';
@@ -323,7 +323,7 @@ export function TitleBar({
                             title="Timeline"
                             aria-label="Timeline"
                         >
-                            <IconTimelineEventText stroke={2} />
+                            <IconTimelineEvent stroke={2} />
                         </button>
                         <button
                             className={appStyles.iconBtn}

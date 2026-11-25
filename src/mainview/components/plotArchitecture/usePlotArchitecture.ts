@@ -686,6 +686,7 @@ export function usePlotArchitecture({
             metadata: null,
         });
         await loadData();
+        onDataChange?.();
     }
 
     async function handleDeleteAct(id: string) {
@@ -720,6 +721,7 @@ export function usePlotArchitecture({
     async function handleDeleteBeat(id: string) {
         await rpc.request['db:delete-story-beat'](id);
         await loadData();
+        onDataChange?.();
     }
 
     async function handleUpdateAct(
@@ -817,6 +819,15 @@ export function usePlotArchitecture({
             id,
             data: { [field]: value } as any,
         });
+        onDataChange?.();
+    }
+
+    async function handlePatchBeat(id: string, data: Partial<StoryBeat>) {
+        setStoryBeats((prev) =>
+            prev.map((b) => (b.id === id ? ({ ...b, ...data } as StoryBeat) : b))
+        );
+        await rpc.request['db:update-story-beat']({ id, data: data as any });
+        onDataChange?.();
     }
 
     function toggleAct(id: string) {
@@ -1282,6 +1293,7 @@ export function usePlotArchitecture({
         handleMoveScene,
         handleUpdateThread,
         handleUpdateBeat,
+        handlePatchBeat,
         toggleAct,
         toggleChapter,
         toggleSequence,
