@@ -110,6 +110,7 @@ export interface DropdownOptionItem {
 export interface ToolbarDropdownConfig {
     id: string;
     kind: 'dropdown';
+    title: string;
     items: DropdownOptionItem[];
 }
 
@@ -170,6 +171,7 @@ function ToolbarDropdown({
                 onClick={() => {
                     if (!disabled) setOpen((prev) => !prev);
                 }}
+                title={item.title}
                 style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -218,6 +220,7 @@ function ToolbarDropdown({
                                     opt.action(editor);
                                     setOpen(false);
                                 }}
+                                title={opt.title}
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -273,6 +276,7 @@ export function FormattingToolbar({
         {
             id: 'headings',
             kind: 'dropdown',
+            title: 'Text Styles',
             items: [
                 {
                     id: KEYS.p,
@@ -339,6 +343,7 @@ export function FormattingToolbar({
         {
             id: 'alignment',
             kind: 'dropdown',
+            title: 'Alignments',
             items: [
                 {
                     id: 'align-left',
@@ -373,6 +378,7 @@ export function FormattingToolbar({
         {
             id: 'lists',
             kind: 'dropdown',
+            title: 'List Styles',
             items: [
                 {
                     id: KEYS.ulClassic,
@@ -417,6 +423,10 @@ export function FormattingToolbar({
             }}
         >
             {toolbarConfig.map((item, idx) => {
+                // dev note: needs refactor
+                if (item.id === KEYS.codeBlock) {
+                    return;
+                }
                 if (item.kind === 'dropdown') {
                     return (
                         <ToolbarDropdown

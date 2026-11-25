@@ -898,12 +898,13 @@ button.secondary {
 button.secondary:hover {
     background: #e0e0e0;
 }
-
+/*
 ul {
     list-style: none;
     padding: 0;
     margin: 0;
 }
+*/
 
 /*
 li {
@@ -1414,6 +1415,7 @@ select {
 
 .book-reader .book-reader-chapter {
     margin-bottom: 56px;
+    overflow-wrap: break-word;
 }
 
 .book-reader .book-reader-chapter:last-child {
@@ -1426,7 +1428,7 @@ select {
     font-weight: 700;
     font-weight: 600;
     letter-spacing: 0.1em;
-    text-align: start;
+    /*text-align: start;*/
     text-transform: uppercase;
     color: var(--editor-heading);
     margin: 0 0 12px 62px;
