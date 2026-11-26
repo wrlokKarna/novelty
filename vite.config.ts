@@ -1,8 +1,16 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
-
+import babel from '@rolldown/plugin-babel';
+import react, { reactCompilerPreset } from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
 import { electrobunViteAliases } from './.hutch/devkit/api/config/electrobun-vite.js';
+
+const compilerPreset = reactCompilerPreset();
+
+if (compilerPreset.rolldown?.filter) {
+    compilerPreset.rolldown.filter = {
+        id: [/src\/mainview\/.*\.(tsx|jsx)$/],
+    };
+}
 
 export default defineConfig({
     resolve: {
@@ -13,6 +21,9 @@ export default defineConfig({
     },
     plugins: [
         react(),
+        /*babel({
+            presets: [compilerPreset],
+        }),*/
         {
             name: 'fix-electrobun-paths',
             enforce: 'post',
