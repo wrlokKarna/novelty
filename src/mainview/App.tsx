@@ -244,7 +244,7 @@ function App() {
         sc?.leftPanelCollapsed ?? false
     );
     const [isChatCollapsed, setIsChatCollapsed] = useState(
-        sc?.rightPanelCollapsed ?? false
+        sc?.rightPanelCollapsed ?? true
     );
     const [mode, setMode] = useState<'manuscript' | 'compendium'>('manuscript');
     const [isReadingMode, setIsReadingMode] = useState(false);
