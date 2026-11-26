@@ -1209,6 +1209,22 @@ select {
         background-color: #f7e07a;
         color: #202022;
     }
+
+    .editor-container [data-text-align='left'] {
+        text-align: left;
+    }
+
+    .editor-container [data-text-align='center'] {
+        text-align: center;
+    }
+
+    .editor-container [data-text-align='right'] {
+        text-align: right;
+    }
+
+    .editor-container [data-text-align='justify'] {
+        text-align: justify;
+    }
 }
 
 .plate-combobox-input {
@@ -1283,22 +1299,6 @@ select {
 
 .plate-combobox-item.is-static:hover {
     background-color: transparent;
-}
-
-.editor-container [data-text-align='left'] {
-    text-align: left;
-}
-
-.editor-container [data-text-align='center'] {
-    text-align: center;
-}
-
-.editor-container [data-text-align='right'] {
-    text-align: right;
-}
-
-.editor-container [data-text-align='justify'] {
-    text-align: justify;
 }
 
 .plate-combobox-item-icon {
