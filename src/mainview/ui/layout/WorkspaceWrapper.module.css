@@ -1,0 +1,69 @@
+.wsWrapper {
+    font-size: 12px;
+}
+.wsHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    .panelTitle {
+        font-size: 11.5px;
+        font-weight: 600;
+        color: #2b7de9;
+        color: var(--text-accent);
+        text-transform: capitalize;
+        letter-spacing: 0.5px;
+    }
+}
+.headerCenter,
+.headerRight {
+    > div {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.04);
+        box-shadow: none;
+        color: #d1d1d6;
+        cursor: pointer;
+        transition:
+            0.14s ease,
+            border-color 0.14s ease,
+            color 0.14s ease;
+    }
+    button:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.28);
+        color: #ffffff;
+    }
+    button:active {
+        background: rgba(255, 255, 255, 0.16);
+    }
+}
+.headerLeft {
+    font-size: 12px;
+    text-transform: capitalize;
+}
+.headerCenter {
+    button {
+        font-size: 12px;
+    }
+}
+.headerRight {
+    button {
+        font-size: 10px;
+    }
+}
+.wsCont {
+    font-size: 12px;
+}

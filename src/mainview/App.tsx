@@ -29,6 +29,7 @@ import {
     IconUser,
     IconX,
 } from '@tabler/icons-react';
+import WorkspaceWrapper from '@/mainview/ui/layout/WorkspaceWrapper';
 import type { Series } from '@/shared/types/series';
 import type {
     Item,
@@ -4437,31 +4438,57 @@ function App() {
                       } as EntityTemplate)
                     : templates[category];
             return (
-                <CompendiumEntryEditor
-                    entry={
-                        entry as Parameters<
-                            typeof CompendiumEntryEditor
-                        >[0]['entry']
+                <WorkspaceWrapper
+                    tabType={tab.type}
+                    tabName={tab.name}
+                    tabNameEditable={false}
+                    headerCenter={
+                        <div>
+                            <button type="button" onClick={() => {}}>
+                                C1
+                            </button>
+                            <button type="button" onClick={() => {}}>
+                                C2
+                            </button>
+                            <button type="button" onClick={() => {}}>
+                                C3
+                            </button>
+                        </div>
                     }
-                    category={category}
-                    template={effectiveTemplate}
-                    columns={resolvedTemplateColumns[category]}
-                    layout={templateLayouts[category]}
-                    characters={characters}
-                    locations={locations}
-                    organizations={organizations}
-                    items={items}
-                    loreEntries={loreEntries}
-                    onUpdate={(field, value) =>
-                        handleUpdateCompendiumEntry(
-                            tab.id,
-                            category,
-                            field,
-                            value
-                        )
+                    headerRight={
+                        <div>
+                            <button>R1</button>
+                            <button>R2</button>
+                            <button>R3</button>
+                        </div>
                     }
-                    onEditTemplate={() => handleEditTemplate(category)}
-                />
+                >
+                    <CompendiumEntryEditor
+                        entry={
+                            entry as Parameters<
+                                typeof CompendiumEntryEditor
+                            >[0]['entry']
+                        }
+                        category={category}
+                        template={effectiveTemplate}
+                        columns={resolvedTemplateColumns[category]}
+                        layout={templateLayouts[category]}
+                        characters={characters}
+                        locations={locations}
+                        organizations={organizations}
+                        items={items}
+                        loreEntries={loreEntries}
+                        onUpdate={(field, value) =>
+                            handleUpdateCompendiumEntry(
+                                tab.id,
+                                category,
+                                field,
+                                value
+                            )
+                        }
+                        onEditTemplate={() => handleEditTemplate(category)}
+                    />
+                </WorkspaceWrapper>
             );
         }
 
@@ -6751,7 +6778,9 @@ function App() {
                                 sequences: storySequences,
                                 plotThreads,
                                 storyBeats: storyBeats.filter(
-                                    (b) => b.eventType === 'story_beat' || !!b.beatType
+                                    (b) =>
+                                        b.eventType === 'story_beat' ||
+                                        !!b.beatType
                                 ),
                             }}
                             onNavigateChapter={(chapterId) => {
