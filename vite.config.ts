@@ -1,5 +1,5 @@
 import { resolve } from 'path';
-import babel from '@rolldown/plugin-babel';
+//import babel from '@rolldown/plugin-babel';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { electrobunViteAliases } from './.hutch/devkit/api/config/electrobun-vite.js';
