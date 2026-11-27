@@ -1,0 +1,33 @@
+.addAccordion {
+    width: 100%;
+}
+.addAccordionHeader {
+    display: flex;
+    gap: 12px;
+}
+.inlineAddAccordionBtns {
+    display: flex;
+    gap: 12px;
+}
+.addBtn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    border: 1px solid transparent;
+    color: #e6be94;
+
+    &.active {
+        background: rgba(134, 95, 56, 0.24);
+        border-color: #865f38;
+        color: #e6be94;
+    }
+}
+.addAccordionBody {
+    width: 100%;
+    margin-top: 12px;
+    padding: 6px 8px;
+    background: #141417;
+    border: 1px solid #25252a;
+    border-radius: 6px;
+}

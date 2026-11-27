@@ -659,33 +659,6 @@
     z-index: 1;
 }
 
-.thread-pill-btn {
-    display: inline-flex;
-    align-items: center;
-    padding: 4px 10px;
-    background: #202125;
-    border: 1px solid #2f3036;
-    border-radius: 5px;
-    color: #9ca0ab;
-    font-size: 11.5px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-
-.thread-pill-btn:hover {
-    background: #28292f;
-    border-color: #454750;
-    color: #e5e7eb;
-}
-
-.thread-pill-btn.linked {
-    background: rgba(134, 95, 56, 0.24);
-    border-color: #865f38;
-    color: #e6be94;
-    font-weight: 600;
-}
-
 .thread-pill-btn.linked:hover {
     background: rgba(134, 95, 56, 0.34);
     border-color: #a67747;

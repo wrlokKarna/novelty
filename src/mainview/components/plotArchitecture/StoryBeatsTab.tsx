@@ -5,6 +5,7 @@ import {
     IconPlus,
     IconTrash,
 } from '@tabler/icons-react';
+import ThreadsAddAccordion from '@/mainview/ui/wrappers/ThreadsAddAccordion';
 import styles from '../PlotArchitectureView.module.css';
 import BeatDescriptionMentionInput from './BeatDescriptionMentionInput';
 import { BEAT_TYPES } from './constants';
@@ -241,7 +242,6 @@ export function StoryBeatsTab() {
         onSelectCategory,
         onSelectSidebarChapter,
         onSelectSidebarEntity,
-        loadData,
     } = usePlotArchitectureContext();
 
     const descBoxRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -482,7 +482,7 @@ export function StoryBeatsTab() {
                             />
                         </div>
 
-                        {/* 
+                        {/*
                             handleUpdateThread(
                                             pt.id,
                                             'linked_beats',
@@ -495,44 +495,10 @@ export function StoryBeatsTab() {
                                         )
                         */}
                         <div className={styles['beat-threads-row']}>
-                            {plotThreads.map((pt) => (
-                                <button
-                                    key={pt.id}
-                                    className={`${styles['thread-pill-btn']} ${
-                                        JSON.parse(
-                                            pt.linked_beats ?? '[]'
-                                        ).includes(beat.id)
-                                            ? styles.linked
-                                            : ''
-                                    }`}
-                                    onClick={() => {
-                                        console.log(
-                                            'ptId',
-                                            pt.id,
-                                            'pt.linkedbeats',
-                                            pt.linked_beats
-                                        );
-                                        const prevBeats = JSON.parse(
-                                            pt.linked_beats ?? '[]'
-                                        ) as string[];
-                                        handleUpdateThread(
-                                            pt.id,
-                                            'linked_beats',
-                                            JSON.stringify(
-                                                Array.from(
-                                                    new Set([
-                                                        ...prevBeats,
-                                                        beat.id,
-                                                    ])
-                                                )
-                                            )
-                                        );
-                                        loadData();
-                                    }}
-                                >
-                                    {pt.name}
-                                </button>
-                            ))}
+                            <ThreadsAddAccordion
+                                beatId={beat.id}
+                                threads={plotThreads}
+                            />
                         </div>
                         <div className={styles['beat-chapter']}>
                             {beat.chapterId ? (
