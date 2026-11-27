@@ -4,17 +4,17 @@ import AddAccordion from '../primitives/AddAccordion';
 import styles from './ThreadsAddAccordion.module.css';
 
 type Props = { beatId: string; threads: PlotThread[] };
-function getAssignedAndUnassignedMaps(treads: PlotThread[], beatID: string) {
-    const assinged: PlotThread[] = [];
-    const unassinged: PlotThread[] = [];
-    treads.map((dm) =>
+function getAssignedAndUnassignedMaps(threads: PlotThread[], beatID: string) {
+    const assigned: PlotThread[] = [];
+    const unassigned: PlotThread[] = [];
+    threads.map((dm) =>
         JSON.parse(dm.linked_beats ?? '[]').includes(beatID)
-            ? assinged.push(dm)
-            : unassinged.push(dm)
+            ? assigned.push(dm)
+            : unassigned.push(dm)
     );
     return {
-        assinged,
-        unassinged,
+        assigned,
+        unassigned,
     };
 }
 
@@ -23,7 +23,7 @@ function ThreadsAddAccordion({ beatId, threads }: Props) {
 
     //cont getParsedJson = (JSON_string: string) => JSON.parse(JSON_string ?? [])
 
-    const { assinged, unassinged } = getAssignedAndUnassignedMaps(
+    const { assigned, unassigned } = getAssignedAndUnassignedMaps(
         threads,
         beatId
     );
@@ -40,8 +40,8 @@ function ThreadsAddAccordion({ beatId, threads }: Props) {
     return (
         <AddAccordion
             defaultOpen={false}
-            showAddBtn={!!unassinged.length}
-            header={assinged.map((t) => {
+            showAddBtn={!!unassigned.length}
+            header={assigned.map((t) => {
                 return (
                     <button
                         className={`${styles['thread-pill-btn']} ${styles.linked}`}
@@ -51,7 +51,7 @@ function ThreadsAddAccordion({ beatId, threads }: Props) {
                     </button>
                 );
             })}
-            body={unassinged.map((t) => (
+            body={unassigned.map((t) => (
                 <button
                     className={`${styles['thread-pill-btn']}`}
                     onClick={() => handleAddBtnClick(t)}
