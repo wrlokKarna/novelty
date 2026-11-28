@@ -242,9 +242,6 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
             'db:delete-chapter': async (id: string) => {
                 return await chaptersDB.deleteChapter(db, id);
             },
-            'db:get-chapter-by-id': async (id: string) => {
-                return await chaptersDB.getChapterById(db, id);
-            },
             'db:get-scratch': async (projectId: string) => {
                 const result = await scratchDB.getScratchNote(db, projectId);
                 return result?.content || null;
@@ -662,11 +659,11 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                     db,
                     projectId,
                     baseType as
-                        | 'character'
-                        | 'location'
-                        | 'organization'
-                        | 'item'
-                        | 'lore'
+                    | 'character'
+                    | 'location'
+                    | 'organization'
+                    | 'item'
+                    | 'lore'
                 );
                 return result;
             },
@@ -681,11 +678,11 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                     db,
                     projectId,
                     baseType as
-                        | 'character'
-                        | 'location'
-                        | 'organization'
-                        | 'item'
-                        | 'lore'
+                    | 'character'
+                    | 'location'
+                    | 'organization'
+                    | 'item'
+                    | 'lore'
                 );
                 return result;
             },
@@ -704,11 +701,11 @@ const mainRPC = defineElectrobunRPC<SelectorSchema>('bun', {
                     db,
                     projectId,
                     baseType as
-                        | 'character'
-                        | 'location'
-                        | 'organization'
-                        | 'item'
-                        | 'lore',
+                    | 'character'
+                    | 'location'
+                    | 'organization'
+                    | 'item'
+                    | 'lore',
                     customFields,
                     layout
                 );

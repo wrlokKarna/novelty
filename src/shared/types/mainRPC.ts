@@ -58,7 +58,7 @@ import type {
     ResolvedTemplateInfo,
     TemplateLayout,
 } from './project/templates';
-import type {} from './project/timeline';
+import type { } from './project/timeline';
 import type {
     NewSeries,
     Series,
@@ -78,13 +78,13 @@ export type SelectorSchema = {
             'get-os': {
                 params: void;
                 response:
-                    | 'aix'
-                    | 'darwin'
-                    | 'freebsd'
-                    | 'linux'
-                    | 'openbsd'
-                    | 'sunos'
-                    | 'win32';
+                | 'aix'
+                | 'darwin'
+                | 'freebsd'
+                | 'linux'
+                | 'openbsd'
+                | 'sunos'
+                | 'win32';
             };
             'window:is-maximized': { params: void; response: boolean };
             'select-project': { params: string; response: void };
@@ -302,10 +302,7 @@ export type SelectorSchema = {
                 params: string;
                 response: string | null;
             };
-            'db:get-chapter-by-id': {
-                params: string;
-                response: Chapter | undefined;
-            };
+
             'file:read-content': {
                 params: string;
                 response: string | null;
