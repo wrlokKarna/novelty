@@ -4,6 +4,7 @@ import {
     useContext,
     useEffect,
     useMemo,
+    useRef,
     useState,
     type ReactNode,
 } from 'react';
@@ -34,54 +35,102 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     const [isLoadingChapters, setIsLoadingChapters] = useState<boolean>(false);
     const [error, setError] = useState<unknown>(null);
 
+    const projectRequestIdRef = useRef<number>(0);
+    const chaptersRequestIdRef = useRef<number>(0);
+
+    const runProjectFetch = useCallback(
+        async (isCancelled?: () => boolean) => {
+            const requestId = ++projectRequestIdRef.current;
+            const isStale = () =>
+                Boolean(isCancelled?.()) ||
+                requestId !== projectRequestIdRef.current;
+
+            setIsLoadingProject(true);
+            setError(null);
+
+            try {
+                const currentProject =
+                    (await rpc.request['project:get-current']()) ?? null;
+                if (isStale()) return;
+                setProject(currentProject);
+            } catch (err) {
+                if (isStale()) return;
+                console.error('Failed to fetch current project:', err);
+                setError(err);
+                setProject(null);
+            } finally {
+                if (requestId === projectRequestIdRef.current) {
+                    setIsLoadingProject(false);
+                }
+            }
+        },
+        [rpc]
+    );
+
+    const runChaptersFetch = useCallback(
+        async (projectId: string | undefined, isCancelled?: () => boolean) => {
+            const requestId = ++chaptersRequestIdRef.current;
+            const isStale = () =>
+                Boolean(isCancelled?.()) ||
+                requestId !== chaptersRequestIdRef.current;
+
+            if (!projectId) {
+                setChapters([]);
+                setIsLoadingChapters(false);
+                return;
+            }
+
+            setIsLoadingChapters(true);
+            setError(null);
+
+            try {
+                const nextChapters =
+                    await rpc.request['db:get-chapters'](projectId);
+                if (isStale()) return;
+                setChapters(nextChapters ?? []);
+            } catch (err) {
+                if (isStale()) return;
+                console.error('Failed to fetch chapters:', err);
+                setError(err);
+            } finally {
+                if (requestId === chaptersRequestIdRef.current) {
+                    setIsLoadingChapters(false);
+                }
+            }
+        },
+        [rpc]
+    );
+
     const refreshProject = useCallback(async () => {
-        setIsLoadingProject(true);
-        setError(null);
-        try {
-            const currentProject =
-                (await rpc.request['project:get-current']()) ?? null;
-            setProject(currentProject);
-        } catch (err) {
-            console.error('Failed to fetch current project:', err);
-            setError(err);
-            setProject(null);
-        } finally {
-            setIsLoadingProject(false);
-        }
-    }, [rpc]);
+        await runProjectFetch();
+    }, [runProjectFetch]);
 
     const refreshChapters = useCallback(async () => {
-        if (!project?.id) {
-            setChapters([]);
-            return;
-        }
-
-        setIsLoadingChapters(true);
-        setError(null);
-        try {
-            const nextChapters = await rpc.request['db:get-chapters'](
-                project.id
-            );
-            setChapters(nextChapters ?? []);
-        } catch (err) {
-            console.error('Failed to fetch chapters:', err);
-            setError(err);
-        } finally {
-            setIsLoadingChapters(false);
-        }
-    }, [rpc, project?.id]);
+        await runChaptersFetch(project?.id);
+    }, [runChaptersFetch, project?.id]);
 
     useEffect(() => {
-        void refreshProject();
-    }, [refreshProject]);
+        let cancelled = false;
+        void runProjectFetch(() => cancelled);
+
+        return () => {
+            cancelled = true;
+            // Invalidate in-flight project requests on unmount
+            ++projectRequestIdRef.current;
+        };
+    }, [runProjectFetch]);
 
     useEffect(() => {
-        if (!project?.id) {
-            setChapters([]);
-            return;
-        }
-        void refreshChapters();
-    }, [project?.id, refreshChapters]);
+        let cancelled = false;
+        setChapters([]);
+        void runChaptersFetch(project?.id, () => cancelled);
+
+        return () => {
+            cancelled = true;
+            // Invalidate in-flight chapter requests when project changes or unmounts
+            ++chaptersRequestIdRef.current;
+        };
+    }, [project?.id, runChaptersFetch]);
 
     const value = useMemo<ProjectContextValue>(
         () => ({
